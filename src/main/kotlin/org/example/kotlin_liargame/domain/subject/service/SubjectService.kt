@@ -15,9 +15,9 @@ class SubjectService (
 
         if (subject == null) {
             subjectRepository.save(subjectRequest.to())
+        } else {
+            throw RuntimeException("Subject already exists")
         }
-
-        throw RuntimeException("Subject already exists")
 
     }
 

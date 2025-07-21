@@ -1,5 +1,6 @@
 package org.example.kotlin_liargame.domain.question.model
 
+import com.fasterxml.jackson.annotation.JsonBackReference
 import jakarta.persistence.Entity
 import jakarta.persistence.FetchType
 import jakarta.persistence.GeneratedValue
@@ -13,13 +14,15 @@ import org.example.kotlin_liargame.domain.subject.model.SubjectEntity
 @Entity
 @Table(name = "question")
 class QuestionEntity (
+
     val question : String,
+
+    @JsonBackReference
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "subject_id")
+    var subject: SubjectEntity ?= null
 ) {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Id
     val id: Long = 0
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "subject_id")
-    var subject: SubjectEntity ?= null
 }
