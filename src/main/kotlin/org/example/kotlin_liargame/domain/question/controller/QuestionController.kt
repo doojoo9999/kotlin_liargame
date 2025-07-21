@@ -18,7 +18,7 @@ class QuestionController (
     }
 
     @DeleteMapping("/delq/{id}")
-    fun removeQuestion(
+    fun deleteQuestion(
         @RequestParam questionId: Long
     ) {
         questionService.removeQuestion(questionId)
