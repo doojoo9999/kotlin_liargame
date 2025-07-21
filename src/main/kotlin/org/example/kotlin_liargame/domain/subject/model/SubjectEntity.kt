@@ -6,10 +6,8 @@ import jakarta.persistence.FetchType
 import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
-import jakarta.persistence.ManyToOne
 import jakarta.persistence.OneToMany
 import jakarta.persistence.Table
-import org.example.kotlin_liargame.domain.entity.AnswerEntity
 import org.example.kotlin_liargame.domain.question.model.QuestionEntity
 
 @Entity
