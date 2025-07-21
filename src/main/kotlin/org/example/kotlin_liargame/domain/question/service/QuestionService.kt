@@ -10,8 +10,8 @@ class QuestionService (
     private val questionRepository: QuestionRepository
 ){
 
-    fun applyQuestion(applyQuestionRequest: ApplyQuestionRequest) {
-        val question = applyQuestionRequest.to()
+    fun applyQuestion(req: ApplyQuestionRequest) {
+        val question = req.to()
         questionRepository.save(question)
     }
 
