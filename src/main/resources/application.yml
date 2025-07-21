@@ -1,6 +1,7 @@
 spring:
     application:
         name: kotlin_liargame
+
     h2:
         console:
             enabled: true  # H2 Console? ???? ?? (H2 Console? H2 Database? UI? ????? ??)
@@ -15,3 +16,7 @@ spring:
     mvc:
         pathmatch:
             matching-strategy: ant_path_matcher
+
+
+server:
+    port: 20021

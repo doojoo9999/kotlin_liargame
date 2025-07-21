@@ -6,6 +6,6 @@ import org.springframework.data.jpa.repository.JpaRepository
 
 interface SubjectRepository : JpaRepository<SubjectEntity, Long> {
 
-    fun findByContentOrNull(content: String) : SubjectEntity
+    fun findByContent(content: String) : SubjectEntity?
 
 }

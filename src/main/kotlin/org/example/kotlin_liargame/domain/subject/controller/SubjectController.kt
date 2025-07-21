@@ -7,7 +7,7 @@ import org.springframework.stereotype.Controller
 import org.springframework.web.bind.annotation.RequestMapping
 
 @Controller
-@RequestMapping("/subjects")
+@RequestMapping("/api/v1/subjects")
 class SubjectController (
     val subjectService: SubjectService
 ) {

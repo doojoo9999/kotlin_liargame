@@ -11,10 +11,10 @@ class SubjectService (
 ){
 
     fun applySubject(subjectRequest: SubjectRequest) {
-        val subject = subjectRepository.findByContentOrNull(subjectRequest.content)
+        val subject = subjectRepository.findByContent(subjectRequest.content)
 
         if (subject == null) {
-            subjectRepository.save(subject)
+            subjectRepository.save(subjectRequest.to())
         }
 
         throw RuntimeException("Subject already exists")
@@ -22,7 +22,8 @@ class SubjectService (
     }
 
     fun deleteSubject(subjectRequest: SubjectRequest) {
-        val subject = subjectRepository.findByContentOrNull(subjectRequest.content)
+        val subject = subjectRepository.findByContent(subjectRequest.content)
+            ?: throw RuntimeException("Subject not found")
         subjectRepository.delete(subject)
     }
 
