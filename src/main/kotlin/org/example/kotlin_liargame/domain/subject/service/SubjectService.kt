@@ -1,6 +1,7 @@
 package org.example.kotlin_liargame.domain.subject.service
 
 import org.example.kotlin_liargame.domain.subject.dto.request.SubjectRequest
+import org.example.kotlin_liargame.domain.subject.model.SubjectEntity
 import org.example.kotlin_liargame.domain.subject.repository.SubjectRepository
 import org.springframework.stereotype.Service
 import javax.security.auth.Subject
@@ -19,6 +20,15 @@ class SubjectService (
 
         throw RuntimeException("Subject already exists")
 
+    }
+
+    fun deleteSubject(subjectRequest: SubjectRequest) {
+        val subject = subjectRepository.findByContentOrNull(subjectRequest.content)
+        subjectRepository.delete(subject)
+    }
+
+    fun findAll() : List<SubjectEntity>{
+        return subjectRepository.findAll()
     }
 
 }
