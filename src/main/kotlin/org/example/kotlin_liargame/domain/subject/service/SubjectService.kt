@@ -4,7 +4,6 @@ import org.example.kotlin_liargame.domain.subject.dto.request.SubjectRequest
 import org.example.kotlin_liargame.domain.subject.model.SubjectEntity
 import org.example.kotlin_liargame.domain.subject.repository.SubjectRepository
 import org.springframework.stereotype.Service
-import javax.security.auth.Subject
 
 @Service
 class SubjectService (
