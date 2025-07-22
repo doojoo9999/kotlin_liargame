@@ -1,6 +1,7 @@
 package org.example.kotlin_liargame.domain.subject.controller
 
 import org.example.kotlin_liargame.domain.subject.dto.request.SubjectRequest
+import org.example.kotlin_liargame.domain.subject.dto.response.SubjectResponse
 import org.example.kotlin_liargame.domain.subject.model.SubjectEntity
 import org.example.kotlin_liargame.domain.subject.service.SubjectService
 import org.springframework.web.bind.annotation.*
@@ -22,7 +23,7 @@ class SubjectController (
     }
 
     @GetMapping("/listsubj")
-    fun subjectList(): List<SubjectEntity> {
+    fun subjectList(): List<SubjectResponse> {
         return subjectService.findAll()
     }
 
