@@ -6,14 +6,14 @@ import org.example.kotlin_liargame.domain.subject.model.SubjectEntity
 data class SubjectResponse(
     val id: Long,
     val content: String,
-    val question: List<QuestionEntity>
+    val questionIds: List<Long>,
 ){
     companion object{
         fun from(subjectEntity: SubjectEntity) : SubjectResponse{
             return SubjectResponse(
                 id = subjectEntity.id,
                 content = subjectEntity.content,
-                question = subjectEntity.question
+                questionIds = subjectEntity.question.map { it.id }
             )
         }
     }
