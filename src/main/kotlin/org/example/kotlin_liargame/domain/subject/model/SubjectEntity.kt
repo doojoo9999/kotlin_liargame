@@ -9,7 +9,6 @@ import org.example.kotlin_liargame.domain.question.model.QuestionEntity
 class SubjectEntity (
     val content : String,
 
-    @JsonManagedReference
     @OneToMany(mappedBy = "subject", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.LAZY)
     val question: List<QuestionEntity>
 ){

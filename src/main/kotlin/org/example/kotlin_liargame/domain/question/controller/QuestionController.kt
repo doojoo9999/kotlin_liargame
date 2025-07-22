@@ -1,6 +1,7 @@
 package org.example.kotlin_liargame.domain.question.controller
 
-import org.example.kotlin_liargame.domain.question.dto.ApplyQuestionRequest
+import org.example.kotlin_liargame.domain.question.dto.request.ApplyQuestionRequest
+import org.example.kotlin_liargame.domain.question.dto.response.QuestionListResponse
 import org.example.kotlin_liargame.domain.question.model.QuestionEntity
 import org.example.kotlin_liargame.domain.question.service.QuestionService
 import org.springframework.web.bind.annotation.*
@@ -25,7 +26,7 @@ class QuestionController (
     }
 
     @GetMapping("/qlist")
-    fun findAllQuestions(): List<QuestionEntity> {
+    fun findAllQuestions(): List<QuestionListResponse> {
         return questionService.findAll()
     }
 }

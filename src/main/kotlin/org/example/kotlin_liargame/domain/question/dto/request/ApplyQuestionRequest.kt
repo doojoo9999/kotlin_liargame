@@ -1,4 +1,4 @@
-package org.example.kotlin_liargame.domain.question.dto
+package org.example.kotlin_liargame.domain.question.dto.request
 
 import org.example.kotlin_liargame.domain.question.model.QuestionEntity
 import org.example.kotlin_liargame.domain.subject.model.SubjectEntity

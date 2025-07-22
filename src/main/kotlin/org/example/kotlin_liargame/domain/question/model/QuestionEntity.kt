@@ -17,7 +17,6 @@ class QuestionEntity (
 
     val question : String,
 
-    @JsonBackReference
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "subject_id")
     var subject: SubjectEntity ?= null

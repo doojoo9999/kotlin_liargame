@@ -1,7 +1,8 @@
 package org.example.kotlin_liargame.domain.question.service
 
 import jakarta.transaction.Transactional
-import org.example.kotlin_liargame.domain.question.dto.ApplyQuestionRequest
+import org.example.kotlin_liargame.domain.question.dto.request.ApplyQuestionRequest
+import org.example.kotlin_liargame.domain.question.dto.response.QuestionListResponse
 import org.example.kotlin_liargame.domain.question.model.QuestionEntity
 import org.example.kotlin_liargame.domain.question.repository.QuestionRepository
 import org.example.kotlin_liargame.domain.subject.repository.SubjectRepository
@@ -30,8 +31,11 @@ class QuestionService (
         questionRepository.delete(question)
     }
 
-    fun findAll(): List<QuestionEntity> {
-        return questionRepository.findAll()
+    fun findAll(): List<QuestionListResponse> {
+
+        return questionRepository.findAll().map { questionEntity ->
+            QuestionListResponse.from(questionEntity)
+        }
     }
 
 }
