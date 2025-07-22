@@ -8,7 +8,7 @@ data class ApplyQuestionRequest(
     val question: String
 ) {
     fun to(subjectEntity: SubjectEntity) = QuestionEntity(
-        question = this.question,
+        content = this.question,
         subject = subjectEntity
     )
 }

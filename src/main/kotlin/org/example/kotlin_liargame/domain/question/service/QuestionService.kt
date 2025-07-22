@@ -16,10 +16,17 @@ class QuestionService (
 
     @Transactional
     fun applyQuestion(req: ApplyQuestionRequest) {
+
         val subject = subjectRepository.findByContent(req.subject)
-            ?: throw IllegalArgumentException("Subject '${req.subject}' not found.") // 예외 처리 예시
-        val question = req.to(subject)
-        questionRepository.save(question)
+            ?: throw IllegalArgumentException("Subject '${req.subject}' not found.")
+
+        val existingQuestion = questionRepository.findBySubjectAndContent(subject, req.question)
+
+        if (existingQuestion != null) {
+            throw RuntimeException("Question '${req.question}' already exists for Subject '${req.subject}'.")
+        }
+        val newQuestionEntity = req.to(subject)
+        questionRepository.save(newQuestionEntity)
     }
 
     @Transactional
