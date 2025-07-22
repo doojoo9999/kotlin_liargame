@@ -10,7 +10,9 @@ class SubjectEntity (
     val content : String,
 
     @OneToMany(mappedBy = "subject", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.EAGER)
-    val question: List<QuestionEntity>
+    val question: List<QuestionEntity>,
+
+    val createdUser: String
 ){
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

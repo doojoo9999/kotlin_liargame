@@ -19,7 +19,9 @@ class QuestionEntity (
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "subject_id")
-    var subject: SubjectEntity ?= null
+    var subject: SubjectEntity ?= null,
+
+    val createdUser: String
 ) {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Id

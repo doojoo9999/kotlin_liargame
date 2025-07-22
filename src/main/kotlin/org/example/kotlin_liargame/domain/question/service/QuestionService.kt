@@ -14,6 +14,7 @@ class QuestionService (
     private val subjectRepository: SubjectRepository
 ){
 
+
     @Transactional
     fun applyQuestion(req: ApplyQuestionRequest) {
 
@@ -27,6 +28,8 @@ class QuestionService (
         }
         val newQuestionEntity = req.to(subject)
         questionRepository.save(newQuestionEntity)
+
+        TODO("나중에 세션 or 토큰에서 유저 정보 받아서 입력할 수 있도록 설정해야 함")
     }
 
     @Transactional

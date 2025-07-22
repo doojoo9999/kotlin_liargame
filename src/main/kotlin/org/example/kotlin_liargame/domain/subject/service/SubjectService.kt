@@ -19,6 +19,8 @@ class SubjectService (
             throw RuntimeException("Subject already exists")
         }
 
+
+        TODO("나중에 세션 or 토큰에서 유저 정보 받아서 입력할 수 있도록 설정해야 함")
     }
 
     fun deleteSubject(subjectRequest: SubjectRequest) {
