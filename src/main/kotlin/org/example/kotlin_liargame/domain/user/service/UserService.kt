@@ -22,6 +22,7 @@ class UserService (
 
     }
 
+    fun updateProfileImg(req: UpdateProfileRequest)
 
 
 }
