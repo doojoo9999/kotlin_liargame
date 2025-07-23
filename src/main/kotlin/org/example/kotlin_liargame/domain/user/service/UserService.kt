@@ -2,6 +2,7 @@ package org.example.kotlin_liargame.domain.user.service
 
 import org.example.kotlin_liargame.domain.user.dto.request.UserAddRequest
 import org.example.kotlin_liargame.domain.user.repository.UserRepository
+import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import java.time.LocalDateTime
 
@@ -23,6 +24,7 @@ class UserService (
 
     }
 
+    @Scheduled(fixedRate = 4 * 60 * 60 * 1000)
     fun batchToUnActiveUser() {
         val now = LocalDateTime.now()
         val users = userRepository.findAll()
@@ -35,6 +37,7 @@ class UserService (
         }
     }
 
+    @Scheduled(fixedRate = 4 * 60 * 60 * 1000)
     fun deleteUser() {
         val now = LocalDateTime.now()
         val users = userRepository.findAll()
