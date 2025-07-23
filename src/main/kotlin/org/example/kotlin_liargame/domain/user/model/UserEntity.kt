@@ -9,9 +9,19 @@ class UserEntity (
 
     val nickname : String,
     val profileImgUrl : String,
+    var isActive : Boolean = true
 
 ) : BaseEntity() {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long = 0
+
+    fun toUnActive() {
+        this.isActive = false
+    }
+
+    fun toActive() {
+        this.isActive = true
+    }
+
 }

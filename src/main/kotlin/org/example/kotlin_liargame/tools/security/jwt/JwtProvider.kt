@@ -25,26 +25,16 @@ class JwtProvider {
         }
     }
 
-    fun generateAccessToken(userId: Long): String {
-        return generateToken(userId.toString(), ACCESS_TOKEN_EXPIRE_TIME)
+    fun generateAccessToken(userId: Long, nickname: String): String {
+        return generateToken(userId.toString(), nickname,ACCESS_TOKEN_EXPIRE_TIME)
     }
 
-    fun generateRefreshToken(userId: Long): String {
-        return generateToken(userId.toString(), REFRESH_TOKEN_EXPIRE_TIME)
+    fun generateRefreshToken(userId: Long, nickname: String): String {
+        return generateToken(userId.toString(), nickname, REFRESH_TOKEN_EXPIRE_TIME)
     }
 
-    fun generateToken(userId: String, expireTime: Long): String {
-        return jwtBuild(userId, expireTime)
-    }
-
-    fun jwtBuild(userId: String, expireTime: Long): String {
-        val now = Date()
-        return Jwts.builder()
-            .setSubject(userId)
-            .setIssuedAt(now)
-            .setExpiration(Date(now.time + expireTime))
-            .signWith(secretKey)
-            .compact()
+    fun getNickname(token: String): String {
+        return getClaims(token).subject
     }
 
     fun getClaims(token: String): Claims {
@@ -54,4 +44,21 @@ class JwtProvider {
             .parseClaimsJws(token)
             .body
     }
+
+    fun generateToken(userId: String, nickname: String, expireTime: Long): String {
+        return jwtBuild(userId, nickname, expireTime)
+    }
+
+    fun jwtBuild(userId: String, nickname: String, expireTime: Long): String {
+        val now = Date()
+        return Jwts.builder()
+            .setSubject(userId)
+            .setSubject(nickname)
+            .setIssuedAt(now)
+            .setExpiration(Date(now.time + expireTime))
+            .signWith(secretKey)
+            .compact()
+    }
+
+
 }

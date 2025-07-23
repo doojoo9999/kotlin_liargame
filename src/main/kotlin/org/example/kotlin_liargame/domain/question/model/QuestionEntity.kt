@@ -14,7 +14,7 @@ class QuestionEntity (
     @JoinColumn(name = "subject_id")
     var subject: SubjectEntity ?= null,
 
-    val createdUser: String
+//    val createdUser: String
 ) : BaseEntity() {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Id

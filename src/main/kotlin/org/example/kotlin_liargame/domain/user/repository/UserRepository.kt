@@ -7,4 +7,6 @@ interface UserRepository : JpaRepository<UserEntity, Long> {
 
     fun findByNickname (nickname: String): UserEntity?
 
+    fun findByNicknameAndIsActiveTrue(nickname: String): UserEntity?
+
 }
