@@ -22,7 +22,9 @@ class UserService (
 
     }
 
-    fun updateProfileImg(req: UpdateProfileRequest)
+    fun deleteUser() {
+                
+    }
 
 
 }

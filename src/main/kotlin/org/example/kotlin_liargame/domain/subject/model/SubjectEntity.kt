@@ -1,7 +1,7 @@
 package org.example.kotlin_liargame.domain.subject.model
 
-import com.fasterxml.jackson.annotation.JsonManagedReference
 import jakarta.persistence.*
+import org.example.kotlin_liargame.domain.global.base.BaseEntity
 import org.example.kotlin_liargame.domain.question.model.QuestionEntity
 
 @Entity
@@ -13,7 +13,7 @@ class SubjectEntity (
     val question: List<QuestionEntity>,
 
     val createdUser: String
-){
+) : BaseEntity() {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long = 0
