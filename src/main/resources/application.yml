@@ -20,3 +20,9 @@ spring:
 
 server:
     port: 20021
+
+logging:
+    level:
+        root: INFO
+        org.example.kotlin_liargame: DEBUG
+        org.springframework.security: DEBUG

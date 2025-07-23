@@ -1,8 +1,8 @@
 package org.example.kotlin_liargame.domain.subject.model
 
 import jakarta.persistence.*
-import org.example.kotlin_liargame.domain.global.base.BaseEntity
 import org.example.kotlin_liargame.domain.question.model.QuestionEntity
+import org.example.kotlin_liargame.global.base.BaseEntity
 
 @Entity
 @Table(name = "subject")

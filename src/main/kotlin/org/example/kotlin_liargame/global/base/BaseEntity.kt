@@ -1,4 +1,4 @@
-package org.example.kotlin_liargame.domain.global.base
+package org.example.kotlin_liargame.global.base
 
 import jakarta.persistence.Column
 import jakarta.persistence.EntityListeners

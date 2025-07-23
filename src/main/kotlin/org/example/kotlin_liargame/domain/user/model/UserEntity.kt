@@ -1,7 +1,7 @@
 package org.example.kotlin_liargame.domain.user.model
 
 import jakarta.persistence.*
-import org.example.kotlin_liargame.domain.global.base.BaseEntity
+import org.example.kotlin_liargame.global.base.BaseEntity
 
 @Entity
 @Table(name = "users")
