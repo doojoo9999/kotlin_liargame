@@ -13,7 +13,8 @@ class GameEntity(
     val gParticipants: Int,
     val gRound: Int,
     val gStatus: Boolean,
-    val gOwner: String
+    val gOwner: String,
+
 
 ) : BaseEntity() {
 
