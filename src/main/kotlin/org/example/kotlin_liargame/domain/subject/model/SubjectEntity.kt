@@ -12,7 +12,7 @@ class SubjectEntity (
     @OneToMany(mappedBy = "subject", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.EAGER)
     val question: List<QuestionEntity>,
 
-    val createdUser: String
+//    val createdUser: String
 ) : BaseEntity() {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
