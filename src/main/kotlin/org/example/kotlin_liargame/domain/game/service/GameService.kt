@@ -1,9 +1,6 @@
 package org.example.kotlin_liargame.domain.game.service
 
-import org.example.kotlin_liargame.domain.game.dto.request.CreateGameRoomRequest
-import org.example.kotlin_liargame.domain.game.dto.request.GiveHintRequest
-import org.example.kotlin_liargame.domain.game.dto.request.JoinGameRequest
-import org.example.kotlin_liargame.domain.game.dto.request.StartGameRequest
+import org.example.kotlin_liargame.domain.game.dto.request.*
 import org.example.kotlin_liargame.domain.game.dto.response.GameStateResponse
 import org.example.kotlin_liargame.domain.game.model.GameEntity
 import org.example.kotlin_liargame.domain.game.model.PlayerEntity
@@ -249,6 +246,113 @@ class GameService(
 
         return getGameState(game)
     }
+
+    @Transactional
+    fun vote(req: VoteRequest): GameStateResponse {
+        req.validate()
+
+        val game = gameRepository.findBygNumber(req.gNumber)
+            ?: throw RuntimeException("Game not found")
+
+        if (game.gState != GameState.IN_PROGRESS) {
+            throw RuntimeException("Game is not in progress")
+        }
+
+        val userId = getCurrentUserId()
+        val player = playerRepository.findByGameAndUserId(game, userId)
+            ?: throw RuntimeException("You are not in this game")
+
+        if (!player.isAlive) {
+            throw RuntimeException("You are eliminated from the game")
+        }
+
+        if (player.state != PlayerState.WAITING_FOR_VOTE) {
+            throw RuntimeException("You are not in the voting phase")
+        }
+
+        val targetPlayer = playerRepository.findById(req.targetPlayerId).orElse(null)
+            ?: throw RuntimeException("Target player not found")
+
+        if (targetPlayer.game.id != game.id) {
+            throw RuntimeException("Target player is not in this game")
+        }
+
+        if (!targetPlayer.isAlive) {
+            throw RuntimeException("Target player is eliminated from the game")
+        }
+
+        player.voteFor(targetPlayer.id)
+        playerRepository.save(player)
+
+        targetPlayer.receiveVote()
+        playerRepository.save(targetPlayer)
+
+        val players = playerRepository.findByGame(game)
+        val allPlayersVoted = players.all {
+            it.state == PlayerState.VOTED || !it.isAlive ||
+                    (it.state == PlayerState.WAITING_FOR_VOTE && it.hasVotingTimeExpired())
+        }
+
+        if (allPlayersVoted) {
+            players.forEach { p ->
+                if (p.isAlive && p.state == PlayerState.WAITING_FOR_VOTE && p.hasVotingTimeExpired()) {
+                    p.state = PlayerState.VOTED
+                    playerRepository.save(p)
+                }
+            }
+
+            val validVoters = players.filter { it.isAlive && it.votedFor != null }
+
+            if (validVoters.isNotEmpty()) {
+                val mostVotedPlayer = players.filter { it.isAlive }
+                    .maxByOrNull { it.votesReceived }
+
+                val tiedPlayers = players.filter { it.isAlive && it.votesReceived == mostVotedPlayer?.votesReceived }
+                if (tiedPlayers.size == 1 && mostVotedPlayer!!.votesReceived > 0 &&
+                    mostVotedPlayer.votesReceived > validVoters.size / 2) {
+                    mostVotedPlayer.accuse()
+                    playerRepository.save(mostVotedPlayer)
+                } else {
+                    players.forEach { p ->
+                        p.resetVotes()
+                        playerRepository.save(p)
+                    }
+
+                    if (!game.nextRound()) {
+                        game.endGame()
+                        gameRepository.save(game)
+                    } else {
+                        players.forEach { p ->
+                            if (p.isAlive) {
+                                p.resetForNewRound()
+                                playerRepository.save(p)
+                            }
+                        }
+                    }
+                }
+            } else {
+                players.forEach { p ->
+                    p.resetVotes()
+                    playerRepository.save(p)
+                }
+
+                if (!game.nextRound()) {
+                    game.endGame()
+                    gameRepository.save(game)
+                } else {
+                    players.forEach { p ->
+                        if (p.isAlive) {
+                            p.resetForNewRound()
+                            playerRepository.save(p)
+                        }
+                    }
+                }
+            }
+        }
+
+        return getGameState(game)
+    }
+
 
     private fun getGameState(game: GameEntity): GameStateResponse {
         val players = playerRepository.findByGame(game)
