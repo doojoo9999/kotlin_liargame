@@ -1,6 +1,7 @@
 package org.example.kotlin_liargame.domain.game.service
 
 import org.example.kotlin_liargame.domain.game.dto.request.CreateGameRoomRequest
+import org.example.kotlin_liargame.domain.game.dto.request.GiveHintRequest
 import org.example.kotlin_liargame.domain.game.dto.request.JoinGameRequest
 import org.example.kotlin_liargame.domain.game.dto.request.StartGameRequest
 import org.example.kotlin_liargame.domain.game.dto.response.GameStateResponse
@@ -208,6 +209,46 @@ class GameService(
         }
     }
 
+    @Transactional
+    fun giveHint(req: GiveHintRequest): GameStateResponse {
+        req.validate()
+
+        val game = gameRepository.findBygNumber(req.gNumber)
+            ?: throw RuntimeException("Game not found")
+
+        if (game.gState != GameState.IN_PROGRESS) {
+            throw RuntimeException("Game is not in progress")
+        }
+
+        val userId = getCurrentUserId()
+        val player = playerRepository.findByGameAndUserId(game, userId)
+            ?: throw RuntimeException("You are not in this game")
+
+        if (!player.isAlive) {
+            throw RuntimeException("You are eliminated from the game")
+        }
+
+        if (player.state != PlayerState.WAITING_FOR_HINT) {
+            throw RuntimeException("You have already given a hint")
+        }
+
+        player.giveHint(req.hint)
+        playerRepository.save(player)
+
+        val players = playerRepository.findByGame(game)
+        val allPlayersGaveHints = players.all { it.state == PlayerState.GAVE_HINT || !it.isAlive }
+
+        if (allPlayersGaveHints) {
+            players.forEach { p ->
+                if (p.isAlive) {
+                    p.setWaitingForVote()
+                    playerRepository.save(p)
+                }
+            }
+        }
+
+        return getGameState(game)
+    }
 
     private fun getGameState(game: GameEntity): GameStateResponse {
         val players = playerRepository.findByGame(game)
