@@ -392,6 +392,127 @@ class GameService(
     }
 
 
+    @Transactional
+    fun survivalVote(req: SurvivalVoteRequest): GameStateResponse {
+        req.validate()
+
+        val game = gameRepository.findBygNumber(req.gNumber)
+            ?: throw RuntimeException("Game not found")
+
+        if (game.gState != GameState.IN_PROGRESS) {
+            throw RuntimeException("Game is not in progress")
+        }
+
+        val userId = getCurrentUserId()
+        val player = playerRepository.findByGameAndUserId(game, userId)
+            ?: throw RuntimeException("You are not in this game")
+
+        if (!player.isAlive) {
+            throw RuntimeException("You are eliminated from the game")
+        }
+
+        if (player.state != PlayerState.WAITING_FOR_VOTE) {
+            throw RuntimeException("You are not in the voting phase")
+        }
+
+        val accusedPlayer = playerRepository.findById(req.accusedPlayerId).orElse(null)
+            ?: throw RuntimeException("Accused player not found")
+
+        if (accusedPlayer.game.id != game.id) {
+            throw RuntimeException("Accused player is not in this game")
+        }
+
+        if (accusedPlayer.state != PlayerState.DEFENDED) {
+            throw RuntimeException("Accused player has not defended yet")
+        }
+
+        player.voteFor(if (req.voteToSurvive) -1 else -2)
+        playerRepository.save(player)
+
+        val players = playerRepository.findByGame(game)
+        val allPlayersVoted = players.all {
+            it.state == PlayerState.VOTED || !it.isAlive || it.id == accusedPlayer.id ||
+                    (it.state == PlayerState.WAITING_FOR_VOTE && it.hasVotingTimeExpired())
+        }
+
+        if (allPlayersVoted) {
+            players.forEach { p ->
+                if (p.isAlive && p.state == PlayerState.WAITING_FOR_VOTE && p.hasVotingTimeExpired()) {
+                    p.state = PlayerState.VOTED
+                    playerRepository.save(p)
+                }
+            }
+
+            val validVoters = players.filter { it.isAlive && it.votedFor != null && it.id != accusedPlayer.id }
+            val totalValidVotes = validVoters.size
+
+            if (totalValidVotes > 0) {
+                val surviveVotes = players.count { it.votedFor == -1L }
+                val eliminateVotes = players.count { it.votedFor == -2L }
+
+                if (surviveVotes >= eliminateVotes) {
+                    accusedPlayer.survive()
+                    playerRepository.save(accusedPlayer)
+
+                    players.forEach { p ->
+                        if (p.isAlive) {
+                            p.resetForNewRound()
+                            playerRepository.save(p)
+                        }
+                    }
+
+                    if (!game.nextRound()) {
+                        game.endGame()
+                        gameRepository.save(game)
+                    }
+                } else {
+                    accusedPlayer.eliminate()
+                    playerRepository.save(accusedPlayer)
+
+                    if (accusedPlayer.role == PlayerRole.LIAR) {
+                    } else {
+                        val remainingCitizens = players.count { it.isAlive && it.role == PlayerRole.CITIZEN }
+                        if (remainingCitizens == 0) {
+                            game.endGame()
+                            gameRepository.save(game)
+                        } else {
+                            players.forEach { p ->
+                                if (p.isAlive) {
+                                    p.resetForNewRound()
+                                    playerRepository.save(p)
+                                }
+                            }
+
+                            if (!game.nextRound()) {
+                                game.endGame()
+                                gameRepository.save(game)
+                            }
+                        }
+                    }
+                }
+            } else {
+                accusedPlayer.survive()
+                playerRepository.save(accusedPlayer)
+
+                players.forEach { p ->
+                    if (p.isAlive) {
+                        p.resetForNewRound()
+                        playerRepository.save(p)
+                    }
+                }
+
+                if (!game.nextRound()) {
+                    game.endGame()
+                    gameRepository.save(game)
+                }
+            }
+        }
+
+        return getGameState(game)
+    }
+
+
+
     private fun getGameState(game: GameEntity): GameStateResponse {
         val players = playerRepository.findByGame(game)
         val currentUserId = getCurrentUserId()
