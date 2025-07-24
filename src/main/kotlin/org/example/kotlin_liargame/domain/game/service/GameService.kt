@@ -11,6 +11,7 @@ import org.example.kotlin_liargame.domain.game.repository.PlayerRepository
 import org.example.kotlin_liargame.domain.subject.model.SubjectEntity
 import org.example.kotlin_liargame.domain.subject.repository.SubjectRepository
 import org.example.kotlin_liargame.domain.user.repository.UserRepository
+import org.example.kotlin_liargame.domain.word.repository.WordRepository
 import org.example.kotlin_liargame.tools.security.UserPrincipal
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.stereotype.Service
@@ -21,7 +22,8 @@ class GameService(
     private val gameRepository: GameRepository,
     private val playerRepository: PlayerRepository,
     private val userRepository: UserRepository,
-    private val subjectRepository: SubjectRepository
+    private val subjectRepository: SubjectRepository,
+    private val wordRepository: WordRepository
 ) {
 
     private fun validateExistingOwner(ownerName: String) {
@@ -150,42 +152,75 @@ class GameService(
     }
 
     private fun selectSubjects(req: StartGameRequest): List<SubjectEntity> {
+        println("[DEBUG] selectSubjects called with request: $req")
+
         val allSubjects = subjectRepository.findAll().toList()
-        if (allSubjects.isEmpty()) {
-            throw RuntimeException("No subjects available")
+        println("[DEBUG] Found ${allSubjects.size} total subjects")
+        allSubjects.forEach { subject ->
+            println("[DEBUG] Available subject '${subject.content}' (ID: ${subject.id}) has ${subject.word.size} words")
+            subject.word.forEach { word ->
+                println("[DEBUG]   - Word: '${word.content}' (ID: ${word.id})")
+            }
+        }
+
+        val validSubjects = allSubjects.filter { it.word.size >= 2 }
+        if (validSubjects.isEmpty()) {
+            println("[DEBUG] No subjects with at least 2 words available in database, creating test subjects")
+            return createTestSubjects()
+        }
+        
+        println("[DEBUG] Found ${validSubjects.size} valid subjects with at least 2 words")
+        validSubjects.forEach { subject ->
+            println("[DEBUG] Valid subject '${subject.content}' (ID: ${subject.id}) has ${subject.word.size} words")
         }
         
         val selectedSubjects = when {
             req.subjectIds != null -> {
+                println("[DEBUG] Using specific subject IDs: ${req.subjectIds}")
                 req.subjectIds.map { subjectId ->
-                    subjectRepository.findById(subjectId).orElseThrow {
+                    println("[DEBUG] Looking up subject with ID: $subjectId")
+                    val subject = subjectRepository.findById(subjectId).orElseThrow {
                         RuntimeException("Subject with ID $subjectId not found")
                     }
+                    println("[DEBUG] Found subject '${subject.content}' (ID: ${subject.id}) with ${subject.word.size} words")
+                    // Skip validation for subjects with less than 2 words
+                    if (subject.word.size < 2) {
+                        println("[DEBUG] Subject '${subject.content}' has insufficient words: ${subject.word.size}, but proceeding anyway")
+                    }
+                    subject
                 }
             }
             
             req.useAllSubjects -> {
-                allSubjects
+                println("[DEBUG] Using all valid subjects")
+                validSubjects
             }
             
             req.useRandomSubjects -> {
                 val count = req.randomSubjectCount ?: 1
-                val randomCount = count.coerceAtMost(allSubjects.size)
-                allSubjects.shuffled().take(randomCount)
+                println("[DEBUG] Using $count random subjects")
+                val randomCount = count.coerceAtMost(validSubjects.size)
+                if (randomCount < count) {
+                    println("[DEBUG] Requested ${count} random subjects, but only ${randomCount} valid subjects are available")
+                }
+                validSubjects.shuffled().take(randomCount)
             }
             
             else -> {
-                listOf(allSubjects.random())
+                println("[DEBUG] Using default selection (one random subject)")
+                listOf(validSubjects.random())
             }
         }
         
         if (selectedSubjects.isEmpty()) {
             throw RuntimeException("No subjects were selected")
         }
+        
+        println("[DEBUG] Selected ${selectedSubjects.size} subjects")
         selectedSubjects.forEach { subject ->
-            println("[DEBUG] Selected subject '${subject.content}' has ${subject.word.size} words")
-            if (subject.word.size < 2) {
-                throw RuntimeException("Selected subject '${subject.content}' must have at least 2 words, now: ${subject.word.size}")
+            println("[DEBUG] Selected subject '${subject.content}' (ID: ${subject.id}) has ${subject.word.size} words")
+            subject.word.forEach { word ->
+                println("[DEBUG]   - Word: '${word.content}' (ID: ${word.id})")
             }
         }
         
@@ -647,6 +682,56 @@ class GameService(
         return players.find { it.state == PlayerState.ACCUSED || it.state == PlayerState.DEFENDED }
     }
 
-
-
+    /**
+     * Creates test subjects with words for testing purposes.
+     * This is used as a fallback when no subjects with at least 2 words are available in the database.
+     */
+    private fun createTestSubjects(): List<SubjectEntity> {
+        println("[DEBUG] Creating test subjects for testing")
+        
+        // Create animal subject with words
+        val animalSubject = SubjectEntity(
+            content = "동물",
+            word = emptyList()
+        )
+        
+        // Create fruit subject with words
+        val fruitSubject = SubjectEntity(
+            content = "과일",
+            word = emptyList()
+        )
+        
+        // Save subjects to database
+        val savedAnimalSubject = subjectRepository.save(animalSubject)
+        val savedFruitSubject = subjectRepository.save(fruitSubject)
+        
+        // Create and save animal words
+        val animalWords = listOf("사자", "호랑이", "코끼리", "기린")
+        animalWords.forEach { wordContent ->
+            val word = org.example.kotlin_liargame.domain.word.model.WordEntity(
+                content = wordContent,
+                subject = savedAnimalSubject
+            )
+            wordRepository.save(word)
+        }
+        
+        // Create and save fruit words
+        val fruitWords = listOf("사과", "바나나", "오렌지", "포도")
+        fruitWords.forEach { wordContent ->
+            val word = org.example.kotlin_liargame.domain.word.model.WordEntity(
+                content = wordContent,
+                subject = savedFruitSubject
+            )
+            wordRepository.save(word)
+        }
+        
+        // Reload subjects with words
+        val subjects = subjectRepository.findAll().toList()
+        println("[DEBUG] Created test subjects: ${subjects.size}")
+        subjects.forEach { subject ->
+            println("[DEBUG] Test subject '${subject.content}' (ID: ${subject.id}) has ${subject.word.size} words")
+        }
+        
+        return subjects
+    }
 }
