@@ -1,6 +1,7 @@
 package org.example.kotlin_liargame.domain.game.service
 
 import org.example.kotlin_liargame.domain.game.dto.request.*
+import org.example.kotlin_liargame.domain.game.dto.response.GameResultResponse
 import org.example.kotlin_liargame.domain.game.dto.response.GameStateResponse
 import org.example.kotlin_liargame.domain.game.model.GameEntity
 import org.example.kotlin_liargame.domain.game.model.PlayerEntity
@@ -511,6 +512,40 @@ class GameService(
         return getGameState(game)
     }
 
+
+    @Transactional
+    fun guessWord(req: GuessWordRequest): GameResultResponse {
+        req.validate()
+
+        val game = gameRepository.findBygNumber(req.gNumber)
+            ?: throw RuntimeException("Game not found")
+
+        if (game.gState != GameState.IN_PROGRESS) {
+            throw RuntimeException("Game is not in progress")
+        }
+
+        val userId = getCurrentUserId()
+        val player = playerRepository.findByGameAndUserId(game, userId)
+            ?: throw RuntimeException("You are not in this game")
+
+        if (player.role != PlayerRole.LIAR || player.isAlive) {
+            throw RuntimeException("Only eliminated liars can guess the word")
+        }
+
+        val citizenWord = game.citizenSubject?.content ?: ""
+        val isCorrect = req.guess.equals(citizenWord, ignoreCase = true)
+
+        game.endGame()
+        gameRepository.save(game)
+
+        val players = playerRepository.findByGame(game)
+        return GameResultResponse.from(
+            game = game,
+            players = players,
+            winningTeam = if (isCorrect) WinningTeam.LIARS else WinningTeam.CITIZENS,
+            correctGuess = isCorrect
+        )
+    }
 
 
     private fun getGameState(game: GameEntity): GameStateResponse {
