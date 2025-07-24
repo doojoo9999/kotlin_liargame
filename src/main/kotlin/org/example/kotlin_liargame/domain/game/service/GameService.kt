@@ -6,10 +6,7 @@ import org.example.kotlin_liargame.domain.game.dto.request.StartGameRequest
 import org.example.kotlin_liargame.domain.game.dto.response.GameStateResponse
 import org.example.kotlin_liargame.domain.game.model.GameEntity
 import org.example.kotlin_liargame.domain.game.model.PlayerEntity
-import org.example.kotlin_liargame.domain.game.model.enum.GamePhase
-import org.example.kotlin_liargame.domain.game.model.enum.GameState
-import org.example.kotlin_liargame.domain.game.model.enum.PlayerRole
-import org.example.kotlin_liargame.domain.game.model.enum.PlayerState
+import org.example.kotlin_liargame.domain.game.model.enum.*
 import org.example.kotlin_liargame.domain.game.repository.GameRepository
 import org.example.kotlin_liargame.domain.game.repository.PlayerRepository
 import org.example.kotlin_liargame.domain.subject.model.SubjectEntity
@@ -169,6 +166,46 @@ class GameService(
         } while (liarSubject.id == citizenSubject.id)
 
         return Pair(citizenSubject, liarSubject)
+    }
+
+
+    private fun assignRolesAndSubjects(
+        game: GameEntity,
+        players: List<PlayerEntity>,
+        citizenSubject: SubjectEntity,
+        liarSubject: SubjectEntity
+    ) {
+        game.citizenSubject = citizenSubject
+        game.liarSubject = liarSubject
+
+        val liarCount = game.gLiarCount.coerceAtMost(players.size - 1)
+        val liarIndices = players.indices.shuffled().take(liarCount)
+
+        players.forEachIndexed { index, player ->
+            val isLiar = index in liarIndices
+            val role = if (isLiar) PlayerRole.LIAR else PlayerRole.CITIZEN
+            val subject = when {
+                !isLiar -> citizenSubject
+                game.gGameMode == GameMode.LIARS_DIFFERENT_WORD -> liarSubject
+                else -> citizenSubject
+            }
+
+            val updatedPlayer = PlayerEntity(
+                game = player.game,
+                userId = player.userId,
+                nickname = player.nickname,
+                isAlive = true,
+                role = role,
+                subject = subject,
+                state = PlayerState.WAITING_FOR_HINT,
+                votesReceived = 0,
+                hint = null,
+                defense = null,
+                votedFor = null
+            )
+
+            playerRepository.save(updatedPlayer)
+        }
     }
 
 
