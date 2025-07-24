@@ -2,14 +2,17 @@ package org.example.kotlin_liargame.domain.game.service
 
 import org.example.kotlin_liargame.domain.game.dto.request.CreateGameRoomRequest
 import org.example.kotlin_liargame.domain.game.dto.request.JoinGameRequest
+import org.example.kotlin_liargame.domain.game.dto.request.StartGameRequest
 import org.example.kotlin_liargame.domain.game.dto.response.GameStateResponse
 import org.example.kotlin_liargame.domain.game.model.GameEntity
 import org.example.kotlin_liargame.domain.game.model.PlayerEntity
 import org.example.kotlin_liargame.domain.game.model.enum.GamePhase
 import org.example.kotlin_liargame.domain.game.model.enum.GameState
+import org.example.kotlin_liargame.domain.game.model.enum.PlayerRole
 import org.example.kotlin_liargame.domain.game.model.enum.PlayerState
 import org.example.kotlin_liargame.domain.game.repository.GameRepository
 import org.example.kotlin_liargame.domain.game.repository.PlayerRepository
+import org.example.kotlin_liargame.domain.subject.model.SubjectEntity
 import org.example.kotlin_liargame.domain.subject.repository.SubjectRepository
 import org.example.kotlin_liargame.domain.user.repository.UserRepository
 import org.example.kotlin_liargame.tools.security.UserPrincipal
@@ -92,10 +95,82 @@ class GameService(
             throw RuntimeException("You are already in this game")
         }
 
-        TODO("joinGame(game, userId, nickname")
+        joinGame(game, userId, nickname)
 
         return getGameState(game)
     }
+
+    private fun joinGame(game: GameEntity, userId: Long, nickname: String) {
+        val player = PlayerEntity(
+            game = game,
+            userId = userId,
+            nickname = nickname,
+            isAlive = true,
+            role = PlayerRole.CITIZEN,
+            subject = subjectRepository.findAll().first(),
+            state = PlayerState.WAITING_FOR_HINT,
+            votesReceived = 0,
+            hint = null,
+            defense = null,
+            votedFor = null
+        )
+
+        playerRepository.save(player)
+    }
+
+
+    @Transactional
+    fun startGame(req: StartGameRequest): GameStateResponse {
+        req.validate()
+
+        val game = gameRepository.findBygNumber(req.gNumber)
+            ?: throw RuntimeException("Game not found")
+
+        val nickname = getCurrentUserNickname()
+        if (game.gOwner != nickname) {
+            throw RuntimeException("Only the game owner can start the game")
+        }
+
+        if (game.gState != GameState.WAITING) {
+            throw RuntimeException("Game is already in progress or ended")
+        }
+
+        val players = playerRepository.findByGame(game)
+        if (!game.canStart(players.size)) {
+            throw RuntimeException("Not enough players to start the game (min 3, max 15)")
+        }
+
+        val subjects = selectSubjects(req.subjectId)
+
+        assignRolesAndSubjects(game, players, subjects.first, subjects.second)
+
+        game.startGame()
+        gameRepository.save(game)
+
+        return getGameState(game)
+    }
+
+    private fun selectSubjects(subjectId: Long?): Pair<SubjectEntity, SubjectEntity> {
+        val allSubjects = subjectRepository.findAll().toList()
+        if (allSubjects.size < 2) {
+            throw RuntimeException("Not enough subjects available (need at least 2)")
+        }
+
+        val citizenSubject = if (subjectId != null) {
+            allSubjects.find { it.id == subjectId }
+                ?: throw RuntimeException("Subject not found")
+        } else {
+            allSubjects.random()
+        }
+
+        var liarSubject: SubjectEntity
+        do {
+            liarSubject = allSubjects.random()
+        } while (liarSubject.id == citizenSubject.id)
+
+        return Pair(citizenSubject, liarSubject)
+    }
+
 
     private fun getGameState(game: GameEntity): GameStateResponse {
         val players = playerRepository.findByGame(game)
