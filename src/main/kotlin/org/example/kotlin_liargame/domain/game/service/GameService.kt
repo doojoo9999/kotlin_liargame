@@ -136,9 +136,9 @@ class GameService(
             throw RuntimeException("Not enough players to start the game (min 3, max 15)")
         }
 
-        val subjects = selectSubjects(req.subjectId)
-
-        assignRolesAndSubjects(game, players, subjects.first, subjects.second)
+        val selectedSubjects = selectSubjects(req)
+        
+        assignRolesAndSubjects(game, players, selectedSubjects)
 
         game.startGame()
         gameRepository.save(game)
@@ -146,35 +146,63 @@ class GameService(
         return getGameState(game)
     }
 
-    private fun selectSubjects(subjectId: Long?): Pair<SubjectEntity, SubjectEntity> {
+    private fun selectSubjects(req: StartGameRequest): List<SubjectEntity> {
         val allSubjects = subjectRepository.findAll().toList()
-        if (allSubjects.size < 2) {
-            throw RuntimeException("Not enough subjects available (need at least 2)")
+        if (allSubjects.isEmpty()) {
+            throw RuntimeException("No subjects available")
         }
-
-        val citizenSubject = if (subjectId != null) {
-            allSubjects.find { it.id == subjectId }
-                ?: throw RuntimeException("Subject not found")
-        } else {
-            allSubjects.random()
+        
+        val selectedSubjects = when {
+            req.subjectIds != null -> {
+                req.subjectIds.map { subjectId ->
+                    subjectRepository.findById(subjectId).orElseThrow {
+                        RuntimeException("Subject with ID $subjectId not found")
+                    }
+                }
+            }
+            
+            req.useAllSubjects -> {
+                allSubjects
+            }
+            
+            req.useRandomSubjects -> {
+                val count = req.randomSubjectCount ?: 1
+                val randomCount = count.coerceAtMost(allSubjects.size)
+                allSubjects.shuffled().take(randomCount)
+            }
+            
+            else -> {
+                listOf(allSubjects.random())
+            }
         }
-
-        var liarSubject: SubjectEntity
-        do {
-            liarSubject = allSubjects.random()
-        } while (liarSubject.id == citizenSubject.id)
-
-        return Pair(citizenSubject, liarSubject)
+        
+        if (selectedSubjects.isEmpty()) {
+            throw RuntimeException("No subjects were selected")
+        }
+        selectedSubjects.forEach { subject ->
+            println("[DEBUG] Selected subject '${subject.content}' has ${subject.word.size} words")
+            if (subject.word.size < 2) {
+                throw RuntimeException("Selected subject '${subject.content}' must have at least 2 words, now: ${subject.word.size}")
+            }
+        }
+        
+        return selectedSubjects
     }
 
 
     private fun assignRolesAndSubjects(
         game: GameEntity,
         players: List<PlayerEntity>,
-        citizenSubject: SubjectEntity,
-        liarSubject: SubjectEntity
+        subjects: List<SubjectEntity>
     ) {
+        if (subjects.isEmpty()) {
+            throw RuntimeException("No subjects available for assignment")
+        }
+        
+        val citizenSubject = subjects.first()
         game.citizenSubject = citizenSubject
+        
+        val liarSubject = if (subjects.size > 1) subjects[1] else citizenSubject
         game.liarSubject = liarSubject
 
         val liarCount = game.gLiarCount.coerceAtMost(players.size - 1)
@@ -183,9 +211,12 @@ class GameService(
         players.forEachIndexed { index, player ->
             val isLiar = index in liarIndices
             val role = if (isLiar) PlayerRole.LIAR else PlayerRole.CITIZEN
+            
             val subject = when {
-                !isLiar -> citizenSubject
+                !isLiar -> subjects.random()
+                
                 game.gGameMode == GameMode.LIARS_DIFFERENT_WORD -> liarSubject
+                
                 else -> citizenSubject
             }
 
@@ -532,8 +563,14 @@ class GameService(
             throw RuntimeException("Only eliminated liars can guess the word")
         }
 
-        val citizenWord = game.citizenSubject?.content ?: ""
-        val isCorrect = req.guess.equals(citizenWord, ignoreCase = true)
+        val citizenSubject = game.citizenSubject
+        if (citizenSubject == null) {
+            throw RuntimeException("Citizen subject not found")
+        }
+
+        val isCorrect = citizenSubject.word.any { word ->
+            req.guess.equals(word.content, ignoreCase = true)
+        }
 
         game.endGame()
         gameRepository.save(game)
@@ -606,6 +643,7 @@ class GameService(
     private fun findAccusedPlayer(players: List<PlayerEntity>): PlayerEntity? {
         return players.find { it.state == PlayerState.ACCUSED || it.state == PlayerState.DEFENDED }
     }
+
 
 
 }

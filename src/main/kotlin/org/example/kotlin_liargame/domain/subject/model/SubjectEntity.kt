@@ -11,8 +11,6 @@ class SubjectEntity (
 
     @OneToMany(mappedBy = "subject", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.EAGER)
     val word: List<WordEntity>,
-
-//    val createdUser: String
 ) : BaseEntity() {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

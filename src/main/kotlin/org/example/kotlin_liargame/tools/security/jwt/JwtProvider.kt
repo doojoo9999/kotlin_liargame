@@ -11,8 +11,8 @@ import java.util.*
 @Component
 class JwtProvider {
     companion object {
-        private const val ACCESS_TOKEN_EXPIRE_TIME = 1000L * 60 * 30 // 30∫–
-        private const val REFRESH_TOKEN_EXPIRE_TIME = 1000L * 60 * 60 * 24 * 7 // 7¿œ
+        private const val ACCESS_TOKEN_EXPIRE_TIME = 1000L * 60 * 30
+        private const val REFRESH_TOKEN_EXPIRE_TIME = 1000L * 60 * 60 * 24 * 7
         private val secretKey: Key = Keys.secretKeyFor(SignatureAlgorithm.HS256)
     }
 

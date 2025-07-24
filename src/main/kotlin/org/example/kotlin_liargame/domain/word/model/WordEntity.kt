@@ -13,8 +13,6 @@ class WordEntity (
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "subject_id")
     var subject: SubjectEntity ?= null,
-
-//    val createdUser: String
 ) : BaseEntity() {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Id

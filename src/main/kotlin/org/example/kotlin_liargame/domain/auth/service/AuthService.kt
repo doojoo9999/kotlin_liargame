@@ -16,7 +16,6 @@ class AuthService (
         val user = userRepository.findByNicknameAndIsActiveTrue(request.nickname)
             ?: throw IllegalArgumentException("존재하지 않는 닉네임입니다")
 
-        // JWT 토큰 생성 (1시간 유효)
         val token = jwtProvider.jwtBuild(
             userId = user.id.toString(),
             nickname = user.nickname,

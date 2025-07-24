@@ -38,6 +38,9 @@ class LiarGameSimulationTest {
 
     @Autowired
     private lateinit var gameService: GameService
+    
+    @Autowired
+    private lateinit var userRepository: org.example.kotlin_liargame.domain.user.repository.UserRepository
 
     private val users = mutableListOf<UserInfo>()
     private var gameNumber: Int = 0
@@ -47,13 +50,13 @@ class LiarGameSimulationTest {
     data class UserInfo(
         val nickname: String,
         val profileImgUrl: String,
+        var userId: Long? = null,
         var role: PlayerRole? = null,
         var playerId: Long? = null
     )
 
     @BeforeEach
     fun setup() {
-        // Create 10 users with random nicknames
         for (i in 1..10) {
             val nickname = "Player${i}_${Random.nextInt(1000, 9999)}"
             val profileImgUrl = "https://example.com/profile${i}.jpg"
@@ -61,34 +64,34 @@ class LiarGameSimulationTest {
             
             try {
                 userService.createUser(UserAddRequest(nickname, profileImgUrl))
-                println("[DEBUG_LOG] Created user: $nickname")
+                val userEntity = userRepository.findByNickname(nickname)
+                if (userEntity != null) {
+                    users.last().userId = userEntity.id
+                    println("[DEBUG_LOG] Created user: $nickname with ID: ${userEntity.id}")
+                } else {
+                    println("[DEBUG_LOG] Created user: $nickname but couldn't find user ID")
+                }
             } catch (e: Exception) {
                 println("[DEBUG_LOG] Failed to create user $nickname: ${e.message}")
             }
         }
 
-        // Register a subject
-        try {
-            subjectService.applySubject(SubjectRequest(subjectContent))
-            println("[DEBUG_LOG] Created subject: $subjectContent")
-        } catch (e: Exception) {
-            println("[DEBUG_LOG] Failed to create subject $subjectContent: ${e.message}")
-        }
+        val savedSubject = subjectService.applySubject(SubjectRequest(subjectContent))
+        println("[DEBUG_LOG] Created subject: $subjectContent")
 
-        // Register words for the subject
         words.forEach { word ->
             try {
                 wordService.applyWord(ApplyWordRequest(subjectContent, word))
                 println("[DEBUG_LOG] Added word: $word to subject: $subjectContent")
             } catch (e: Exception) {
                 println("[DEBUG_LOG] Failed to add word $word to subject $subjectContent: ${e.message}")
+                throw e
             }
         }
     }
 
     @Test
     fun `simulate liar game with 10 users`() {
-        // 1. Create a game room with the first user
         val firstUser = users[0]
         setCurrentUser(firstUser.nickname)
         
@@ -105,9 +108,8 @@ class LiarGameSimulationTest {
         gameNumber = gameService.createGameRoom(createGameRequest)
         println("[DEBUG_LOG] Created game room: $gameNumber")
 
-        // 2. Make all users join the game
         users.forEachIndexed { index, user ->
-            if (index > 0) { // Skip the first user who created the game
+            if (index > 0) {
                 setCurrentUser(user.nickname)
                 val joinGameRequest = JoinGameRequest(gameNumber)
                 val gameState = gameService.joinGame(joinGameRequest)
@@ -115,40 +117,45 @@ class LiarGameSimulationTest {
             }
         }
 
-        // 3. Start the game
         setCurrentUser(firstUser.nickname)
-        val startGameRequest = StartGameRequest(gameNumber)
+        val startGameRequest = StartGameRequest(
+            gNumber = gameNumber,
+            useRandomSubjects = true,
+            randomSubjectCount = 2
+        )
         var gameState = gameService.startGame(startGameRequest)
-        println("[DEBUG_LOG] Game started")
+        println("[DEBUG_LOG] Game started with random subjects")
 
-        // Store player IDs and roles
         gameState.players.forEach { player ->
             val user = users.find { it.nickname == player.nickname }
             user?.playerId = player.id
-            user?.role = player.role
-            println("[DEBUG_LOG] Player ${player.nickname} has role ${player.role} and ID ${player.id}")
+            println("[DEBUG_LOG] Player ${player.nickname} has ID ${player.id}")
+        }
+        
+        val principal = SecurityContextHolder.getContext().authentication.principal as org.example.kotlin_liargame.tools.security.UserPrincipal
+        val currentUser = users.find { it.nickname == principal.nickname }
+        val yourRole = gameState.yourRole
+        if (currentUser != null && yourRole != null) {
+            currentUser.role = PlayerRole.valueOf(yourRole)
+            println("[DEBUG_LOG] Current user ${currentUser.nickname} has role $yourRole")
         }
 
-        // 4. Play multiple rounds
-        for (round in 1..gameState.game.gTotalRounds) {
+        for (round in 1..gameState.gTotalRounds) {
             println("[DEBUG_LOG] Starting round $round")
             playRound(gameState)
             
-            // Check if game is over
             val currentGameState = gameService.getGameState(gameNumber)
-            if (currentGameState.game.gState.name == "ENDED") {
+            if (currentGameState.gState.name == "ENDED") {
                 println("[DEBUG_LOG] Game ended after round $round")
                 break
             }
         }
 
-        // 5. Get final game result
         val gameResult = gameService.getGameResult(gameNumber)
         println("[DEBUG_LOG] Game result: ${gameResult.winningTeam}")
     }
 
     private fun playRound(initialGameState: GameStateResponse) {
-        // 1. All players give hints
         users.forEach { user ->
             if (user.playerId != null) {
                 setCurrentUser(user.nickname)
@@ -163,7 +170,6 @@ class LiarGameSimulationTest {
             }
         }
 
-        // 2. All players vote for who they think is the liar
         users.forEach { user ->
             if (user.playerId != null) {
                 setCurrentUser(user.nickname)
@@ -180,14 +186,12 @@ class LiarGameSimulationTest {
             }
         }
 
-        // 3. Get the accused player
         val gameState = gameService.getGameState(gameNumber)
-        val accusedPlayer = gameState.players.find { it.state == PlayerState.ACCUSED }
+        val accusedPlayer = gameState.players.find { it.state == PlayerState.ACCUSED.name }
         
         if (accusedPlayer != null) {
             println("[DEBUG_LOG] Player ${accusedPlayer.nickname} was accused")
             
-            // 4. Accused player defends
             val accusedUser = users.find { it.nickname == accusedPlayer.nickname }
             if (accusedUser != null) {
                 setCurrentUser(accusedUser.nickname)
@@ -201,7 +205,6 @@ class LiarGameSimulationTest {
                 }
             }
 
-            // 5. All players vote on whether the accused player survives
             users.forEach { user ->
                 if (user.playerId != null && user.nickname != accusedPlayer.nickname) {
                     setCurrentUser(user.nickname)
@@ -220,29 +223,31 @@ class LiarGameSimulationTest {
                 }
             }
 
-            // 6. If the accused player is a liar and was eliminated, they can guess the word
             val updatedGameState = gameService.getGameState(gameNumber)
             val updatedAccusedPlayer = updatedGameState.players.find { it.id == accusedPlayer.id }
             
             if (updatedAccusedPlayer != null && 
-                updatedAccusedPlayer.state == PlayerState.ELIMINATED && 
-                updatedAccusedPlayer.role == PlayerRole.LIAR) {
+                updatedAccusedPlayer.state == PlayerState.ELIMINATED.name) {
                 
                 setCurrentUser(updatedAccusedPlayer.nickname)
-                val guess = words.random() // Liar makes a random guess
-                val guessWordRequest = GuessWordRequest(gameNumber, guess)
-                try {
-                    val result = gameService.guessWord(guessWordRequest)
-                    println("[DEBUG_LOG] Eliminated liar ${updatedAccusedPlayer.nickname} guessed: $guess")
-                } catch (e: Exception) {
-                    println("[DEBUG_LOG] Failed to guess word for ${updatedAccusedPlayer.nickname}: ${e.message}")
+                val playerState = gameService.getGameState(gameNumber)
+                
+                val playerRole = playerState.yourRole
+                if (playerRole != null && playerRole == PlayerRole.LIAR.name) {
+                    val guess = words.random()
+                    val guessWordRequest = GuessWordRequest(gameNumber, guess)
+                    try {
+                        val result = gameService.guessWord(guessWordRequest)
+                        println("[DEBUG_LOG] Eliminated liar ${updatedAccusedPlayer.nickname} guessed: $guess")
+                    } catch (e: Exception) {
+                        println("[DEBUG_LOG] Failed to guess word for ${updatedAccusedPlayer.nickname}: ${e.message}")
+                    }
                 }
             }
         }
     }
 
     private fun generateHint(user: UserInfo): String {
-        // Citizens give accurate hints, liars give misleading hints
         return when (user.role) {
             PlayerRole.CITIZEN -> {
                 val word = words.random()
@@ -256,7 +261,6 @@ class LiarGameSimulationTest {
     }
 
     private fun selectPlayerToVoteFor(user: UserInfo): UserInfo? {
-        // Citizens try to vote for liars, liars try to vote for citizens
         val potentialTargets = users.filter { 
             it.playerId != null && it.nickname != user.nickname 
         }
@@ -265,11 +269,9 @@ class LiarGameSimulationTest {
         
         return when (user.role) {
             PlayerRole.CITIZEN -> {
-                // Citizens try to identify liars based on suspicious hints
                 potentialTargets.shuffled().firstOrNull()
             }
             PlayerRole.LIAR -> {
-                // Liars try to blend in by voting for other players randomly
                 potentialTargets.shuffled().firstOrNull()
             }
             else -> potentialTargets.random()
@@ -280,16 +282,28 @@ class LiarGameSimulationTest {
         val accusedUser = users.find { it.nickname == accusedNickname }
         
         return when {
-            user.role == PlayerRole.LIAR && accusedUser?.role == PlayerRole.LIAR -> true // Liars protect other liars
-            user.role == PlayerRole.LIAR && accusedUser?.role == PlayerRole.CITIZEN -> false // Liars try to eliminate citizens
-            user.role == PlayerRole.CITIZEN && accusedUser?.role == PlayerRole.LIAR -> false // Citizens try to eliminate liars
-            else -> Random.nextBoolean() // Random decision in other cases
+            user.role == PlayerRole.LIAR && accusedUser?.role == PlayerRole.LIAR -> true
+            user.role == PlayerRole.LIAR && accusedUser?.role == PlayerRole.CITIZEN -> false
+            user.role == PlayerRole.CITIZEN && accusedUser?.role == PlayerRole.LIAR -> false
+            else -> Random.nextBoolean()
         }
     }
 
     private fun setCurrentUser(nickname: String) {
-        // Set the current user in the security context
-        val authentication = UsernamePasswordAuthenticationToken(nickname, null, emptyList())
+        val user = users.find { it.nickname == nickname }
+        if (user == null || user.userId == null) {
+            println("[DEBUG_LOG] Warning: User $nickname not found or has no userId")
+            return
+        }
+        
+        val userPrincipal = org.example.kotlin_liargame.tools.security.UserPrincipal(
+            userId = user.userId!!,
+            nickname = nickname,
+            authorities = emptyList(),
+            providerId = "test"
+        )
+        
+        val authentication = UsernamePasswordAuthenticationToken(userPrincipal, null, emptyList())
         SecurityContextHolder.getContext().authentication = authentication
     }
 }
