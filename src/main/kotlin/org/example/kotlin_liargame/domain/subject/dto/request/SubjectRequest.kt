@@ -7,6 +7,6 @@ data class SubjectRequest(
 ) {
     fun to() = SubjectEntity(
         content = this.content,
-        question = emptyList()
+        word = emptyList()
     )
 }

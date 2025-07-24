@@ -1,12 +1,12 @@
-package org.example.kotlin_liargame.domain.question.model
+package org.example.kotlin_liargame.domain.word.model
 
 import jakarta.persistence.*
 import org.example.kotlin_liargame.domain.subject.model.SubjectEntity
 import org.example.kotlin_liargame.global.base.BaseEntity
 
 @Entity
-@Table(name = "question", uniqueConstraints = [UniqueConstraint(columnNames = ["subject_id", "content"])])
-class QuestionEntity (
+@Table(name = "word", uniqueConstraints = [UniqueConstraint(columnNames = ["subject_id", "content"])])
+class WordEntity (
 
     val content : String,
 
