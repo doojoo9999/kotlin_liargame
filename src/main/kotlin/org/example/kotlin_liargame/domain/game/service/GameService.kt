@@ -547,6 +547,32 @@ class GameService(
         )
     }
 
+    fun getGameState(req: Int): GameStateResponse {
+        val game = gameRepository.findBygNumber(req)
+            ?: throw RuntimeException("Game not found")
+
+        return getGameState(game)
+    }
+
+    fun getGameResult(req: Int): GameResultResponse {
+        val game = gameRepository.findBygNumber(req)
+            ?: throw RuntimeException("Game not found")
+
+        if (game.gState != GameState.ENDED) {
+            throw RuntimeException("Game is not ended")
+        }
+
+        val players = playerRepository.findByGame(game)
+        val liars = players.filter { it.role == PlayerRole.LIAR }
+
+        val liarsWin = liars.any { it.isAlive }
+
+        return GameResultResponse.from(
+            game = game,
+            players = players,
+            winningTeam = if (liarsWin) WinningTeam.LIARS else WinningTeam.CITIZENS
+        )
+    }
 
     private fun getGameState(game: GameEntity): GameStateResponse {
         val players = playerRepository.findByGame(game)
