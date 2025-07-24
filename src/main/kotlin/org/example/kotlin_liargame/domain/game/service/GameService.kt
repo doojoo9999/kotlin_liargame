@@ -353,6 +353,44 @@ class GameService(
         return getGameState(game)
     }
 
+    @Transactional
+    fun defend(req: DefendRequest): GameStateResponse {
+        req.validate()
+
+        val game = gameRepository.findBygNumber(req.gNumber)
+            ?: throw RuntimeException("Game not found")
+
+        if (game.gState != GameState.IN_PROGRESS) {
+            throw RuntimeException("Game is not in progress")
+        }
+
+        val userId = getCurrentUserId()
+        val player = playerRepository.findByGameAndUserId(game, userId)
+            ?: throw RuntimeException("You are not in this game")
+
+        if (!player.isAlive) {
+            throw RuntimeException("You are eliminated from the game")
+        }
+
+        if (player.state != PlayerState.ACCUSED) {
+            throw RuntimeException("You are not accused")
+        }
+
+        player.defend(req.defense)
+        playerRepository.save(player)
+
+        val players = playerRepository.findByGame(game)
+        players.forEach { p ->
+            if (p.isAlive && p.id != player.id) {
+                p.setWaitingForVote()
+                p.votedFor = null
+                playerRepository.save(p)
+            }
+        }
+
+        return getGameState(game)
+    }
+
 
     private fun getGameState(game: GameEntity): GameStateResponse {
         val players = playerRepository.findByGame(game)
