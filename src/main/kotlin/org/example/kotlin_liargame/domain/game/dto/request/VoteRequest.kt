@@ -6,11 +6,11 @@ data class VoteRequest(
 ) {
     fun validate() {
         if (gNumber <= 0) {
-            throw IllegalArgumentException("Game number must be positive")
+            throw IllegalArgumentException("게임 번호는 양수여야 합니다")
         }
         
         if (targetPlayerId <= 0) {
-            throw IllegalArgumentException("Target player ID must be positive")
+            throw IllegalArgumentException("대상 플레이어 ID는 양수여야 합니다")
         }
     }
 }

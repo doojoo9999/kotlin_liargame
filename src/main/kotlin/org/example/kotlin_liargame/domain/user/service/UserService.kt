@@ -16,7 +16,7 @@ class UserService (
         val existingUser = userRepository.findByNickname(req.nickname)
 
         if( existingUser != null ) {
-            throw RuntimeException("User already exists")
+            throw RuntimeException("사용자가 이미 존재합니다")
         }
 
         val newbie = req.to()

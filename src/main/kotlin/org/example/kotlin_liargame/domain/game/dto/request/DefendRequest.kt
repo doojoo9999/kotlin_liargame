@@ -6,15 +6,15 @@ data class DefendRequest(
 ) {
     fun validate() {
         if (gNumber <= 0) {
-            throw IllegalArgumentException("Game number must be positive")
+            throw IllegalArgumentException("게임 번호는 양수여야 합니다")
         }
         
         if (defense.isBlank()) {
-            throw IllegalArgumentException("Defense cannot be empty")
+            throw IllegalArgumentException("변론 내용은 비어 있을 수 없습니다")
         }
         
         if (defense.length > 200) {
-            throw IllegalArgumentException("Defense cannot be longer than 200 characters")
+            throw IllegalArgumentException("변론 내용은 200자를 초과할 수 없습니다")
         }
     }
 }

@@ -6,15 +6,15 @@ data class GiveHintRequest(
 ) {
     fun validate() {
         if (gNumber <= 0) {
-            throw IllegalArgumentException("Game number must be positive")
+            throw IllegalArgumentException("게임 번호는 양수여야 합니다")
         }
         
         if (hint.isBlank()) {
-            throw IllegalArgumentException("Hint cannot be empty")
+            throw IllegalArgumentException("힌트는 비어 있을 수 없습니다")
         }
         
         if (hint.length > 200) {
-            throw IllegalArgumentException("Hint cannot be longer than 200 characters")
+            throw IllegalArgumentException("힌트는 200자를 초과할 수 없습니다")
         }
     }
 }

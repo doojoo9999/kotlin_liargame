@@ -6,15 +6,15 @@ data class GuessWordRequest(
 ) {
     fun validate() {
         if (gNumber <= 0) {
-            throw IllegalArgumentException("Game number must be positive")
+            throw IllegalArgumentException("게임 번호는 양수여야 합니다")
         }
         
         if (guess.isBlank()) {
-            throw IllegalArgumentException("Guess cannot be empty")
+            throw IllegalArgumentException("추측 단어는 비어 있을 수 없습니다")
         }
         
         if (guess.length > 100) {
-            throw IllegalArgumentException("Guess cannot be longer than 100 characters")
+            throw IllegalArgumentException("추측 단어는 100자를 초과할 수 없습니다")
         }
     }
 }

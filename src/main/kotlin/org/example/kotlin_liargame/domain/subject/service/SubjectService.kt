@@ -16,14 +16,14 @@ class SubjectService (
         if (subject == null) {
             subjectRepository.save(subjectRequest.to())
         } else {
-            throw RuntimeException("Subject already exists")
+            throw RuntimeException("주제가 이미 존재합니다")
         }
 
     }
 
     fun deleteSubject(subjectRequest: SubjectRequest) {
         val subject = subjectRepository.findByContent(subjectRequest.content)
-            ?: throw RuntimeException("Subject not found")
+            ?: throw RuntimeException("주제를 찾을 수 없습니다")
         subjectRepository.delete(subject)
     }
 

@@ -15,15 +15,15 @@ data class CreateGameRoomRequest(
 ) {
     fun validate() {
         if (gParticipants < 3 || gParticipants > 15) {
-            throw IllegalArgumentException("Number of participants must be between 3 and 15")
+            throw IllegalArgumentException("참가자 수는 3명에서 15명 사이여야 합니다")
         }
         
         if (gLiarCount < 1 || gLiarCount >= gParticipants) {
-            throw IllegalArgumentException("Number of liars must be between 1 and ${gParticipants - 1}")
+            throw IllegalArgumentException("라이어 수는 1명에서 ${gParticipants - 1}명 사이여야 합니다")
         }
         
         if (gTotalRounds < 1) {
-            throw IllegalArgumentException("Number of rounds must be at least 1")
+            throw IllegalArgumentException("라운드 수는 최소 1회 이상이어야 합니다")
         }
     }
     

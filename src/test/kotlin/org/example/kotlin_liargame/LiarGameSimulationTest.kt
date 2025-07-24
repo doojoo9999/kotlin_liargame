@@ -119,7 +119,6 @@ class LiarGameSimulationTest {
 
         setCurrentUser(firstUser.nickname)
         val startGameRequest = StartGameRequest(
-            gNumber = gameNumber,
             useRandomSubjects = true,
             randomSubjectCount = 2
         )

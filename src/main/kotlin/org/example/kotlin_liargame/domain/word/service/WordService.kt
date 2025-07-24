@@ -20,12 +20,12 @@ class WordService (
     fun applyWord(req: ApplyWordRequest) {
 
         val subject = subjectRepository.findByContent(req.subject)
-            ?: throw IllegalArgumentException("Subject '${req.subject}' not found.")
+            ?: throw IllegalArgumentException("주제 '${req.subject}'를 찾을 수 없습니다.")
 
         val existingWord = wordRepository.findBySubjectAndContent(subject, req.word)
 
         if (existingWord != null) {
-            throw RuntimeException("Word '${req.word}' already exists for Subject '${req.subject}'.")
+            throw RuntimeException("단어 '${req.word}'는 이미 주제 '${req.subject}'에 존재합니다.")
         }
         val newWordEntity = req.to(subject)
         wordRepository.save(newWordEntity)
@@ -35,7 +35,7 @@ class WordService (
     fun removeWord(wordId: Long) {
         val word = wordRepository.findById(wordId)
             .orElseThrow {
-                RuntimeException("Word not found")
+                RuntimeException("단어를 찾을 수 없습니다")
             }
         wordRepository.delete(word)
     }

@@ -31,11 +31,18 @@ class GameService(
     }
 
     private fun findNextAvailableRoomNumber(): Int {
-        var roomNumber = 1
-        while (gameRepository.findBygNumber(roomNumber) != null) {
-            roomNumber++
+        val activeGames = gameRepository.findAllActiveGames()
+        val usedNumbers = activeGames.map { it.gNumber }.toSet()
+        
+        // Find the lowest available number between 1 and 999
+        for (number in 1..999) {
+            if (!usedNumbers.contains(number)) {
+                return number
+            }
         }
-        return roomNumber
+        
+        // If all numbers from 1 to 999 are in use, throw an exception
+        throw RuntimeException("모든 방 번호(1-999)가 사용 중입니다. 나중에 다시 시도해주세요.")
     }
 
     private fun getCurrentUserNickname(): String {
@@ -119,21 +126,17 @@ class GameService(
     fun startGame(req: StartGameRequest): GameStateResponse {
         req.validate()
 
-        val game = gameRepository.findBygNumber(req.gNumber)
-            ?: throw RuntimeException("Game not found")
-
         val nickname = getCurrentUserNickname()
-        if (game.gOwner != nickname) {
-            throw RuntimeException("Only the game owner can start the game")
-        }
+        val game = gameRepository.findBygOwner(nickname)
+            ?: throw RuntimeException("게임을 찾을 수 없습니다. 먼저 게임방을 생성해주세요.")
 
         if (game.gState != GameState.WAITING) {
-            throw RuntimeException("Game is already in progress or ended")
+            throw RuntimeException("게임이 이미 진행 중이거나 종료되었습니다.")
         }
 
         val players = playerRepository.findByGame(game)
         if (!game.canStart(players.size)) {
-            throw RuntimeException("Not enough players to start the game (min 3, max 15)")
+            throw RuntimeException("게임을 시작하기 위한 플레이어가 충분하지 않습니다. (최소 3명, 최대 15명)")
         }
 
         val selectedSubjects = selectSubjects(req)
@@ -142,7 +145,7 @@ class GameService(
 
         game.startGame()
         gameRepository.save(game)
-
+        
         return getGameState(game)
     }
 

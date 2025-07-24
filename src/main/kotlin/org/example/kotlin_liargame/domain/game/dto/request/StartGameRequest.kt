@@ -1,25 +1,20 @@
 package org.example.kotlin_liargame.domain.game.dto.request
 
 data class StartGameRequest(
-    val gNumber: Int,
     val subjectIds: List<Long>? = null,
     val useAllSubjects: Boolean = false,
     val useRandomSubjects: Boolean = false,
     val randomSubjectCount: Int? = null
 ) {
     fun validate() {
-        if (gNumber <= 0) {
-            throw IllegalArgumentException("Game number must be positive")
-        }
-        
         if (subjectIds != null) {
             if (subjectIds.isEmpty()) {
-                throw IllegalArgumentException("Subject IDs list cannot be empty if provided")
+                throw IllegalArgumentException("주제 ID 목록이 제공된 경우 비어 있을 수 없습니다")
             }
             
             subjectIds.forEach { subjectId ->
                 if (subjectId <= 0) {
-                    throw IllegalArgumentException("Subject ID must be positive")
+                    throw IllegalArgumentException("주제 ID는 양수여야 합니다")
                 }
             }
         }
@@ -31,14 +26,14 @@ data class StartGameRequest(
         ).count { it }
         
         if (selectionMethods > 1) {
-            throw IllegalArgumentException("Only one subject selection method can be used at a time")
+            throw IllegalArgumentException("한 번에 하나의 주제 선택 방법만 사용할 수 있습니다")
         }
         
         if (selectionMethods == 0) {
-            throw IllegalArgumentException("At least one subject selection method must be specified")
+            throw IllegalArgumentException("적어도 하나의 주제 선택 방법을 지정해야 합니다")
         }
         if (useRandomSubjects && randomSubjectCount != null && randomSubjectCount <= 0) {
-            throw IllegalArgumentException("Random subject count must be positive")
+            throw IllegalArgumentException("무작위 주제 수는 양수여야 합니다")
         }
     }
 }
