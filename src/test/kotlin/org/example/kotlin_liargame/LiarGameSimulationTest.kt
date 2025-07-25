@@ -42,7 +42,7 @@ class LiarGameSimulationTest {
 
     private val users = mutableListOf<UserInfo>()
     private var gameNumber: Int = 0
-    private var subjectContent = "동물"
+    private var subjectContent = "동물_${System.currentTimeMillis()}"
     private val words = listOf("사자", "호랑이", "코끼리", "기린", "팬더", "원숭이", "고릴라", "하마", "악어", "코알라")
 
     data class UserInfo(
@@ -55,7 +55,7 @@ class LiarGameSimulationTest {
 
     @BeforeEach
     fun setup() {
-        for (i in 1..10) {
+        for (i in 1..12) {
             val nickname = "Player${i}_${Random.nextInt(1000, 9999)}"
             val profileImgUrl = "https://example.com/profile${i}.jpg"
             users.add(UserInfo(nickname, profileImgUrl))
@@ -75,23 +75,15 @@ class LiarGameSimulationTest {
         }
 
         val existingSubjects = subjectService.findAll().filter { it.content == subjectContent }
-        if (existingSubjects.isNotEmpty()) {
-            println("[DEBUG_LOG] Subject '$subjectContent' already exists, deleting it")
-            existingSubjects.forEach { subject ->
-                try {
-                    subjectService.deleteSubject(SubjectRequest(subjectContent))
-                    println("[DEBUG_LOG] Deleted existing subject: $subjectContent")
-                } catch (e: Exception) {
-                    println("[DEBUG_LOG] Failed to delete subject $subjectContent: ${e.message}")
-                }
+        if (existingSubjects.isEmpty()) {
+            try {
+                subjectService.applySubject(SubjectRequest(subjectContent))
+                println("[DEBUG_LOG] Created subject: $subjectContent")
+            } catch (e: Exception) {
+                println("[DEBUG_LOG] Failed to create subject $subjectContent: ${e.message}")
             }
-        }
-
-        try {
-            val savedSubject = subjectService.applySubject(SubjectRequest(subjectContent))
-            println("[DEBUG_LOG] Created subject: $subjectContent")
-        } catch (e: Exception) {
-            println("[DEBUG_LOG] Failed to create subject $subjectContent: ${e.message}")
+        } else {
+            println("[DEBUG_LOG] Subject '$subjectContent' already exists, using it")
         }
 
         words.forEach { word ->
@@ -112,29 +104,18 @@ class LiarGameSimulationTest {
 
     @Test
     fun `test subject and word creation`() {
-        // Check if the subject already exists
         val existingSubjects = subjectService.findAll().filter { it.content == subjectContent }
-        if (existingSubjects.isNotEmpty()) {
-            println("[DEBUG_LOG] Subject '$subjectContent' already exists, deleting it")
-            existingSubjects.forEach { subject ->
-                try {
-                    subjectService.deleteSubject(SubjectRequest(subjectContent))
-                    println("[DEBUG_LOG] Deleted existing subject: $subjectContent")
-                } catch (e: Exception) {
-                    println("[DEBUG_LOG] Failed to delete subject $subjectContent: ${e.message}")
-                }
+        if (existingSubjects.isEmpty()) {
+            try {
+                subjectService.applySubject(SubjectRequest(subjectContent))
+                println("[DEBUG_LOG] Created subject: $subjectContent")
+            } catch (e: Exception) {
+                println("[DEBUG_LOG] Failed to create subject $subjectContent: ${e.message}")
             }
+        } else {
+            println("[DEBUG_LOG] Subject '$subjectContent' already exists, using it")
         }
 
-        // Create a new subject
-        try {
-            val savedSubject = subjectService.applySubject(SubjectRequest(subjectContent))
-            println("[DEBUG_LOG] Created subject: $subjectContent")
-        } catch (e: Exception) {
-            println("[DEBUG_LOG] Failed to create subject $subjectContent: ${e.message}")
-        }
-
-        // Add words to the subject
         words.forEach { word ->
             try {
                 wordService.applyWord(ApplyWordRequest(subjectContent, word))
@@ -144,18 +125,15 @@ class LiarGameSimulationTest {
             }
         }
 
-        // Verify that the subject has at least 2 words
         val subjectWords = wordService.findAll().filter { it.subjectContent == subjectContent }
         println("[DEBUG_LOG] Subject '$subjectContent' has ${subjectWords.size} words")
         if (subjectWords.size < 2) {
             throw RuntimeException("Subject '$subjectContent' must have at least 2 words for the test to run")
         }
 
-        // Print diagnostic information about subjects
         val allSubjects = subjectService.findAll()
         println("[DEBUG_LOG] Available subjects: ${allSubjects.size}")
-        
-        // Find the subject we created
+
         val ourSubject = allSubjects.find { it.content == subjectContent }
         if (ourSubject == null) {
             throw RuntimeException("Subject '$subjectContent' not found")
@@ -167,23 +145,19 @@ class LiarGameSimulationTest {
         ourWords.forEach { word ->
             println("[DEBUG_LOG] - ${word.content}")
         }
-        
-        // Make sure our subject has at least 2 words
+
         if (ourWords.size < 2) {
             throw RuntimeException("Subject '$subjectContent' must have at least 2 words for the test to run")
         }
-        
-        // Verify that our solution works by checking that subjects and words are properly created and retrieved
+
         println("[DEBUG_LOG] Test passed: Subject and word creation works correctly")
         println("[DEBUG_LOG] Subject '${ourSubject.content}' has ${ourWords.size} words")
         println("[DEBUG_LOG] This confirms that the database is working correctly for tests")
-        
-        // The GameService.createTestSubjects() method will be used as a fallback if no subjects are found
-        // This ensures that tests will pass even if the database is not properly set up
+
     }
 
     @Test
-    fun `simulate liar game with 10 users`() {
+    fun `simulate liar game with 12 users`() {
         val firstUser = users[0]
         setCurrentUser(firstUser.nickname)
         
@@ -191,7 +165,7 @@ class LiarGameSimulationTest {
             nickname = firstUser.nickname,
             gName = "Test Game",
             gPassword = null,
-            gParticipants = 10,
+            gParticipants = 12,
             gTotalRounds = 3,
             gLiarCount = 2,
             gGameMode = GameMode.LIARS_KNOW
@@ -282,12 +256,12 @@ class LiarGameSimulationTest {
             val currentGameState = gameService.getGameState(gameNumber)
             if (currentGameState.gState.name == "ENDED") {
                 println("[DEBUG_LOG] Game ended after round $round")
+                val gameResult = gameService.getGameResult(gameNumber)
+                println("[DEBUG_LOG] Game result: ${gameResult.winningTeam}")
                 break
             }
         }
 
-        val gameResult = gameService.getGameResult(gameNumber)
-        println("[DEBUG_LOG] Game result: ${gameResult.winningTeam}")
     }
 
     private fun playRound(initialGameState: GameStateResponse) {
