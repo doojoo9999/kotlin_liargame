@@ -683,29 +683,24 @@ class GameService(
     }
 
     /**
-     * Creates test subjects with words for testing purposes.
-     * This is used as a fallback when no subjects with at least 2 words are available in the database.
+    테스트용 function
      */
     private fun createTestSubjects(): List<SubjectEntity> {
         println("[DEBUG] Creating test subjects for testing")
         
-        // Create animal subject with words
         val animalSubject = SubjectEntity(
             content = "동물",
             word = emptyList()
         )
-        
-        // Create fruit subject with words
+
         val fruitSubject = SubjectEntity(
             content = "과일",
             word = emptyList()
         )
-        
-        // Save subjects to database
+
         val savedAnimalSubject = subjectRepository.save(animalSubject)
         val savedFruitSubject = subjectRepository.save(fruitSubject)
-        
-        // Create and save animal words
+
         val animalWords = listOf("사자", "호랑이", "코끼리", "기린")
         animalWords.forEach { wordContent ->
             val word = org.example.kotlin_liargame.domain.word.model.WordEntity(
@@ -714,8 +709,7 @@ class GameService(
             )
             wordRepository.save(word)
         }
-        
-        // Create and save fruit words
+
         val fruitWords = listOf("사과", "바나나", "오렌지", "포도")
         fruitWords.forEach { wordContent ->
             val word = org.example.kotlin_liargame.domain.word.model.WordEntity(
@@ -724,8 +718,7 @@ class GameService(
             )
             wordRepository.save(word)
         }
-        
-        // Reload subjects with words
+
         val subjects = subjectRepository.findAll().toList()
         println("[DEBUG] Created test subjects: ${subjects.size}")
         subjects.forEach { subject ->
