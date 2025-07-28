@@ -106,7 +106,7 @@ class ChatService(
                 chatMessageRepository.findByGameAndType(game, req.type)
             }
             req.round != null -> {
-                chatMessageRepository.findByGameAndGameGCurrentRound(game, req.round)
+                chatMessageRepository.findByGameAndgCurrentRound(game, req.round)
             }
             else -> {
                 chatMessageRepository.findByGame(game)
