@@ -23,7 +23,8 @@ class GameService(
     private val playerRepository: PlayerRepository,
     private val userRepository: UserRepository,
     private val subjectRepository: SubjectRepository,
-    private val wordRepository: WordRepository
+    private val wordRepository: WordRepository,
+    private val chatService: org.example.kotlin_liargame.domain.chat.service.ChatService
 ) {
 
     private fun validateExistingOwner(ownerName: String) {
@@ -648,14 +649,61 @@ class GameService(
             winningTeam = if (liarsWin) WinningTeam.LIARS else WinningTeam.CITIZENS
         )
     }
+    
+    @Transactional
+    fun endOfRound(req: EndOfRoundRequest): GameStateResponse {
+        val game = gameRepository.findBygNumber(req.gNumber)
+            ?: throw RuntimeException("Game not found")
+            
+        if (game.gState != GameState.IN_PROGRESS) {
+            throw RuntimeException("Game is not in progress")
+        }
+        
+        // Verify that the request is coming from the game owner
+        if (game.gOwner != req.gOwner) {
+            throw RuntimeException("Only the game owner can end the round")
+        }
+        
+        // Verify that the round number matches
+        if (game.gCurrentRound != req.gRound) {
+            throw RuntimeException("Round number mismatch")
+        }
+        
+        // If the game is over, end it
+        if (req.gIsGameOver) {
+            game.endGame()
+            gameRepository.save(game)
+        }
+        
+        // Start the post-round chat window
+        chatService.startPostRoundChat(req.gNumber)
+        
+        // Return the current game state
+        return getGameState(game)
+    }
 
     private fun getGameState(game: GameEntity): GameStateResponse {
         val players = playerRepository.findByGame(game)
         val currentUserId = getCurrentUserId()
         val currentPhase = determineGamePhase(game, players)
         val accusedPlayer = findAccusedPlayer(players)
+        
+        // Check if chat is available for the current player
+        val currentPlayer = players.find { it.userId == currentUserId }
+        val isChatAvailable = if (currentPlayer != null) {
+            chatService.isChatAvailable(game, currentPlayer)
+        } else {
+            false
+        }
 
-        return GameStateResponse.from(game, players, currentUserId, currentPhase, accusedPlayer)
+        return GameStateResponse.from(
+            game = game, 
+            players = players, 
+            currentUserId = currentUserId, 
+            currentPhase = currentPhase, 
+            accusedPlayer = accusedPlayer,
+            isChatAvailable = isChatAvailable
+        )
     }
 
     private fun determineGamePhase(game: GameEntity, players: List<PlayerEntity>): GamePhase {

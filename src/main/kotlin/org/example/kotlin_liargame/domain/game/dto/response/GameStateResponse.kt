@@ -20,7 +20,8 @@ data class GameStateResponse(
     val currentPhase: GamePhase,
     val yourRole: String? = null,
     val yourWord: String? = null,
-    val accusedPlayer: PlayerResponse? = null
+    val accusedPlayer: PlayerResponse? = null,
+    val isChatAvailable: Boolean = false
 ) {
     companion object {
         fun from(
@@ -28,7 +29,8 @@ data class GameStateResponse(
             players: List<PlayerEntity>,
             currentUserId: Long?,
             currentPhase: GamePhase,
-            accusedPlayer: PlayerEntity? = null
+            accusedPlayer: PlayerEntity? = null,
+            isChatAvailable: Boolean = false
         ): GameStateResponse {
             val currentPlayer = players.find { it.userId == currentUserId }
             
@@ -46,7 +48,8 @@ data class GameStateResponse(
                 currentPhase = currentPhase,
                 yourRole = currentPlayer?.role?.name,
                 yourWord = currentPlayer?.subject?.content,
-                accusedPlayer = accusedPlayer?.let { PlayerResponse.from(it) }
+                accusedPlayer = accusedPlayer?.let { PlayerResponse.from(it) },
+                isChatAvailable = isChatAvailable
             )
         }
     }
