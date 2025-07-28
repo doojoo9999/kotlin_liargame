@@ -49,33 +49,42 @@ class ChatService(
         val game = gameRepository.findBygNumber(req.gNumber)
             ?: throw RuntimeException("Game not found")
             
-        if (game.gState != GameState.IN_PROGRESS) {
-            throw RuntimeException("Game is not in progress")
-        }
-        
         val userId = getCurrentUserId()
         val player = playerRepository.findByGameAndUserId(game, userId)
             ?: throw RuntimeException("You are not in this game")
+
+        if (game.gState == GameState.IN_PROGRESS) {
+            if (!player.isAlive) {
+                throw RuntimeException("You are eliminated from the game")
+            }
             
-        if (!player.isAlive) {
-            throw RuntimeException("You are eliminated from the game")
+            val messageType = determineMessageType(game, player)
+            
+            if (messageType == null) {
+                throw RuntimeException("Chat is not available at this time")
+            }
+            
+            val chatMessage = ChatMessageEntity(
+                game = game,
+                player = player,
+                content = req.content,
+                type = messageType
+            )
+            
+            val savedMessage = chatMessageRepository.save(chatMessage)
+            return ChatMessageResponse.from(savedMessage)
         }
-        
-        val messageType = determineMessageType(game, player)
-        
-        if (messageType == null) {
-            throw RuntimeException("Chat is not available at this time")
+        else {
+            val chatMessage = ChatMessageEntity(
+                game = game,
+                player = player,
+                content = req.content,
+                type = ChatMessageType.POST_ROUND
+            )
+            
+            val savedMessage = chatMessageRepository.save(chatMessage)
+            return ChatMessageResponse.from(savedMessage)
         }
-        
-        val chatMessage = ChatMessageEntity(
-            game = game,
-            player = player,
-            content = req.content,
-            type = messageType
-        )
-        
-        val savedMessage = chatMessageRepository.save(chatMessage)
-        return ChatMessageResponse.from(savedMessage)
     }
     
     @Transactional(readOnly = true)
