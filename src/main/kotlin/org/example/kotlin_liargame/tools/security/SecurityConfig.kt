@@ -18,6 +18,15 @@ class SecurityConfig(
     private val jwtAuthenticationFilter: JwtAuthenticationFilter
 ) {
 
+    private val allowedUris = arrayOf(
+        "/api/v1/auth/**",
+        "/swagger-ui/**",
+        "/swagger-resources/**",
+        "/api/v1/**",
+        "/v3/api-docs/**",
+        "/error"
+    )
+
     @Bean
     fun filterChain(http: HttpSecurity): SecurityFilterChain {
         return http
@@ -38,11 +47,7 @@ class SecurityConfig(
             .headers { headers -> headers.frameOptions { frameOptions -> frameOptions.sameOrigin() } }
             .authorizeHttpRequests { auth ->
                 auth.requestMatchers(
-                    "/api/v1/auth/**",
-                    "/swagger-ui/**",
-                    "/swagger-resources/**",
-                    "/api/v1/**",
-                    "/v3/api-docs/**"
+                    *allowedUris
                 ).permitAll()
                     .anyRequest().authenticated()
             }
