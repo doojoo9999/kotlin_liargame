@@ -24,7 +24,8 @@ class SecurityConfig(
         "/swagger-resources/**",
         "/api/v1/**",
         "/v3/api-docs/**",
-        "/error"
+        "/error",
+        "/h2-console"
     )
 
     @Bean
