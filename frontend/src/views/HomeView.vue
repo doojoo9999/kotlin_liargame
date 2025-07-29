@@ -28,7 +28,7 @@ const login = async () => {
   
   try {
     await userStore.login(nickname.value.trim())
-    showLoginForm.value = false
+    router.push('/lobby')
     errorMessage.value = ''
   } catch (error) {
     errorMessage.value = error.message || '로그인에 실패했습니다'
@@ -60,7 +60,7 @@ const joinGame = () => {
   }
   
   router.push({
-    name: 'lobby',
+    name: 'game-lobby',
     params: { gameNumber: gameNumber.value.trim() },
     query: gamePassword.value ? { password: gamePassword.value } : {}
   })
