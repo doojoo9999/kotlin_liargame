@@ -9,7 +9,6 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.stereotype.Component
 import org.springframework.web.filter.OncePerRequestFilter
-import java.time.LocalDateTime
 
 @Component
 class JwtAuthenticationFilter(
@@ -34,12 +33,11 @@ class JwtAuthenticationFilter(
                     val userId = claims.subject
                     val nickname = claims.get("nickname", String::class.java)
 
-                    val tokenExists = userTokenRepository.existsByTokenAndExpiresAtAfter(token, LocalDateTime.now())
-                    if (tokenExists) {
-                        val authentication = UsernamePasswordAuthenticationToken(userId, "", listOf())
-                        SecurityContextHolder.getContext().authentication = authentication
-                        jwtLogger.debug("JWT Authentication Success: userId=${userId}, nickname=${nickname}")
-                    } else {
+                    val authentication = UsernamePasswordAuthenticationToken(userId, "", listOf())
+                    SecurityContextHolder.getContext().authentication = authentication
+                    jwtLogger.debug("JWT Authentication Success: userId=${userId}, nickname=${nickname}")
+                    
+                    if (!jwtProvider.isTokenInDatabase(token)) {
                         jwtLogger.warn("JWT Token not found in database or expired: userId=${userId}, nickname=${nickname}")
                     }
                 } else {
