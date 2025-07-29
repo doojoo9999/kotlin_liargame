@@ -11,7 +11,10 @@ data class CreateGameRoomRequest(
     val gParticipants: Int = 5,
     val gTotalRounds: Int = 3,
     val gLiarCount: Int = 1,
-    val gGameMode: GameMode = GameMode.LIARS_KNOW
+    val gGameMode: GameMode = GameMode.LIARS_KNOW,
+    val subjectIds: List<Long>? = null,
+    val useRandomSubjects: Boolean = true,
+    val randomSubjectCount: Int? = 1
 ) {
     fun validate() {
         if (gParticipants < 3 || gParticipants > 15) {
