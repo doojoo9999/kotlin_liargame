@@ -1,5 +1,5 @@
 ﻿<script setup>
-import {computed, onBeforeUnmount, onMounted, ref, watch} from 'vue'
+import {computed, nextTick, onBeforeUnmount, onMounted, ref, watch} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 import {useGameStore} from '../stores/gameStore'
 import {useUserStore} from '../stores/userStore'
@@ -86,6 +86,16 @@ const formatTime = (seconds) => {
   const mins = Math.floor(seconds / 60)
   const secs = seconds % 60
   return `${mins}:${secs < 10 ? '0' : ''}${secs}`
+}
+
+const formatMessageTime = (timestamp) => {
+  if (!timestamp) return ''
+  
+  const date = new Date(timestamp)
+  const hours = date.getHours().toString().padStart(2, '0')
+  const minutes = date.getMinutes().toString().padStart(2, '0')
+  
+  return `${hours}:${minutes}`
 }
 
 // Methods
@@ -234,15 +244,24 @@ const endRound = async () => {
   }
 }
 
-const leaveGame = () => {
-  // Clear game state
-  gameStore.resetGameState()
-  
-  // Disconnect chat socket
-  chatStore.disconnectSocket()
-  
-  // Navigate back to home
-  router.push('/')
+const leaveGame = async () => {
+  try {
+    // Call the leaveGame action in gameStore
+    await gameStore.leaveGame(gameNumber)
+    
+    // Disconnect chat socket
+    chatStore.disconnectSocket()
+    
+    // Navigate back to main lobby and force a refresh
+    router.push({ path: '/lobby', query: { _: Date.now() } })
+  } catch (error) {
+    console.error('Failed to leave game:', error)
+    
+    // Even if the API call fails, we should still reset the state and redirect
+    gameStore.resetGameState()
+    chatStore.disconnectSocket()
+    router.push({ path: '/lobby', query: { _: Date.now() } })
+  }
 }
 
 // Lifecycle hooks
@@ -297,12 +316,41 @@ watch(() => gameStore.gameState, () => {
   updateGamePhase()
   startTimer()
 }, { deep: true })
+
+// Watch for changes in chat messages to auto-scroll
+const chatMessagesContainer = ref(null)
+watch(() => chatStore.messages, () => {
+  nextTick(() => {
+    if (chatMessagesContainer.value) {
+      chatMessagesContainer.value.scrollTop = chatMessagesContainer.value.scrollHeight
+    }
+  })
+}, { deep: true })
 </script>
 
 <template>
   <div class="game">
     <h1>라이어 게임</h1>
     <h2>게임 번호: {{ gameNumber }} | 라운드: {{ gameStore.currentRound }}/{{ gameStore.gameState?.roundCount }}</h2>
+    
+    <div v-if="gameStore.gameState" class="game-summary">
+      <div class="summary-item">
+        <span class="label">상태:</span>
+        <span class="value">{{ gameStore.gameState.status === 'STARTED' ? '시작됨' : '대기 중' }}</span>
+      </div>
+      <div class="summary-item">
+        <span class="label">최대 인원:</span>
+        <span class="value">{{ gameStore.gameState.playerCount }}명</span>
+      </div>
+      <div class="summary-item">
+        <span class="label">제한 시간:</span>
+        <span class="value">{{ gameStore.gameState.timeLimit }}초</span>
+      </div>
+      <div class="summary-item">
+        <span class="label">라운드 수:</span>
+        <span class="value">{{ gameStore.gameState.roundCount }}</span>
+      </div>
+    </div>
     
     <div v-if="loading" class="loading">
       로딩 중...
@@ -312,6 +360,14 @@ watch(() => gameStore.gameState, () => {
       <p class="error">{{ errorMessage }}</p>
       <button class="btn secondary" @click="leaveGame">
         홈으로 돌아가기
+      </button>
+    </div>
+    
+    <div v-else-if="gameStore.gameState && gameStore.gameState.status !== 'STARTED'" class="not-started">
+      <h3>게임이 아직 시작되지 않았습니다</h3>
+      <p>게임 로비로 돌아가서 게임을 시작해주세요.</p>
+      <button class="btn primary" @click="router.push(`/lobby/${gameNumber}`)">
+        로비로 돌아가기
       </button>
     </div>
     
@@ -327,12 +383,82 @@ watch(() => gameStore.gameState, () => {
         
         <div class="subject-info">
           <h3>주제: {{ gameStore.subject }}</h3>
-          <p v-if="isLiar" class="liar-info">
-            당신은 라이어입니다! 다른 플레이어들의 힌트를 듣고 단어를 추측하세요.
-          </p>
-          <p v-else class="word-info">
-            단어: <strong>{{ gameStore.word }}</strong>
-          </p>
+          
+          <!-- Liar information -->
+          <div v-if="isLiar" class="liar-info">
+            <p class="liar-badge">당신은 라이어입니다!</p>
+            
+            <div v-if="gameStore.gameMode === 'LIARS_DIFFERENT_WORD'" class="liar-different-word">
+              <p>당신에게는 다른 주제가 주어졌습니다. 다른 플레이어들이 어떤 주제에 대해 이야기하는지 파악하세요.</p>
+              <p>당신의 주제: <strong>{{ gameStore.subject }}</strong></p>
+            </div>
+            
+            <div v-else class="liar-same-word">
+              <p>다른 플레이어들의 힌트를 듣고 단어를 추측하세요.</p>
+              <p>주제는 알려드리지만, 정확한 단어는 모릅니다.</p>
+            </div>
+          </div>
+          
+          <!-- Citizen information -->
+          <div v-else class="word-info">
+            <p>당신은 시민입니다.</p>
+            <p>단어: <strong>{{ gameStore.word }}</strong></p>
+            <p>라이어가 누구인지 찾아내세요!</p>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Game instructions section -->
+      <div class="game-instructions">
+        <h3>게임 진행 안내</h3>
+        <div class="instructions-content">
+          <div class="instruction-step">
+            <div class="step-number">1</div>
+            <div class="step-content">
+              <h4>힌트 단계</h4>
+              <p>모든 플레이어는 주어진 단어에 대한 힌트를 제공합니다. 라이어는 단어를 모르지만 다른 플레이어의 힌트를 듣고 추측해야 합니다.</p>
+            </div>
+          </div>
+          
+          <div class="instruction-step">
+            <div class="step-number">2</div>
+            <div class="step-content">
+              <h4>토론 단계</h4>
+              <p>모든 플레이어가 힌트를 제공한 후, 누가 라이어인지 토론합니다. 채팅을 통해 의견을 나눌 수 있습니다.</p>
+            </div>
+          </div>
+          
+          <div class="instruction-step">
+            <div class="step-number">3</div>
+            <div class="step-content">
+              <h4>투표 단계</h4>
+              <p>토론이 끝나면 라이어라고 생각하는 플레이어에게 투표합니다.</p>
+            </div>
+          </div>
+          
+          <div class="instruction-step">
+            <div class="step-number">4</div>
+            <div class="step-content">
+              <h4>변론 단계</h4>
+              <p>가장 많은 표를 받은 플레이어는 자신이 라이어가 아님을 변론할 기회를 갖습니다.</p>
+            </div>
+          </div>
+          
+          <div class="instruction-step">
+            <div class="step-number">5</div>
+            <div class="step-content">
+              <h4>생존 투표 단계</h4>
+              <p>변론 후 다시 투표를 진행하여 해당 플레이어의 생존 여부를 결정합니다.</p>
+            </div>
+          </div>
+          
+          <div class="instruction-step">
+            <div class="step-number">6</div>
+            <div class="step-content">
+              <h4>단어 맞추기 단계</h4>
+              <p>라이어가 지목되면 라이어는 단어를 맞출 기회를 갖습니다. 맞추면 라이어 승리, 틀리면 시민 승리입니다.</p>
+            </div>
+          </div>
         </div>
       </div>
       
@@ -362,15 +488,23 @@ watch(() => gameStore.gameState, () => {
       <!-- Chat section -->
       <div class="chat-section">
         <h3>채팅</h3>
-        <div class="chat-messages">
+        <div ref="chatMessagesContainer" class="chat-messages">
+          <div v-if="chatStore.messages.length === 0" class="no-messages">
+            아직 메시지가 없습니다. 첫 메시지를 보내보세요!
+          </div>
           <div 
             v-for="(message, index) in chatStore.messages" 
             :key="index"
-            :class="{ 'hint-message': message.type === 'HINT', 'defense-message': message.type === 'DEFENSE' }"
+            :class="{ 
+              'hint-message': message.type === 'HINT', 
+              'defense-message': message.type === 'DEFENSE',
+              'system-message': message.type === 'SYSTEM'
+            }"
             class="chat-message"
           >
             <span class="message-sender">{{ message.senderName }}:</span>
             <span class="message-content">{{ message.content }}</span>
+            <span class="message-time">{{ formatMessageTime(message.timestamp) }}</span>
           </div>
         </div>
         
@@ -561,11 +695,37 @@ h3 {
 
 .liar-info {
   color: #f44336;
+  padding: 1rem;
+  border-radius: 8px;
+  background-color: rgba(244, 67, 54, 0.1);
+  border: 1px solid #f44336;
+}
+
+.liar-badge {
   font-weight: bold;
+  font-size: 1.2rem;
+  margin-bottom: 0.5rem;
+  padding: 0.5rem;
+  background-color: #f44336;
+  color: white;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+.liar-different-word, .liar-same-word {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  border-radius: 4px;
+  background-color: rgba(255, 255, 255, 0.7);
 }
 
 .word-info {
   font-size: 1.1rem;
+  padding: 1rem;
+  border-radius: 8px;
+  background-color: rgba(76, 175, 80, 0.1);
+  border: 1px solid #4caf50;
+  color: #2e7d32;
 }
 
 .players-section {
@@ -688,9 +848,32 @@ h3 {
   margin-right: 0.5rem;
 }
 
+.message-content {
+  flex: 1;
+}
+
+.message-time {
+  font-size: 0.8rem;
+  color: #999;
+  margin-left: 0.5rem;
+}
+
+.no-messages {
+  text-align: center;
+  color: #999;
+  padding: 2rem;
+  font-style: italic;
+}
+
+.system-message {
+  background-color: rgba(158, 158, 158, 0.1);
+  font-style: italic;
+}
+
 .chat-input {
   display: flex;
   gap: 0.5rem;
+  margin-top: 1rem;
 }
 
 .chat-input input {
@@ -764,6 +947,109 @@ h3 {
 .error {
   color: #f44336;
   margin-bottom: 1rem;
+}
+
+.game-summary {
+  display: flex;
+  justify-content: space-around;
+  flex-wrap: wrap;
+  background-color: #f5f5f5;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.summary-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.5rem 1rem;
+}
+
+.summary-item .label {
+  font-size: 0.9rem;
+  color: #666;
+  margin-bottom: 0.25rem;
+}
+
+.summary-item .value {
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: #333;
+}
+
+.not-started {
+  text-align: center;
+  margin: 2rem 0;
+  padding: 2rem;
+  background-color: #f5f5f5;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.not-started h3 {
+  margin-bottom: 1rem;
+  color: #f44336;
+}
+
+.not-started p {
+  margin-bottom: 1.5rem;
+}
+
+.game-instructions {
+  grid-column: 1 / span 2;
+  background-color: #f5f5f5;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.instructions-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.instruction-step {
+  display: flex;
+  align-items: flex-start;
+  background-color: white;
+  border-radius: 8px;
+  padding: 1rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.step-number {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 2rem;
+  height: 2rem;
+  background-color: #4caf50;
+  color: white;
+  border-radius: 50%;
+  font-weight: bold;
+  margin-right: 1rem;
+  flex-shrink: 0;
+}
+
+.step-content {
+  flex: 1;
+}
+
+.step-content h4 {
+  margin: 0 0 0.5rem 0;
+  color: #333;
+  font-size: 1.1rem;
+}
+
+.step-content p {
+  margin: 0;
+  color: #666;
+  font-size: 0.95rem;
+  line-height: 1.4;
 }
 
 @media (max-width: 768px) {
