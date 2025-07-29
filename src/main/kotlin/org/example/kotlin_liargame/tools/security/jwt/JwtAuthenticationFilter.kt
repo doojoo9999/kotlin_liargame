@@ -22,15 +22,16 @@ class JwtAuthenticationFilter(
         filterChain: FilterChain
     ) {
         val token = resolveToken(request)
-        jwtLogger.debug("JWT 토큰 확인: ${if (token != null) "토큰 존재" else "토큰 없음"}")
+        jwtLogger.debug("JWT Token Check: ${if (token != null) "Token exists" else "Token missing"}")
 
 
         if (token != null && jwtProvider.validateToken(token)) {
             val claims = jwtProvider.getClaims(token)
-            val authentication = UsernamePasswordAuthenticationToken(claims.subject, "", listOf())
+            val userId = claims.subject
+            val nickname = claims.get("nickname", String::class.java)
+            val authentication = UsernamePasswordAuthenticationToken(userId, "", listOf())
             SecurityContextHolder.getContext().authentication = authentication
-            jwtLogger.debug("JWT 인증 성공: subject=${claims.subject}")
-
+            jwtLogger.debug("JWT Authentication Success: userId=${userId}, nickname=${nickname}")
         }
 
         filterChain.doFilter(request, response)
