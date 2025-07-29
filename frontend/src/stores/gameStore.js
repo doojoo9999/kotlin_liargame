@@ -16,16 +16,17 @@ export const useGameStore = defineStore('game', {
   }),
   
   actions: {
-    async createGame(playerCount, timeLimit, roundCount, password = null) {
+    async createGame(gameName, playerCount, timeLimit, roundCount, password = null) {
       this.loading = true
       this.error = null
       
       try {
         const response = await axios.post('/api/v1/game/create', {
-          playerCount,
-          timeLimit,
-          roundCount,
-          password
+          gName: gameName,
+          gParticipants: playerCount,
+          gTotalRounds: roundCount,
+          gPassword: password,
+          gTimeLimit: timeLimit
         })
         
         this.gameNumber = response.data
