@@ -5,6 +5,7 @@ export const useUserStore = defineStore('user', {
   state: () => ({
     userId: null,
     nickname: '',
+    token: null,
     isAuthenticated: false,
     loading: false,
     error: null
@@ -17,14 +18,20 @@ export const useUserStore = defineStore('user', {
       
       try {
         const response = await axios.post('/api/v1/auth/login', { nickname })
+
+        const token = response.data.accessToken
+        if (!token) {
+          throw new Error('No token received from server')
+        }
         
-        this.userId = response.data.userId
+        this.userId = response.data.userId || 'unknown'
         this.nickname = nickname
+        this.token = token
         this.isAuthenticated = true
         
-        // Store user info in localStorage for persistence
         localStorage.setItem('userId', this.userId)
         localStorage.setItem('nickname', this.nickname)
+        localStorage.setItem('token', token)
         
         return response.data
       } catch (error) {
@@ -38,26 +45,32 @@ export const useUserStore = defineStore('user', {
     logout() {
       this.userId = null
       this.nickname = ''
+      this.token = null
       this.isAuthenticated = false
-      
-      // Clear localStorage
+
       localStorage.removeItem('userId')
       localStorage.removeItem('nickname')
+      localStorage.removeItem('token')
     },
-    
-    // Check if user is already logged in from localStorage
+
     checkAuth() {
       const userId = localStorage.getItem('userId')
       const nickname = localStorage.getItem('nickname')
+      const token = localStorage.getItem('token')
       
-      if (userId && nickname) {
+      if (userId && nickname && token) {
         this.userId = userId
         this.nickname = nickname
+        this.token = token
         this.isAuthenticated = true
         return true
       }
       
       return false
+    },
+
+    getToken() {
+      return this.token || localStorage.getItem('token')
     }
   }
 })
