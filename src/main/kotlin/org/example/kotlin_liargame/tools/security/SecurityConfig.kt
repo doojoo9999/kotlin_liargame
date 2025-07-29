@@ -26,7 +26,13 @@ class SecurityConfig(
             .headers { it.frameOptions { options -> options.sameOrigin() } }
             .headers { headers -> headers.frameOptions { frameOptions -> frameOptions.sameOrigin() } }
             .authorizeHttpRequests { auth ->
-                auth.requestMatchers("/api/v1/auth/**").permitAll()
+                auth.requestMatchers(
+                    "/api/v1/auth/**",
+                    "/swagger-ui/**",
+                    "/swagger-resources/**",
+                    "/api/v1/**",
+                    "/v3/api-docs/**"
+                ).permitAll()
                     .anyRequest().authenticated()
             }
             .sessionManagement {
