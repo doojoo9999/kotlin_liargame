@@ -10,6 +10,7 @@ export const useGameStore = defineStore('game', {
     subject: '',
     word: '',
     isLiar: false,
+    gameMode: null,
     gameResult: null,
     loading: false,
     error: null,
@@ -66,6 +67,30 @@ export const useGameStore = defineStore('game', {
         return response.data
       } catch (error) {
         this.error = error.response?.data?.message || 'Failed to join game'
+        throw error
+      } finally {
+        this.loading = false
+      }
+    },
+    
+    async leaveGame(gameNumber) {
+      this.loading = true
+      this.error = null
+      
+      try {
+        const response = await axios.post('/api/v1/game/leave', {
+          gNumber: gameNumber
+        })
+        
+        this.resetGameState()
+        
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('refresh-game-rooms'))
+        }, 500)
+        
+        return response.data
+      } catch (error) {
+        this.error = error.response?.data?.message || 'Failed to leave game'
         throw error
       } finally {
         this.loading = false
@@ -209,8 +234,21 @@ export const useGameStore = defineStore('game', {
         
         this.gameState = response.data
         this.players = response.data.players || []
-        this.currentRound = response.data.currentRound || 0
-        this.subject = response.data.subject || ''
+        this.currentRound = response.data.gCurrentRound || 0
+        this.gameMode = response.data.gGameMode || null
+        
+        // Update player-specific information
+        if (response.data.yourRole) {
+          this.isLiar = response.data.yourRole === 'LIAR'
+        }
+        
+        if (response.data.yourWord) {
+          this.subject = response.data.yourWord || ''
+        }
+        
+        // Keep word from startGame response if it exists
+        // This ensures we don't lose the word information between refreshes
+        
         return response.data
       } catch (error) {
         this.error = error.response?.data?.message || 'Failed to get game state'
@@ -265,6 +303,7 @@ export const useGameStore = defineStore('game', {
       this.subject = ''
       this.word = ''
       this.isLiar = false
+      this.gameMode = null
       this.gameResult = null
       this.error = null
       this.selectedSubjects = []
