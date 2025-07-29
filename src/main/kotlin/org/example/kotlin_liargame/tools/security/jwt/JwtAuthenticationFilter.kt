@@ -30,10 +30,16 @@ class JwtAuthenticationFilter(
             try {
                 if (jwtProvider.validateToken(token)) {
                     val claims = jwtProvider.getClaims(token)
-                    val userId = claims.subject
+                    val userId = claims.subject.toLong()
                     val nickname = claims.get("nickname", String::class.java)
 
-                    val authentication = UsernamePasswordAuthenticationToken(userId, "", listOf())
+                    val userPrincipal = org.example.kotlin_liargame.tools.security.UserPrincipal(
+                        userId = userId,
+                        nickname = nickname,
+                        authorities = emptyList(),
+                        providerId = "jwt"
+                    )
+                    val authentication = UsernamePasswordAuthenticationToken(userPrincipal, "", emptyList())
                     SecurityContextHolder.getContext().authentication = authentication
                     jwtLogger.debug("JWT Authentication Success: userId=${userId}, nickname=${nickname}")
                     
