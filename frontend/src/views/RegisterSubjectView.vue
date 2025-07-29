@@ -48,7 +48,7 @@ const registerSubject = async () => {
 }
 
 const goBack = () => {
-  router.push('/main-lobby')
+  router.push('/lobby')
 }
 </script>
 

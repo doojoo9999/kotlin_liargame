@@ -56,9 +56,8 @@ const createGame = () => {
 
 const joinGame = (gameNumber, hasPassword) => {
   if (hasPassword) {
-    // Prompt for password
     const password = prompt('게임방 비밀번호를 입력하세요:')
-    if (password === null) return // User cancelled
+    if (password === null) return
     
     router.push({
       name: 'game-lobby',

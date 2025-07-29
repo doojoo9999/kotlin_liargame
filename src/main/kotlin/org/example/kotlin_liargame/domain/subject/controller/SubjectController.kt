@@ -2,7 +2,6 @@ package org.example.kotlin_liargame.domain.subject.controller
 
 import org.example.kotlin_liargame.domain.subject.dto.request.SubjectRequest
 import org.example.kotlin_liargame.domain.subject.dto.response.SubjectResponse
-import org.example.kotlin_liargame.domain.subject.model.SubjectEntity
 import org.example.kotlin_liargame.domain.subject.service.SubjectService
 import org.springframework.web.bind.annotation.*
 
@@ -13,12 +12,12 @@ class SubjectController (
 ) {
 
     @PostMapping("/applysubj")
-    fun applySubject(request: SubjectRequest) {
+    fun applySubject(@RequestBody request: SubjectRequest) {
         subjectService.applySubject(request)
     }
 
     @DeleteMapping("/delsubj/{id}")
-    fun deleteSubject(request: SubjectRequest) {
+    fun deleteSubject(@RequestBody request: SubjectRequest) {
         subjectService.deleteSubject(request)
     }
 
