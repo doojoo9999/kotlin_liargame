@@ -29,7 +29,7 @@ class GameService(
 
     private fun validateExistingOwner(ownerName: String) {
         if (gameRepository.findBygOwner(ownerName) != null) {
-            throw RuntimeException("ÀÌ¹Ì ¹æÀåÀ¸·Î °ÔÀÓÀ» ÁøÇàÇÏ°í ÀÖ½À´Ï´Ù.")
+            throw RuntimeException("ì´ë¯¸ ì§„í–‰ì¤‘ì¸ ê²Œì„ì„ ì†Œìœ í•˜ê³  ìˆìŠµë‹ˆë‹¤.")
         }
     }
 
@@ -45,7 +45,7 @@ class GameService(
         }
         
         // If all numbers from 1 to 999 are in use, throw an exception
-        throw RuntimeException("¸ğµç ¹æ ¹øÈ£(1-999)°¡ »ç¿ë ÁßÀÔ´Ï´Ù. ³ªÁß¿¡ ´Ù½Ã ½ÃµµÇØÁÖ¼¼¿ä.")
+        throw RuntimeException("ëª¨ë“  ë°© ë²ˆí˜¸(1-999)ê°€ ëª¨ë‘ ì‚¬ìš©ì¤‘ì…ë‹ˆë‹¤. ë‚˜ì¤‘ì— ë‹¤ì‹œ ì‹œë„í•´ì£¼ì„¸ìš”.")
     }
 
     private fun getCurrentUserNickname(): String {
@@ -131,15 +131,15 @@ class GameService(
 
         val nickname = getCurrentUserNickname()
         val game = gameRepository.findBygOwner(nickname)
-            ?: throw RuntimeException("°ÔÀÓÀ» Ã£À» ¼ö ¾ø½À´Ï´Ù. ¸ÕÀú °ÔÀÓ¹æÀ» »ı¼ºÇØÁÖ¼¼¿ä.")
+            ?: throw RuntimeException("ê²Œì„ì„ ì°¾ì„ ìˆ˜ ì—†ìŠµë‹ˆë‹¤. ë¨¼ì € ê²Œì„ë°©ì„ ìƒì„±í•´ì£¼ì„¸ìš”.")
 
         if (game.gState != GameState.WAITING) {
-            throw RuntimeException("°ÔÀÓÀÌ ÀÌ¹Ì ÁøÇà ÁßÀÌ°Å³ª Á¾·áµÇ¾ú½À´Ï´Ù.")
+            throw RuntimeException("ê²Œì„ì´ ì´ë¯¸ ì§„í–‰ ì¤‘ì´ê±°ë‚˜ ì¢…ë£Œë˜ì—ˆìŠµë‹ˆë‹¤.")
         }
 
         val players = playerRepository.findByGame(game)
         if (!game.canStart(players.size)) {
-            throw RuntimeException("°ÔÀÓÀ» ½ÃÀÛÇÏ±â À§ÇÑ ÇÃ·¹ÀÌ¾î°¡ ÃæºĞÇÏÁö ¾Ê½À´Ï´Ù. (ÃÖ¼Ò 3¸í, ÃÖ´ë 15¸í)")
+            throw RuntimeException("ê²Œì„ì„ ì‹œì‘í•˜ê¸° ìœ„í•œ í”Œë ˆì´ì–´ê°€ ì¶©ë¶„í•˜ì§€ ì•ŠìŠµë‹ˆë‹¤. (ìµœì†Œ 3ëª…, ìµœëŒ€ 15ëª…)")
         }
 
         val selectedSubjects = selectSubjects(req)
@@ -731,25 +731,25 @@ class GameService(
     }
 
     /**
-    Å×½ºÆ®¿ë function
+    í…ŒìŠ¤íŠ¸ìš© function
      */
     private fun createTestSubjects(): List<SubjectEntity> {
         println("[DEBUG] Creating test subjects for testing")
         
         val animalSubject = SubjectEntity(
-            content = "µ¿¹°",
+            content = "ë™ë¬¼",
             word = emptyList()
         )
 
         val fruitSubject = SubjectEntity(
-            content = "°úÀÏ",
+            content = "ê³¼ì¼",
             word = emptyList()
         )
 
         val savedAnimalSubject = subjectRepository.save(animalSubject)
         val savedFruitSubject = subjectRepository.save(fruitSubject)
 
-        val animalWords = listOf("»çÀÚ", "È£¶ûÀÌ", "ÄÚ³¢¸®", "±â¸°")
+        val animalWords = listOf("ì‚¬ì", "í˜¸ë‘ì´", "ì½”ë¼ë¦¬", "ê¸°ë¦°")
         animalWords.forEach { wordContent ->
             val word = org.example.kotlin_liargame.domain.word.model.WordEntity(
                 content = wordContent,
@@ -758,7 +758,7 @@ class GameService(
             wordRepository.save(word)
         }
 
-        val fruitWords = listOf("»ç°ú", "¹Ù³ª³ª", "¿À·»Áö", "Æ÷µµ")
+        val fruitWords = listOf("ì‚¬ê³¼", "ë°”ë‚˜ë‚˜", "ì˜¤ë Œì§€", "í¬ë„")
         fruitWords.forEach { wordContent ->
             val word = org.example.kotlin_liargame.domain.word.model.WordEntity(
                 content = wordContent,

@@ -20,12 +20,12 @@ class WordService (
     fun applyWord(req: ApplyWordRequest) {
 
         val subject = subjectRepository.findByContent(req.subject)
-            ?: throw IllegalArgumentException("ÁÖÁ¦ '${req.subject}'¸¦ Ã£À» ¼ö ¾ø½À´Ï´Ù.")
+            ?: throw IllegalArgumentException("ì£¼ì œ '${req.subject}'ë¥¼ ì°¾ì„ ìˆ˜ ì—†ìŠµë‹ˆë‹¤.")
 
         val existingWord = wordRepository.findBySubjectAndContent(subject, req.word)
 
         if (existingWord != null) {
-            throw RuntimeException("´Ü¾î '${req.word}'´Â ÀÌ¹Ì ÁÖÁ¦ '${req.subject}'¿¡ Á¸ÀçÇÕ´Ï´Ù.")
+            throw RuntimeException("ë‹¨ì–´ '${req.word}'ëŠ” ì´ë¯¸ ì£¼ì œ '${req.subject}'ì— ì¡´ì¬í•©ë‹ˆë‹¤.")
         }
         val newWordEntity = req.to(subject)
         wordRepository.save(newWordEntity)
@@ -35,7 +35,7 @@ class WordService (
     fun removeWord(wordId: Long) {
         val word = wordRepository.findById(wordId)
             .orElseThrow {
-                RuntimeException("´Ü¾î¸¦ Ã£À» ¼ö ¾ø½À´Ï´Ù")
+                RuntimeException("ë‹¨ì–´ë¥¼ ì°¾ì„ ìˆ˜ ì—†ìŠµë‹ˆë‹¤")
             }
         wordRepository.delete(word)
     }
