@@ -12,25 +12,31 @@ const loading = ref(true)
 const errorMessage = ref('')
 const refreshInterval = ref(null)
 
-// Check if user is logged in
 if (!userStore.isAuthenticated) {
-  router.push('/')
+  router.push('/lobby')
 }
 
 onMounted(async () => {
   await fetchGameRooms()
   
-  // Set up polling for game room updates
   refreshInterval.value = setInterval(async () => {
     await fetchGameRooms()
-  }, 5000) // Poll every 5 seconds
+  }, 5000)
+  
+  window.addEventListener('refresh-game-rooms', handleRefreshEvent)
 })
 
+const handleRefreshEvent = async () => {
+  console.log('Received refresh-game-rooms event, refreshing game rooms list')
+  await fetchGameRooms()
+}
+
 onBeforeUnmount(() => {
-  // Clear polling interval
   if (refreshInterval.value) {
     clearInterval(refreshInterval.value)
   }
+  
+  window.removeEventListener('refresh-game-rooms', handleRefreshEvent)
 })
 
 const fetchGameRooms = async () => {
