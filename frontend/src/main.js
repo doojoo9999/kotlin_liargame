@@ -7,7 +7,7 @@ import router from './router'
 import axios from 'axios'
 
 // Configure axios defaults
-axios.defaults.baseURL = import.meta.env.VITE_API_URL || window.location.origin
+axios.defaults.baseURL = "http://localhost:20021/"
 
 const app = createApp(App)
 
