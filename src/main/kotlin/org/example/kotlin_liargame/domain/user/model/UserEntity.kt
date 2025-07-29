@@ -9,7 +9,8 @@ class UserEntity (
 
     val nickname : String,
     val profileImgUrl : String,
-    var isActive : Boolean = true
+    var isActive : Boolean = true,
+    var isAuthenticated : Boolean = false
 
 ) : BaseEntity() {
     @Id
