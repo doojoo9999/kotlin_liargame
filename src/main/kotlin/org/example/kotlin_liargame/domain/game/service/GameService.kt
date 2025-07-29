@@ -68,11 +68,54 @@ class GameService(
 
         val nextRoomNumber = findNextAvailableRoomNumber()
         val newGame = req.to(nextRoomNumber, nickname)
+        
+        val selectedSubjects = selectSubjectsForGameRoom(req)
+        if (selectedSubjects.isNotEmpty()) {
+            val citizenSubject = selectedSubjects.first()
+            newGame.citizenSubject = citizenSubject
+            
+            val liarSubject = if (selectedSubjects.size > 1) selectedSubjects[1] else citizenSubject
+            newGame.liarSubject = liarSubject
+        }
+        
         val savedGame = gameRepository.save(newGame)
         
         joinGame(savedGame, getCurrentUserId(), nickname)
         
         return savedGame.gNumber
+    }
+    
+    private fun selectSubjectsForGameRoom(req: CreateGameRoomRequest): List<SubjectEntity> {
+        val allSubjects = subjectRepository.findAll().toList()
+        val validSubjects = allSubjects.filter { it.word.size >= 2 }
+        
+        if (validSubjects.isEmpty()) {
+            return createTestSubjects()
+        }
+        
+        val selectedSubjects = when {
+            req.subjectIds != null -> {
+                req.subjectIds.mapNotNull { subjectId ->
+                    subjectRepository.findById(subjectId).orElse(null)
+                }.filter { it.word.size >= 2 }
+            }
+            
+            req.useRandomSubjects -> {
+                val count = req.randomSubjectCount ?: 1
+                val randomCount = count.coerceAtMost(validSubjects.size)
+                validSubjects.shuffled().take(randomCount)
+            }
+            
+            else -> {
+                listOf(validSubjects.random())
+            }
+        }
+        
+        if (selectedSubjects.isEmpty()) {
+            return listOf(validSubjects.random())
+        }
+        
+        return selectedSubjects
     }
 
     @Transactional
@@ -143,7 +186,20 @@ class GameService(
             throw RuntimeException("게임을 시작하기 위한 플레이어가 충분하지 않습니다. (최소 3명, 최대 15명)")
         }
 
-        val selectedSubjects = selectSubjects(req)
+        // Use subjects that were selected during game room creation
+        val selectedSubjects = if (game.citizenSubject != null) {
+            val subjects = mutableListOf<SubjectEntity>()
+            subjects.add(game.citizenSubject!!)
+            
+            if (game.liarSubject != null && game.liarSubject != game.citizenSubject) {
+                subjects.add(game.liarSubject!!)
+            }
+            
+            subjects
+        } else {
+            // Fallback to selecting subjects if none were selected during game room creation
+            selectSubjects(req)
+        }
         
         assignRolesAndSubjects(game, players, selectedSubjects)
 
