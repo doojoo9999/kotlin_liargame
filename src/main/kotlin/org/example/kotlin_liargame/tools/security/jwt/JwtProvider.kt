@@ -33,7 +33,16 @@ class JwtProvider(
                 logger.debug("Token is expired by JWT standards")
                 return false
             }
-
+            
+            return true
+        } catch (e: Exception) {
+            logger.error("Error validating token", e)
+            false
+        }
+    }
+    
+    fun isTokenInDatabase(token: String): Boolean {
+        return try {
             val exists = userTokenRepository.existsByTokenAndExpiresAtAfter(
                 token, 
                 LocalDateTime.now()
@@ -45,7 +54,7 @@ class JwtProvider(
             
             exists
         } catch (e: Exception) {
-            logger.error("Error validating token", e)
+            logger.error("Error checking token in database", e)
             false
         }
     }
