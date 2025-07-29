@@ -2,6 +2,7 @@ package org.example.kotlin_liargame.domain.game.service
 
 import org.example.kotlin_liargame.domain.game.dto.request.*
 import org.example.kotlin_liargame.domain.game.dto.response.GameResultResponse
+import org.example.kotlin_liargame.domain.game.dto.response.GameRoomListResponse
 import org.example.kotlin_liargame.domain.game.dto.response.GameStateResponse
 import org.example.kotlin_liargame.domain.game.model.GameEntity
 import org.example.kotlin_liargame.domain.game.model.PlayerEntity
@@ -648,6 +649,20 @@ class GameService(
             players = players,
             winningTeam = if (liarsWin) WinningTeam.LIARS else WinningTeam.CITIZENS
         )
+    }
+    
+    fun getAllGameRooms(): GameRoomListResponse {
+        // Get all active games (WAITING or IN_PROGRESS)
+        val activeGames = gameRepository.findAllActiveGames()
+        
+        // Count players for each game
+        val playerCounts = mutableMapOf<Long, Int>()
+        activeGames.forEach { game ->
+            val count = playerRepository.countByGame(game)
+            playerCounts[game.id] = count
+        }
+        
+        return GameRoomListResponse.from(activeGames, playerCounts)
     }
     
     @Transactional
