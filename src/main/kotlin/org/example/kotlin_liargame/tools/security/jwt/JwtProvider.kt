@@ -2,10 +2,10 @@ package org.example.kotlin_liargame.tools.security.jwt
 
 import io.jsonwebtoken.Claims
 import io.jsonwebtoken.Jwts
-import io.jsonwebtoken.SignatureAlgorithm
 import io.jsonwebtoken.security.Keys
 import org.example.kotlin_liargame.domain.user.repository.UserTokenRepository
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import java.security.Key
 import java.time.LocalDateTime
@@ -14,12 +14,16 @@ import java.util.*
 
 @Component
 class JwtProvider(
-    private val userTokenRepository: UserTokenRepository
+    private val userTokenRepository: UserTokenRepository,
+    @Value("\${jwt.secret}")
+    private val secretKeyString: String
 ) {
+    private val secretKey: Key = Keys.hmacShaKeyFor(secretKeyString.toByteArray())
+
     companion object {
         private const val ACCESS_TOKEN_EXPIRE_TIME = 1000L * 60 * 30
         private const val REFRESH_TOKEN_EXPIRE_TIME = 1000L * 60 * 60 * 24 * 7
-        private val secretKey: Key = Keys.secretKeyFor(SignatureAlgorithm.HS256)
+
     }
     
     private val logger = LoggerFactory.getLogger(this::class.java)
