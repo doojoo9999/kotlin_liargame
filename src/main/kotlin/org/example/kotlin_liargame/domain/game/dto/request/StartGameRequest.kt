@@ -3,8 +3,8 @@ package org.example.kotlin_liargame.domain.game.dto.request
 data class StartGameRequest(
     val subjectIds: List<Long>? = null,
     val useAllSubjects: Boolean = false,
-    val useRandomSubjects: Boolean = false,
-    val randomSubjectCount: Int? = null
+    val useRandomSubjects: Boolean = true,
+    val randomSubjectCount: Int? = 1
 ) {
     fun validate() {
         if (subjectIds != null) {
@@ -17,21 +17,15 @@ data class StartGameRequest(
                     throw IllegalArgumentException("주제 ID는 양수여야 합니다")
                 }
             }
+            if (useAllSubjects || useRandomSubjects) {
+                throw IllegalArgumentException("한 번에 하나의 주제 선택 방법만 사용할 수 있습니다")
+            }
         }
-        
-        val selectionMethods = listOf(
-            subjectIds != null,
-            useAllSubjects,
-            useRandomSubjects
-        ).count { it }
-        
-        if (selectionMethods > 1) {
+
+        if (useAllSubjects && useRandomSubjects) {
             throw IllegalArgumentException("한 번에 하나의 주제 선택 방법만 사용할 수 있습니다")
         }
         
-        if (selectionMethods == 0) {
-            throw IllegalArgumentException("최소 하나의 주제 선택 방법을 선택해야 합니다")
-        }
         if (useRandomSubjects && randomSubjectCount != null && randomSubjectCount <= 0) {
             throw IllegalArgumentException("랜덤으로 선택할 주제 수는 양수여야 합니다")
         }
