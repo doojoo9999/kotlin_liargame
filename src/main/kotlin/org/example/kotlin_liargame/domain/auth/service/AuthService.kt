@@ -1,4 +1,4 @@
-package org.example.kotlin_liargame.domain.auth.service
+ï»¿package org.example.kotlin_liargame.domain.auth.service
 
 import org.example.kotlin_liargame.domain.auth.dto.request.LoginRequest
 import org.example.kotlin_liargame.domain.user.repository.UserRepository
@@ -14,7 +14,7 @@ class AuthService (
 
     fun login(request: LoginRequest): TokenResponse {
         val user = userRepository.findByNicknameAndIsActiveTrue(request.nickname)
-            ?: throw IllegalArgumentException("Á¸ÀçÇÏÁö ¾Ê´Â ´Ğ³×ÀÓÀÔ´Ï´Ù")
+            ?: throw IllegalArgumentException("ì¡´ì¬í•˜ì§€ ì•ŠëŠ” ì‚¬ìš©ì ì´ë¦„ì…ë‹ˆë‹¤")
 
         val token = jwtProvider.jwtBuild(
             userId = user.id.toString(),

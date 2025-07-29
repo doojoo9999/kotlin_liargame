@@ -1,10 +1,11 @@
-package org.example.kotlin_liargame.domain.auth.controller
+Ôªøpackage org.example.kotlin_liargame.domain.auth.controller
 
 import org.example.kotlin_liargame.domain.auth.dto.request.LoginRequest
 import org.example.kotlin_liargame.domain.auth.service.AuthService
 import org.example.kotlin_liargame.tools.security.jwt.TokenResponse
 import org.slf4j.LoggerFactory
 import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
@@ -16,11 +17,11 @@ class AuthController(private val authService: AuthService) {
 
     @PostMapping("/login")
     fun login(
-        req: LoginRequest
+        @RequestBody req: LoginRequest
     ) : TokenResponse {
-        logger.debug("∑Œ±◊¿Œ ø‰√ª nickname = {}", req.nickname)
+        logger.debug("Î°úÍ∑∏Ïù∏ ÏöîÏ≤≠ username = {}", req.username)
         return authService.login(req).also {
-            logger.debug("∑Œ±◊¿Œ º∫∞¯ nickname = {}", req.nickname)
+            logger.debug("Î°úÍ∑∏Ïù∏ ÏÑ±Í≥µ username = {}", req.username)
         }
     }
 
