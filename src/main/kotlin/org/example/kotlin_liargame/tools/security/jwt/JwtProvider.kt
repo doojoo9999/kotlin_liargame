@@ -34,7 +34,7 @@ class JwtProvider {
     }
 
     fun getNickname(token: String): String {
-        return getClaims(token).subject
+        return getClaims(token).get("nickname", String::class.java)
     }
 
     fun getClaims(token: String): Claims {
@@ -53,7 +53,7 @@ class JwtProvider {
         val now = Date()
         return Jwts.builder()
             .setSubject(userId)
-            .setSubject(nickname)
+            .claim("nickname", nickname)
             .setIssuedAt(now)
             .setExpiration(Date(now.time + expireTime))
             .signWith(secretKey)
