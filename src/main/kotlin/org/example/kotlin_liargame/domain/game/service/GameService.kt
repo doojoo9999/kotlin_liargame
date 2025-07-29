@@ -79,7 +79,7 @@ class GameService(
         }
         
         val savedGame = gameRepository.save(newGame)
-        
+
         joinGame(savedGame, getCurrentUserId(), nickname)
         
         return savedGame.gNumber
@@ -141,8 +141,9 @@ class GameService(
         val userId = getCurrentUserId()
         val nickname = getCurrentUserNickname()
 
-        if (playerRepository.findByGameAndUserId(game, userId) != null) {
-            throw RuntimeException("You are already in this game")
+        val existingPlayer = playerRepository.findByGameAndUserId(game, userId)
+        if (existingPlayer != null) {
+            return getGameState(game)
         }
 
         joinGame(game, userId, nickname)
