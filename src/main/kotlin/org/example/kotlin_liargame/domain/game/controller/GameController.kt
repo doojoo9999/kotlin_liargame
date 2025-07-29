@@ -2,6 +2,7 @@ package org.example.kotlin_liargame.domain.game.controller
 
 import org.example.kotlin_liargame.domain.game.dto.request.*
 import org.example.kotlin_liargame.domain.game.dto.response.GameResultResponse
+import org.example.kotlin_liargame.domain.game.dto.response.GameRoomListResponse
 import org.example.kotlin_liargame.domain.game.dto.response.GameStateResponse
 import org.example.kotlin_liargame.domain.game.service.GameService
 import org.springframework.http.ResponseEntity
@@ -76,6 +77,12 @@ class GameController(
     @PostMapping("/end-of-round")
     fun endOfRound(@RequestBody request: EndOfRoundRequest): ResponseEntity<GameStateResponse> {
         val response = gameService.endOfRound(request)
+        return ResponseEntity.ok(response)
+    }
+    
+    @GetMapping("/rooms")
+    fun getAllGameRooms(): ResponseEntity<GameRoomListResponse> {
+        val response = gameService.getAllGameRooms()
         return ResponseEntity.ok(response)
     }
 }
