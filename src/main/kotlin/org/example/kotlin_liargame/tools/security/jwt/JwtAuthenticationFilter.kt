@@ -3,15 +3,18 @@ package org.example.kotlin_liargame.tools.security.jwt
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
+import org.example.kotlin_liargame.domain.user.repository.UserTokenRepository
 import org.slf4j.LoggerFactory
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.stereotype.Component
 import org.springframework.web.filter.OncePerRequestFilter
+import java.time.LocalDateTime
 
 @Component
 class JwtAuthenticationFilter(
-    private val jwtProvider: JwtProvider
+    private val jwtProvider: JwtProvider,
+    private val userTokenRepository: UserTokenRepository
 ) : OncePerRequestFilter() {
 
     private val jwtLogger = LoggerFactory.getLogger(this::class.java)
@@ -24,20 +27,34 @@ class JwtAuthenticationFilter(
         val token = resolveToken(request)
         jwtLogger.debug("JWT Token Check: ${if (token != null) "Token exists" else "Token missing"}")
 
+        if (token != null) {
+            try {
+                if (jwtProvider.validateToken(token)) {
+                    val claims = jwtProvider.getClaims(token)
+                    val userId = claims.subject
+                    val nickname = claims.get("nickname", String::class.java)
 
-        if (token != null && jwtProvider.validateToken(token)) {
-            val claims = jwtProvider.getClaims(token)
-            val userId = claims.subject
-            val nickname = claims.get("nickname", String::class.java)
-            val authentication = UsernamePasswordAuthenticationToken(userId, "", listOf())
-            SecurityContextHolder.getContext().authentication = authentication
-            jwtLogger.debug("JWT Authentication Success: userId=${userId}, nickname=${nickname}")
+                    val tokenExists = userTokenRepository.existsByTokenAndExpiresAtAfter(token, LocalDateTime.now())
+                    if (tokenExists) {
+                        val authentication = UsernamePasswordAuthenticationToken(userId, "", listOf())
+                        SecurityContextHolder.getContext().authentication = authentication
+                        jwtLogger.debug("JWT Authentication Success: userId=${userId}, nickname=${nickname}")
+                    } else {
+                        jwtLogger.warn("JWT Token not found in database or expired: userId=${userId}, nickname=${nickname}")
+                    }
+                } else {
+                    jwtLogger.warn("Invalid JWT Token")
+                }
+            } catch (e: Exception) {
+                jwtLogger.error("JWT Authentication Error", e)
+                SecurityContextHolder.clearContext()
+            }
         }
 
         filterChain.doFilter(request, response)
     }
 
-     fun resolveToken(request: HttpServletRequest): String? {
+    fun resolveToken(request: HttpServletRequest): String? {
         val bearerToken = request.getHeader("Authorization")
         if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
             return bearerToken.substring(7)
