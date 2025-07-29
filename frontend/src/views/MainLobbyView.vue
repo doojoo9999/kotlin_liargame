@@ -78,6 +78,14 @@ const logout = () => {
   router.push('/')
 }
 
+const registerSubject = () => {
+  router.push('/register-subject')
+}
+
+const registerWord = () => {
+  router.push('/register-word')
+}
+
 const getStatusText = (status) => {
   switch (status) {
     case 'WAITING': return '대기 중'
@@ -100,6 +108,8 @@ const getStatusText = (status) => {
     <div class="actions">
       <button class="btn primary" @click="createGame">새 게임 만들기</button>
       <button class="btn secondary" @click="fetchGameRooms">새로고침</button>
+      <button class="btn topic" @click="registerSubject">주제 등록하기</button>
+      <button class="btn answer" @click="registerWord">답안 등록하기</button>
     </div>
     
     <div v-if="loading" class="loading">
@@ -293,6 +303,24 @@ tr:hover {
   background-color: #e68a00;
 }
 
+.topic {
+  background-color: #9c27b0;
+  color: white;
+}
+
+.topic:hover:not(:disabled) {
+  background-color: #7b1fa2;
+}
+
+.answer {
+  background-color: #ff5722;
+  color: white;
+}
+
+.answer:hover:not(:disabled) {
+  background-color: #e64a19;
+}
+
 @media (max-width: 768px) {
   table {
     font-size: 0.9rem;
@@ -304,6 +332,10 @@ tr:hover {
   
   .btn {
     padding: 0.5rem 1rem;
+  }
+  
+  .actions {
+    flex-wrap: wrap;
   }
 }
 </style>
