@@ -10,13 +10,18 @@ const router = createRouter({
       component: HomeView
     },
     {
+      path: '/lobby',
+      name: 'main-lobby',
+      component: () => import('../views/MainLobbyView.vue')
+    },
+    {
       path: '/create',
       name: 'create',
       component: () => import('../views/CreateGameView.vue')
     },
     {
-      path: '/lobby/:gameNumber',
-      name: 'lobby',
+      path: '/game-lobby/:gameNumber',
+      name: 'game-lobby',
       component: () => import('../views/LobbyView.vue'),
       props: true
     },
