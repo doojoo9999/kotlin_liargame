@@ -9,6 +9,7 @@ const gameStore = useGameStore()
 const userStore = useUserStore()
 
 // Form data
+const gameName = ref('')
 const playerCount = ref(4)
 const timeLimit = ref(60)
 const roundCount = ref(3)
@@ -32,6 +33,11 @@ if (!userStore.isAuthenticated) {
 
 const createGame = async () => {
   // Validate inputs
+  if (!gameName.value.trim()) {
+    errorMessage.value = '게임방 이름을 입력해주세요'
+    return
+  }
+  
   if (playerCount.value < minPlayers || playerCount.value > maxPlayers) {
     errorMessage.value = `플레이어 수는 ${minPlayers}~${maxPlayers} 사이여야 합니다`
     return
@@ -52,15 +58,16 @@ const createGame = async () => {
   
   try {
     const gameNumber = await gameStore.createGame(
+      gameName.value.trim(),
       playerCount.value,
       timeLimit.value,
       roundCount.value,
       usePassword.value ? password.value : null
     )
     
-    // Navigate to the lobby
+    // Navigate to the game lobby
     router.push({
-      name: 'lobby',
+      name: 'game-lobby',
       params: { gameNumber }
     })
   } catch (error) {
@@ -80,6 +87,16 @@ const goBack = () => {
     <h1>새 게임 만들기</h1>
     
     <div class="game-form">
+      <div class="form-group">
+        <label for="gameName">게임방 이름:</label>
+        <input 
+          id="gameName" 
+          v-model="gameName" 
+          placeholder="게임방 이름 입력"
+          type="text"
+        >
+      </div>
+      
       <div class="form-group">
         <label for="playerCount">플레이어 수:</label>
         <input 
