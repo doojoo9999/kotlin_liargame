@@ -115,7 +115,7 @@ const createGame = async () => {
 }
 
 const goBack = () => {
-  router.push('/')
+  router.push('/lobby')
 }
 </script>
 
