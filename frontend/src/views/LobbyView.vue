@@ -1,5 +1,5 @@
 ﻿<script setup>
-import {onBeforeUnmount, onMounted, ref} from 'vue'
+import {computed, onBeforeUnmount, onMounted, ref} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 import {useGameStore} from '../stores/gameStore'
 import {useUserStore} from '../stores/userStore'
@@ -18,33 +18,34 @@ const loading = ref(true)
 const refreshInterval = ref(null)
 const isHost = ref(false)
 
-// Check if user is logged in
+const canStartGame = computed(() => {
+  return isHost.value && 
+         gameStore.players.length >= 3 && 
+         gameStore.gameState && 
+         gameStore.gameState.gState === 'WAITING'
+})
+
 if (!userStore.isAuthenticated) {
   router.push('/')
 }
 
 onMounted(async () => {
   try {
-    // Join the game
     await gameStore.joinGame(gameNumber, password)
     
-    // Initialize chat socket
     chatStore.initSocket(gameNumber)
     
-    // Get chat history
     await chatStore.getChatHistory(gameNumber)
     
-    // Check if current user is the host (first player)
-    isHost.value = gameStore.players.length > 0 && 
-                  gameStore.players[0].userId === userStore.userId
+    // Check if the current user is the game owner
+    isHost.value = gameStore.gameState && 
+                  gameStore.gameState.owner === userStore.nickname
     
-    // Set up polling for game state updates
     refreshInterval.value = setInterval(async () => {
       try {
         await gameStore.getGameState(gameNumber)
         
-        // If game has started, navigate to game view
-        if (gameStore.gameState && gameStore.gameState.status === 'STARTED') {
+        if (gameStore.gameState && gameStore.gameState.gState === 'IN_PROGRESS') {
           router.push({
             name: 'game',
             params: { gameNumber }
@@ -53,7 +54,7 @@ onMounted(async () => {
       } catch (error) {
         console.error('Failed to refresh game state:', error)
       }
-    }, 3000) // Poll every 3 seconds
+    }, 3000)
     
     loading.value = false
   } catch (error) {
@@ -63,7 +64,6 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
-  // Clear polling interval
   if (refreshInterval.value) {
     clearInterval(refreshInterval.value)
   }
@@ -75,26 +75,39 @@ const startGame = async () => {
     return
   }
   
+  if (!canStartGame.value) {
+    errorMessage.value = '게임 시작 요건이 충족되지 않았습니다'
+    return
+  }
+  
   try {
     loading.value = true
     await gameStore.startGame(gameNumber)
     
-    // Navigation to game view will happen automatically via the polling
   } catch (error) {
     errorMessage.value = error.message || '게임 시작에 실패했습니다'
     loading.value = false
   }
 }
 
-const leaveGame = () => {
-  // Clear game state
-  gameStore.resetGameState()
-  
-  // Disconnect chat socket
-  chatStore.disconnectSocket()
-  
-  // Navigate back to home
-  router.push('/')
+const leaveGame = async () => {
+  try {
+    // Call the leaveGame action in gameStore
+    await gameStore.leaveGame(gameNumber)
+    
+    // Disconnect chat socket
+    chatStore.disconnectSocket()
+    
+    // Navigate back to main lobby and force a refresh
+    router.push({ path: '/lobby', query: { _: Date.now() } })
+  } catch (error) {
+    console.error('Failed to leave game:', error)
+    
+    // Even if the API call fails, we should still reset the state and redirect
+    gameStore.resetGameState()
+    chatStore.disconnectSocket()
+    router.push({ path: '/lobby', query: { _: Date.now() } })
+  }
 }
 </script>
 
@@ -133,7 +146,7 @@ const leaveGame = () => {
       <div class="game-info">
         <h3>게임 정보</h3>
         <p v-if="gameStore.gameState">
-          <strong>상태:</strong> {{ gameStore.gameState.status === 'WAITING' ? '대기 중' : '시작됨' }}<br>
+          <strong>상태:</strong> {{ gameStore.gameState.gState === 'WAITING' ? '대기 중' : '시작됨' }}<br>
           <strong>최대 인원:</strong> {{ gameStore.gameState.playerCount }}명<br>
           <strong>제한 시간:</strong> {{ gameStore.gameState.timeLimit }}초<br>
           <strong>라운드 수:</strong> {{ gameStore.gameState.roundCount }}
@@ -156,9 +169,9 @@ const leaveGame = () => {
       
       <div class="actions">
         <button 
-          v-if="isHost" 
-          :disabled="gameStore.players.length < 3"
+          v-if="isHost"
           class="btn primary"
+          :disabled="!canStartGame"
           @click="startGame"
         >
           게임 시작
@@ -168,9 +181,23 @@ const leaveGame = () => {
         </button>
       </div>
       
-      <p v-if="isHost && gameStore.players.length < 3" class="hint">
-        게임을 시작하려면 최소 3명의 플레이어가 필요합니다.
-      </p>
+      <div v-if="isHost" class="requirements-container">
+        <h4>게임 시작 요건:</h4>
+        <ul class="requirements-list">
+          <li :class="{ 'met': gameStore.players.length >= 3, 'not-met': gameStore.players.length < 3 }">
+            플레이어 수: {{ gameStore.players.length }}/3 (최소 3명 필요)
+          </li>
+          <li :class="{ 'met': gameStore.gameState && gameStore.gameState.gState === 'WAITING' }">
+            게임 상태: {{ gameStore.gameState && gameStore.gameState.gState === 'WAITING' ? '대기 중 ✓' : '진행 중 ✗' }}
+          </li>
+          <li :class="{ 'met': isHost }">
+            방장 권한: {{ isHost ? '방장입니다 ✓' : '방장이 아닙니다 ✗' }}
+          </li>
+        </ul>
+        <p v-if="!canStartGame" class="hint">
+          모든 요건을 충족해야 게임을 시작할 수 있습니다.
+        </p>
+      </div>
     </div>
   </div>
 </template>
@@ -359,6 +386,46 @@ h3 {
   color: #666;
   font-size: 0.9rem;
   margin-top: 0.5rem;
+}
+
+.requirements-container {
+  margin-top: 1.5rem;
+  background-color: #f5f5f5;
+  border-radius: 8px;
+  padding: 1rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.requirements-container h4 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  font-size: 1.1rem;
+}
+
+.requirements-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.requirements-list li {
+  padding: 0.5rem;
+  margin-bottom: 0.5rem;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+}
+
+.requirements-list li.met {
+  background-color: rgba(76, 175, 80, 0.1);
+  border: 1px solid #4caf50;
+  color: #2e7d32;
+}
+
+.requirements-list li.not-met {
+  background-color: rgba(244, 67, 54, 0.1);
+  border: 1px solid #f44336;
+  color: #c62828;
 }
 
 @media (max-width: 768px) {
