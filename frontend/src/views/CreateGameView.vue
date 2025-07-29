@@ -1,14 +1,14 @@
 ﻿<script setup>
-import {ref} from 'vue'
+import {onMounted, ref} from 'vue'
 import {useRouter} from 'vue-router'
 import {useGameStore} from '../stores/gameStore'
 import {useUserStore} from '../stores/userStore'
+import axios from 'axios'
 
 const router = useRouter()
 const gameStore = useGameStore()
 const userStore = useUserStore()
 
-// Form data
 const gameName = ref('')
 const playerCount = ref(4)
 const timeLimit = ref(60)
@@ -18,7 +18,11 @@ const usePassword = ref(false)
 const errorMessage = ref('')
 const loading = ref(false)
 
-// Validation limits
+const subjects = ref([])
+const selectedSubjects = ref([])
+const subjectsLoading = ref(false)
+const subjectsError = ref('')
+
 const minPlayers = 3
 const maxPlayers = 10
 const minTimeLimit = 30
@@ -26,13 +30,45 @@ const maxTimeLimit = 300
 const minRounds = 1
 const maxRounds = 10
 
-// Check if user is logged in
 if (!userStore.isAuthenticated) {
   router.push('/')
 }
 
+onMounted(async () => {
+  await fetchSubjects()
+})
+
+const fetchSubjects = async () => {
+  try {
+    subjectsLoading.value = true
+    subjectsError.value = ''
+    
+    const response = await axios.get('/api/v1/subjects/listsubj', {
+      headers: {
+        'Authorization': `Bearer ${userStore.token}`
+      }
+    })
+    
+    subjects.value = response.data
+    subjectsLoading.value = false
+  } catch (error) {
+    console.error('Failed to fetch subjects:', error)
+    subjectsError.value = error.response?.data?.message || '주제 목록을 불러오는데 실패했습니다'
+    subjectsLoading.value = false
+  }
+}
+
+const toggleSubject = (subject) => {
+  const index = selectedSubjects.value.findIndex(s => s.id === subject.id)
+  
+  if (index === -1) {
+    selectedSubjects.value.push(subject)
+  } else {
+    selectedSubjects.value.splice(index, 1)
+  }
+}
+
 const createGame = async () => {
-  // Validate inputs
   if (!gameName.value.trim()) {
     errorMessage.value = '게임방 이름을 입력해주세요'
     return
@@ -57,6 +93,8 @@ const createGame = async () => {
   errorMessage.value = ''
   
   try {
+    gameStore.setSelectedSubjects(selectedSubjects.value)
+    
     const gameNumber = await gameStore.createGame(
       gameName.value.trim(),
       playerCount.value,
@@ -64,8 +102,7 @@ const createGame = async () => {
       roundCount.value,
       usePassword.value ? password.value : null
     )
-    
-    // Navigate to the game lobby
+
     router.push({
       name: 'game-lobby',
       params: { gameNumber }
@@ -153,6 +190,43 @@ const goBack = () => {
           placeholder="게임 비밀번호 입력"
           type="password"
         >
+      </div>
+      
+      <div class="form-group">
+        <label>주제 선택:</label>
+        <div v-if="subjectsLoading" class="loading-text">
+          주제 목록을 불러오는 중...
+        </div>
+        
+        <div v-else-if="subjectsError" class="error-text">
+          {{ subjectsError }}
+        </div>
+        
+        <div v-else-if="subjects.length === 0" class="info-text">
+          등록된 주제가 없습니다. 기본 주제가 사용됩니다.
+        </div>
+        
+        <div v-else class="subjects-container">
+          <div 
+            v-for="subject in subjects" 
+            :key="subject.id" 
+            class="subject-item"
+          >
+            <div class="checkbox-group">
+              <input 
+                :id="'subject-' + subject.id" 
+                :checked="selectedSubjects.some(s => s.id === subject.id)"
+                type="checkbox"
+                @change="toggleSubject(subject)"
+              >
+              <label :for="'subject-' + subject.id">{{ subject.content }}</label>
+            </div>
+          </div>
+          
+          <p class="hint">
+            주제를 선택하지 않으면 랜덤 주제가 사용됩니다.
+          </p>
+        </div>
       </div>
       
       <div class="buttons">
@@ -275,5 +349,45 @@ input[type="password"] {
 .error {
   color: #f44336;
   margin-top: 1rem;
+}
+
+.subjects-container {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 0.5rem;
+  margin-top: 0.5rem;
+  background-color: white;
+}
+
+.subject-item {
+  padding: 0.5rem;
+  border-bottom: 1px solid #eee;
+}
+
+.subject-item:last-child {
+  border-bottom: none;
+}
+
+.loading-text, .error-text, .info-text {
+  padding: 0.75rem;
+  margin-top: 0.5rem;
+  border-radius: 4px;
+}
+
+.loading-text {
+  background-color: #e3f2fd;
+  color: #1976d2;
+}
+
+.error-text {
+  background-color: #ffebee;
+  color: #c62828;
+}
+
+.info-text {
+  background-color: #f5f5f5;
+  color: #616161;
 }
 </style>
