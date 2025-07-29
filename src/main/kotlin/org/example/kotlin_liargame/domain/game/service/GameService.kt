@@ -143,7 +143,11 @@ class GameService(
 
         val existingPlayer = playerRepository.findByGameAndUserId(game, userId)
         if (existingPlayer != null) {
-            return getGameState(game)
+            if (existingPlayer.nickname == game.gOwner) {
+                return getGameState(game)
+            } else {
+                throw RuntimeException("You are already in this game")
+            }
         }
 
         joinGame(game, userId, nickname)
@@ -167,6 +171,27 @@ class GameService(
         )
 
         playerRepository.save(player)
+    }
+
+    @Transactional
+    fun leaveGame(req: LeaveGameRequest): Boolean {
+        req.validate()
+
+        val game = gameRepository.findBygNumber(req.gNumber)
+            ?: throw RuntimeException("Game not found")
+
+        val userId = getCurrentUserId()
+        val player = playerRepository.findByGameAndUserId(game, userId)
+            ?: throw RuntimeException("You are not in this game")
+
+        if (player.nickname == game.gOwner && game.gState == GameState.WAITING) {
+            game.endGame()
+            gameRepository.save(game)
+        }
+
+        playerRepository.delete(player)
+
+        return true
     }
 
 
@@ -709,10 +734,8 @@ class GameService(
     }
     
     fun getAllGameRooms(): GameRoomListResponse {
-        // Get all active games (WAITING or IN_PROGRESS)
         val activeGames = gameRepository.findAllActiveGames()
         
-        // Count players for each game
         val playerCounts = mutableMapOf<Long, Int>()
         activeGames.forEach { game ->
             val count = playerRepository.countByGame(game)
@@ -731,26 +754,21 @@ class GameService(
             throw RuntimeException("Game is not in progress")
         }
         
-        // Verify that the request is coming from the game owner
         if (game.gOwner != req.gOwner) {
             throw RuntimeException("Only the game owner can end the round")
         }
         
-        // Verify that the round number matches
         if (game.gCurrentRound != req.gRound) {
             throw RuntimeException("Round number mismatch")
         }
         
-        // If the game is over, end it
         if (req.gIsGameOver) {
             game.endGame()
             gameRepository.save(game)
         }
         
-        // Start the post-round chat window
         chatService.startPostRoundChat(req.gNumber)
         
-        // Return the current game state
         return getGameState(game)
     }
 
@@ -760,7 +778,6 @@ class GameService(
         val currentPhase = determineGamePhase(game, players)
         val accusedPlayer = findAccusedPlayer(players)
         
-        // Check if chat is available for the current player
         val currentPlayer = players.find { it.userId == currentUserId }
         val isChatAvailable = if (currentPlayer != null) {
             chatService.isChatAvailable(game, currentPlayer)
