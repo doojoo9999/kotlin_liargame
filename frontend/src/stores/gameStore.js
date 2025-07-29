@@ -12,7 +12,8 @@ export const useGameStore = defineStore('game', {
     isLiar: false,
     gameResult: null,
     loading: false,
-    error: null
+    error: null,
+    selectedSubjects: []
   }),
   
   actions: {
@@ -21,13 +22,23 @@ export const useGameStore = defineStore('game', {
       this.error = null
       
       try {
-        const response = await axios.post('/api/v1/game/create', {
+        const request = {
           gName: gameName,
           gParticipants: playerCount,
           gTotalRounds: roundCount,
           gPassword: password,
           gTimeLimit: timeLimit
-        })
+        }
+        
+        if (this.selectedSubjects.length > 0) {
+          request.subjectIds = this.selectedSubjects.map(subject => subject.id)
+          request.useRandomSubjects = false
+        } else {
+          request.useRandomSubjects = true
+          request.randomSubjectCount = 1
+        }
+        
+        const response = await axios.post('/api/v1/game/create', request)
         
         this.gameNumber = response.data
         return this.gameNumber
@@ -66,15 +77,20 @@ export const useGameStore = defineStore('game', {
       this.error = null
       
       try {
-        const response = await axios.post('/api/v1/game/start', {
+        // Simple request with just the game number
+        const request = {
           gNumber: gameNumber
-        })
+        }
+        
+        const response = await axios.post('/api/v1/game/start', request)
         
         this.gameState = response.data
         this.currentRound = response.data.currentRound || 0
         this.subject = response.data.subject || ''
         this.word = response.data.word || ''
         this.isLiar = response.data.isLiar || false
+        this.selectedSubjects = []
+        
         return response.data
       } catch (error) {
         this.error = error.response?.data?.message || 'Failed to start game'
@@ -251,6 +267,11 @@ export const useGameStore = defineStore('game', {
       this.isLiar = false
       this.gameResult = null
       this.error = null
+      this.selectedSubjects = []
+    },
+    
+    setSelectedSubjects(subjects) {
+      this.selectedSubjects = subjects
     }
   }
 })
