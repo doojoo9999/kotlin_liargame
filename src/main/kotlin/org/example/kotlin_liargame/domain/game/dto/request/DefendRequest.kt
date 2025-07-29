@@ -6,15 +6,15 @@ data class DefendRequest(
 ) {
     fun validate() {
         if (gNumber <= 0) {
-            throw IllegalArgumentException("°ÔÀÓ ¹øÈ£´Â ¾ç¼ö¿©¾ß ÇÕ´Ï´Ù")
+            throw IllegalArgumentException("ê²Œì„ ë²ˆí˜¸ëŠ” ì–‘ìˆ˜ì—¬ì•¼ í•©ë‹ˆë‹¤")
         }
         
         if (defense.isBlank()) {
-            throw IllegalArgumentException("º¯·Ğ ³»¿ëÀº ºñ¾î ÀÖÀ» ¼ö ¾ø½À´Ï´Ù")
+            throw IllegalArgumentException("ë³€ë¡  ë‚´ìš©ì€ ë¹„ì–´ ìˆì„ ìˆ˜ ì—†ìŠµë‹ˆë‹¤")
         }
         
         if (defense.length > 200) {
-            throw IllegalArgumentException("º¯·Ğ ³»¿ëÀº 200ÀÚ¸¦ ÃÊ°úÇÒ ¼ö ¾ø½À´Ï´Ù")
+            throw IllegalArgumentException("ë³€ë¡  ë‚´ìš©ì€ 200ìë¥¼ ì´ˆê³¼í•  ìˆ˜ ì—†ìŠµë‹ˆë‹¤")
         }
     }
 }

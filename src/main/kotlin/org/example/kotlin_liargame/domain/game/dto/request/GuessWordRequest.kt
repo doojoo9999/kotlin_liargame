@@ -6,15 +6,15 @@ data class GuessWordRequest(
 ) {
     fun validate() {
         if (gNumber <= 0) {
-            throw IllegalArgumentException("°ÔÀÓ ¹øÈ£´Â ¾ç¼ö¿©¾ß ÇÕ´Ï´Ù")
+            throw IllegalArgumentException("ê²Œì„ ë²ˆí˜¸ëŠ” ì–‘ìˆ˜ì—¬ì•¼ í•©ë‹ˆë‹¤")
         }
         
         if (guess.isBlank()) {
-            throw IllegalArgumentException("ÃßÃø ´Ü¾î´Â ºñ¾î ÀÖÀ» ¼ö ¾ø½À´Ï´Ù")
+            throw IllegalArgumentException("ì¶”ì¸¡ ë‹¨ì–´ëŠ” ë¹„ì–´ ìˆì„ ìˆ˜ ì—†ìŠµë‹ˆë‹¤")
         }
         
         if (guess.length > 100) {
-            throw IllegalArgumentException("ÃßÃø ´Ü¾î´Â 100ÀÚ¸¦ ÃÊ°úÇÒ ¼ö ¾ø½À´Ï´Ù")
+            throw IllegalArgumentException("ì¶”ì¸¡ ë‹¨ì–´ëŠ” 100ìë¥¼ ì´ˆê³¼í•  ìˆ˜ ì—†ìŠµë‹ˆë‹¤")
         }
     }
 }

@@ -6,15 +6,15 @@ data class GiveHintRequest(
 ) {
     fun validate() {
         if (gNumber <= 0) {
-            throw IllegalArgumentException("°ÔÀÓ ¹øÈ£´Â ¾ç¼ö¿©¾ß ÇÕ´Ï´Ù")
+            throw IllegalArgumentException("ê²Œì„ ë²ˆí˜¸ëŠ” ì–‘ìˆ˜ì—¬ì•¼ í•©ë‹ˆë‹¤")
         }
         
         if (hint.isBlank()) {
-            throw IllegalArgumentException("ÈùÆ®´Â ºñ¾î ÀÖÀ» ¼ö ¾ø½À´Ï´Ù")
+            throw IllegalArgumentException("íŒíŠ¸ëŠ” ë¹„ì–´ ìˆì„ ìˆ˜ ì—†ìŠµë‹ˆë‹¤")
         }
         
         if (hint.length > 200) {
-            throw IllegalArgumentException("ÈùÆ®´Â 200ÀÚ¸¦ ÃÊ°úÇÒ ¼ö ¾ø½À´Ï´Ù")
+            throw IllegalArgumentException("íŒíŠ¸ëŠ” 200ìë¥¼ ì´ˆê³¼í•  ìˆ˜ ì—†ìŠµë‹ˆë‹¤")
         }
     }
 }

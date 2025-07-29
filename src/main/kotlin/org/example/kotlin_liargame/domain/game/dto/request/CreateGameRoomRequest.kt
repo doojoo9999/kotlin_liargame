@@ -5,7 +5,7 @@ import org.example.kotlin_liargame.domain.game.model.enum.GameMode
 import org.example.kotlin_liargame.domain.game.model.enum.GameState
 
 data class CreateGameRoomRequest(
-    val nickname: String,
+    val nickname: String? = null,
     val gName: String,
     val gPassword: String? = null,
     val gParticipants: Int = 5,
@@ -15,15 +15,15 @@ data class CreateGameRoomRequest(
 ) {
     fun validate() {
         if (gParticipants < 3 || gParticipants > 15) {
-            throw IllegalArgumentException("Âü°¡ÀÚ ¼ö´Â 3¸í¿¡¼­ 15¸í »çÀÌ¿©¾ß ÇÕ´Ï´Ù")
+            throw IllegalArgumentException("ì°¸ê°€ì ìˆ˜ëŠ” 3ëª…ì—ì„œ 15ëª… ì‚¬ì´ì—¬ì•¼ í•©ë‹ˆë‹¤")
         }
         
         if (gLiarCount < 1 || gLiarCount >= gParticipants) {
-            throw IllegalArgumentException("¶óÀÌ¾î ¼ö´Â 1¸í¿¡¼­ ${gParticipants - 1}¸í »çÀÌ¿©¾ß ÇÕ´Ï´Ù")
+            throw IllegalArgumentException("ë¼ì´ì–´ ìˆ˜ëŠ” 1ëª…ì—ì„œ ${gParticipants - 1}ëª… ì‚¬ì´ì—¬ì•¼ í•©ë‹ˆë‹¤")
         }
         
         if (gTotalRounds < 1) {
-            throw IllegalArgumentException("¶ó¿îµå ¼ö´Â ÃÖ¼Ò 1È¸ ÀÌ»óÀÌ¾î¾ß ÇÕ´Ï´Ù")
+            throw IllegalArgumentException("ë¼ìš´ë“œ ìˆ˜ëŠ” ìµœì†Œ 1íšŒ ì´ìƒì´ì–´ì•¼ í•©ë‹ˆë‹¤")
         }
     }
     

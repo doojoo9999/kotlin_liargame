@@ -7,11 +7,11 @@ data class SurvivalVoteRequest(
 ) {
     fun validate() {
         if (gNumber <= 0) {
-            throw IllegalArgumentException("°ÔÀÓ ¹øÈ£´Â ¾ç¼ö¿©¾ß ÇÕ´Ï´Ù")
+            throw IllegalArgumentException("ê²Œìž„ ë²ˆí˜¸ëŠ” ì–‘ìˆ˜ì—¬ì•¼ í•©ë‹ˆë‹¤")
         }
         
         if (accusedPlayerId <= 0) {
-            throw IllegalArgumentException("Áö¸ñµÈ ÇÃ·¹ÀÌ¾î ID´Â ¾ç¼ö¿©¾ß ÇÕ´Ï´Ù")
+            throw IllegalArgumentException("ê³ ë°œëœ í”Œë ˆì´ì–´ IDëŠ” ì–‘ìˆ˜ì—¬ì•¼ í•©ë‹ˆë‹¤")
         }
     }
 }

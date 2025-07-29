@@ -9,12 +9,12 @@ data class StartGameRequest(
     fun validate() {
         if (subjectIds != null) {
             if (subjectIds.isEmpty()) {
-                throw IllegalArgumentException("ажа╕ ID ╦Я╥оюл а╕╟Ь╣х ╟Ф©Л ╨Я╬Н южю╩ ╪Ж ╬Ь╫ю╢о╢ы")
+                throw IllegalArgumentException("Лё╪Л═° ID К╙╘К║²Л²╢ Л═°ЙЁ╣К░° Й╡╫Л ╟ К╧└Л√╢ Л·┬Л²└ Л┬≤ Л≈├Л┼╣К▀┬К▀╓")
             }
             
             subjectIds.forEach { subjectId ->
                 if (subjectId <= 0) {
-                    throw IllegalArgumentException("ажа╕ ID╢б ╬Г╪Ж©╘╬ъ гу╢о╢ы")
+                    throw IllegalArgumentException("Лё╪Л═° IDК┼■ Л√▒Л┬≤Л≈╛Л∙╪ М∙╘К▀┬К▀╓")
                 }
             }
         }
@@ -26,14 +26,14 @@ data class StartGameRequest(
         ).count { it }
         
         if (selectionMethods > 1) {
-            throw IllegalArgumentException("гя ╧Ь©║ гоЁ╙юг ажа╕ ╪╠ец ╧Ф╧Щ╦╦ ╩Г©Кгр ╪Ж юж╫ю╢о╢ы")
+            throw IllegalArgumentException("М∙° К╡┬Л≈░ М∙≤К┌≤Л²≤ Лё╪Л═° Л└═М┐² К╟╘К╡∙К╖▄ Л┌╛Л ╘М∙═ Л┬≤ Л·┬Л┼╣К▀┬К▀╓")
         }
         
         if (selectionMethods == 0) {
-            throw IllegalArgumentException("юШ╬Н╣╣ гоЁ╙юг ажа╕ ╪╠ец ╧Ф╧Щю╩ аЖа╓гь╬ъ гу╢о╢ы")
+            throw IllegalArgumentException("Л╣°Л├▄ М∙≤К┌≤Л²≤ Лё╪Л═° Л└═М┐² К╟╘К╡∙Л²└ Л└═М┐²М∙╢Л∙╪ М∙╘К▀┬К▀╓")
         }
         if (useRandomSubjects && randomSubjectCount != null && randomSubjectCount <= 0) {
-            throw IllegalArgumentException("╧╚юшю╖ ажа╕ ╪Ж╢б ╬Г╪Ж©╘╬ъ гу╢о╢ы")
+            throw IllegalArgumentException("К·°К█╓Л°╪К║° Л└═М┐²М∙═ Лё╪Л═° Л┬≤К┼■ Л√▒Л┬≤Л≈╛Л∙╪ М∙╘К▀┬К▀╓")
         }
     }
 }
