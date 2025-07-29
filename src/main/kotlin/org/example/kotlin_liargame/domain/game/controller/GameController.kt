@@ -26,6 +26,12 @@ class GameController(
         return ResponseEntity.ok(response)
     }
     
+    @PostMapping("/leave")
+    fun leaveGame(@RequestBody request: LeaveGameRequest): ResponseEntity<Boolean> {
+        val response = gameService.leaveGame(request)
+        return ResponseEntity.ok(response)
+    }
+    
     @PostMapping("/start")
     fun startGame(@RequestBody request: StartGameRequest): ResponseEntity<GameStateResponse> {
         val response = gameService.startGame(request)
