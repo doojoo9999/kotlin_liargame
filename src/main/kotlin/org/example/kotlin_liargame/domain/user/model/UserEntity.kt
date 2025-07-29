@@ -10,7 +10,8 @@ class UserEntity (
     val nickname : String,
     val profileImgUrl : String,
     var isActive : Boolean = true,
-    var isAuthenticated : Boolean = false
+    var isAuthenticated : Boolean = false,
+    var hasTokenIssued : Boolean = false
 
 ) : BaseEntity() {
     @Id
@@ -23,6 +24,10 @@ class UserEntity (
 
     fun toActive() {
         this.isActive = true
+    }
+
+    fun setTokenIssued() {
+        this.hasTokenIssued = true
     }
 
 }

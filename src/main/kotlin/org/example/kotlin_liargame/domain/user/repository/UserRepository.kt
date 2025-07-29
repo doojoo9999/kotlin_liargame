@@ -16,5 +16,7 @@ interface UserRepository : JpaRepository<UserEntity, Long> {
     fun findByNicknameAndIsAuthenticatedTrueAndIsActiveTrue(nickname: String): UserEntity?
     
     fun findByNicknameAndIsAuthenticatedFalseAndIsActiveTrue(nickname: String): UserEntity?
+    
+    fun findByNicknameAndIsAuthenticatedFalseAndHasTokenIssuedTrue(nickname: String): UserEntity?
 
 }

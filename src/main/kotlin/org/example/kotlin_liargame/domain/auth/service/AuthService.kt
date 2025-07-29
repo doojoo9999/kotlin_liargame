@@ -28,10 +28,17 @@ class AuthService (
             logger.debug("로그인 실패: 이미 사용 중인 비인증 닉네임입니다 - {}", request.nickname)
             throw IllegalArgumentException("이미 사용 중인 비인증 닉네임입니다. 다른 닉네임을 사용해주세요.")
         }
+        
+        val userWithToken = userRepository.findByNicknameAndIsAuthenticatedFalseAndHasTokenIssuedTrue(request.nickname)
+        if (userWithToken != null) {
+            logger.debug("로그인 실패: 이미 토큰이 발급된 비인증 닉네임입니다 - {}", request.nickname)
+            throw IllegalArgumentException("이미 접속 중인 닉네임입니다. 다른 닉네임을 사용해주세요.")
+        }
 
         val inactiveUser = userRepository.findByNicknameAndIsAuthenticatedFalse(request.nickname)
         if (inactiveUser != null && !inactiveUser.isActive) {
             inactiveUser.toActive()
+            inactiveUser.setTokenIssued()
             userRepository.save(inactiveUser)
             logger.debug("로그인 성공: 비활성 비인증 닉네임 재활성화 - {}", request.nickname)
             
@@ -45,6 +52,8 @@ class AuthService (
         }
 
         val newUser = createUser(request.nickname)
+        newUser.setTokenIssued()
+        userRepository.save(newUser)
         logger.debug("로그인 성공: 새 비인증 사용자 생성 - {}", request.nickname)
         
         val token = jwtProvider.jwtBuild(
