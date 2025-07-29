@@ -351,7 +351,7 @@ watch(() => gameStore.gameState, () => {
             }"
             @click="canVote || canSurvivalVote ? selectedPlayerId = player.userId : null"
           >
-            {{ player.username }} 
+            {{ player.nickname }} 
             <span v-if="player.userId === userStore.userId" class="user-badge">나</span>
             <span v-if="player.hasVoted" class="voted-badge">투표 완료</span>
             <span v-if="gameStore.gameState?.accusedPlayerId === player.userId" class="accused-badge">지목됨</span>

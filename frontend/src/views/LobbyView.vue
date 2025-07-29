@@ -123,7 +123,7 @@ const leaveGame = () => {
             :key="player.userId"
             :class="{ 'current-user': player.userId === userStore.userId, 'host': player.isHost }"
           >
-            {{ player.username }} 
+            {{ player.nickname }} 
             <span v-if="player.isHost" class="host-badge">방장</span>
             <span v-if="player.userId === userStore.userId" class="user-badge">나</span>
           </li>

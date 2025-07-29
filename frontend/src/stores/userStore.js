@@ -4,27 +4,27 @@ import axios from 'axios'
 export const useUserStore = defineStore('user', {
   state: () => ({
     userId: null,
-    username: '',
+    nickname: '',
     isAuthenticated: false,
     loading: false,
     error: null
   }),
   
   actions: {
-    async login(username) {
+    async login(nickname) {
       this.loading = true
       this.error = null
       
       try {
-        const response = await axios.post('/api/v1/auth/login', { username })
+        const response = await axios.post('/api/v1/auth/login', { nickname })
         
         this.userId = response.data.userId
-        this.username = username
+        this.nickname = nickname
         this.isAuthenticated = true
         
         // Store user info in localStorage for persistence
         localStorage.setItem('userId', this.userId)
-        localStorage.setItem('username', this.username)
+        localStorage.setItem('nickname', this.nickname)
         
         return response.data
       } catch (error) {
@@ -37,22 +37,22 @@ export const useUserStore = defineStore('user', {
     
     logout() {
       this.userId = null
-      this.username = ''
+      this.nickname = ''
       this.isAuthenticated = false
       
       // Clear localStorage
       localStorage.removeItem('userId')
-      localStorage.removeItem('username')
+      localStorage.removeItem('nickname')
     },
     
     // Check if user is already logged in from localStorage
     checkAuth() {
       const userId = localStorage.getItem('userId')
-      const username = localStorage.getItem('username')
+      const nickname = localStorage.getItem('nickname')
       
-      if (userId && username) {
+      if (userId && nickname) {
         this.userId = userId
-        this.username = username
+        this.nickname = nickname
         this.isAuthenticated = true
         return true
       }

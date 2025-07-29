@@ -6,7 +6,7 @@ import {useUserStore} from '../stores/userStore'
 const router = useRouter()
 const userStore = useUserStore()
 
-const username = ref('')
+const nickname = ref('')
 const gameNumber = ref('')
 const gamePassword = ref('')
 const showLoginForm = ref(true)
@@ -21,13 +21,13 @@ onMounted(() => {
 })
 
 const login = async () => {
-  if (!username.value.trim()) {
+  if (!nickname.value.trim()) {
     errorMessage.value = '사용자 이름을 입력해주세요'
     return
   }
   
   try {
-    await userStore.login(username.value.trim())
+    await userStore.login(nickname.value.trim())
     showLoginForm.value = false
     errorMessage.value = ''
   } catch (error) {
@@ -76,10 +76,10 @@ const joinGame = () => {
       <p>게임에 참여하려면 사용자 이름을 입력하세요</p>
       
       <div class="form-group">
-        <label for="username">사용자 이름:</label>
+        <label for="nickname">사용자 이름:</label>
         <input 
-          id="username" 
-          v-model="username" 
+          id="nickname" 
+          v-model="nickname" 
           placeholder="사용자 이름 입력"
           type="text"
           @keyup.enter="login"
@@ -92,7 +92,7 @@ const joinGame = () => {
     </div>
     
     <div v-else class="game-options">
-      <h2>안녕하세요, {{ userStore.username }}님!</h2>
+      <h2>안녕하세요, {{ userStore.nickname }}님!</h2>
       
       <div class="buttons">
         <button class="btn primary" @click="goToCreateGame">새 게임 만들기</button>
