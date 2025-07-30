@@ -358,7 +358,10 @@ export const useGameStore = defineStore('game', {
       
       if (data.yourWord !== undefined) {
         this.yourWord = data.yourWord
-        this.subject = data.yourWord
+      }
+      
+      if (data.subject !== undefined) {
+        this.subject = data.subject
       }
       
       if (data.word !== undefined) {
