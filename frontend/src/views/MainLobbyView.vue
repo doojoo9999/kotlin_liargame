@@ -126,12 +126,12 @@ const getStatusText = (status) => {
       <button class="btn secondary" @click="fetchGameRooms">다시 시도</button>
     </div>
     
-    <div v-else-if="gameRooms.length === 0" class="empty-state">
+    <div v-else-if="gameRooms && gameRooms.length === 0" class="empty-state">
       <p>현재 활성화된 게임방이 없습니다.</p>
       <p>새 게임을 만들어보세요!</p>
     </div>
     
-    <div v-else class="game-rooms">
+    <div v-else-if="gameRooms" class="game-rooms">
       <h2>게임방 목록</h2>
       
       <table>
@@ -167,6 +167,11 @@ const getStatusText = (status) => {
           </tr>
         </tbody>
       </table>
+    </div>
+    
+    <div v-else class="error-container">
+      <p class="error">데이터를 불러오는 중 오류가 발생했습니다.</p>
+      <button class="btn secondary" @click="fetchGameRooms">다시 시도</button>
     </div>
   </div>
 </template>

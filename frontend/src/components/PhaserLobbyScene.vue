@@ -143,24 +143,17 @@ const gameConfig = {
     },
     
     updateGameState: function() {
-      // Update player count - ensure it's updated immediately with actual values
       if (this.vueProps.gameState && this.vueProps.players) {
-        // Ensure we have valid numbers for the player count
         const currentPlayers = this.vueProps.players.length || 0;
         const maxPlayers = this.vueProps.gameState.playerCount || 0;
-        
-        // Update the player count text with animation
+
         if (this.playerCountText) {
-          // Store the previous text for comparison
           const previousText = this.playerCountText.text;
           const newText = `참가자: ${currentPlayers}/${maxPlayers}`;
-          
-          // Always update the text immediately to ensure it's correct
+
           this.playerCountText.setText(newText);
-          
-          // Only animate if the text has changed and it's not the initial update
+
           if (previousText !== '참가자: 0/0' && previousText !== newText) {
-            // Scale effect for emphasis
             this.tweens.add({
               targets: this.playerCountText,
               scaleX: 1.2,
@@ -170,8 +163,6 @@ const gameConfig = {
               ease: 'Sine.InOut'
             });
           }
-          
-          // Log the player count for debugging
           console.log(`Player count updated: ${currentPlayers}/${maxPlayers}`);
         } else {
           console.error('playerCountText is not defined');
