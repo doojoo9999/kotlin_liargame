@@ -106,8 +106,11 @@ const gameConfig = {
         fontStyle: 'bold'
       }).setOrigin(0.5);
       
-      // Add chat container
+      // Add chat container - position it below the round table
       this.chatContainer = this.add.container(250, 540);
+      
+      // Make sure the chat container is visible and above other elements
+      this.chatContainer.setDepth(10);
       
       // Add notification container
       this.notificationContainer = this.add.container(500, 750);
@@ -124,7 +127,7 @@ const gameConfig = {
     },
     
     updateGameState: function() {
-      // Update player count
+      // Update player count - ensure it's updated immediately with actual values
       if (this.vueProps.gameState && this.vueProps.players) {
         // Ensure we have valid numbers for the player count
         const currentPlayers = this.vueProps.players.length || 0;
@@ -136,8 +139,11 @@ const gameConfig = {
           const previousText = this.playerCountText.text;
           const newText = `참가자: ${currentPlayers}/${maxPlayers}`;
           
-          // Only animate if the text has changed
-          if (previousText !== newText) {
+          // Always update the text immediately to ensure it's correct
+          this.playerCountText.setText(newText);
+          
+          // Only animate if the text has changed and it's not the initial update
+          if (previousText !== '참가자: 0/0' && previousText !== newText) {
             // Scale effect for emphasis
             this.tweens.add({
               targets: this.playerCountText,
@@ -145,14 +151,8 @@ const gameConfig = {
               scaleY: 1.2,
               duration: 200,
               yoyo: true,
-              ease: 'Sine.InOut',
-              onComplete: () => {
-                this.playerCountText.setText(newText);
-              }
+              ease: 'Sine.InOut'
             });
-          } else {
-            // Just update the text without animation if it hasn't changed
-            this.playerCountText.setText(newText);
           }
           
           // Log the player count for debugging
@@ -263,6 +263,12 @@ const gameConfig = {
         
         // Store previous player IDs to identify new players
         const previousPlayerIds = this.previousPlayerIds || [];
+        
+        // Log for debugging
+        console.log('Previous player IDs:', previousPlayerIds);
+        console.log('Current players:', this.vueProps.players);
+        
+        // Update the list of previous player IDs
         this.previousPlayerIds = this.vueProps.players.map(player => player.userId);
         
         this.vueProps.players.forEach((player, index) => {
@@ -273,6 +279,11 @@ const gameConfig = {
           const isCurrentPlayer = player.userId === this.vueProps.currentPlayerId;
           const isNewPlayer = !previousPlayerIds.includes(player.userId);
           
+          // Log new players for debugging
+          if (isNewPlayer) {
+            console.log('New player detected:', player.nickname, player.userId);
+          }
+          
           // Starting position for new players (off-screen)
           let startX = targetX;
           let startY = targetY;
@@ -282,6 +293,9 @@ const gameConfig = {
             const randomAngle = Math.random() * Math.PI * 2;
             startX = centerX + (radius + 300) * Math.cos(randomAngle);
             startY = centerY + (radius + 300) * Math.sin(randomAngle);
+            
+            // Add notification for new player
+            this.addNotification(`${player.nickname} 님이 입장했습니다.`);
           }
           
           // Add player sprite
@@ -312,7 +326,10 @@ const gameConfig = {
               y: targetY,
               scale: 1.5,
               ease: 'Bounce.Out',
-              duration: 1000
+              duration: 1000,
+              onComplete: () => {
+                console.log('Animation completed for player:', player.nickname);
+              }
             });
             
             // Fade in the name
@@ -354,6 +371,9 @@ const gameConfig = {
       // Display the last 8 messages
       const displayMessages = messages.slice(-8);
       
+      // Log for debugging
+      console.log('Updating chat messages:', displayMessages.length, 'messages');
+      
       displayMessages.forEach((message, index) => {
         const isCurrentUser = message.senderId === this.vueProps.currentPlayerId;
         
@@ -367,10 +387,17 @@ const gameConfig = {
         
         const messageText = this.add.text(0, index * 25, `${message.senderName}: ${message.content}`, textStyle);
         
+        // Make sure the message text is visible
+        messageText.setDepth(10);
+        
         this.chatContainer.add(messageText);
         
         this.chatMessages.push(messageText);
       });
+      
+      // Force the chat container to update its display
+      this.chatContainer.setVisible(false);
+      this.chatContainer.setVisible(true);
     },
     
     addNotification: function(message) {
@@ -408,10 +435,22 @@ const gameConfig = {
   }
 };
 
+// Flag to track if the scene is fully initialized
+const sceneInitialized = ref(false);
+
 const initGame = () => {
   if (gameContainer.value) {
     gameConfig.parent = gameContainer.value;
     game = new Phaser.Game(gameConfig);
+    
+    // Add event listener for scene creation to set the initialized flag
+    game.events.once('ready', () => {
+      // Give a small delay to ensure all scene methods are available
+      setTimeout(() => {
+        console.log('Phaser scene fully initialized');
+        sceneInitialized.value = true;
+      }, 500);
+    });
   }
 };
 
@@ -424,64 +463,128 @@ const destroyGame = () => {
 
 // Watch for changes in props
 watch(() => props.gameState, () => {
-  if (game && game.scene.scenes[0] && typeof game.scene.scenes[0].updateGameState === 'function') {
-    game.scene.scenes[0].updateGameState();
-  } else if (game && game.scene.scenes[0]) {
-    console.log('updateGameState function not found, reinitializing scene');
-    // Force scene restart to ensure all methods are properly initialized
-    game.scene.scenes[0].scene.restart();
+  // Only attempt to update if the scene is fully initialized
+  if (sceneInitialized.value && game && game.scene.scenes[0]) {
+    if (typeof game.scene.scenes[0].updateGameState === 'function') {
+      game.scene.scenes[0].updateGameState();
+    } else {
+      console.log('updateGameState function not found, scene may not be fully initialized');
+      // Only restart if we're sure the scene should be initialized by now
+      if (sceneInitialized.value) {
+        console.log('Attempting to reinitialize scene');
+        game.scene.scenes[0].scene.restart();
+        // Reset initialization flag until scene is ready again
+        sceneInitialized.value = false;
+      }
+    }
   }
 }, { deep: true });
 
 watch(() => props.players, () => {
-  if (game && game.scene.scenes[0] && typeof game.scene.scenes[0].updatePlayers === 'function') {
-    game.scene.scenes[0].updatePlayers();
-  } else if (game && game.scene.scenes[0]) {
-    console.log('updatePlayers function not found, reinitializing scene');
-    game.scene.scenes[0].scene.restart();
+  // Only attempt to update if the scene is fully initialized
+  if (sceneInitialized.value && game && game.scene.scenes[0]) {
+    if (typeof game.scene.scenes[0].updatePlayers === 'function') {
+      game.scene.scenes[0].updatePlayers();
+    } else {
+      console.log('updatePlayers function not found, scene may not be fully initialized');
+      // Only restart if we're sure the scene should be initialized by now
+      if (sceneInitialized.value) {
+        console.log('Attempting to reinitialize scene');
+        game.scene.scenes[0].scene.restart();
+        // Reset initialization flag until scene is ready again
+        sceneInitialized.value = false;
+      }
+    }
   }
 }, { deep: true });
 
-watch(() => props.messages, () => {
-  if (game && game.scene.scenes[0] && typeof game.scene.scenes[0].updateChatMessages === 'function') {
-    game.scene.scenes[0].updateChatMessages();
-  } else if (game && game.scene.scenes[0]) {
-    console.log('updateChatMessages function not found, reinitializing scene');
-    game.scene.scenes[0].scene.restart();
+watch(() => props.messages, (newMessages, oldMessages) => {
+  console.log('Messages changed:', newMessages?.length, 'messages');
+  
+  // Only attempt to update if the scene is fully initialized
+  if (sceneInitialized.value && game && game.scene.scenes[0]) {
+    if (typeof game.scene.scenes[0].updateChatMessages === 'function') {
+      // Force immediate update of chat messages when they change
+      game.scene.scenes[0].updateChatMessages();
+      
+      // If a new message was added, add a notification
+      if (newMessages && oldMessages && newMessages.length > oldMessages.length) {
+        const latestMessage = newMessages[newMessages.length - 1];
+        if (latestMessage && typeof game.scene.scenes[0].addNotification === 'function') {
+          game.scene.scenes[0].addNotification(`새 메시지: ${latestMessage.senderName}`);
+        }
+      }
+    } else {
+      console.log('updateChatMessages function not found, scene may not be fully initialized');
+      // Only restart if we're sure the scene should be initialized by now
+      if (sceneInitialized.value) {
+        console.log('Attempting to reinitialize scene');
+        game.scene.scenes[0].scene.restart();
+        // Reset initialization flag until scene is ready again
+        sceneInitialized.value = false;
+      }
+    }
   }
-}, { deep: true });
+}, { deep: true, immediate: true });
 
 watch(() => props.isHost, () => {
-  if (game && game.scene.scenes[0] && typeof game.scene.scenes[0].createButtons === 'function') {
-    game.scene.scenes[0].createButtons();
-  } else if (game && game.scene.scenes[0]) {
-    console.log('createButtons function not found, reinitializing scene');
-    game.scene.scenes[0].scene.restart();
+  // Only attempt to update if the scene is fully initialized
+  if (sceneInitialized.value && game && game.scene.scenes[0]) {
+    if (typeof game.scene.scenes[0].createButtons === 'function') {
+      game.scene.scenes[0].createButtons();
+    } else {
+      console.log('createButtons function not found, scene may not be fully initialized');
+      // Only restart if we're sure the scene should be initialized by now
+      if (sceneInitialized.value) {
+        console.log('Attempting to reinitialize scene');
+        game.scene.scenes[0].scene.restart();
+        // Reset initialization flag until scene is ready again
+        sceneInitialized.value = false;
+      }
+    }
   }
 }, { deep: true });
 
 watch(() => props.canStartGame, () => {
-  if (game && game.scene.scenes[0] && typeof game.scene.scenes[0].updateButtons === 'function') {
-    game.scene.scenes[0].updateButtons();
-  } else if (game && game.scene.scenes[0]) {
-    console.log('updateButtons function not found, reinitializing scene');
-    game.scene.scenes[0].scene.restart();
+  // Only attempt to update if the scene is fully initialized
+  if (sceneInitialized.value && game && game.scene.scenes[0]) {
+    if (typeof game.scene.scenes[0].updateButtons === 'function') {
+      game.scene.scenes[0].updateButtons();
+    } else {
+      console.log('updateButtons function not found, scene may not be fully initialized');
+      // Only restart if we're sure the scene should be initialized by now
+      if (sceneInitialized.value) {
+        console.log('Attempting to reinitialize scene');
+        game.scene.scenes[0].scene.restart();
+        // Reset initialization flag until scene is ready again
+        sceneInitialized.value = false;
+      }
+    }
   }
 });
 
 // Track player count changes for notifications
 const previousPlayerCount = ref(0);
 watch(() => props.players?.length, (newCount, oldCount) => {
-  if (game && game.scene.scenes[0] && typeof game.scene.scenes[0].addNotification === 'function' && oldCount !== undefined) {
-    if (newCount > oldCount) {
-      const newPlayer = props.players[props.players.length - 1];
-      game.scene.scenes[0].addNotification(`${newPlayer.nickname} 님이 입장했습니다.`);
-    } else if (newCount < oldCount) {
-      game.scene.scenes[0].addNotification('플레이어가 퇴장했습니다.');
+  // Only attempt to update if the scene is fully initialized
+  if (sceneInitialized.value && game && game.scene.scenes[0] && oldCount !== undefined) {
+    if (typeof game.scene.scenes[0].addNotification === 'function') {
+      if (newCount > oldCount) {
+        const newPlayer = props.players[props.players.length - 1];
+        game.scene.scenes[0].addNotification(`${newPlayer.nickname} 님이 입장했습니다.`);
+      } else if (newCount < oldCount) {
+        game.scene.scenes[0].addNotification('플레이어가 퇴장했습니다.');
+      }
+    } else {
+      console.log('addNotification function not found, scene may not be fully initialized');
+      // Only restart if we're sure the scene should be initialized by now
+      if (sceneInitialized.value) {
+        console.log('Attempting to reinitialize scene');
+        game.scene.scenes[0].scene.restart();
+        // Reset initialization flag until scene is ready again
+        sceneInitialized.value = false;
+      }
     }
-  } else if (game && game.scene.scenes[0] && oldCount !== undefined) {
-    console.log('addNotification function not found, reinitializing scene');
-    game.scene.scenes[0].scene.restart();
   }
   previousPlayerCount.value = newCount;
 });
