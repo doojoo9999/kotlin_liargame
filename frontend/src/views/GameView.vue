@@ -1,10 +1,11 @@
-﻿<script setup>
-import {computed, nextTick, onBeforeUnmount, onMounted, ref, watch} from 'vue'
+<script setup>
+
+import {computed, onBeforeUnmount, onMounted, ref, watch} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 import {useGameStore} from '../stores/gameStore'
 import {useUserStore} from '../stores/userStore'
 import {useChatStore} from '../stores/chatStore'
-import PhaserGame from '../components/PhaserGame.vue'
+import PhaserGameNew from '../components/PhaserGameNew.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -23,7 +24,6 @@ const defense = ref('')
 const timer = ref(0)
 const timerInterval = ref(null)
 
-// Game phases
 const PHASE = {
   HINT: 'HINT',
   DISCUSSION: 'DISCUSSION',
@@ -37,12 +37,10 @@ const PHASE = {
 
 const currentPhase = ref(PHASE.HINT)
 
-// Check if user is logged in
 if (!userStore.isAuthenticated) {
   router.push('/')
 }
 
-// Computed properties
 const currentPlayer = computed(() => {
   if (!gameStore.players || gameStore.players.length === 0) return null
   return gameStore.players.find(player => player.userId === userStore.userId)
@@ -87,16 +85,6 @@ const formatTime = (seconds) => {
   const mins = Math.floor(seconds / 60)
   const secs = seconds % 60
   return `${mins}:${secs < 10 ? '0' : ''}${secs}`
-}
-
-const formatMessageTime = (timestamp) => {
-  if (!timestamp) return ''
-  
-  const date = new Date(timestamp)
-  const hours = date.getHours().toString().padStart(2, '0')
-  const minutes = date.getMinutes().toString().padStart(2, '0')
-  
-  return `${hours}:${minutes}`
 }
 
 // Methods
@@ -161,8 +149,9 @@ const sendHint = async () => {
   }
 }
 
-const sendChatMessage = async () => {
-  if (!chatMessage.value.trim()) return
+const sendChatMessage = async (message) => {
+  const messageToSend = message || chatMessage.value.trim()
+  if (!messageToSend) return
   
   try {
     let messageType = 'DISCUSSION'
@@ -174,11 +163,15 @@ const sendChatMessage = async () => {
       messageType = 'POST_ROUND'
     }
     
-    await chatStore.sendMessage(gameNumber, chatMessage.value.trim(), messageType)
+    await chatStore.sendMessage(gameNumber, messageToSend, messageType)
     chatMessage.value = ''
   } catch (error) {
     errorMessage.value = error.message || '메시지 전송에 실패했습니다'
   }
+}
+
+const handlePlayerSelected = (playerId) => {
+  selectedPlayerId.value = playerId
 }
 
 const votePlayer = async () => {
@@ -317,41 +310,12 @@ watch(() => gameStore.gameState, () => {
   updateGamePhase()
   startTimer()
 }, { deep: true })
-
-// Watch for changes in chat messages to auto-scroll
-const chatMessagesContainer = ref(null)
-watch(() => chatStore.messages, () => {
-  nextTick(() => {
-    if (chatMessagesContainer.value) {
-      chatMessagesContainer.value.scrollTop = chatMessagesContainer.value.scrollHeight
-    }
-  })
-}, { deep: true })
 </script>
 
 <template>
   <div class="game">
     <h1>라이어 게임</h1>
     <h2>게임 번호: {{ gameNumber }} | 라운드: {{ gameStore.currentRound }}/{{ gameStore.gameState?.roundCount }}</h2>
-    
-    <div v-if="gameStore.gameState" class="game-summary">
-      <div class="summary-item">
-        <span class="label">상태:</span>
-        <span class="value">{{ gameStore.gameState.status === 'STARTED' ? '시작됨' : '대기 중' }}</span>
-      </div>
-      <div class="summary-item">
-        <span class="label">최대 인원:</span>
-        <span class="value">{{ gameStore.gameState.playerCount }}명</span>
-      </div>
-      <div class="summary-item">
-        <span class="label">제한 시간:</span>
-        <span class="value">{{ gameStore.gameState.timeLimit }}초</span>
-      </div>
-      <div class="summary-item">
-        <span class="label">라운드 수:</span>
-        <span class="value">{{ gameStore.gameState.roundCount }}</span>
-      </div>
-    </div>
     
     <div v-if="loading" class="loading">
       로딩 중...
@@ -373,172 +337,22 @@ watch(() => chatStore.messages, () => {
     </div>
     
     <div v-else class="game-content">
-      <!-- Game info section -->
-      <div class="game-info">
-        <div class="phase-info">
-          <h3>{{ phaseText }}</h3>
-          <div v-if="timer > 0" class="timer">
-            남은 시간: {{ formatTime(timer) }}
-          </div>
-        </div>
-        
-        <div class="subject-info">
-          <h3>주제: {{ gameStore.subject }}</h3>
-          
-          <!-- Liar information -->
-          <div v-if="isLiar" class="liar-info">
-            <p class="liar-badge">당신은 라이어입니다!</p>
-            
-            <div v-if="gameStore.gameMode === 'LIARS_DIFFERENT_WORD'" class="liar-different-word">
-              <p>당신에게는 다른 주제가 주어졌습니다. 다른 플레이어들이 어떤 주제에 대해 이야기하는지 파악하세요.</p>
-              <p>당신의 주제: <strong>{{ gameStore.subject }}</strong></p>
-            </div>
-            
-            <div v-else class="liar-same-word">
-              <p>다른 플레이어들의 힌트를 듣고 단어를 추측하세요.</p>
-              <p>주제는 알려드리지만, 정확한 단어는 모릅니다.</p>
-            </div>
-          </div>
-          
-          <!-- Citizen information -->
-          <div v-else class="word-info">
-            <p>당신은 시민입니다.</p>
-            <p>단어: <strong>{{ gameStore.word }}</strong></p>
-            <p>라이어가 누구인지 찾아내세요!</p>
-          </div>
-        </div>
-      </div>
-      
       <!-- Phaser Game Component -->
       <div class="phaser-game-section">
-        <h3>게임 시각화</h3>
-        <PhaserGame
+        <PhaserGameNew
           :currentPhase="phaseText"
           :currentPlayerId="userStore.userId"
           :currentRound="gameStore.currentRound"
           :gameState="gameStore.gameState"
           :isLiar="isLiar"
+          :messages="chatStore.messages"
           :players="gameStore.players"
           :subject="gameStore.subject"
+          :timeRemaining="timer"
           :word="gameStore.word"
-          @playerSelected="selectedPlayerId = $event"
+          @playerSelected="handlePlayerSelected"
+          @sendMessage="sendChatMessage"
         />
-      </div>
-      
-      <!-- Game instructions section -->
-      <div class="game-instructions">
-        <h3>게임 진행 안내</h3>
-        <div class="instructions-content">
-          <div class="instruction-step">
-            <div class="step-number">1</div>
-            <div class="step-content">
-              <h4>힌트 단계</h4>
-              <p>모든 플레이어는 주어진 단어에 대한 힌트를 제공합니다. 라이어는 단어를 모르지만 다른 플레이어의 힌트를 듣고 추측해야 합니다.</p>
-            </div>
-          </div>
-          
-          <div class="instruction-step">
-            <div class="step-number">2</div>
-            <div class="step-content">
-              <h4>토론 단계</h4>
-              <p>모든 플레이어가 힌트를 제공한 후, 누가 라이어인지 토론합니다. 채팅을 통해 의견을 나눌 수 있습니다.</p>
-            </div>
-          </div>
-          
-          <div class="instruction-step">
-            <div class="step-number">3</div>
-            <div class="step-content">
-              <h4>투표 단계</h4>
-              <p>토론이 끝나면 라이어라고 생각하는 플레이어에게 투표합니다.</p>
-            </div>
-          </div>
-          
-          <div class="instruction-step">
-            <div class="step-number">4</div>
-            <div class="step-content">
-              <h4>변론 단계</h4>
-              <p>가장 많은 표를 받은 플레이어는 자신이 라이어가 아님을 변론할 기회를 갖습니다.</p>
-            </div>
-          </div>
-          
-          <div class="instruction-step">
-            <div class="step-number">5</div>
-            <div class="step-content">
-              <h4>생존 투표 단계</h4>
-              <p>변론 후 다시 투표를 진행하여 해당 플레이어의 생존 여부를 결정합니다.</p>
-            </div>
-          </div>
-          
-          <div class="instruction-step">
-            <div class="step-number">6</div>
-            <div class="step-content">
-              <h4>단어 맞추기 단계</h4>
-              <p>라이어가 지목되면 라이어는 단어를 맞출 기회를 갖습니다. 맞추면 라이어 승리, 틀리면 시민 승리입니다.</p>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      <!-- Players section -->
-      <div class="players-section">
-        <h3>플레이어</h3>
-        <ul class="players-list">
-          <li 
-            v-for="player in gameStore.players" 
-            :key="player.userId"
-            :class="{
-              'current-user': player.userId === userStore.userId,
-              'selected': player.userId === selectedPlayerId,
-              'voted': player.hasVoted,
-              'accused': gameStore.gameState?.accusedPlayerId === player.userId
-            }"
-            @click="canVote || canSurvivalVote ? selectedPlayerId = player.userId : null"
-          >
-            {{ player.nickname }} 
-            <span v-if="player.userId === userStore.userId" class="user-badge">나</span>
-            <span v-if="player.hasVoted" class="voted-badge">투표 완료</span>
-            <span v-if="gameStore.gameState?.accusedPlayerId === player.userId" class="accused-badge">지목됨</span>
-          </li>
-        </ul>
-      </div>
-      
-      <!-- Chat section -->
-      <div class="chat-section">
-        <h3>채팅</h3>
-        <div ref="chatMessagesContainer" class="chat-messages">
-          <div v-if="chatStore.messages.length === 0" class="no-messages">
-            아직 메시지가 없습니다. 첫 메시지를 보내보세요!
-          </div>
-          <div 
-            v-for="(message, index) in chatStore.messages" 
-            :key="index"
-            :class="{ 
-              'hint-message': message.type === 'HINT', 
-              'defense-message': message.type === 'DEFENSE',
-              'system-message': message.type === 'SYSTEM'
-            }"
-            class="chat-message"
-          >
-            <span class="message-sender">{{ message.senderName }}:</span>
-            <span class="message-content">{{ message.content }}</span>
-            <span class="message-time">{{ formatMessageTime(message.timestamp) }}</span>
-          </div>
-        </div>
-        
-        <div class="chat-input">
-          <input 
-            v-model="chatMessage" 
-            placeholder="메시지 입력..."
-            type="text"
-            @keyup.enter="currentPhase === PHASE.HINT && !isLiar ? sendHint() : sendChatMessage()"
-          >
-          <button 
-            class="btn primary"
-            @click="currentPhase === PHASE.HINT && !isLiar ? sendHint() : sendChatMessage()"
-          >
-            {{ currentPhase === PHASE.HINT && !isLiar ? '힌트 보내기' : '전송' }}
-          </button>
-        </div>
       </div>
       
       <!-- Action section -->
@@ -644,7 +458,7 @@ watch(() => chatStore.messages, () => {
 
 <style scoped>
 .game {
-  max-width: 1000px;
+  max-width: 1200px;
   margin: 0 auto;
   padding: 1.5rem;
 }
@@ -683,231 +497,20 @@ h3 {
 }
 
 .game-content {
-  display: grid;
-  grid-template-columns: 1fr 2fr;
-  grid-template-rows: auto auto auto auto;
+  display: flex;
+  flex-direction: column;
   gap: 1.5rem;
 }
 
-.game-info {
-  grid-column: 1 / span 2;
-  grid-row: 1;
-  display: flex;
-  justify-content: space-between;
-  background-color: #f5f5f5;
-  border-radius: 8px;
-  padding: 1.5rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.phase-info, .subject-info {
-  flex: 1;
-}
-
-.timer {
-  font-size: 1.2rem;
-  font-weight: bold;
-  color: #f44336;
-}
-
-.liar-info {
-  color: #f44336;
-  padding: 1rem;
-  border-radius: 8px;
-  background-color: rgba(244, 67, 54, 0.1);
-  border: 1px solid #f44336;
-}
-
-.liar-badge {
-  font-weight: bold;
-  font-size: 1.2rem;
-  margin-bottom: 0.5rem;
-  padding: 0.5rem;
-  background-color: #f44336;
-  color: white;
-  border-radius: 4px;
-  display: inline-block;
-}
-
-.liar-different-word, .liar-same-word {
-  margin-top: 0.5rem;
-  padding: 0.5rem;
-  border-radius: 4px;
-  background-color: rgba(255, 255, 255, 0.7);
-}
-
-.word-info {
-  font-size: 1.1rem;
-  padding: 1rem;
-  border-radius: 8px;
-  background-color: rgba(76, 175, 80, 0.1);
-  border: 1px solid #4caf50;
-  color: #2e7d32;
-}
-
-.players-section {
-  grid-column: 1;
-  grid-row: 2;
-  background-color: #f5f5f5;
-  border-radius: 8px;
-  padding: 1.5rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.chat-section {
-  grid-column: 2;
-  grid-row: 2;
-  background-color: #f5f5f5;
-  border-radius: 8px;
-  padding: 1.5rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  display: flex;
-  flex-direction: column;
-}
-
 .phaser-game-section {
-  grid-column: 1 / span 2;
-  grid-row: 3;
-  background-color: #f5f5f5;
-  border-radius: 8px;
-  padding: 1.5rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  width: 100%;
 }
 
 .action-section {
-  grid-column: 1 / span 2;
-  grid-row: 4;
   background-color: #f5f5f5;
   border-radius: 8px;
   padding: 1.5rem;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.players-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.players-list li {
-  padding: 0.75rem;
-  border-bottom: 1px solid #ddd;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.players-list li:last-child {
-  border-bottom: none;
-}
-
-.players-list .current-user {
-  font-weight: bold;
-  background-color: rgba(33, 150, 243, 0.1);
-}
-
-.players-list .selected {
-  background-color: rgba(76, 175, 80, 0.1);
-  border: 1px solid #4caf50;
-}
-
-.players-list .voted {
-  opacity: 0.7;
-}
-
-.players-list .accused {
-  background-color: rgba(244, 67, 54, 0.1);
-  border: 1px solid #f44336;
-}
-
-.user-badge, .voted-badge, .accused-badge {
-  font-size: 0.8rem;
-  padding: 0.2rem 0.5rem;
-  border-radius: 4px;
-  margin-left: 0.5rem;
-}
-
-.user-badge {
-  background-color: #2196f3;
-  color: white;
-}
-
-.voted-badge {
-  background-color: #9e9e9e;
-  color: white;
-}
-
-.accused-badge {
-  background-color: #f44336;
-  color: white;
-}
-
-.chat-messages {
-  flex: 1;
-  height: 300px;
-  overflow-y: auto;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  padding: 1rem;
-  background-color: white;
-  margin-bottom: 1rem;
-}
-
-.chat-message {
-  margin-bottom: 0.5rem;
-}
-
-.hint-message {
-  background-color: rgba(33, 150, 243, 0.1);
-  padding: 0.5rem;
-  border-radius: 4px;
-}
-
-.defense-message {
-  background-color: rgba(244, 67, 54, 0.1);
-  padding: 0.5rem;
-  border-radius: 4px;
-}
-
-.message-sender {
-  font-weight: bold;
-  margin-right: 0.5rem;
-}
-
-.message-content {
-  flex: 1;
-}
-
-.message-time {
-  font-size: 0.8rem;
-  color: #999;
-  margin-left: 0.5rem;
-}
-
-.no-messages {
-  text-align: center;
-  color: #999;
-  padding: 2rem;
-  font-style: italic;
-}
-
-.system-message {
-  background-color: rgba(158, 158, 158, 0.1);
-  font-style: italic;
-}
-
-.chat-input {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 1rem;
-}
-
-.chat-input input {
-  flex: 1;
-  padding: 0.75rem;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  font-size: 1rem;
 }
 
 .action-panel {
@@ -975,36 +578,6 @@ h3 {
   margin-bottom: 1rem;
 }
 
-.game-summary {
-  display: flex;
-  justify-content: space-around;
-  flex-wrap: wrap;
-  background-color: #f5f5f5;
-  border-radius: 8px;
-  padding: 1rem;
-  margin-bottom: 1.5rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.summary-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 0.5rem 1rem;
-}
-
-.summary-item .label {
-  font-size: 0.9rem;
-  color: #666;
-  margin-bottom: 0.25rem;
-}
-
-.summary-item .value {
-  font-size: 1.1rem;
-  font-weight: bold;
-  color: #333;
-}
-
 .not-started {
   text-align: center;
   margin: 2rem 0;
@@ -1023,91 +596,9 @@ h3 {
   margin-bottom: 1.5rem;
 }
 
-.game-instructions {
-  grid-column: 1 / span 2;
-  background-color: #f5f5f5;
-  border-radius: 8px;
-  padding: 1.5rem;
-  margin-bottom: 1.5rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.instructions-content {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.instruction-step {
-  display: flex;
-  align-items: flex-start;
-  background-color: white;
-  border-radius: 8px;
-  padding: 1rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.step-number {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  width: 2rem;
-  height: 2rem;
-  background-color: #4caf50;
-  color: white;
-  border-radius: 50%;
-  font-weight: bold;
-  margin-right: 1rem;
-  flex-shrink: 0;
-}
-
-.step-content {
-  flex: 1;
-}
-
-.step-content h4 {
-  margin: 0 0 0.5rem 0;
-  color: #333;
-  font-size: 1.1rem;
-}
-
-.step-content p {
-  margin: 0;
-  color: #666;
-  font-size: 0.95rem;
-  line-height: 1.4;
-}
-
-@media (max-width: 768px) {
-  .game-content {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto auto auto auto auto;
-  }
-  
-  .game-info {
-    grid-column: 1;
-    grid-row: 1;
-    flex-direction: column;
-  }
-  
-  .players-section {
-    grid-column: 1;
-    grid-row: 2;
-  }
-  
-  .chat-section {
-    grid-column: 1;
-    grid-row: 3;
-  }
-  
-  .phaser-game-section {
-    grid-column: 1;
-    grid-row: 4;
-  }
-  
-  .action-section {
-    grid-column: 1;
-    grid-row: 5;
+@media (max-width: 1200px) {
+  .game {
+    padding: 1rem;
   }
 }
 </style>
