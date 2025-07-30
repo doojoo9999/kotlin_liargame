@@ -13,22 +13,18 @@ export const useChatStore = defineStore('chat', {
   
   actions: {
     initSocket(gameNumber) {
-      // Close existing socket if any
       if (this.socket) {
         this.socket.disconnect()
       }
       
-      // Create new socket connection
       this.socket = io(import.meta.env.VITE_SOCKET_URL || window.location.origin, {
         path: '/ws'
       })
       
-      // Set up event listeners
       this.socket.on('connect', () => {
         this.connected = true
         console.log('Socket connected')
         
-        // Subscribe to game chat topic
         this.socket.emit('subscribe', `/topic/chat.${gameNumber}`)
       })
       
