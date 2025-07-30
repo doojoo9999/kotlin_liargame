@@ -25,7 +25,8 @@ class SecurityConfig(
         "/api/v1/**",
         "/v3/api-docs/**",
         "/error",
-        "/h2-console"
+        "/h2-console",
+        "/ws/**"
     )
 
     @Bean
