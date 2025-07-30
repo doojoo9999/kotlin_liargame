@@ -51,6 +51,12 @@ onMounted(async () => {
             params: { gameNumber }
           })
         }
+        
+        // Force update of players list to ensure UI reflects current participants
+        if (gameStore.gameState && gameStore.gameState.players) {
+          gameStore.players = [...gameStore.gameState.players]
+          console.log('Updated players list:', gameStore.players)
+        }
       } catch (error) {
         console.error('Failed to refresh game state:', error)
       }
@@ -118,9 +124,6 @@ const sendChatMessage = async (message) => {
 
 <template>
   <div class="phaser-lobby">
-    <h1>게임 로비</h1>
-    <h2>게임 번호: {{ gameNumber }}</h2>
-    
     <div v-if="loading" class="loading">
       로딩 중...
     </div>
