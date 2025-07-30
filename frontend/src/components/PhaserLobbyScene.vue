@@ -45,10 +45,14 @@ const gameConfig = {
       this.vueProps = props;
       this.vueEmit = emit;
       
+      // 모든 배열을 초기화
+      this.buttons = [];
       this.playerSprites = [];
       this.chatMessages = [];
       this.notifications = [];
-      this.buttons = [];
+      
+      // scene이 재시작될 때마다 sceneInitialized를 true로 설정
+      sceneInitialized.value = true;
     },
     
     preload: function() {
@@ -64,6 +68,18 @@ const gameConfig = {
     },
     
     create: function() {
+      // 기존 버튼들이 있다면 제거
+      if (this.buttons) {
+        this.buttons.forEach(button => {
+            if (button && button.destroy) {
+                button.destroy();
+            }
+        });
+      }
+      
+      // 배열 재초기화
+      this.buttons = [];
+      
       // Add background
       this.add.image(500, 400, 'background').setScale(2);
       
@@ -175,8 +191,17 @@ const gameConfig = {
     },
     
     createButtons: function() {
-      // Clear existing buttons
-      this.buttons.forEach(button => button.destroy());
+      // 안전 검사 추가
+      if (!this.buttons) {
+        this.buttons = [];
+      }
+      
+      // 기존 버튼 제거
+      this.buttons.forEach(button => {
+        if (button && button.destroy) {
+          button.destroy();
+        }
+      });
       this.buttons = [];
       
       // Start game button (only for host)
