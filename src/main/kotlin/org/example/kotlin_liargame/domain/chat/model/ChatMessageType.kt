@@ -4,5 +4,6 @@ enum class ChatMessageType {
     HINT,
     DISCUSSION,
     DEFENSE,
-    POST_ROUND
+    POST_ROUND,
+    LOBBY
 }
