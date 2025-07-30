@@ -26,7 +26,7 @@ class SecurityConfig(
         "/v3/api-docs/**",
         "/error",
         "/h2-console",
-        "/ws/**"
+        "/ws/**",
     )
 
     @Bean
@@ -42,6 +42,11 @@ class SecurityConfig(
                     config.allowedMethods = listOf("*")
                     config.allowedHeaders = listOf("*")
                     config.allowCredentials = true
+                    config.setAllowedOriginPatterns(listOf("*"))
+                    config.addAllowedOrigin("ws://localhost:20021")
+                    config.addAllowedOrigin("wss://localhost:20021")
+                    config.addAllowedOrigin("http://localhost:20021")
+                    config.addAllowedOrigin("https://localhost:20021")
                     config
                 }
             }

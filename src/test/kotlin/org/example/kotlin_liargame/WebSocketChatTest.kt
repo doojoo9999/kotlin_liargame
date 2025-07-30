@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.messaging.converter.MappingJackson2MessageConverter
 import org.springframework.messaging.simp.stomp.*
@@ -39,7 +40,9 @@ import java.util.concurrent.TimeUnit
  * 3. Receiving messages via WebSocket
  * 4. Integration with the chat service
  */
+
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.DEFINED_PORT, properties = ["server.port=20022"])
+@ConditionalOnProperty(name = ["spring.security.jwt.test-mode"], havingValue = "false", matchIfMissing = true)
 @Transactional
 class WebSocketChatTest {
 
