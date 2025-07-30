@@ -75,11 +75,17 @@ class ChatService(
             return ChatMessageResponse.from(savedMessage)
         }
         else {
+            val messageType = if (game.gState == GameState.WAITING) {
+                ChatMessageType.LOBBY
+            } else {
+                ChatMessageType.POST_ROUND
+            }
+            
             val chatMessage = ChatMessageEntity(
                 game = game,
                 player = player,
                 content = req.content,
-                type = ChatMessageType.POST_ROUND
+                type = messageType
             )
             
             val savedMessage = chatMessageRepository.save(chatMessage)
