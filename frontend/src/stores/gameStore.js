@@ -13,7 +13,9 @@ export const useGameStore = defineStore('game', {
     yourWord: '',
     isLiar: false,
     yourRole: null,
+    // Frontend naming convention
     gameMode: null,
+    // Backend naming convention (g prefix stands for "game")
     gGameMode: null,
     gameResult: null,
     loading: false,
@@ -22,7 +24,7 @@ export const useGameStore = defineStore('game', {
   }),
   
   actions: {
-    async createGame(gameName, playerCount, timeLimit, roundCount, password = null) {
+    async createGame(gameName, playerCount, timeLimit, roundCount, password = null, liarAwarenessMode = false, differentWordMode = false) {
       this.loading = true
       this.error = null
       
@@ -32,7 +34,9 @@ export const useGameStore = defineStore('game', {
           gParticipants: playerCount,
           gTotalRounds: roundCount,
           gPassword: password,
-          gTimeLimit: timeLimit
+          gTimeLimit: timeLimit,
+          liarAwarenessMode: liarAwarenessMode,
+          differentWordMode: differentWordMode
         }
         
         if (this.selectedSubjects.length > 0) {
@@ -329,6 +333,7 @@ export const useGameStore = defineStore('game', {
     },
     
     // Helper method to update all game state variables
+    // This method handles the synchronization between frontend and backend naming conventions
     _updateGameStateVariables(data) {
       // Update players if available
       if (data.players) {
@@ -336,6 +341,8 @@ export const useGameStore = defineStore('game', {
       }
       
       // Update round information if available
+      // The API may return either currentRound (frontend convention) or gCurrentRound (backend convention)
+      // We update both to ensure consistency regardless of which is used in the UI
       if (data.currentRound !== undefined) {
         this.currentRound = data.currentRound
       }
@@ -344,6 +351,7 @@ export const useGameStore = defineStore('game', {
       }
       
       // Update game mode information if available
+      // Similar to round information, we maintain both naming conventions
       if (data.gameMode !== undefined) {
         this.gameMode = data.gameMode
       }
