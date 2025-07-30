@@ -4,6 +4,7 @@ import {useRoute, useRouter} from 'vue-router'
 import {useGameStore} from '../stores/gameStore'
 import {useUserStore} from '../stores/userStore'
 import {useChatStore} from '../stores/chatStore'
+import PhaserGame from '../components/PhaserGame.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -408,6 +409,22 @@ watch(() => chatStore.messages, () => {
         </div>
       </div>
       
+      <!-- Phaser Game Component -->
+      <div class="phaser-game-section">
+        <h3>게임 시각화</h3>
+        <PhaserGame
+          :currentPhase="phaseText"
+          :currentPlayerId="userStore.userId"
+          :currentRound="gameStore.currentRound"
+          :gameState="gameStore.gameState"
+          :isLiar="isLiar"
+          :players="gameStore.players"
+          :subject="gameStore.subject"
+          :word="gameStore.word"
+          @playerSelected="selectedPlayerId = $event"
+        />
+      </div>
+      
       <!-- Game instructions section -->
       <div class="game-instructions">
         <h3>게임 진행 안내</h3>
@@ -668,7 +685,7 @@ h3 {
 .game-content {
   display: grid;
   grid-template-columns: 1fr 2fr;
-  grid-template-rows: auto auto auto;
+  grid-template-rows: auto auto auto auto;
   gap: 1.5rem;
 }
 
@@ -748,9 +765,18 @@ h3 {
   flex-direction: column;
 }
 
-.action-section {
+.phaser-game-section {
   grid-column: 1 / span 2;
   grid-row: 3;
+  background-color: #f5f5f5;
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.action-section {
+  grid-column: 1 / span 2;
+  grid-row: 4;
   background-color: #f5f5f5;
   border-radius: 8px;
   padding: 1.5rem;
@@ -1055,7 +1081,7 @@ h3 {
 @media (max-width: 768px) {
   .game-content {
     grid-template-columns: 1fr;
-    grid-template-rows: auto auto auto auto;
+    grid-template-rows: auto auto auto auto auto;
   }
   
   .game-info {
@@ -1074,9 +1100,14 @@ h3 {
     grid-row: 3;
   }
   
-  .action-section {
+  .phaser-game-section {
     grid-column: 1;
     grid-row: 4;
+  }
+  
+  .action-section {
+    grid-column: 1;
+    grid-row: 5;
   }
 }
 </style>
