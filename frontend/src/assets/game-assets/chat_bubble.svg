@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 150" width="200" height="150">
+  <!-- Chat bubble asset -->
+  
+  <!-- Main bubble -->
+  <path d="M10,10 
+           Q5,10 5,15 
+           L5,115 
+           Q5,120 10,120 
+           L160,120 
+           Q165,120 165,115 
+           L165,15 
+           Q165,10 160,10 
+           Z" 
+        fill="#FFFFFF" 
+        stroke="#CCCCCC" 
+        stroke-width="2"/>
+  
+  <!-- Bubble tail/pointer -->
+  <path d="M160,120 
+           L180,145 
+           L150,120" 
+        fill="#FFFFFF" 
+        stroke="#CCCCCC" 
+        stroke-width="2"/>
+  
+  <!-- Bubble highlight -->
+  <path d="M15,15 
+           L155,15 
+           Q160,15 160,20 
+           L160,30" 
+        fill="none" 
+        stroke="#F0F0F0" 
+        stroke-width="2"/>
+  
+  <!-- Text lines (placeholder) -->
+  <g stroke="#EEEEEE" stroke-width="2">
+    <line x1="25" y1="40" x2="145" y2="40"/>
+    <line x1="25" y1="60" x2="145" y2="60"/>
+    <line x1="25" y1="80" x2="145" y2="80"/>
+    <line x1="25" y1="100" x2="100" y2="100"/>
+  </g>
+</svg>
