@@ -22,13 +22,13 @@ const router = createRouter({
     {
       path: '/game-lobby/:gameNumber',
       name: 'game-lobby',
-      component: () => import('../views/LobbyView.vue'),
+      component: () => import('../views/PhaserLobbyView.vue'),
       props: true
     },
     {
       path: '/game/:gameNumber',
       name: 'game',
-      component: () => import('../views/GameViewNew.vue'),
+      component: () => import('../views/GameView.vue'),
       props: true
     },
     {
