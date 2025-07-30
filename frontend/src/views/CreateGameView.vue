@@ -18,6 +18,10 @@ const usePassword = ref(false)
 const errorMessage = ref('')
 const loading = ref(false)
 
+// New game mode options
+const liarAwarenessMode = ref(false) // Liar knows they are the liar
+const differentWordMode = ref(false) // Liar receives a different word
+
 const subjects = ref([])
 const selectedSubjects = ref([])
 const subjectsLoading = ref(false)
@@ -100,7 +104,9 @@ const createGame = async () => {
       playerCount.value,
       timeLimit.value,
       roundCount.value,
-      usePassword.value ? password.value : null
+      usePassword.value ? password.value : null,
+      liarAwarenessMode.value,
+      differentWordMode.value
     )
 
     router.push({
@@ -190,6 +196,29 @@ const goBack = () => {
           placeholder="게임 비밀번호 입력"
           type="password"
         >
+      </div>
+      
+      <div class="form-group">
+        <label>게임 모드 설정:</label>
+        <div class="game-modes">
+          <div class="checkbox-group">
+            <input 
+              id="liarAwarenessMode" 
+              v-model="liarAwarenessMode" 
+              type="checkbox"
+            >
+            <label for="liarAwarenessMode">라이어가 자신이 라이어임을 아는 모드</label>
+          </div>
+          
+          <div class="checkbox-group">
+            <input 
+              id="differentWordMode" 
+              v-model="differentWordMode" 
+              type="checkbox"
+            >
+            <label for="differentWordMode">라이어가 시민과 다른 단어를 받는 모드</label>
+          </div>
+        </div>
       </div>
       
       <div class="form-group">
@@ -368,6 +397,22 @@ input[type="password"] {
 
 .subject-item:last-child {
   border-bottom: none;
+}
+
+.game-modes {
+  background-color: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 1rem;
+  margin-top: 0.5rem;
+}
+
+.game-modes .checkbox-group {
+  margin-bottom: 0.75rem;
+}
+
+.game-modes .checkbox-group:last-child {
+  margin-bottom: 0;
 }
 
 .loading-text, .error-text, .info-text {
