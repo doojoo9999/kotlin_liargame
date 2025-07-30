@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="50" cy="50" r="40" fill="#F0F0F0" stroke="#333333" stroke-width="2"/>
+  
+  <!-- Gear teeth -->
+  <path d="M50 10 L54 10 L56 20 L44 20 L46 10 Z" fill="#666666"/>
+  <path d="M50 90 L54 90 L56 80 L44 80 L46 90 Z" fill="#666666"/>
+  <path d="M10 50 L10 54 L20 56 L20 44 L10 46 Z" fill="#666666"/>
+  <path d="M90 50 L90 54 L80 56 L80 44 L90 46 Z" fill="#666666"/>
+  
+  <!-- Diagonal teeth -->
+  <path d="M22 22 L25 25 L32 18 L25 11 L18 18 Z" fill="#666666"/>
+  <path d="M78 22 L75 25 L82 18 L89 11 L82 18 Z" fill="#666666"/>
+  <path d="M22 78 L25 75 L18 68 L11 75 L18 82 Z" fill="#666666"/>
+  <path d="M78 78 L75 75 L82 82 L89 89 L82 82 Z" fill="#666666"/>
+  
+  <!-- Inner circle -->
+  <circle cx="50" cy="50" r="15" fill="#666666" stroke="#333333" stroke-width="2"/>
+</svg>
