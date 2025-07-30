@@ -7,7 +7,7 @@ import router from './router'
 import axios from 'axios'
 
 // Configure axios defaults
-axios.defaults.baseURL = "http://localhost:20021/"
+axios.defaults.baseURL = import.meta.env.VITE_API_URL
 
 const pinia = createPinia()
 axios.interceptors.request.use(config => {
