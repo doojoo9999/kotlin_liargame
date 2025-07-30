@@ -298,10 +298,22 @@ watch(() => props.players?.length, (newCount, oldCount) => {
   previousPlayerCount.value = newCount;
 });
 
-const sendMessage = () => {
+const sendMessage = async () => {
   if (chatInput.value.trim()) {
-    emit('sendMessage', chatInput.value);
-    chatInput.value = '';
+    // Define messageText outside the try block so it's available in the catch block
+    const messageText = chatInput.value.trim();
+    
+    try {
+      chatInput.value = '';
+
+      await emit('sendMessage', messageText);
+      
+      console.log('Message sent successfully');
+    } catch (error) {
+      console.error('Failed to send message:', error);
+
+      chatInput.value = messageText;
+    }
   }
 };
 
