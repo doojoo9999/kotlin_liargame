@@ -7,10 +7,14 @@ export const useGameStore = defineStore('game', {
     gameState: null,
     players: [],
     currentRound: 0,
+    gCurrentRound: 0,
     subject: '',
     word: '',
+    yourWord: '',
     isLiar: false,
+    yourRole: null,
     gameMode: null,
+    gGameMode: null,
     gameResult: null,
     loading: false,
     error: null,
@@ -63,7 +67,9 @@ export const useGameStore = defineStore('game', {
         
         this.gameNumber = gameNumber
         this.gameState = response.data
-        this.players = response.data.players || []
+        
+        this._updateGameStateVariables(response.data)
+        
         return response.data
       } catch (error) {
         this.error = error.response?.data?.message || 'Failed to join game'
@@ -102,7 +108,6 @@ export const useGameStore = defineStore('game', {
       this.error = null
       
       try {
-        // Simple request with just the game number
         const request = {
           gNumber: gameNumber
         }
@@ -110,10 +115,11 @@ export const useGameStore = defineStore('game', {
         const response = await axios.post('/api/v1/game/start', request)
         
         this.gameState = response.data
-        this.currentRound = response.data.currentRound || 0
-        this.subject = response.data.subject || ''
-        this.word = response.data.word || ''
-        this.isLiar = response.data.isLiar || false
+        
+        // Use the helper method to update all game state variables
+        this._updateGameStateVariables(response.data)
+        
+        // Reset selected subjects as they're no longer needed after game starts
         this.selectedSubjects = []
         
         return response.data
@@ -136,6 +142,7 @@ export const useGameStore = defineStore('game', {
         })
         
         this.gameState = response.data
+        this._updateGameStateVariables(response.data)
         return response.data
       } catch (error) {
         this.error = error.response?.data?.message || 'Failed to give hint'
@@ -156,6 +163,9 @@ export const useGameStore = defineStore('game', {
         })
         
         this.gameState = response.data
+        
+        this._updateGameStateVariables(response.data)
+        
         return response.data
       } catch (error) {
         this.error = error.response?.data?.message || 'Failed to vote'
@@ -176,6 +186,7 @@ export const useGameStore = defineStore('game', {
         })
         
         this.gameState = response.data
+        this._updateGameStateVariables(response.data)
         return response.data
       } catch (error) {
         this.error = error.response?.data?.message || 'Failed to defend'
@@ -196,6 +207,7 @@ export const useGameStore = defineStore('game', {
         })
         
         this.gameState = response.data
+        this._updateGameStateVariables(response.data)
         return response.data
       } catch (error) {
         this.error = error.response?.data?.message || 'Failed to vote for survival'
@@ -216,6 +228,14 @@ export const useGameStore = defineStore('game', {
         })
         
         this.gameResult = response.data
+        // Update game state variables if they're included in the result
+        if (response.data.gameState) {
+          this.gameState = response.data.gameState
+          this._updateGameStateVariables(response.data.gameState)
+        } else {
+          // If gameState is not a separate property, try to update from the result itself
+          this._updateGameStateVariables(response.data)
+        }
         return response.data
       } catch (error) {
         this.error = error.response?.data?.message || 'Failed to guess word'
@@ -233,22 +253,10 @@ export const useGameStore = defineStore('game', {
         const response = await axios.get(`/api/v1/game/${gameNumber}`)
         
         this.gameState = response.data
-        this.players = response.data.players || []
-        this.currentRound = response.data.gCurrentRound || 0
-        this.gameMode = response.data.gGameMode || null
         
-        // Update player-specific information
-        if (response.data.yourRole) {
-          this.isLiar = response.data.yourRole === 'LIAR'
-        }
-        
-        if (response.data.yourWord) {
-          this.subject = response.data.yourWord || ''
-        }
-        
-        // Keep word from startGame response if it exists
-        // This ensures we don't lose the word information between refreshes
-        
+        // Use the helper method to update all game state variables
+        this._updateGameStateVariables(response.data)
+
         return response.data
       } catch (error) {
         this.error = error.response?.data?.message || 'Failed to get game state'
@@ -285,7 +293,10 @@ export const useGameStore = defineStore('game', {
         })
         
         this.gameState = response.data
-        this.currentRound = response.data.currentRound || 0
+        
+        // Use the helper method to update all game state variables
+        this._updateGameStateVariables(response.data)
+        
         return response.data
       } catch (error) {
         this.error = error.response?.data?.message || 'Failed to end round'
@@ -300,10 +311,14 @@ export const useGameStore = defineStore('game', {
       this.gameState = null
       this.players = []
       this.currentRound = 0
+      this.gCurrentRound = 0
       this.subject = ''
       this.word = ''
+      this.yourWord = ''
       this.isLiar = false
+      this.yourRole = null
       this.gameMode = null
+      this.gGameMode = null
       this.gameResult = null
       this.error = null
       this.selectedSubjects = []
@@ -311,6 +326,44 @@ export const useGameStore = defineStore('game', {
     
     setSelectedSubjects(subjects) {
       this.selectedSubjects = subjects
+    },
+    
+    // Helper method to update all game state variables
+    _updateGameStateVariables(data) {
+      // Update players if available
+      if (data.players) {
+        this.players = data.players
+      }
+      
+      // Update round information if available
+      if (data.currentRound !== undefined) {
+        this.currentRound = data.currentRound
+      }
+      if (data.gCurrentRound !== undefined) {
+        this.gCurrentRound = data.gCurrentRound
+      }
+      
+      // Update game mode information if available
+      if (data.gameMode !== undefined) {
+        this.gameMode = data.gameMode
+      }
+      if (data.gGameMode !== undefined) {
+        this.gGameMode = data.gGameMode
+      }
+      
+      if (data.yourRole !== undefined) {
+        this.yourRole = data.yourRole
+        this.isLiar = data.yourRole === 'LIAR'
+      }
+      
+      if (data.yourWord !== undefined) {
+        this.yourWord = data.yourWord
+        this.subject = data.yourWord
+      }
+      
+      if (data.word !== undefined) {
+        this.word = data.word
+      }
     }
   }
 })
