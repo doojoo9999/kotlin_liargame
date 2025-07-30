@@ -32,4 +32,4 @@ jwt:
 
 security:
     jwt:
-        isTestUser : false # 기본값 false
+        isTestUser : true
