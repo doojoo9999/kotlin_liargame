@@ -8,7 +8,12 @@ export const useChatStore = defineStore('chat', {
     socket: null,
     connected: false,
     loading: false,
-    error: null
+    error: null,
+    fallbackMode: false,
+    reconnectTimer: null,
+    maxReconnectAttempts: 5,
+    currentReconnectAttempt: 0,
+    currentGameNumber: null
   }),
   
   actions: {
@@ -17,27 +22,102 @@ export const useChatStore = defineStore('chat', {
         this.socket.disconnect()
       }
       
-      this.socket = io(import.meta.env.VITE_SOCKET_URL || window.location.origin, {
-        path: '/ws'
-      })
+      // Store the current game number for use in error handlers
+      this.currentGameNumber = gameNumber
       
-      this.socket.on('connect', () => {
-        this.connected = true
-        console.log('Socket connected')
+      try {
+        // Get the socket URL from environment or fallback to window.location.origin
+        const socketUrl = import.meta.env.VITE_SOCKET_URL || window.location.origin
+        console.log('Connecting to socket at:', socketUrl)
         
-        this.socket.emit('subscribe', `/topic/chat.${gameNumber}`)
-      })
-      
-      this.socket.on('disconnect', () => {
+        this.socket = io(socketUrl, {
+          path: '/ws',
+          transports: ['websocket'],  // Use only WebSocket transport, no polling
+          upgrade: false,             // Disable transport upgrades
+          reconnectionAttempts: 5,    // Limit reconnection attempts
+          timeout: 10000,             // Connection timeout in ms
+          reconnectionDelay: 1000,    // Initial delay between reconnection attempts
+          forceNew: true              // Force a new connection
+        })
+        
+        this.socket.on('connect', () => {
+          this.connected = true
+          console.log('Socket connected successfully')
+          
+          this.socket.emit('subscribe', `/topic/chat.${gameNumber}`)
+        })
+        
+        this.socket.on('disconnect', () => {
+          this.connected = false
+          console.log('Socket disconnected')
+        })
+        
+        this.socket.on('connect_error', (error) => {
+          console.error('Socket connection error:', error.message)
+          console.error('Socket connection error details:', error)
+          this.error = `Socket connection error: ${error.message}`
+          
+          // Log transport and connection details for debugging
+          if (this.socket.io && this.socket.io.engine && this.socket.io.engine.transport) {
+            console.log('Socket transport:', this.socket.io.engine.transport.name)
+            console.log('Socket protocol:', this.socket.io.engine.transport.protocol)
+            console.log('Socket URL:', socketUrl + this.socket.io.engine.path)
+          }
+          
+          // If we get a 403 error, switch to fallback mode
+          if (error.message.includes('403') || error.message.includes('Forbidden')) {
+            console.log('403 Forbidden error detected, switching to fallback mode')
+            this.enableFallbackMode(this.currentGameNumber)
+          }
+        })
+        
+        this.socket.on('connect_timeout', () => {
+          console.error('Socket connection timeout')
+          console.log('Socket transport at timeout:', this.socket.io?.engine?.transport?.name)
+          this.error = 'Socket connection timeout'
+          
+          // Switch to fallback mode after connection timeout
+          console.log('Connection timeout, switching to fallback mode')
+          this.enableFallbackMode(this.currentGameNumber)
+        })
+        
+        this.socket.on('reconnect_failed', () => {
+          console.error('Socket reconnection failed after maximum attempts')
+          this.error = 'Socket reconnection failed after maximum attempts'
+          
+          // Log final connection state
+          if (this.socket.io && this.socket.io.engine) {
+            console.log('Final socket state:', {
+              readyState: this.socket.io.engine.readyState,
+              transport: this.socket.io.engine.transport?.name
+            })
+          }
+          
+          // Switch to fallback mode after reconnection attempts fail
+          console.log('Reconnection attempts failed, switching to fallback mode')
+          this.enableFallbackMode(this.currentGameNumber)
+        })
+        
+        this.socket.on('reconnect_attempt', (attemptNumber) => {
+          console.log(`Socket reconnection attempt #${attemptNumber}`)
+        })
+        
+        this.socket.on('error', (error) => {
+          console.error('Socket general error:', error)
+          this.error = `Socket error: ${error.message || 'Unknown error'}`
+        })
+        
+        this.socket.on(`/topic/chat.${gameNumber}`, (message) => {
+          this.addMessage(message)
+        })
+        
+        return this.socket
+      } catch (error) {
+        console.error('Failed to initialize socket:', error)
+        this.error = `Failed to initialize socket: ${error.message}`
         this.connected = false
-        console.log('Socket disconnected')
-      })
-      
-      this.socket.on(`/topic/chat.${gameNumber}`, (message) => {
-        this.addMessage(message)
-      })
-      
-      return this.socket
+        return null
+      }
     },
     
     disconnectSocket() {
@@ -46,6 +126,64 @@ export const useChatStore = defineStore('chat', {
         this.socket = null
         this.connected = false
       }
+      
+      // Clear any fallback mode timers
+      if (this.reconnectTimer) {
+        clearInterval(this.reconnectTimer)
+        this.reconnectTimer = null
+      }
+      
+      this.fallbackMode = false
+      this.currentReconnectAttempt = 0
+    },
+    
+    enableFallbackMode(gameNumber) {
+      if (this.fallbackMode) return; // Already in fallback mode
+      
+      // Use provided game number or fall back to stored game number
+      const gNumber = gameNumber || this.currentGameNumber;
+      
+      // If no game number is available, we can't enable fallback mode
+      if (!gNumber) {
+        console.error('Cannot enable fallback mode: No game number available');
+        return;
+      }
+      
+      console.log(`Switching to fallback mode for chat updates (Game #${gNumber})`)
+      this.fallbackMode = true
+      this.currentReconnectAttempt = 0
+      
+      // Disconnect socket if it exists
+      if (this.socket) {
+        this.socket.disconnect()
+        this.socket = null
+      }
+      
+      // Set up polling for chat messages
+      this.reconnectTimer = setInterval(async () => {
+        try {
+          // Try to get chat messages via REST API
+          await this.getChatHistory(gNumber)
+          console.log(`Fallback: Successfully fetched chat messages via REST API for game #${gNumber}`)
+        } catch (error) {
+          console.error(`Fallback: Failed to fetch chat messages for game #${gNumber}:`, error)
+        }
+        
+        // Attempt to reconnect WebSocket periodically
+        this.currentReconnectAttempt++
+        if (this.currentReconnectAttempt <= this.maxReconnectAttempts) {
+          console.log(`Fallback: Attempting to reconnect WebSocket (${this.currentReconnectAttempt}/${this.maxReconnectAttempts}) for game #${gNumber}`)
+          try {
+            // Try to initialize socket again
+            this.initSocket(gNumber)
+          } catch (error) {
+            console.error(`Fallback: Failed to reconnect WebSocket for game #${gNumber}:`, error)
+          }
+        } else if (this.reconnectTimer) {
+          // Stop trying to reconnect WebSocket, but keep polling for messages
+          console.log(`Fallback: Maximum WebSocket reconnection attempts reached for game #${gNumber}, continuing with polling`)
+        }
+      }, 5000) // Poll every 5 seconds
     },
     
     addMessage(message) {
