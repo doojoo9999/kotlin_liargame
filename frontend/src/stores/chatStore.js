@@ -61,7 +61,7 @@ export const useChatStore = defineStore('chat', {
           if (this.socket.io && this.socket.io.engine && this.socket.io.engine.transport) {
             console.log('Socket transport:', this.socket.io.engine.transport.name)
             console.log('Socket protocol:', this.socket.io.engine.transport.protocol)
-            console.log('Socket URL:', socketUrl + this.socket.io.engine.path)
+            console.log('Socket URL:', socketUrl + '/ws')
           }
           
           // If we get a 403 error, switch to fallback mode
