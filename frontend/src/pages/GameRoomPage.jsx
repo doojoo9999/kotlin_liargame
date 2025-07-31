@@ -42,13 +42,59 @@ function GameRoomPage() {
     currentUser,
     loading,
     error,
+    socketConnected,
+    roomPlayers,
+    currentTurnPlayerId,
+    gameStatus,
+    currentRound,
+    playerRole,
+    assignedWord,
+    gameTimer,
+    votingResults,
+    gameResults,
     leaveRoom,
-    navigateToLobby
+    navigateToLobby,
+    connectSocket,
+    disconnectSocket,
+    startGame,
+    castVote
   } = useGame()
 
   // Local state
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false)
   const [speechBubbles, setSpeechBubbles] = useState({})
+  const [selectedVoteTarget, setSelectedVoteTarget] = useState(null)
+
+  // WebSocket connection management
+  useEffect(() => {
+    console.log('[DEBUG_LOG] GameRoomPage mounted, connecting to WebSocket')
+    
+    // Connect to WebSocket when component mounts
+    try {
+      connectSocket()
+    } catch (error) {
+      console.error('[DEBUG_LOG] Failed to connect WebSocket on mount:', error)
+    }
+
+    // Cleanup on unmount
+    return () => {
+      console.log('[DEBUG_LOG] GameRoomPage unmounting, disconnecting WebSocket')
+      try {
+        disconnectSocket()
+      } catch (error) {
+        console.error('[DEBUG_LOG] Failed to disconnect WebSocket on unmount:', error)
+      }
+    }
+  }, [connectSocket, disconnectSocket])
+
+  // Handle connection status changes
+  useEffect(() => {
+    if (socketConnected) {
+      console.log('[DEBUG_LOG] WebSocket connected in GameRoomPage')
+    } else {
+      console.log('[DEBUG_LOG] WebSocket disconnected in GameRoomPage')
+    }
+  }, [socketConnected])
 
   // Handle leave room
   const handleLeaveRoom = async () => {
@@ -63,6 +109,36 @@ function GameRoomPage() {
       // Navigate to lobby even if API call fails
       navigateToLobby()
     }
+  }
+
+  // Handle start game
+  const handleStartGame = () => {
+    console.log('[DEBUG_LOG] Host starting game')
+    startGame()
+  }
+
+  // Check if current user is host
+  const isHost = () => {
+    if (!currentUser || !players.length) return false
+    const currentPlayer = players.find(p => p.nickname === currentUser.nickname)
+    return currentPlayer?.isHost || false
+  }
+
+  // Handle voting
+  const handleVoteSelect = (playerId) => {
+    if (gameStatus !== 'VOTING') return
+    setSelectedVoteTarget(playerId)
+  }
+
+  const handleVoteConfirm = () => {
+    if (!selectedVoteTarget) return
+    console.log('[DEBUG_LOG] Casting vote for player:', selectedVoteTarget)
+    castVote(selectedVoteTarget)
+    setSelectedVoteTarget(null)
+  }
+
+  const handleVoteCancel = () => {
+    setSelectedVoteTarget(null)
   }
 
   // Calculate player distribution around the screen
@@ -146,9 +222,13 @@ function GameRoomPage() {
     )
   }
 
-  const players = currentRoom.players || []
+  // Use real-time player data from WebSocket, fallback to currentRoom.players
+  const players = roomPlayers.length > 0 ? roomPlayers : (currentRoom.players || [])
   const playerPositions = distributePlayersToPositions(players)
   const roomStateInfo = getRoomStateInfo(currentRoom.gameState)
+  
+  // Use real-time current turn player ID from WebSocket
+  const effectiveCurrentTurnPlayerId = currentTurnPlayerId || currentRoom.currentTurnPlayerId
 
   return (
     <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -210,10 +290,21 @@ function GameRoomPage() {
         >
           {playerPositions.top.map((player) => (
             <Box key={player.id} sx={{ position: 'relative' }}>
-              <PlayerProfile
-                player={player}
-                isCurrentTurn={currentRoom.currentTurnPlayerId === player.id}
-              />
+              <Box
+                onClick={() => gameStatus === 'VOTING' && handleVoteSelect(player.id)}
+                sx={{
+                  cursor: gameStatus === 'VOTING' ? 'pointer' : 'default',
+                  border: gameStatus === 'VOTING' && selectedVoteTarget === player.id ? '3px solid #ff9800' : 'none',
+                  borderRadius: 2,
+                  p: gameStatus === 'VOTING' ? 0.5 : 0,
+                  backgroundColor: gameStatus === 'VOTING' && selectedVoteTarget === player.id ? 'rgba(255, 152, 0, 0.1)' : 'transparent'
+                }}
+              >
+                <PlayerProfile
+                  player={player}
+                  isCurrentTurn={effectiveCurrentTurnPlayerId === player.id}
+                />
+              </Box>
               {speechBubbles[player.id] && (
                 <PlayerSpeechBubble
                   message={speechBubbles[player.id]}
@@ -239,10 +330,21 @@ function GameRoomPage() {
         >
           {playerPositions.right.map((player) => (
             <Box key={player.id} sx={{ position: 'relative' }}>
-              <PlayerProfile
-                player={player}
-                isCurrentTurn={currentRoom.currentTurnPlayerId === player.id}
-              />
+              <Box
+                onClick={() => gameStatus === 'VOTING' && handleVoteSelect(player.id)}
+                sx={{
+                  cursor: gameStatus === 'VOTING' ? 'pointer' : 'default',
+                  border: gameStatus === 'VOTING' && selectedVoteTarget === player.id ? '3px solid #ff9800' : 'none',
+                  borderRadius: 2,
+                  p: gameStatus === 'VOTING' ? 0.5 : 0,
+                  backgroundColor: gameStatus === 'VOTING' && selectedVoteTarget === player.id ? 'rgba(255, 152, 0, 0.1)' : 'transparent'
+                }}
+              >
+                <PlayerProfile
+                  player={player}
+                  isCurrentTurn={effectiveCurrentTurnPlayerId === player.id}
+                />
+              </Box>
               {speechBubbles[player.id] && (
                 <PlayerSpeechBubble
                   message={speechBubbles[player.id]}
@@ -267,10 +369,21 @@ function GameRoomPage() {
         >
           {playerPositions.bottom.map((player) => (
             <Box key={player.id} sx={{ position: 'relative' }}>
-              <PlayerProfile
-                player={player}
-                isCurrentTurn={currentRoom.currentTurnPlayerId === player.id}
-              />
+              <Box
+                onClick={() => gameStatus === 'VOTING' && handleVoteSelect(player.id)}
+                sx={{
+                  cursor: gameStatus === 'VOTING' ? 'pointer' : 'default',
+                  border: gameStatus === 'VOTING' && selectedVoteTarget === player.id ? '3px solid #ff9800' : 'none',
+                  borderRadius: 2,
+                  p: gameStatus === 'VOTING' ? 0.5 : 0,
+                  backgroundColor: gameStatus === 'VOTING' && selectedVoteTarget === player.id ? 'rgba(255, 152, 0, 0.1)' : 'transparent'
+                }}
+              >
+                <PlayerProfile
+                  player={player}
+                  isCurrentTurn={effectiveCurrentTurnPlayerId === player.id}
+                />
+              </Box>
               {speechBubbles[player.id] && (
                 <PlayerSpeechBubble
                   message={speechBubbles[player.id]}
@@ -296,10 +409,21 @@ function GameRoomPage() {
         >
           {playerPositions.left.map((player) => (
             <Box key={player.id} sx={{ position: 'relative' }}>
-              <PlayerProfile
-                player={player}
-                isCurrentTurn={currentRoom.currentTurnPlayerId === player.id}
-              />
+              <Box
+                onClick={() => gameStatus === 'VOTING' && handleVoteSelect(player.id)}
+                sx={{
+                  cursor: gameStatus === 'VOTING' ? 'pointer' : 'default',
+                  border: gameStatus === 'VOTING' && selectedVoteTarget === player.id ? '3px solid #ff9800' : 'none',
+                  borderRadius: 2,
+                  p: gameStatus === 'VOTING' ? 0.5 : 0,
+                  backgroundColor: gameStatus === 'VOTING' && selectedVoteTarget === player.id ? 'rgba(255, 152, 0, 0.1)' : 'transparent'
+                }}
+              >
+                <PlayerProfile
+                  player={player}
+                  isCurrentTurn={effectiveCurrentTurnPlayerId === player.id}
+                />
+              </Box>
               {speechBubbles[player.id] && (
                 <PlayerSpeechBubble
                   message={speechBubbles[player.id]}
@@ -328,15 +452,116 @@ function GameRoomPage() {
           <GameInfoDisplay
             gameState={currentRoom.gameState}
             gamePhase={currentRoom.gamePhase}
-            round={currentRoom.round}
-            timeRemaining={currentRoom.timeRemaining}
-            word={currentRoom.word}
+            round={currentRound}
+            timeRemaining={gameTimer}
+            word={assignedWord}
             subject={currentRoom.subject}
-          />
+            gameInfo={currentRoom.gameInfo}/>
+
+          {/* Game Start Button - Only visible for host when game is waiting */}
+          {gameStatus === 'WAITING' && isHost() && (
+            <Button
+              variant="contained"
+              size="large"
+              startIcon={<PlayIcon />}
+              onClick={handleStartGame}
+              sx={{
+                mb: 2,
+                px: 4,
+                py: 1.5,
+                fontSize: '1.1rem',
+                backgroundColor: 'success.main',
+                '&:hover': {
+                  backgroundColor: 'success.dark'
+                }
+              }}
+            >
+              게임 시작
+            </Button>
+          )}
+
+          {/* Player Role and Word Display - Only visible during game */}
+          {gameStatus !== 'WAITING' && (playerRole || assignedWord) && (
+            <Paper 
+              sx={{ 
+                p: 2, 
+                mb: 2, 
+                backgroundColor: playerRole === 'LIAR' ? 'error.light' : 'primary.light',
+                color: 'white',
+                textAlign: 'center',
+                minWidth: 300
+              }}
+            >
+              <Typography variant="h6" gutterBottom>
+                {playerRole === 'LIAR' ? '🎭 라이어' : '👥 시민'}
+              </Typography>
+              <Typography variant="body1">
+                키워드: <strong>{assignedWord || '???'}</strong>
+              </Typography>
+              {currentRound > 0 && (
+                <Typography variant="body2" sx={{ mt: 1, opacity: 0.9 }}>
+                  라운드 {currentRound} | 남은 시간: {gameTimer}초
+                </Typography>
+              )}
+            </Paper>
+          )}
+
+          {/* Game Status Display */}
+          {gameStatus !== 'WAITING' && (
+            <Paper sx={{ p: 2, mb: 2, textAlign: 'center', minWidth: 300 }}>
+              <Typography variant="h6" gutterBottom>
+                {gameStatus === 'SPEAKING' && '🎤 발언 단계'}
+                {gameStatus === 'VOTING' && '🗳️ 투표 단계'}
+                {gameStatus === 'RESULTS' && '📊 결과 발표'}
+                {gameStatus === 'FINISHED' && '🏁 게임 종료'}
+              </Typography>
+              {gameTimer > 0 && (
+                <Typography variant="h4" color="primary">
+                  {gameTimer}초
+                </Typography>
+              )}
+              {gameStatus === 'SPEAKING' && currentTurnPlayerId && (
+                <Typography variant="body1" sx={{ mt: 1 }}>
+                  {players.find(p => p.id === currentTurnPlayerId)?.nickname || 'Unknown'}님의 차례
+                </Typography>
+              )}
+              {gameStatus === 'VOTING' && !selectedVoteTarget && (
+                <Typography variant="body1" sx={{ mt: 1 }}>
+                  라이어라고 생각하는 플레이어를 선택하세요
+                </Typography>
+              )}
+              {gameStatus === 'VOTING' && selectedVoteTarget && (
+                <Typography variant="body1" sx={{ mt: 1 }}>
+                  {players.find(p => p.id === selectedVoteTarget)?.nickname}님을 선택했습니다
+                </Typography>
+              )}
+            </Paper>
+          )}
+
+          {/* Voting Confirmation Buttons */}
+          {gameStatus === 'VOTING' && selectedVoteTarget && (
+            <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+              <Button
+                variant="contained"
+                color="error"
+                onClick={handleVoteConfirm}
+                sx={{ px: 3 }}
+              >
+                투표 확정
+              </Button>
+              <Button
+                variant="outlined"
+                onClick={handleVoteCancel}
+                sx={{ px: 3 }}
+              >
+                취소
+              </Button>
+            </Box>
+          )}
 
           {/* Chat Window */}
           <Paper sx={{ width: 400, height: 300 }}>
-            <ChatWindow gameNumber={currentRoom.gameNumber} />
+            <ChatWindow />
           </Paper>
         </Box>
       </Box>
