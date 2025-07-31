@@ -1,13 +1,6 @@
 import {Box, Paper, Typography} from '@mui/material'
 import PropTypes from 'prop-types'
 
-/**
- * GameInfoDisplay component shows the central game information.
- * It displays the current round, topic, and game status.
- * 
- * @param {Object} props - Component props
- * @param {Object} props.gameInfo - Game information object containing round, topic, and status
- */
 function GameInfoDisplay({ gameInfo }) {
   return (
     <Paper 
