@@ -10,26 +10,20 @@ class ErrorBoundary extends React.Component {
   }
 
   static getDerivedStateFromError(error) {
-    // Update state so the next render will show the fallback UI
     return { hasError: true }
   }
 
   componentDidCatch(error, errorInfo) {
-    // Log the error to console for debugging
     console.error('ErrorBoundary caught an error:', error, errorInfo)
     
-    // Update state with error details
     this.setState({
       error: error,
       errorInfo: errorInfo
     })
 
-    // In a production app, you might want to log this to an error reporting service
-    // Example: logErrorToService(error, errorInfo)
   }
 
   handleReload = () => {
-    // Reload the page to recover from the error
     window.location.reload()
   }
 
