@@ -8,3 +8,4 @@ data class EndOfRoundRequest(
     val gWinner: String,
     val gIsGameOver: Boolean,
 )
+

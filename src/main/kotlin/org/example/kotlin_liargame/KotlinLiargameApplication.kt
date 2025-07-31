@@ -13,3 +13,4 @@ class KotlinLiargameApplication
 fun main(args: Array<String>) {
     runApplication<KotlinLiargameApplication>(*args)
 }
+

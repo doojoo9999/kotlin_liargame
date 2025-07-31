@@ -1,4 +1,4 @@
-ï»¿<script setup>
+<script setup>
 import {onMounted, ref} from 'vue'
 import {useRouter} from 'vue-router'
 import {useGameStore} from '../stores/gameStore'
@@ -18,9 +18,9 @@ const usePassword = ref(false)
 const errorMessage = ref('')
 const loading = ref(false)
 
-// New game mode options
-const liarAwarenessMode = ref(false) // Liar knows they are the liar
-const differentWordMode = ref(false) // Liar receives a different word
+
+const liarAwarenessMode = ref(false) 
+const differentWordMode = ref(false) 
 
 const subjects = ref([])
 const selectedSubjects = ref([])
@@ -57,7 +57,7 @@ const fetchSubjects = async () => {
     subjectsLoading.value = false
   } catch (error) {
     console.error('Failed to fetch subjects:', error)
-    subjectsError.value = error.response?.data?.message || 'ì£¼ì œ ëª©ë¡ì„ ë¶ˆëŸ¬ì˜¤ëŠ”ë° ì‹¤íŒ¨í–ˆìŠµë‹ˆë‹¤'
+    subjectsError.value = error.response?.data?.message || 'ÁÖÁ¦ ¸ñ·ÏÀ» ºÒ·¯¿À´Âµ¥ ½ÇÆĞÇß½À´Ï´Ù'
     subjectsLoading.value = false
   }
 }
@@ -74,22 +74,22 @@ const toggleSubject = (subject) => {
 
 const createGame = async () => {
   if (!gameName.value.trim()) {
-    errorMessage.value = 'ê²Œì„ë°© ì´ë¦„ì„ ì…ë ¥í•´ì£¼ì„¸ìš”'
+    errorMessage.value = '°ÔÀÓ¹æ ÀÌ¸§À» ÀÔ·ÂÇØÁÖ¼¼¿ä'
     return
   }
   
   if (playerCount.value < minPlayers || playerCount.value > maxPlayers) {
-    errorMessage.value = `í”Œë ˆì´ì–´ ìˆ˜ëŠ” ${minPlayers}~${maxPlayers} ì‚¬ì´ì—¬ì•¼ í•©ë‹ˆë‹¤`
+    errorMessage.value = `ÇÃ·¹ÀÌ¾î ¼ö´Â ${minPlayers}~${maxPlayers} »çÀÌ¿©¾ß ÇÕ´Ï´Ù`
     return
   }
   
   if (timeLimit.value < minTimeLimit || timeLimit.value > maxTimeLimit) {
-    errorMessage.value = `ì œí•œ ì‹œê°„ì€ ${minTimeLimit}~${maxTimeLimit} ì‚¬ì´ì—¬ì•¼ í•©ë‹ˆë‹¤`
+    errorMessage.value = `Á¦ÇÑ ½Ã°£Àº ${minTimeLimit}~${maxTimeLimit} »çÀÌ¿©¾ß ÇÕ´Ï´Ù`
     return
   }
   
   if (roundCount.value < minRounds || roundCount.value > maxRounds) {
-    errorMessage.value = `ë¼ìš´ë“œ ìˆ˜ëŠ” ${minRounds}~${maxRounds} ì‚¬ì´ì—¬ì•¼ í•©ë‹ˆë‹¤`
+    errorMessage.value = `¶ó¿îµå ¼ö´Â ${minRounds}~${maxRounds} »çÀÌ¿©¾ß ÇÕ´Ï´Ù`
     return
   }
   
@@ -114,7 +114,7 @@ const createGame = async () => {
       params: { gameNumber }
     })
   } catch (error) {
-    errorMessage.value = error.message || 'ê²Œì„ ìƒì„±ì— ì‹¤íŒ¨í–ˆìŠµë‹ˆë‹¤'
+    errorMessage.value = error.message || '°ÔÀÓ »ı¼º¿¡ ½ÇÆĞÇß½À´Ï´Ù'
   } finally {
     loading.value = false
   }
@@ -127,21 +127,21 @@ const goBack = () => {
 
 <template>
   <div class="create-game">
-    <h1>ìƒˆ ê²Œì„ ë§Œë“¤ê¸°</h1>
+    <h1>»õ °ÔÀÓ ¸¸µé±â</h1>
     
     <div class="game-form">
       <div class="form-group">
-        <label for="gameName">ê²Œì„ë°© ì´ë¦„:</label>
+        <label for="gameName">°ÔÀÓ¹æ ÀÌ¸§:</label>
         <input 
           id="gameName" 
           v-model="gameName" 
-          placeholder="ê²Œì„ë°© ì´ë¦„ ì…ë ¥"
+          placeholder="°ÔÀÓ¹æ ÀÌ¸§ ÀÔ·Â"
           type="text"
         >
       </div>
       
       <div class="form-group">
-        <label for="playerCount">í”Œë ˆì´ì–´ ìˆ˜:</label>
+        <label for="playerCount">ÇÃ·¹ÀÌ¾î ¼ö:</label>
         <input 
           id="playerCount" 
           v-model.number="playerCount" 
@@ -149,11 +149,11 @@ const goBack = () => {
           min="3" 
           type="number"
         >
-        <span class="hint">{{ minPlayers }}~{{ maxPlayers }} ì‚¬ì´ì˜ ê°’</span>
+        <span class="hint">{{ minPlayers }}~{{ maxPlayers }} »çÀÌÀÇ °ª</span>
       </div>
       
       <div class="form-group">
-        <label for="timeLimit">ì œí•œ ì‹œê°„ (ì´ˆ):</label>
+        <label for="timeLimit">Á¦ÇÑ ½Ã°£ (ÃÊ):</label>
         <input 
           id="timeLimit" 
           v-model.number="timeLimit" 
@@ -162,11 +162,11 @@ const goBack = () => {
           step="10"
           type="number"
         >
-        <span class="hint">{{ minTimeLimit }}~{{ maxTimeLimit }} ì‚¬ì´ì˜ ê°’</span>
+        <span class="hint">{{ minTimeLimit }}~{{ maxTimeLimit }} »çÀÌÀÇ °ª</span>
       </div>
       
       <div class="form-group">
-        <label for="roundCount">ë¼ìš´ë“œ ìˆ˜:</label>
+        <label for="roundCount">¶ó¿îµå ¼ö:</label>
         <input 
           id="roundCount" 
           v-model.number="roundCount" 
@@ -174,7 +174,7 @@ const goBack = () => {
           min="1" 
           type="number"
         >
-        <span class="hint">{{ minRounds }}~{{ maxRounds }} ì‚¬ì´ì˜ ê°’</span>
+        <span class="hint">{{ minRounds }}~{{ maxRounds }} »çÀÌÀÇ °ª</span>
       </div>
       
       <div class="form-group">
@@ -184,22 +184,22 @@ const goBack = () => {
             v-model="usePassword" 
             type="checkbox"
           >
-          <label for="usePassword">ë¹„ë°€ë²ˆí˜¸ ì‚¬ìš©</label>
+          <label for="usePassword">ºñ¹Ğ¹øÈ£ »ç¿ë</label>
         </div>
       </div>
       
       <div v-if="usePassword" class="form-group">
-        <label for="password">ë¹„ë°€ë²ˆí˜¸:</label>
+        <label for="password">ºñ¹Ğ¹øÈ£:</label>
         <input 
           id="password" 
           v-model="password" 
-          placeholder="ê²Œì„ ë¹„ë°€ë²ˆí˜¸ ì…ë ¥"
+          placeholder="°ÔÀÓ ºñ¹Ğ¹øÈ£ ÀÔ·Â"
           type="password"
         >
       </div>
       
       <div class="form-group">
-        <label>ê²Œì„ ëª¨ë“œ ì„¤ì •:</label>
+        <label>°ÔÀÓ ¸ğµå ¼³Á¤:</label>
         <div class="game-modes">
           <div class="checkbox-group">
             <input 
@@ -207,7 +207,7 @@ const goBack = () => {
               v-model="liarAwarenessMode" 
               type="checkbox"
             >
-            <label for="liarAwarenessMode">ë¼ì´ì–´ê°€ ìì‹ ì´ ë¼ì´ì–´ì„ì„ ì•„ëŠ” ëª¨ë“œ</label>
+            <label for="liarAwarenessMode">¶óÀÌ¾î°¡ ÀÚ½ÅÀÌ ¶óÀÌ¾îÀÓÀ» ¾Æ´Â ¸ğµå</label>
           </div>
           
           <div class="checkbox-group">
@@ -216,15 +216,15 @@ const goBack = () => {
               v-model="differentWordMode" 
               type="checkbox"
             >
-            <label for="differentWordMode">ë¼ì´ì–´ê°€ ì‹œë¯¼ê³¼ ë‹¤ë¥¸ ë‹¨ì–´ë¥¼ ë°›ëŠ” ëª¨ë“œ</label>
+            <label for="differentWordMode">¶óÀÌ¾î°¡ ½Ã¹Î°ú ´Ù¸¥ ´Ü¾î¸¦ ¹Ş´Â ¸ğµå</label>
           </div>
         </div>
       </div>
       
       <div class="form-group">
-        <label>ì£¼ì œ ì„ íƒ:</label>
+        <label>ÁÖÁ¦ ¼±ÅÃ:</label>
         <div v-if="subjectsLoading" class="loading-text">
-          ì£¼ì œ ëª©ë¡ì„ ë¶ˆëŸ¬ì˜¤ëŠ” ì¤‘...
+          ÁÖÁ¦ ¸ñ·ÏÀ» ºÒ·¯¿À´Â Áß...
         </div>
         
         <div v-else-if="subjectsError" class="error-text">
@@ -232,7 +232,7 @@ const goBack = () => {
         </div>
         
         <div v-else-if="subjects.length === 0" class="info-text">
-          ë“±ë¡ëœ ì£¼ì œê°€ ì—†ìŠµë‹ˆë‹¤. ê¸°ë³¸ ì£¼ì œê°€ ì‚¬ìš©ë©ë‹ˆë‹¤.
+          µî·ÏµÈ ÁÖÁ¦°¡ ¾ø½À´Ï´Ù. ±âº» ÁÖÁ¦°¡ »ç¿ëµË´Ï´Ù.
         </div>
         
         <div v-else class="subjects-container">
@@ -253,7 +253,7 @@ const goBack = () => {
           </div>
           
           <p class="hint">
-            ì£¼ì œë¥¼ ì„ íƒí•˜ì§€ ì•Šìœ¼ë©´ ëœë¤ ì£¼ì œê°€ ì‚¬ìš©ë©ë‹ˆë‹¤.
+            ÁÖÁ¦¸¦ ¼±ÅÃÇÏÁö ¾ÊÀ¸¸é ·£´ı ÁÖÁ¦°¡ »ç¿ëµË´Ï´Ù.
           </p>
         </div>
       </div>
@@ -264,10 +264,10 @@ const goBack = () => {
           class="btn primary" 
           @click="createGame"
         >
-          {{ loading ? 'ìƒì„± ì¤‘...' : 'ê²Œì„ ìƒì„±' }}
+          {{ loading ? '»ı¼º Áß...' : '°ÔÀÓ »ı¼º' }}
         </button>
         <button :disabled="loading" class="btn secondary" @click="goBack">
-          ì·¨ì†Œ
+          Ãë¼Ò
         </button>
       </div>
       

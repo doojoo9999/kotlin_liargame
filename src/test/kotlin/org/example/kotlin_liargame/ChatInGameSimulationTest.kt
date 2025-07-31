@@ -26,11 +26,7 @@ import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.transaction.annotation.Transactional
 import kotlin.random.Random
 
-/**
- * This test simulates chat functionality during an actual Liar Game.
- * It extends the existing LiarGameSimulationTest to include chat messages
- * during different phases of the game.
- */
+
 @SpringBootTest
 @Transactional
 class ChatInGameSimulationTest {
@@ -74,10 +70,10 @@ class ChatInGameSimulationTest {
 
     @BeforeEach
     fun setup() {
-        // Create users
+        
         for (i in 1..10) {
             val nickname = "Player${i}_${Random.nextInt(1000, 9999)}"
-            val profileImgUrl = "https://example.com/profile${i}.jpg"
+            val profileImgUrl = "https:
             users.add(UserInfo(nickname, profileImgUrl))
             
             try {
@@ -94,7 +90,7 @@ class ChatInGameSimulationTest {
             }
         }
 
-        // Create subject
+        
         val existingSubjects = subjectService.findAll().filter { it.content == subjectContent }
         if (existingSubjects.isEmpty()) {
             try {
@@ -107,7 +103,7 @@ class ChatInGameSimulationTest {
             println("[DEBUG_LOG] Subject '$subjectContent' already exists, using it")
         }
 
-        // Create words for the subject
+        
         words.forEach { word ->
             try {
                 wordService.applyWord(ApplyWordRequest(subjectContent, word))
@@ -117,7 +113,7 @@ class ChatInGameSimulationTest {
             }
         }
 
-        // Verify that the subject has enough words
+        
         val subjectWords = wordService.findAll().filter { it.subjectContent == subjectContent }
         println("[DEBUG_LOG] Subject '$subjectContent' has ${subjectWords.size} words")
         if (subjectWords.size < 2) {
@@ -129,7 +125,7 @@ class ChatInGameSimulationTest {
     fun `simulate liar game with chat`() {
         println("[TEST] Starting Liar Game Simulation with Chat")
         
-        // Create game room
+        
         val firstUser = users[0]
         setCurrentUser(firstUser.nickname)
         
@@ -146,11 +142,11 @@ class ChatInGameSimulationTest {
         gameNumber = gameService.createGameRoom(createGameRequest)
         println("[DEBUG_LOG] Created game room: $gameNumber")
 
-        // Send pre-game chat message from the room creator
+        
         sendChatMessage(firstUser, "Welcome to the game everyone!", ChatMessageType.POST_ROUND)
         println("[DEBUG_LOG] Room creator sent welcome message")
 
-        // Users join the game
+        
         users.forEachIndexed { index, user ->
             if (index > 0) {
                 setCurrentUser(user.nickname)
@@ -158,24 +154,24 @@ class ChatInGameSimulationTest {
                 val gameState = gameService.joinGame(joinGameRequest)
                 println("[DEBUG_LOG] User ${user.nickname} joined the game")
                 
-                // Send a join message
+                
                 sendChatMessage(user, "Hello everyone! Ready to play?", ChatMessageType.POST_ROUND)
                 println("[DEBUG_LOG] User ${user.nickname} sent join message")
             }
         }
 
-        // Print pre-game chat messages
+        
         printChatMessages(ChatMessageType.POST_ROUND, "Pre-game ")
 
-        // Start the game
+        
         setCurrentUser(firstUser.nickname)
         
-        // Find our subject
+        
         val allSubjects = subjectService.findAll()
         val ourSubject = allSubjects.find { it.content == subjectContent }
             ?: throw RuntimeException("Subject '$subjectContent' not found")
         
-        // Find or create another subject with at least 2 words
+        
         val otherSubject = allSubjects.filter { it.content != subjectContent }
             .firstOrNull { subject ->
                 val subjectWords = wordService.findAll().filter { it.subjectContent == subject.content }
@@ -202,14 +198,14 @@ class ChatInGameSimulationTest {
             throw e
         }
 
-        // Update player info
+        
         gameState.players.forEach { player ->
             val user = users.find { it.nickname == player.nickname }
             user?.playerId = player.id
             println("[DEBUG_LOG] Player ${player.nickname} has ID ${player.id}")
         }
         
-        // Update current user role
+        
         val principal = SecurityContextHolder.getContext().authentication.principal as org.example.kotlin_liargame.tools.security.UserPrincipal
         val currentUser = users.find { it.nickname == principal.nickname }
         val yourRole = gameState.yourRole
@@ -218,7 +214,7 @@ class ChatInGameSimulationTest {
             println("[DEBUG_LOG] Current user ${currentUser.nickname} has role $yourRole")
         }
 
-        // Play rounds
+        
         for (round in 1..gameState.gTotalRounds) {
             println("[DEBUG_LOG] Starting round $round")
             playRound(gameState)
@@ -229,7 +225,7 @@ class ChatInGameSimulationTest {
                 val gameResult = gameService.getGameResult(gameNumber)
                 println("[DEBUG_LOG] Game result: ${gameResult.winningTeam}")
                 
-                // Send end-game chat messages
+                
                 users.forEach { user ->
                     setCurrentUser(user.nickname)
                     val endGameMessage = when (user.role) {
@@ -244,12 +240,12 @@ class ChatInGameSimulationTest {
             }
         }
 
-        // Print chat statistics
+        
         printChatStatistics()
     }
 
     private fun playRound(initialGameState: GameStateResponse) {
-        // HINT phase - Players give hints
+        
         users.forEach { user ->
             if (user.playerId != null) {
                 setCurrentUser(user.nickname)
@@ -259,7 +255,7 @@ class ChatInGameSimulationTest {
                     gameService.giveHint(giveHintRequest)
                     println("[DEBUG_LOG] Player ${user.nickname} gave hint: $hint")
                     
-                    // Send hint as chat message
+                    
                     sendChatMessage(user, hint, ChatMessageType.HINT)
                     println("[DEBUG_LOG] Player ${user.nickname} sent hint chat message")
                 } catch (e: Exception) {
@@ -268,10 +264,10 @@ class ChatInGameSimulationTest {
             }
         }
 
-        // Print hint chat messages
+        
         printChatMessages(ChatMessageType.HINT, "Hint ")
 
-        // DISCUSSION phase - Players vote
+        
         users.forEach { user ->
             if (user.playerId != null) {
                 setCurrentUser(user.nickname)
@@ -282,7 +278,7 @@ class ChatInGameSimulationTest {
                         gameService.vote(voteRequest)
                         println("[DEBUG_LOG] Player ${user.nickname} voted for ${targetPlayer.nickname}")
                         
-                        // Send discussion chat message
+                        
                         val discussionMessage = generateDiscussionMessage(user, targetPlayer)
                         sendChatMessage(user, discussionMessage, ChatMessageType.DISCUSSION)
                         println("[DEBUG_LOG] Player ${user.nickname} sent discussion chat message")
@@ -293,10 +289,10 @@ class ChatInGameSimulationTest {
             }
         }
 
-        // Print discussion chat messages
+        
         printChatMessages(ChatMessageType.DISCUSSION, "Discussion ")
 
-        // DEFENSE phase - Accused player defends
+        
         val gameState = gameService.getGameState(gameNumber)
         val accusedPlayer = gameState.players.find { it.state == PlayerState.ACCUSED.name }
         
@@ -312,7 +308,7 @@ class ChatInGameSimulationTest {
                     gameService.defend(defendRequest)
                     println("[DEBUG_LOG] Accused player ${accusedUser.nickname} defended: $defense")
                     
-                    // Send defense chat message
+                    
                     sendChatMessage(accusedUser, defense, ChatMessageType.DEFENSE)
                     println("[DEBUG_LOG] Accused player ${accusedUser.nickname} sent defense chat message")
                 } catch (e: Exception) {
@@ -320,10 +316,10 @@ class ChatInGameSimulationTest {
                 }
             }
 
-            // Print defense chat messages
+            
             printChatMessages(ChatMessageType.DEFENSE, "Defense ")
 
-            // Survival vote
+            
             users.forEach { user ->
                 if (user.playerId != null && user.nickname != accusedPlayer.nickname) {
                     setCurrentUser(user.nickname)
@@ -342,7 +338,7 @@ class ChatInGameSimulationTest {
                 }
             }
 
-            // Check if player was eliminated
+            
             val updatedGameState = gameService.getGameState(gameNumber)
             val updatedAccusedPlayer = updatedGameState.players.find { it.id == accusedPlayer.id }
             
@@ -351,7 +347,7 @@ class ChatInGameSimulationTest {
                 
                 println("[DEBUG_LOG] Player ${updatedAccusedPlayer.nickname} was eliminated")
                 
-                // POST_ROUND chat after elimination
+                
                 users.forEach { user ->
                     if (user.playerId != null && user.nickname != updatedAccusedPlayer.nickname) {
                         setCurrentUser(user.nickname)
@@ -361,7 +357,7 @@ class ChatInGameSimulationTest {
                     }
                 }
                 
-                // If eliminated player was a liar, they can guess the word
+                
                 setCurrentUser(updatedAccusedPlayer.nickname)
                 val playerState = gameService.getGameState(gameNumber)
                 
@@ -373,7 +369,7 @@ class ChatInGameSimulationTest {
                         gameService.guessWord(guessWordRequest)
                         println("[DEBUG_LOG] Eliminated liar ${updatedAccusedPlayer.nickname} guessed: $guess")
                         
-                        // Send final message from eliminated liar
+                        
                         sendChatMessage(users.find { it.nickname == updatedAccusedPlayer.nickname }!!, 
                             "I was the liar! My guess is: $guess", 
                             ChatMessageType.POST_ROUND)
@@ -384,7 +380,7 @@ class ChatInGameSimulationTest {
             } else {
                 println("[DEBUG_LOG] Player ${accusedPlayer.nickname} survived")
                 
-                // POST_ROUND chat after survival
+                
                 users.forEach { user ->
                     if (user.playerId != null) {
                         setCurrentUser(user.nickname)
@@ -395,7 +391,7 @@ class ChatInGameSimulationTest {
                 }
             }
 
-            // Print post-round chat messages
+            
             printChatMessages(ChatMessageType.POST_ROUND, "Post-round ")
         }
     }

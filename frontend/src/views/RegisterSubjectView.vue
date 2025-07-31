@@ -18,7 +18,7 @@ if (!userStore.isAuthenticated) {
 
 const registerSubject = async () => {
   if (!subject.value.trim()) {
-    errorMessage.value = '주제를 입력해주세요'
+    errorMessage.value = '주제�??�력?�주?�요'
     return
   }
 
@@ -37,12 +37,12 @@ const registerSubject = async () => {
       }
     )
 
-    successMessage.value = '주제가 성공적으로 등록되었습니다'
-    subject.value = '' // Clear the input field
+    successMessage.value = '주제가 ?�공?�으�??�록?�었?�니??
+    subject.value = '' 
     loading.value = false
   } catch (error) {
     console.error('Failed to register subject:', error)
-    errorMessage.value = error.response?.data?.message || '주제 등록에 실패했습니다'
+    errorMessage.value = error.response?.data?.message || '주제 ?�록???�패?�습?�다'
     loading.value = false
   }
 }
@@ -54,7 +54,7 @@ const goBack = () => {
 
 <template>
   <div class="register-subject">
-    <h1>주제 등록하기</h1>
+    <h1>주제 ?�록?�기</h1>
     
     <div class="form-container">
       <div class="form-group">
@@ -63,7 +63,7 @@ const goBack = () => {
           id="subject" 
           v-model="subject" 
           :disabled="loading"
-          placeholder="등록할 주제를 입력하세요"
+          placeholder="?�록??주제�??�력?�세??
           type="text"
         />
       </div>
@@ -74,9 +74,9 @@ const goBack = () => {
           class="btn primary"
           @click="registerSubject"
         >
-          {{ loading ? '처리 중...' : '등록하기' }}
+          {{ loading ? '처리 �?..' : '?�록?�기' }}
         </button>
-        <button class="btn secondary" @click="goBack">돌아가기</button>
+        <button class="btn secondary" @click="goBack">?�아가�?/button>
       </div>
       
       <div v-if="errorMessage" class="error-message">

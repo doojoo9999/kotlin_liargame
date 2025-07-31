@@ -69,15 +69,15 @@ const canGuessWord = computed(() => {
 
 const phaseText = computed(() => {
   switch (currentPhase.value) {
-    case PHASE.HINT: return '힌트 단계'
-    case PHASE.DISCUSSION: return '토론 단계'
-    case PHASE.VOTING: return '투표 단계'
-    case PHASE.DEFENSE: return '변론 단계'
-    case PHASE.SURVIVAL_VOTING: return '생존 투표 단계'
-    case PHASE.GUESS_WORD: return '단어 맞추기 단계'
-    case PHASE.ROUND_END: return '라운드 종료'
+    case PHASE.HINT: return '?�트 ?�계'
+    case PHASE.DISCUSSION: return '?�론 ?�계'
+    case PHASE.VOTING: return '?�표 ?�계'
+    case PHASE.DEFENSE: return '변�??�계'
+    case PHASE.SURVIVAL_VOTING: return '?�존 ?�표 ?�계'
+    case PHASE.GUESS_WORD: return '?�어 맞추�??�계'
+    case PHASE.ROUND_END: return '?�운??종료'
     case PHASE.GAME_END: return '게임 종료'
-    default: return '게임 진행 중'
+    default: return '게임 진행 �?
   }
 })
 
@@ -87,7 +87,7 @@ const formatTime = (seconds) => {
   return `${mins}:${secs < 10 ? '0' : ''}${secs}`
 }
 
-// Methods
+
 const updateGamePhase = () => {
   if (!gameStore.gameState) return
   
@@ -145,7 +145,7 @@ const sendHint = async () => {
     await gameStore.giveHint(gameNumber, chatMessage.value.trim())
     chatMessage.value = ''
   } catch (error) {
-    errorMessage.value = error.message || '힌트 전송에 실패했습니다'
+    errorMessage.value = error.message || '?�트 ?�송???�패?�습?�다'
   }
 }
 
@@ -166,7 +166,7 @@ const sendChatMessage = async (message) => {
     await chatStore.sendMessage(gameNumber, messageToSend, messageType)
     chatMessage.value = ''
   } catch (error) {
-    errorMessage.value = error.message || '메시지 전송에 실패했습니다'
+    errorMessage.value = error.message || '메시지 ?�송???�패?�습?�다'
   }
 }
 
@@ -176,7 +176,7 @@ const handlePlayerSelected = (playerId) => {
 
 const votePlayer = async () => {
   if (!selectedPlayerId.value) {
-    errorMessage.value = '투표할 플레이어를 선택해주세요'
+    errorMessage.value = '?�표???�레?�어�??�택?�주?�요'
     return
   }
   
@@ -184,13 +184,13 @@ const votePlayer = async () => {
     await gameStore.votePlayer(gameNumber, selectedPlayerId.value)
     selectedPlayerId.value = null
   } catch (error) {
-    errorMessage.value = error.message || '투표에 실패했습니다'
+    errorMessage.value = error.message || '?�표???�패?�습?�다'
   }
 }
 
 const submitDefense = async () => {
   if (!defense.value.trim()) {
-    errorMessage.value = '변론 내용을 입력해주세요'
+    errorMessage.value = '변�??�용???�력?�주?�요'
     return
   }
   
@@ -198,13 +198,13 @@ const submitDefense = async () => {
     await gameStore.defend(gameNumber, defense.value.trim())
     defense.value = ''
   } catch (error) {
-    errorMessage.value = error.message || '변론 제출에 실패했습니다'
+    errorMessage.value = error.message || '변�??�출???�패?�습?�다'
   }
 }
 
 const submitSurvivalVote = async () => {
   if (!selectedPlayerId.value) {
-    errorMessage.value = '투표할 플레이어를 선택해주세요'
+    errorMessage.value = '?�표???�레?�어�??�택?�주?�요'
     return
   }
   
@@ -212,13 +212,13 @@ const submitSurvivalVote = async () => {
     await gameStore.survivalVote(gameNumber, selectedPlayerId.value)
     selectedPlayerId.value = null
   } catch (error) {
-    errorMessage.value = error.message || '생존 투표에 실패했습니다'
+    errorMessage.value = error.message || '?�존 ?�표???�패?�습?�다'
   }
 }
 
 const submitGuessWord = async () => {
   if (!guessWord.value.trim()) {
-    errorMessage.value = '단어를 입력해주세요'
+    errorMessage.value = '?�어�??�력?�주?�요'
     return
   }
   
@@ -226,7 +226,7 @@ const submitGuessWord = async () => {
     await gameStore.guessWord(gameNumber, guessWord.value.trim())
     guessWord.value = ''
   } catch (error) {
-    errorMessage.value = error.message || '단어 맞추기에 실패했습니다'
+    errorMessage.value = error.message || '?�어 맞추기에 ?�패?�습?�다'
   }
 }
 
@@ -234,49 +234,49 @@ const endRound = async () => {
   try {
     await gameStore.endRound(gameNumber)
   } catch (error) {
-    errorMessage.value = error.message || '라운드 종료에 실패했습니다'
+    errorMessage.value = error.message || '?�운??종료???�패?�습?�다'
   }
 }
 
 const leaveGame = async () => {
   try {
-    // Call the leaveGame action in gameStore
+    
     await gameStore.leaveGame(gameNumber)
     
-    // Disconnect chat socket
+    
     chatStore.disconnectSocket()
     
-    // Navigate back to main lobby and force a refresh
+    
     router.push({ path: '/lobby', query: { _: Date.now() } })
   } catch (error) {
     console.error('Failed to leave game:', error)
     
-    // Even if the API call fails, we should still reset the state and redirect
+    
     gameStore.resetGameState()
     chatStore.disconnectSocket()
     router.push({ path: '/lobby', query: { _: Date.now() } })
   }
 }
 
-// Lifecycle hooks
+
 onMounted(async () => {
   try {
-    // Get game state
+    
     await gameStore.getGameState(gameNumber)
     
-    // Initialize chat socket
+    
     chatStore.initSocket(gameNumber)
     
-    // Get chat history
+    
     await chatStore.getChatHistory(gameNumber)
     
-    // Update game phase
+    
     updateGamePhase()
     
-    // Start timer
+    
     startTimer()
     
-    // Set up polling for game state updates
+    
     refreshInterval.value = setInterval(async () => {
       try {
         await gameStore.getGameState(gameNumber)
@@ -285,17 +285,17 @@ onMounted(async () => {
       } catch (error) {
         console.error('Failed to refresh game state:', error)
       }
-    }, 3000) // Poll every 3 seconds
+    }, 3000) 
     
     loading.value = false
   } catch (error) {
-    errorMessage.value = error.message || '게임 정보를 불러오는데 실패했습니다'
+    errorMessage.value = error.message || '게임 ?�보�?불러?�는???�패?�습?�다'
     loading.value = false
   }
 })
 
 onBeforeUnmount(() => {
-  // Clear intervals
+  
   if (refreshInterval.value) {
     clearInterval(refreshInterval.value)
   }
@@ -305,7 +305,7 @@ onBeforeUnmount(() => {
   }
 })
 
-// Watch for changes in game state
+
 watch(() => gameStore.gameState, () => {
   updateGamePhase()
   startTimer()
@@ -314,30 +314,30 @@ watch(() => gameStore.gameState, () => {
 
 <template>
   <div class="game">
-    <h1>라이어 게임</h1>
-    <h2>게임 번호: {{ gameNumber }} | 라운드: {{ gameStore.currentRound }}/{{ gameStore.gameState?.roundCount }}</h2>
+    <h1>?�이??게임</h1>
+    <h2>게임 번호: {{ gameNumber }} | ?�운?? {{ gameStore.currentRound }}/{{ gameStore.gameState?.roundCount }}</h2>
     
     <div v-if="loading" class="loading">
-      로딩 중...
+      로딩 �?..
     </div>
     
     <div v-else-if="errorMessage" class="error-container">
       <p class="error">{{ errorMessage }}</p>
       <button class="btn secondary" @click="leaveGame">
-        홈으로 돌아가기
+        ?�으�??�아가�?
       </button>
     </div>
     
     <div v-else-if="gameStore.gameState && gameStore.gameState.status !== 'STARTED'" class="not-started">
-      <h3>게임이 아직 시작되지 않았습니다</h3>
-      <p>게임 로비로 돌아가서 게임을 시작해주세요.</p>
+      <h3>게임???�직 ?�작?��? ?�았?�니??/h3>
+      <p>게임 로비�??�아가??게임???�작?�주?�요.</p>
       <button class="btn primary" @click="router.push(`/lobby/${gameNumber}`)">
-        로비로 돌아가기
+        로비�??�아가�?
       </button>
     </div>
     
     <div v-else class="game-content">
-      <!-- Phaser Game Component -->
+      
       <div class="phaser-game-section">
         <PhaserGameNew
           :currentPhase="phaseText"
@@ -345,7 +345,7 @@ watch(() => gameStore.gameState, () => {
           :currentRound="gameStore.currentRound"
           :gameState="gameStore.gameState"
           :isLiar="isLiar"
-          :messages="chatStore.messages"
+          :messages="chatStore.inGameMessages"
           :players="gameStore.players"
           :subject="gameStore.subject"
           :timeRemaining="timer"
@@ -355,28 +355,28 @@ watch(() => gameStore.gameState, () => {
         />
       </div>
       
-      <!-- Action section -->
+      
       <div class="action-section">
-        <!-- Voting phase -->
+        
         <div v-if="currentPhase === PHASE.VOTING && canVote" class="action-panel">
-          <h3>라이어 투표</h3>
-          <p>라이어라고 생각하는 플레이어를 선택하세요.</p>
+          <h3>?�이???�표</h3>
+          <p>?�이?�라�??�각?�는 ?�레?�어�??�택?�세??</p>
           <button 
             :disabled="!selectedPlayerId"
             class="btn primary"
             @click="votePlayer"
           >
-            투표하기
+            ?�표?�기
           </button>
         </div>
         
-        <!-- Defense phase -->
+        
         <div v-if="currentPhase === PHASE.DEFENSE && canDefend" class="action-panel">
-          <h3>변론</h3>
-          <p>당신이 라이어가 아님을 변론하세요.</p>
+          <h3>변�?/h3>
+          <p>?�신???�이?��? ?�님??변론하?�요.</p>
           <textarea 
             v-model="defense" 
-            placeholder="변론 내용 입력..."
+            placeholder="변�??�용 ?�력..."
             rows="3"
           ></textarea>
           <button 
@@ -384,30 +384,30 @@ watch(() => gameStore.gameState, () => {
             class="btn primary"
             @click="submitDefense"
           >
-            변론 제출
+            변�??�출
           </button>
         </div>
         
-        <!-- Survival voting phase -->
+        
         <div v-if="currentPhase === PHASE.SURVIVAL_VOTING && canSurvivalVote" class="action-panel">
-          <h3>생존 투표</h3>
-          <p>누가 라이어인지 다시 투표하세요.</p>
+          <h3>?�존 ?�표</h3>
+          <p>?��? ?�이?�인지 ?�시 ?�표?�세??</p>
           <button 
             :disabled="!selectedPlayerId"
             class="btn primary"
             @click="submitSurvivalVote"
           >
-            투표하기
+            ?�표?�기
           </button>
         </div>
         
-        <!-- Guess word phase -->
+        
         <div v-if="currentPhase === PHASE.GUESS_WORD && canGuessWord" class="action-panel">
-          <h3>단어 맞추기</h3>
-          <p>다른 플레이어들의 힌트를 바탕으로 단어를 맞춰보세요.</p>
+          <h3>?�어 맞추�?/h3>
+          <p>?�른 ?�레?�어?�의 ?�트�?바탕?�로 ?�어�?맞춰보세??</p>
           <input 
             v-model="guessWord" 
-            placeholder="단어 입력..."
+            placeholder="?�어 ?�력..."
             type="text"
           >
           <button 
@@ -415,40 +415,40 @@ watch(() => gameStore.gameState, () => {
             class="btn primary"
             @click="submitGuessWord"
           >
-            제출하기
+            ?�출?�기
           </button>
         </div>
         
-        <!-- Round end phase -->
+        
         <div v-if="currentPhase === PHASE.ROUND_END" class="action-panel">
-          <h3>라운드 종료</h3>
+          <h3>?�운??종료</h3>
           <div v-if="gameStore.gameResult" class="round-result">
-            <p><strong>라이어:</strong> {{ gameStore.gameResult.liarName }}</p>
-            <p><strong>단어:</strong> {{ gameStore.gameResult.word }}</p>
-            <p><strong>결과:</strong> {{ gameStore.gameResult.liarWin ? '라이어 승리!' : '시민 승리!' }}</p>
+            <p><strong>?�이??</strong> {{ gameStore.gameResult.liarName }}</p>
+            <p><strong>?�어:</strong> {{ gameStore.gameResult.word }}</p>
+            <p><strong>결과:</strong> {{ gameStore.gameResult.liarWin ? '?�이???�리!' : '?��? ?�리!' }}</p>
           </div>
           <button 
             class="btn primary"
             @click="endRound"
           >
-            다음 라운드
+            ?�음 ?�운??
           </button>
         </div>
         
-        <!-- Game end phase -->
+        
         <div v-if="currentPhase === PHASE.GAME_END" class="action-panel">
           <h3>게임 종료</h3>
           <div v-if="gameStore.gameResult" class="game-result">
             <h4>최종 결과</h4>
-            <p><strong>라이어:</strong> {{ gameStore.gameResult.liarName }}</p>
-            <p><strong>단어:</strong> {{ gameStore.gameResult.word }}</p>
-            <p><strong>최종 승자:</strong> {{ gameStore.gameResult.liarWin ? '라이어 승리!' : '시민 승리!' }}</p>
+            <p><strong>?�이??</strong> {{ gameStore.gameResult.liarName }}</p>
+            <p><strong>?�어:</strong> {{ gameStore.gameResult.word }}</p>
+            <p><strong>최종 ?�자:</strong> {{ gameStore.gameResult.liarWin ? '?�이???�리!' : '?��? ?�리!' }}</p>
           </div>
           <button 
             class="btn primary"
             @click="leaveGame"
           >
-            게임 나가기
+            게임 ?��?�?
           </button>
         </div>
       </div>

@@ -1,4 +1,4 @@
-ï»¿package org.example.kotlin_liargame.domain.auth.controller
+package org.example.kotlin_liargame.domain.auth.controller
 
 import org.example.kotlin_liargame.domain.auth.dto.request.LoginRequest
 import org.example.kotlin_liargame.domain.auth.service.AuthService
@@ -21,19 +21,19 @@ class AuthController(private val authService: AuthService) {
     fun login(
         @RequestBody req: LoginRequest
     ) : ResponseEntity<Any> {
-        logger.debug("ë¡œê·¸ì¸ ìš”ì²­ nickname = {}", req.nickname)
+        logger.debug("·Î±×ÀÎ ¿äÃ» nickname = {}", req.nickname)
         return try {
             val tokenResponse = authService.login(req)
-            logger.debug("ë¡œê·¸ì¸ ì„±ê³µ nickname = {}", req.nickname)
+            logger.debug("·Î±×ÀÎ ¼º°ø nickname = {}", req.nickname)
             ResponseEntity.ok(tokenResponse)
         } catch (e: IllegalArgumentException) {
-            logger.debug("ë¡œê·¸ì¸ ì‹¤íŒ¨ nickname = {}, ì›ì¸: {}", req.nickname, e.message)
+            logger.debug("·Î±×ÀÎ ½ÇÆĞ nickname = {}, ¿øÀÎ: {}", req.nickname, e.message)
             ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(ErrorResponse(message = e.message ?: "ë¡œê·¸ì¸ ì‹¤íŒ¨"))
+                .body(ErrorResponse(message = e.message ?: "·Î±×ÀÎ ½ÇÆĞ"))
         } catch (e: Exception) {
-            logger.error("ë¡œê·¸ì¸ ì¤‘ ì˜¤ë¥˜ ë°œìƒ nickname = {}", req.nickname, e)
+            logger.error("·Î±×ÀÎ Áß ¿À·ù ¹ß»ı nickname = {}", req.nickname, e)
             ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ErrorResponse(message = "ì„œë²„ ì˜¤ë¥˜ê°€ ë°œìƒí–ˆìŠµë‹ˆë‹¤"))
+                .body(ErrorResponse(message = "¼­¹ö ¿À·ù°¡ ¹ß»ıÇß½À´Ï´Ù"))
         }
     }
 }

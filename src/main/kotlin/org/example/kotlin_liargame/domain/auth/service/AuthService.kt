@@ -1,4 +1,4 @@
-ï»¿package org.example.kotlin_liargame.domain.auth.service
+package org.example.kotlin_liargame.domain.auth.service
 
 import org.example.kotlin_liargame.domain.auth.dto.request.LoginRequest
 import org.example.kotlin_liargame.domain.auth.dto.response.TokenResponse
@@ -25,20 +25,20 @@ class AuthService (
     fun login(request: LoginRequest): TokenResponse {
         val authenticatedUser = userRepository.findByNicknameAndIsAuthenticatedTrueAndIsActiveTrue(request.nickname)
         if (authenticatedUser != null) {
-            logger.debug("ë¡œê·¸ì¸ ì‹¤íŒ¨: ì´ë¯¸ ì¸ì¦ëœ ë‹‰ë„¤ì„ì…ë‹ˆë‹¤ - {}", request.nickname)
-            throw IllegalArgumentException("ì¤‘ë³µ ë‹‰ë„¤ì„ì´ ë¶ˆê°€ëŠ¥í•©ë‹ˆë‹¤. ë‹¤ë¥¸ ë‹‰ë„¤ì„ì„ ì‚¬ìš©í•´ì£¼ì„¸ìš”.")
+            logger.debug("·Î±×ÀÎ ½ÇÆĞ: ÀÌ¹Ì ÀÎÁõµÈ ´Ğ³×ÀÓÀÔ´Ï´Ù - {}", request.nickname)
+            throw IllegalArgumentException("Áßº¹ ´Ğ³×ÀÓÀÌ ºÒ°¡´ÉÇÕ´Ï´Ù. ´Ù¸¥ ´Ğ³×ÀÓÀ» »ç¿ëÇØÁÖ¼¼¿ä.")
         }
 
         val unauthenticatedUser = userRepository.findByNicknameAndIsAuthenticatedFalseAndIsActiveTrue(request.nickname)
         if (unauthenticatedUser != null) {
-            logger.debug("ë¡œê·¸ì¸ ì‹¤íŒ¨: ì´ë¯¸ ì‚¬ìš© ì¤‘ì¸ ë¹„ì¸ì¦ ë‹‰ë„¤ì„ì…ë‹ˆë‹¤ - {}", request.nickname)
-            throw IllegalArgumentException("ì´ë¯¸ ì‚¬ìš© ì¤‘ì¸ ë¹„ì¸ì¦ ë‹‰ë„¤ì„ì…ë‹ˆë‹¤. ë‹¤ë¥¸ ë‹‰ë„¤ì„ì„ ì‚¬ìš©í•´ì£¼ì„¸ìš”.")
+            logger.debug("·Î±×ÀÎ ½ÇÆĞ: ÀÌ¹Ì »ç¿ë ÁßÀÎ ºñÀÎÁõ ´Ğ³×ÀÓÀÔ´Ï´Ù - {}", request.nickname)
+            throw IllegalArgumentException("ÀÌ¹Ì »ç¿ë ÁßÀÎ ºñÀÎÁõ ´Ğ³×ÀÓÀÔ´Ï´Ù. ´Ù¸¥ ´Ğ³×ÀÓÀ» »ç¿ëÇØÁÖ¼¼¿ä.")
         }
 
         val activeTokens = userTokenRepository.findActiveTokensByNickname(request.nickname)
         if (activeTokens.isNotEmpty()) {
-            logger.debug("ë¡œê·¸ì¸ ì‹¤íŒ¨: ì´ë¯¸ í† í°ì´ ë°œê¸‰ëœ ë‹‰ë„¤ì„ì…ë‹ˆë‹¤ - {}", request.nickname)
-            throw IllegalArgumentException("ì´ë¯¸ ì ‘ì† ì¤‘ì¸ ë‹‰ë„¤ì„ì…ë‹ˆë‹¤. ë‹¤ë¥¸ ë‹‰ë„¤ì„ì„ ì‚¬ìš©í•´ì£¼ì„¸ìš”.")
+            logger.debug("·Î±×ÀÎ ½ÇÆĞ: ÀÌ¹Ì ÅäÅ«ÀÌ ¹ß±ŞµÈ ´Ğ³×ÀÓÀÔ´Ï´Ù - {}", request.nickname)
+            throw IllegalArgumentException("ÀÌ¹Ì Á¢¼Ó ÁßÀÎ ´Ğ³×ÀÓÀÔ´Ï´Ù. ´Ù¸¥ ´Ğ³×ÀÓÀ» »ç¿ëÇØÁÖ¼¼¿ä.")
         }
 
         val inactiveUser = userRepository.findByNicknameAndIsAuthenticatedFalse(request.nickname)
@@ -46,7 +46,7 @@ class AuthService (
             inactiveUser.toActive()
             inactiveUser.setTokenIssued()
             userRepository.save(inactiveUser)
-            logger.debug("ë¡œê·¸ì¸ ì„±ê³µ: ë¹„í™œì„± ë¹„ì¸ì¦ ë‹‰ë„¤ì„ ì¬í™œì„±í™” - {}", request.nickname)
+            logger.debug("·Î±×ÀÎ ¼º°ø: ºñÈ°¼º ºñÀÎÁõ ´Ğ³×ÀÓ ÀçÈ°¼ºÈ­ - {}", request.nickname)
 
             val token = jwtProvider.jwtBuild(
                 userId = inactiveUser.id.toString(),
@@ -62,7 +62,7 @@ class AuthService (
         val newUser = createUser(request.nickname)
         newUser.setTokenIssued()
         userRepository.save(newUser)
-        logger.debug("ë¡œê·¸ì¸ ì„±ê³µ: ìƒˆ ë¹„ì¸ì¦ ì‚¬ìš©ì ìƒì„± - {}", request.nickname)
+        logger.debug("·Î±×ÀÎ ¼º°ø: »õ ºñÀÎÁõ »ç¿ëÀÚ »ı¼º - {}", request.nickname)
 
         val token = jwtProvider.jwtBuild(
             userId = newUser.id.toString(),
@@ -108,7 +108,7 @@ class AuthService (
     private fun createUser(nickname: String): UserEntity {
         val userAddRequest = UserAddRequest(
             nickname = nickname,
-            profileImgUrl = "https://example.com/default-profile.jpg" // Default profile image
+            profileImgUrl = "https:
         )
         val newUser = userAddRequest.to()
         return userRepository.save(newUser)

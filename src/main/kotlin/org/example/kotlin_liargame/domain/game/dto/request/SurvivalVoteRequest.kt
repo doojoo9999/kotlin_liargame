@@ -7,11 +7,11 @@ data class SurvivalVoteRequest(
 ) {
     fun validate() {
         if (gNumber <= 0) {
-            throw IllegalArgumentException("게임 번호는 양수여야 합니다")
+            throw IllegalArgumentException("게임 번호???�수?�야 ?�니??)
         }
         
         if (accusedPlayerId <= 0) {
-            throw IllegalArgumentException("고발된 플레이어 ID는 양수여야 합니다")
+            throw IllegalArgumentException("고발???�레?�어 ID???�수?�야 ?�니??)
         }
     }
 }

@@ -18,3 +18,4 @@ class WordEntity (
     @Id
     val id: Long = 0
 }
+

@@ -18,22 +18,22 @@ class UserService (
 
         if (existingUser != null) {
             if (existingUser.isAuthenticated) {
-                logger.debug("사용자 생성 실패: 이미 인증된 닉네임입니다 - {}", req.nickname)
-                throw IllegalArgumentException("중복 닉네임이 불가능합니다. 다른 닉네임을 사용해주세요.")
+                logger.debug("?�용???�성 ?�패: ?��? ?�증???�네?�입?�다 - {}", req.nickname)
+                throw IllegalArgumentException("중복 ?�네?�이 불�??�합?�다. ?�른 ?�네?�을 ?�용?�주?�요.")
             } else if (existingUser.isActive) {
-                logger.debug("사용자 생성 실패: 이미 사용 중인 비인증 닉네임입니다 - {}", req.nickname)
-                throw IllegalArgumentException("이미 사용 중인 비인증 닉네임입니다. 다른 닉네임을 사용해주세요.")
+                logger.debug("?�용???�성 ?�패: ?��? ?�용 중인 비인�??�네?�입?�다 - {}", req.nickname)
+                throw IllegalArgumentException("?��? ?�용 중인 비인�??�네?�입?�다. ?�른 ?�네?�을 ?�용?�주?�요.")
             } else {
                 existingUser.toActive()
                 userRepository.save(existingUser)
-                logger.debug("사용자 생성 성공: 비활성 비인증 닉네임 재활성화 - {}", req.nickname)
+                logger.debug("?�용???�성 ?�공: 비활??비인�??�네???�활?�화 - {}", req.nickname)
                 return
             }
         }
 
         val newUser = req.to()
         userRepository.save(newUser)
-        logger.debug("사용자 생성 성공: 새 사용자 생성 - {}, 인증 상태: {}", req.nickname, req.isAuthenticated)
+        logger.debug("?�용???�성 ?�공: ???�용???�성 - {}, ?�증 ?�태: {}", req.nickname, req.isAuthenticated)
     }
 
     @Scheduled(fixedRate = 4 * 60 * 60 * 1000)
@@ -50,7 +50,7 @@ class UserService (
             }
         }
         
-        logger.debug("비인증 사용자 비활성화 배치 작업 완료: {} 사용자 비활성화됨", deactivatedCount)
+        logger.debug("비인�??�용??비활?�화 배치 ?�업 ?�료: {} ?�용??비활?�화??, deactivatedCount)
     }
 
     @Scheduled(fixedRate = 4 * 60 * 60 * 1000)
@@ -66,6 +66,6 @@ class UserService (
             }
         }
         
-        logger.debug("비활성 비인증 사용자 삭제 배치 작업 완료: {} 사용자 삭제됨", deletedCount)
+        logger.debug("비활??비인�??�용????�� 배치 ?�업 ?�료: {} ?�용????��??, deletedCount)
     }
 }

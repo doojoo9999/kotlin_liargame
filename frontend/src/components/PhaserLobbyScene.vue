@@ -3,20 +3,20 @@ import {onBeforeUnmount, onMounted, ref, watch} from 'vue';
 import Phaser from 'phaser';
 
 const props = defineProps({
-  gameNumber: Number,      // Game number
-  gameState: Object,       // Current game state
-  players: Array,          // List of players in the game
-  messages: Array,         // Chat messages
-  isHost: Boolean,         // Whether the current player is the host
-  canStartGame: Boolean,   // Whether the game can be started
-  currentPlayerId: String  // ID of the current player
+  gameNumber: Number,      
+  gameState: Object,       
+  players: Array,          
+  messages: Array,         
+  isHost: Boolean,         
+  canStartGame: Boolean,   
+  currentPlayerId: String  
 });
 
 const emit = defineEmits(['startGame', 'leaveGame', 'sendMessage']);
 
-const gameContainer = ref(null); // Reference to the DOM element for the Phaser game
-const chatInput = ref('');       // Chat input text
-let game = null;                 // Phaser game instance
+const gameContainer = ref(null); 
+const chatInput = ref('');       
+let game = null;                 
 
 const ASSETS = {
   BACKGROUND: '/src/assets/game-assets/background.svg',
@@ -45,13 +45,13 @@ const gameConfig = {
       this.vueProps = props;
       this.vueEmit = emit;
       
-      // 모든 배열을 초기화
+      
       this.buttons = [];
       this.playerSprites = [];
       this.chatMessages = [];
       this.notifications = [];
       
-      // scene이 재시작될 때마다 sceneInitialized를 true로 설정
+      
       sceneInitialized.value = true;
     },
     
@@ -68,7 +68,7 @@ const gameConfig = {
     },
     
     create: function() {
-      // 기존 버튼들이 있다면 제거
+      
       if (this.buttons) {
         this.buttons.forEach(button => {
             if (button && button.destroy) {
@@ -77,19 +77,19 @@ const gameConfig = {
         });
       }
       
-      // 배열 재초기화
+      
       this.buttons = [];
       
-      // Add background
+      
       this.add.image(500, 400, 'background').setScale(2);
       
-      // Add table
+      
       this.table = this.add.image(500, 400, 'table').setScale(2);
       
-      // Add game info panel
+      
       this.gameInfoPanel = this.add.rectangle(500, 100, 600, 120, 0xffffff, 0.8).setOrigin(0.5);
       
-      // Add game title
+      
       this.gameTitleText = this.add.text(500, 70, '게임 로비', {
         fontSize: '32px', 
         fontFamily: 'Arial', 
@@ -97,24 +97,24 @@ const gameConfig = {
         fontStyle: 'bold'
       }).setOrigin(0.5);
       
-      // Add game number
+      
       this.gameNumberText = this.add.text(500, 110, `게임 번호: ${this.vueProps.gameNumber}`, {
         fontSize: '20px', 
         fontFamily: 'Arial', 
         color: '#000000'
       }).setOrigin(0.5);
       
-      // Add player count
-      this.playerCountText = this.add.text(500, 140, '참가자: 0/0', {
+      
+      this.playerCountText = this.add.text(500, 140, '참�??? 0/0', {
         fontSize: '20px', 
         fontFamily: 'Arial', 
         color: '#000000'
       }).setOrigin(0.5);
       
-      // Add chat background
+      
       this.chatBackground = this.add.rectangle(500, 600, 600, 200, 0xffffff, 0.8).setOrigin(0.5);
       
-      // Add chat title
+      
       this.chatTitleText = this.add.text(500, 510, '채팅', {
         fontSize: '24px', 
         fontFamily: 'Arial', 
@@ -122,19 +122,19 @@ const gameConfig = {
         fontStyle: 'bold'
       }).setOrigin(0.5);
       
-      // Add chat container - position it below the round table
+      
       this.chatContainer = this.add.container(250, 540);
       
-      // Make sure the chat container is visible and above other elements
+      
       this.chatContainer.setDepth(10);
       
-      // Add notification container
+      
       this.notificationContainer = this.add.container(500, 750);
       
-      // Create buttons
+      
       this.createButtons();
       
-      // Update game state
+      
       this.updateGameState();
     },
     
@@ -149,11 +149,11 @@ const gameConfig = {
 
         if (this.playerCountText) {
           const previousText = this.playerCountText.text;
-          const newText = `참가자: ${currentPlayers}/${maxPlayers}`;
+          const newText = `참�??? ${currentPlayers}/${maxPlayers}`;
 
           this.playerCountText.setText(newText);
 
-          if (previousText !== '참가자: 0/0' && previousText !== newText) {
+          if (previousText !== '참�??? 0/0' && previousText !== newText) {
             this.tweens.add({
               targets: this.playerCountText,
               scaleX: 1.2,
@@ -171,23 +171,23 @@ const gameConfig = {
         console.warn('gameState or players is undefined');
       }
       
-      // Update players
+      
       this.updatePlayers();
       
-      // Update chat messages
+      
       this.updateChatMessages();
       
-      // Update buttons
+      
       this.updateButtons();
     },
     
     createButtons: function() {
-      // 안전 검사 추가
+      
       if (!this.buttons) {
         this.buttons = [];
       }
       
-      // 기존 버튼 제거
+      
       this.buttons.forEach(button => {
         if (button && button.destroy) {
           button.destroy();
@@ -195,13 +195,13 @@ const gameConfig = {
       });
       this.buttons = [];
       
-      // Start game button (only for host)
+      
       if (this.vueProps.isHost) {
         const startButtonX = 350;
         const startButtonY = 700;
         
         const startButton = this.add.image(startButtonX, startButtonY, 'button').setScale(1.5).setInteractive();
-        const startButtonText = this.add.text(startButtonX, startButtonY, '게임 시작', {
+        const startButtonText = this.add.text(startButtonX, startButtonY, '게임 ?�작', {
           fontSize: '20px',
           fontFamily: 'Arial',
           color: '#ffffff'
@@ -216,31 +216,31 @@ const gameConfig = {
         this.buttons.push(startButton);
         this.buttons.push(startButtonText);
         
-        // Settings button (only for host)
+        
         const settingsButtonX = 500;
         const settingsButtonY = 700;
         
         const settingsButton = this.add.image(settingsButtonX, settingsButtonY, 'button').setScale(1.5).setInteractive();
-        const settingsButtonText = this.add.text(settingsButtonX, settingsButtonY, '설정 변경', {
+        const settingsButtonText = this.add.text(settingsButtonX, settingsButtonY, '?�정 변�?, {
           fontSize: '20px',
           fontFamily: 'Arial',
           color: '#ffffff'
         }).setOrigin(0.5);
         
         settingsButton.on('pointerdown', () => {
-          this.addNotification('설정 변경 기능은 아직 구현되지 않았습니다.');
+          this.addNotification('?�정 변�?기능?� ?�직 구현?��? ?�았?�니??');
         });
         
         this.buttons.push(settingsButton);
         this.buttons.push(settingsButtonText);
       }
       
-      // Leave game button (for all players)
+      
       const leaveButtonX = this.vueProps.isHost ? 650 : 500;
       const leaveButtonY = 700;
       
       const leaveButton = this.add.image(leaveButtonX, leaveButtonY, 'button').setScale(1.5).setInteractive();
-      const leaveButtonText = this.add.text(leaveButtonX, leaveButtonY, '나가기', {
+      const leaveButtonText = this.add.text(leaveButtonX, leaveButtonY, '?��?�?, {
         fontSize: '20px',
         fontFamily: 'Arial',
         color: '#ffffff'
@@ -255,7 +255,7 @@ const gameConfig = {
     },
     
     updateButtons: function() {
-      // Update start button state based on canStartGame
+      
       if (this.vueProps.isHost && this.buttons.length >= 2) {
         const startButton = this.buttons[0];
         
@@ -268,7 +268,7 @@ const gameConfig = {
     },
     
     updatePlayers: function() {
-      // Clear existing player sprites
+      
       this.playerSprites.forEach(sprite => sprite.destroy());
       this.playerSprites = [];
       
@@ -277,14 +277,14 @@ const gameConfig = {
         const centerY = 350;
         const radius = 200;
         
-        // Store previous player IDs to identify new players
+        
         const previousPlayerIds = this.previousPlayerIds || [];
         
-        // Log for debugging
+        
         console.log('Previous player IDs:', previousPlayerIds);
         console.log('Current players:', this.vueProps.players);
         
-        // Update the list of previous player IDs
+        
         this.previousPlayerIds = this.vueProps.players.map(player => player.userId);
         
         this.vueProps.players.forEach((player, index) => {
@@ -295,29 +295,29 @@ const gameConfig = {
           const isCurrentPlayer = player.userId === this.vueProps.currentPlayerId;
           const isNewPlayer = !previousPlayerIds.includes(player.userId);
           
-          // Log new players for debugging
+          
           if (isNewPlayer) {
             console.log('New player detected:', player.nickname, player.userId);
           }
           
-          // Starting position for new players (off-screen)
+          
           let startX = targetX;
           let startY = targetY;
           
           if (isNewPlayer) {
-            // Start from outside the visible area
+            
             const randomAngle = Math.random() * Math.PI * 2;
             startX = centerX + (radius + 300) * Math.cos(randomAngle);
             startY = centerY + (radius + 300) * Math.sin(randomAngle);
             
-            // Add notification for new player
-            this.addNotification(`${player.nickname} 님이 입장했습니다.`);
+            
+            this.addNotification(`${player.nickname} ?�이 ?�장?�습?�다.`);
           }
           
-          // Add player sprite
+          
           const sprite = this.add.sprite(startX, startY, 'player').setScale(isNewPlayer ? 0 : 1.5).setInteractive();
           
-          // Add player name
+          
           const nameText = this.add.text(startX, startY + 40, player.nickname, {
             fontSize: '16px', 
             fontFamily: 'Arial',
@@ -326,16 +326,16 @@ const gameConfig = {
           }).setOrigin(0.5);
           nameText.alpha = isNewPlayer ? 0 : 1;
           
-          // Add crown for host
+          
           let crown = null;
           if (player.isHost) {
             crown = this.add.image(startX, startY - 40, 'crown').setScale(isNewPlayer ? 0 : 0.5);
             this.playerSprites.push(crown);
           }
           
-          // Animate new players entering
+          
           if (isNewPlayer) {
-            // Move to target position with a bounce effect
+            
             this.tweens.add({
               targets: sprite,
               x: targetX,
@@ -348,7 +348,7 @@ const gameConfig = {
               }
             });
             
-            // Fade in the name
+            
             this.tweens.add({
               targets: nameText,
               x: targetX,
@@ -358,7 +358,7 @@ const gameConfig = {
               duration: 1000
             });
             
-            // Animate crown if player is host
+            
             if (crown) {
               this.tweens.add({
                 targets: crown,
@@ -378,16 +378,16 @@ const gameConfig = {
     },
     
     updateChatMessages: function() {
-      // Clear existing chat messages
+      
       this.chatMessages.forEach(item => item.destroy());
       this.chatMessages = [];
       
       const messages = this.vueProps.messages || [];
       
-      // Display the last 8 messages
+      
       const displayMessages = messages.slice(-8);
       
-      // Log for debugging
+      
       console.log('Updating chat messages:', displayMessages.length, 'messages');
       
       displayMessages.forEach((message, index) => {
@@ -403,7 +403,7 @@ const gameConfig = {
         
         const messageText = this.add.text(0, index * 25, `${message.senderName}: ${message.content}`, textStyle);
         
-        // Make sure the message text is visible
+        
         messageText.setDepth(10);
         
         this.chatContainer.add(messageText);
@@ -411,7 +411,7 @@ const gameConfig = {
         this.chatMessages.push(messageText);
       });
       
-      // Force the chat container to update its display
+      
       this.chatContainer.setVisible(false);
       this.chatContainer.setVisible(true);
     },
@@ -451,7 +451,7 @@ const gameConfig = {
   }
 };
 
-// Flag to track if the scene is fully initialized
+
 const sceneInitialized = ref(false);
 
 const initGame = () => {
@@ -459,9 +459,9 @@ const initGame = () => {
     gameConfig.parent = gameContainer.value;
     game = new Phaser.Game(gameConfig);
     
-    // Add event listener for scene creation to set the initialized flag
+    
     game.events.once('ready', () => {
-      // Give a small delay to ensure all scene methods are available
+      
       setTimeout(() => {
         console.log('Phaser scene fully initialized');
         sceneInitialized.value = true;
@@ -477,19 +477,19 @@ const destroyGame = () => {
   }
 };
 
-// Watch for changes in props
+
 watch(() => props.gameState, () => {
-  // Only attempt to update if the scene is fully initialized
+  
   if (sceneInitialized.value && game && game.scene.scenes[0]) {
     if (typeof game.scene.scenes[0].updateGameState === 'function') {
       game.scene.scenes[0].updateGameState();
     } else {
       console.log('updateGameState function not found, scene may not be fully initialized');
-      // Only restart if we're sure the scene should be initialized by now
+      
       if (sceneInitialized.value) {
         console.log('Attempting to reinitialize scene');
         game.scene.scenes[0].scene.restart();
-        // Reset initialization flag until scene is ready again
+        
         sceneInitialized.value = false;
       }
     }
@@ -497,17 +497,17 @@ watch(() => props.gameState, () => {
 }, { deep: true });
 
 watch(() => props.players, () => {
-  // Only attempt to update if the scene is fully initialized
+  
   if (sceneInitialized.value && game && game.scene.scenes[0]) {
     if (typeof game.scene.scenes[0].updatePlayers === 'function') {
       game.scene.scenes[0].updatePlayers();
     } else {
       console.log('updatePlayers function not found, scene may not be fully initialized');
-      // Only restart if we're sure the scene should be initialized by now
+      
       if (sceneInitialized.value) {
         console.log('Attempting to reinitialize scene');
         game.scene.scenes[0].scene.restart();
-        // Reset initialization flag until scene is ready again
+        
         sceneInitialized.value = false;
       }
     }
@@ -517,26 +517,26 @@ watch(() => props.players, () => {
 watch(() => props.messages, (newMessages, oldMessages) => {
   console.log('Messages changed:', newMessages?.length, 'messages');
   
-  // Only attempt to update if the scene is fully initialized
+  
   if (sceneInitialized.value && game && game.scene.scenes[0]) {
     if (typeof game.scene.scenes[0].updateChatMessages === 'function') {
-      // Force immediate update of chat messages when they change
+      
       game.scene.scenes[0].updateChatMessages();
       
-      // If a new message was added, add a notification
+      
       if (newMessages && oldMessages && newMessages.length > oldMessages.length) {
         const latestMessage = newMessages[newMessages.length - 1];
         if (latestMessage && typeof game.scene.scenes[0].addNotification === 'function') {
-          game.scene.scenes[0].addNotification(`새 메시지: ${latestMessage.senderName}`);
+          game.scene.scenes[0].addNotification(`??메시지: ${latestMessage.senderName}`);
         }
       }
     } else {
       console.log('updateChatMessages function not found, scene may not be fully initialized');
-      // Only restart if we're sure the scene should be initialized by now
+      
       if (sceneInitialized.value) {
         console.log('Attempting to reinitialize scene');
         game.scene.scenes[0].scene.restart();
-        // Reset initialization flag until scene is ready again
+        
         sceneInitialized.value = false;
       }
     }
@@ -544,17 +544,17 @@ watch(() => props.messages, (newMessages, oldMessages) => {
 }, { deep: true, immediate: true });
 
 watch(() => props.isHost, () => {
-  // Only attempt to update if the scene is fully initialized
+  
   if (sceneInitialized.value && game && game.scene.scenes[0]) {
     if (typeof game.scene.scenes[0].createButtons === 'function') {
       game.scene.scenes[0].createButtons();
     } else {
       console.log('createButtons function not found, scene may not be fully initialized');
-      // Only restart if we're sure the scene should be initialized by now
+      
       if (sceneInitialized.value) {
         console.log('Attempting to reinitialize scene');
         game.scene.scenes[0].scene.restart();
-        // Reset initialization flag until scene is ready again
+        
         sceneInitialized.value = false;
       }
     }
@@ -562,42 +562,42 @@ watch(() => props.isHost, () => {
 }, { deep: true });
 
 watch(() => props.canStartGame, () => {
-  // Only attempt to update if the scene is fully initialized
+  
   if (sceneInitialized.value && game && game.scene.scenes[0]) {
     if (typeof game.scene.scenes[0].updateButtons === 'function') {
       game.scene.scenes[0].updateButtons();
     } else {
       console.log('updateButtons function not found, scene may not be fully initialized');
-      // Only restart if we're sure the scene should be initialized by now
+      
       if (sceneInitialized.value) {
         console.log('Attempting to reinitialize scene');
         game.scene.scenes[0].scene.restart();
-        // Reset initialization flag until scene is ready again
+        
         sceneInitialized.value = false;
       }
     }
   }
 });
 
-// Track player count changes for notifications
+
 const previousPlayerCount = ref(0);
 watch(() => props.players?.length, (newCount, oldCount) => {
-  // Only attempt to update if the scene is fully initialized
+  
   if (sceneInitialized.value && game && game.scene.scenes[0] && oldCount !== undefined) {
     if (typeof game.scene.scenes[0].addNotification === 'function') {
       if (newCount > oldCount) {
         const newPlayer = props.players[props.players.length - 1];
-        game.scene.scenes[0].addNotification(`${newPlayer.nickname} 님이 입장했습니다.`);
+        game.scene.scenes[0].addNotification(`${newPlayer.nickname} ?�이 ?�장?�습?�다.`);
       } else if (newCount < oldCount) {
-        game.scene.scenes[0].addNotification('플레이어가 퇴장했습니다.');
+        game.scene.scenes[0].addNotification('?�레?�어가 ?�장?�습?�다.');
       }
     } else {
       console.log('addNotification function not found, scene may not be fully initialized');
-      // Only restart if we're sure the scene should be initialized by now
+      
       if (sceneInitialized.value) {
         console.log('Attempting to reinitialize scene');
         game.scene.scenes[0].scene.restart();
-        // Reset initialization flag until scene is ready again
+        
         sceneInitialized.value = false;
       }
     }
@@ -611,31 +611,31 @@ const sendMessage = async () => {
     try {
       isSending.value = true;
       
-      // Store the message locally
+      
       const messageText = chatInput.value.trim();
       
-      // Clear input immediately for better UX
+      
       chatInput.value = '';
       
-      // Emit the event to parent component
+      
       await emit('sendMessage', messageText);
       
-      // If we get here, the message was sent successfully
+      
       console.log('Message sent successfully');
       
-      // If the game scene exists, add a notification
+      
       if (game && game.scene.scenes[0] && typeof game.scene.scenes[0].addNotification === 'function') {
-        game.scene.scenes[0].addNotification('메시지가 전송되었습니다.');
+        game.scene.scenes[0].addNotification('메시지가 ?�송?�었?�니??');
       }
     } catch (error) {
       console.error('Failed to send message:', error);
       
-      // If the game scene exists, add an error notification
+      
       if (game && game.scene.scenes[0] && typeof game.scene.scenes[0].addNotification === 'function') {
-        game.scene.scenes[0].addNotification('메시지 전송에 실패했습니다.');
+        game.scene.scenes[0].addNotification('메시지 ?�송???�패?�습?�다.');
       }
       
-      // Put the message back in the input field
+      
       chatInput.value = messageText;
     } finally {
       isSending.value = false;
@@ -656,15 +656,15 @@ onBeforeUnmount(() => {
   <div class="phaser-lobby-container">
     <div ref="gameContainer" class="game-canvas"></div>
     
-    <!-- Chat input below the game canvas -->
+    
     <div class="chat-input-container">
       <input 
         v-model="chatInput" 
         class="chat-input"
-        placeholder="메시지를 입력하세요..."
+        placeholder="메시지�??�력?�세??.."
         @keyup.enter="sendMessage"
       />
-      <button class="send-button" @click="sendMessage">전송</button>
+      <button class="send-button" @click="sendMessage">?�송</button>
     </div>
   </div>
 </template>

@@ -57,7 +57,7 @@ class LiarGameSimulationTest {
     fun setup() {
         for (i in 1..12) {
             val nickname = "Player${i}_${Random.nextInt(1000, 9999)}"
-            val profileImgUrl = "https://example.com/profile${i}.jpg"
+            val profileImgUrl = "https:
             users.add(UserInfo(nickname, profileImgUrl))
             
             try {
@@ -183,11 +183,11 @@ class LiarGameSimulationTest {
             }
         }
 
-        // Print diagnostic information about subjects
+        
         val allSubjects = subjectService.findAll()
         println("[DEBUG_LOG] Available subjects: ${allSubjects.size}")
         
-        // Find the subject we created
+        
         val ourSubject = allSubjects.find { it.content == subjectContent }
         if (ourSubject == null) {
             throw RuntimeException("Subject '$subjectContent' not found")
@@ -200,12 +200,12 @@ class LiarGameSimulationTest {
             println("[DEBUG_LOG] - ${word.content}")
         }
         
-        // Make sure our subject has at least 2 words
+        
         if (ourWords.size < 2) {
             throw RuntimeException("Subject '$subjectContent' must have at least 2 words for the test to run")
         }
         
-        // Find or create another subject with at least 2 words
+        
         val otherSubject = allSubjects.filter { it.content != subjectContent }
             .firstOrNull { subject ->
                 val subjectWords = wordService.findAll().filter { it.subjectContent == subject.content }

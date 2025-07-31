@@ -35,7 +35,7 @@ class ChatService(
 
     private val scheduler: ScheduledExecutorService = Executors.newScheduledThreadPool(1)
 
-    private val POST_ROUND_CHAT_DURATION = 7L // 7 seconds
+    private val POST_ROUND_CHAT_DURATION = 7L 
     
     fun getCurrentUserId(): Long {
         val principal = SecurityContextHolder.getContext().authentication.principal as UserPrincipal

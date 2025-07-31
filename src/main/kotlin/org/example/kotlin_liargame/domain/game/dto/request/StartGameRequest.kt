@@ -9,25 +9,25 @@ data class StartGameRequest(
     fun validate() {
         if (subjectIds != null) {
             if (subjectIds.isEmpty()) {
-                throw IllegalArgumentException("주제 ID 목록이 제공된 경우 비어 있을 수 없습니다")
+                throw IllegalArgumentException("주제 ID 목록???�공??경우 비어 ?�을 ???�습?�다")
             }
             
             subjectIds.forEach { subjectId ->
                 if (subjectId <= 0) {
-                    throw IllegalArgumentException("주제 ID는 양수여야 합니다")
+                    throw IllegalArgumentException("주제 ID???�수?�야 ?�니??)
                 }
             }
             if (useAllSubjects || useRandomSubjects) {
-                throw IllegalArgumentException("한 번에 하나의 주제 선택 방법만 사용할 수 있습니다")
+                throw IllegalArgumentException("??번에 ?�나??주제 ?�택 방법�??�용?????�습?�다")
             }
         }
 
         if (useAllSubjects && useRandomSubjects) {
-            throw IllegalArgumentException("한 번에 하나의 주제 선택 방법만 사용할 수 있습니다")
+            throw IllegalArgumentException("??번에 ?�나??주제 ?�택 방법�??�용?????�습?�다")
         }
         
         if (useRandomSubjects && randomSubjectCount != null && randomSubjectCount <= 0) {
-            throw IllegalArgumentException("랜덤으로 선택할 주제 수는 양수여야 합니다")
+            throw IllegalArgumentException("?�덤?�로 ?�택??주제 ?�는 ?�수?�야 ?�니??)
         }
     }
 }

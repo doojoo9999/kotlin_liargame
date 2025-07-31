@@ -32,14 +32,7 @@ import java.lang.reflect.Type
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
 
-/**
- * This test verifies that WebSocket functionality is working correctly for chat messages.
- * It tests:
- * 1. WebSocket connection
- * 2. Sending messages via WebSocket
- * 3. Receiving messages via WebSocket
- * 4. Integration with the chat service
- */
+
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.DEFINED_PORT, properties = ["server.port=20022"])
 @ConditionalOnProperty(name = ["spring.security.jwt.test-mode"], havingValue = "false", matchIfMissing = true)
@@ -78,9 +71,9 @@ class WebSocketChatTest {
 
     @BeforeEach
     fun setup() {
-        // Create a single user with nickname 'test'
+        
         val nickname = "test"
-        val profileImgUrl = "https://example.com/profile.jpg"
+        val profileImgUrl = "https:
         users.add(UserInfo(nickname, profileImgUrl))
         
         try {
@@ -94,7 +87,7 @@ class WebSocketChatTest {
             println("[DEBUG_LOG] Failed to create user $nickname: ${e.message}")
         }
 
-        // Create game room
+        
         val user = users[0]
         setCurrentUser(user.nickname)
         
@@ -111,7 +104,7 @@ class WebSocketChatTest {
         gameNumber = gameService.createGameRoom(createGameRequest)
         println("[DEBUG_LOG] Created game room: $gameNumber")
 
-        // Setup WebSocket client
+        
         val webSocketClient = StandardWebSocketClient()
         val transports: List<Transport> = listOf(WebSocketTransport(webSocketClient))
         val sockJsClient = SockJsClient(transports)
@@ -119,11 +112,11 @@ class WebSocketChatTest {
         stompClient = WebSocketStompClient(sockJsClient)
         stompClient.messageConverter = MappingJackson2MessageConverter()
         
-        val url = "ws://localhost:${port}/ws"
+        val url = "ws:
         println("[DEBUG_LOG] Connecting to WebSocket at $url")
         
         val sessionFuture = CompletableFuture<StompSession>()
-        // Using connectAsync instead of the deprecated connect method
+        
         val sessionHandler = object : StompSessionHandlerAdapter() {
             override fun afterConnected(session: StompSession, connectedHeaders: StompHeaders) {
                 println("[DEBUG_LOG] Connected to WebSocket")
@@ -149,7 +142,7 @@ class WebSocketChatTest {
 
     @Test
     fun `test WebSocket connection and message exchange`() {
-        // Subscribe to chat topic
+        
         val messageFuture = CompletableFuture<ChatMessageResponse>()
         
         stompSession.subscribe("/topic/chat.${gameNumber}", object : StompFrameHandler {
@@ -163,7 +156,7 @@ class WebSocketChatTest {
             }
         })
         
-        // Send a message via WebSocket
+        
         setCurrentUser("test")
         val chatMessage = SendChatMessageRequest(
             gNumber = gameNumber,
@@ -173,10 +166,10 @@ class WebSocketChatTest {
         stompSession.send("/app/chat.send", chatMessage)
         println("[DEBUG_LOG] Sent message via WebSocket")
         
-        // Wait for the message to be received
+        
         val receivedMessage = messageFuture.get(10, TimeUnit.SECONDS)
         
-        // Verify the message
+        
         assertNotNull(receivedMessage)
         assertEquals("Hello via WebSocket!", receivedMessage.content)
         assertEquals("test", receivedMessage.playerNickname)
@@ -184,7 +177,7 @@ class WebSocketChatTest {
 
     @Test
     fun `test sending message via REST and receiving via WebSocket`() {
-        // Subscribe to chat topic
+        
         val messageFuture = CompletableFuture<ChatMessageResponse>()
         
         stompSession.subscribe("/topic/chat.${gameNumber}", object : StompFrameHandler {
@@ -198,7 +191,7 @@ class WebSocketChatTest {
             }
         })
         
-        // Send a message via REST API
+        
         setCurrentUser("test")
         val chatMessage = SendChatMessageRequest(
             gNumber = gameNumber,
@@ -206,9 +199,9 @@ class WebSocketChatTest {
         )
         
         val restTemplate = org.springframework.boot.test.web.client.TestRestTemplate()
-        val url = "http://localhost:${port}/api/v1/chat/send"
+        val url = "http:
         
-        // Use the specified JWT token
+        
         val headers = org.springframework.http.HttpHeaders()
         headers.set("Authorization", "Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIiwibmlja25hbWUiOiJ0ZXN0IiwiaWF0IjoxNzUzODQ5OTg5LCJleHAiOjE3NTM4NTM1ODl9.2-YEF7mAKRfJI3inj8kI1vGXfHzbSavoycBSQtQKnvA")
         
@@ -217,10 +210,10 @@ class WebSocketChatTest {
         
         println("[DEBUG_LOG] Sent message via REST API")
         
-        // Wait for the message to be received via WebSocket
+        
         val receivedMessage = messageFuture.get(10, TimeUnit.SECONDS)
         
-        // Verify the message
+        
         assertNotNull(receivedMessage)
         assertEquals("Hello via REST API!", receivedMessage.content)
         assertEquals("test", receivedMessage.playerNickname)
@@ -228,7 +221,7 @@ class WebSocketChatTest {
 
     @Test
     fun `test chat history retrieval`() {
-        // Send multiple messages
+        
         setCurrentUser("test")
         val message1 = SendChatMessageRequest(gameNumber, "Message 1")
         val message2 = SendChatMessageRequest(gameNumber, "Message 2")
@@ -236,14 +229,14 @@ class WebSocketChatTest {
         stompSession.send("/app/chat.send", message1)
         stompSession.send("/app/chat.send", message2)
         
-        // Wait a bit for messages to be processed
+        
         Thread.sleep(1000)
         
-        // Retrieve chat history
-        val restTemplate = org.springframework.boot.test.web.client.TestRestTemplate()
-        val url = "http://localhost:${port}/api/v1/chat/history?gNumber=${gameNumber}"
         
-        // Use the specified JWT token
+        val restTemplate = org.springframework.boot.test.web.client.TestRestTemplate()
+        val url = "http:
+        
+        
         val headers = org.springframework.http.HttpHeaders()
         headers.set("Authorization", "Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIiwibmlja25hbWUiOiJ0ZXN0IiwiaWF0IjoxNzUzODQ5OTg5LCJleHAiOjE3NTM4NTM1ODl9.2-YEF7mAKRfJI3inj8kI1vGXfHzbSavoycBSQtQKnvA")
         
@@ -251,28 +244,28 @@ class WebSocketChatTest {
         val response = restTemplate.exchange(url, org.springframework.http.HttpMethod.GET, requestEntity, 
             Array<ChatMessageResponse>::class.java)
         
-        // Verify the history
+        
         assertNotNull(response.body)
         assertTrue(response.body!!.size >= 2)
         
-        // Verify the messages are in the correct order (newest first)
+        
         val messages = response.body!!.toList()
         assertTrue(messages.any { it.content == "Message 1" })
         assertTrue(messages.any { it.content == "Message 2" })
     }
 
     private fun setCurrentUser(nickname: String) {
-        // Ignoring the nickname parameter as we always use "test"
-        // Create a fixed UserPrincipal with userId=1 and nickname="test"
-        // This bypasses the normal authentication process
+        
+        
+        
         val userPrincipal = UserPrincipal(
             userId = 1L,
-            nickname = "test", // Always use "test" regardless of the parameter
+            nickname = "test", 
             authorities = emptyList(),
             providerId = "test"
         )
         
-        // Set the authentication in the SecurityContextHolder
+        
         val authentication = UsernamePasswordAuthenticationToken(userPrincipal, null, emptyList())
         SecurityContextHolder.getContext().authentication = authentication
         

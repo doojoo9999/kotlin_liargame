@@ -18,7 +18,7 @@ const emit = defineEmits(['playerSelected']);
 const gameContainer = ref(null);
 let game = null;
 
-// Game configuration
+
 const gameConfig = {
   type: Phaser.AUTO,
   width: 800,
@@ -31,8 +31,8 @@ const gameConfig = {
       this.vueEmit = emit;
     },
     preload: function() {
-      this.load.image('player', 'https://raw.githubusercontent.com/photonstorm/phaser3-examples/master/public/assets/sprites/phaser-dude.png');
-      this.load.image('liar', 'https://raw.githubusercontent.com/photonstorm/phaser3-examples/master/public/assets/sprites/phaser-dude-cheer.png');
+      this.load.image('player', 'https:
+      this.load.image('liar', 'https:
     },
     create: function() {
       this.add.text(400, 50, 'Liar Game', { fontSize: '32px', fill: '#000' }).setOrigin(0.5);

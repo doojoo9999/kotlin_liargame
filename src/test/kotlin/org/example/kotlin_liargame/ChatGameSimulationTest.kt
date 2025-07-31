@@ -3,11 +3,7 @@ package org.example.kotlin_liargame
 import org.example.kotlin_liargame.domain.chat.model.ChatMessageType
 import kotlin.random.Random
 
-/**
- * This simulation tests chat functionality during an actual Liar Game.
- * It extends the existing LiarGameSimulation to include chat messages
- * during different phases of the game.
- */
+
 fun main() {
     println("Starting Chat Game Simulation with 10 users")
     
@@ -15,11 +11,9 @@ fun main() {
     simulation.runSimulation()
 }
 
-/**
- * Extension of LiarGameSimulation that includes chat functionality
- */
+
 class ChatGameSimulation {
-    private val baseUrl = "http://localhost:8080/api/v1"
+    private val baseUrl = "http:
     private val users = mutableListOf<UserInfo>()
     private var gameNumber: Int = 0
     private val subjectContent = "µ¿¹°"
@@ -51,7 +45,7 @@ class ChatGameSimulation {
             playRounds()
             getGameResult()
             
-            // Print chat statistics
+            
             printChatStatistics()
             
             println("Chat Simulation completed successfully!")
@@ -66,7 +60,7 @@ class ChatGameSimulation {
         
         for (i in 1..10) {
             val nickname = "Player${i}_${Random.nextInt(1000, 9999)}"
-            val profileImgUrl = "https://example.com/profile${i}.jpg"
+            val profileImgUrl = "https:
             users.add(UserInfo(nickname, profileImgUrl))
             
             println("Created user: $nickname")
@@ -103,12 +97,12 @@ class ChatGameSimulation {
             if (index > 0) {
                 println("User ${user.nickname} joined the game")
                 
-                // Simulate pre-game chat
+                
                 sendChatMessage(user, "Hello everyone! Ready to play?", ChatMessageType.POST_ROUND)
             }
         }
         
-        // Print pre-game chat
+        
         println("\n=== Pre-game chat ===")
         printChatMessages(ChatMessageType.POST_ROUND)
     }
@@ -135,22 +129,22 @@ class ChatGameSimulation {
     }
     
     private fun playRound(round: Int) {
-        // HINT phase
+        
         println("\n- Players giving hints")
         users.forEach { user ->
             val hint = generateHint(user)
             
             println("Player ${user.nickname} (${user.role}) gave hint: $hint")
             
-            // Simulate hint chat
+            
             sendChatMessage(user, hint, ChatMessageType.HINT)
         }
         
-        // Print hint chat
+        
         println("\n=== Hint chat ===")
         printChatMessages(ChatMessageType.HINT)
         
-        // DISCUSSION phase
+        
         println("\n- Players voting")
         users.forEach { user ->
             val targetPlayer = selectPlayerToVoteFor(user)
@@ -158,28 +152,28 @@ class ChatGameSimulation {
             if (targetPlayer != null) {
                 println("Player ${user.nickname} voted for ${targetPlayer.nickname}")
                 
-                // Simulate discussion chat
+                
                 val discussionMessage = generateDiscussionMessage(user, targetPlayer)
                 sendChatMessage(user, discussionMessage, ChatMessageType.DISCUSSION)
             }
         }
         
-        // Print discussion chat
+        
         println("\n=== Discussion chat ===")
         printChatMessages(ChatMessageType.DISCUSSION)
         
         val accusedPlayer = users[2]
         println("\n- Player ${accusedPlayer.nickname} was accused")
         
-        // DEFENSE phase
+        
         val defense = "I am not the liar, I swear!"
         
         println("Accused player ${accusedPlayer.nickname} defended: $defense")
         
-        // Simulate defense chat
+        
         sendChatMessage(accusedPlayer, defense, ChatMessageType.DEFENSE)
         
-        // Print defense chat
+        
         println("\n=== Defense chat ===")
         printChatMessages(ChatMessageType.DEFENSE)
         
@@ -208,7 +202,7 @@ class ChatGameSimulation {
             println("\n- Player ${accusedPlayer.nickname} survived")
         }
         
-        // POST_ROUND phase
+        
         println("\n- Post-round chat")
         users.forEach { user ->
             if (user != accusedPlayer || !isEliminated) {
@@ -217,7 +211,7 @@ class ChatGameSimulation {
             }
         }
         
-        // Print post-round chat
+        
         println("\n=== Post-round chat ===")
         printChatMessages(ChatMessageType.POST_ROUND)
     }
@@ -227,7 +221,7 @@ class ChatGameSimulation {
         
         println("Game result: CITIZENS win!")
         
-        // Final chat
+        
         println("\n=== Final chat ===")
         users.forEach { user ->
             val finalMessage = when (user.role) {

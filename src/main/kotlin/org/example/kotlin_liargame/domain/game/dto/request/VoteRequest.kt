@@ -6,11 +6,11 @@ data class VoteRequest(
 ) {
     fun validate() {
         if (gNumber <= 0) {
-            throw IllegalArgumentException("게임 번호는 양수여야 합니다")
+            throw IllegalArgumentException("게임 번호???�수?�야 ?�니??)
         }
         
         if (targetPlayerId <= 0) {
-            throw IllegalArgumentException("대상 플레이어 ID는 양수여야 합니다")
+            throw IllegalArgumentException("?�???�레?�어 ID???�수?�야 ?�니??)
         }
     }
 }

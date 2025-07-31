@@ -13,9 +13,9 @@ export const useGameStore = defineStore('game', {
     yourWord: '',
     isLiar: false,
     yourRole: null,
-    // Frontend naming convention
+    
     gameMode: null,
-    // Backend naming convention (g prefix stands for "game")
+    
     gGameMode: null,
     gameResult: null,
     loading: false,
@@ -120,10 +120,10 @@ export const useGameStore = defineStore('game', {
         
         this.gameState = response.data
         
-        // Use the helper method to update all game state variables
+        
         this._updateGameStateVariables(response.data)
         
-        // Reset selected subjects as they're no longer needed after game starts
+        
         this.selectedSubjects = []
         
         return response.data
@@ -232,12 +232,12 @@ export const useGameStore = defineStore('game', {
         })
         
         this.gameResult = response.data
-        // Update game state variables if they're included in the result
+        
         if (response.data.gameState) {
           this.gameState = response.data.gameState
           this._updateGameStateVariables(response.data.gameState)
         } else {
-          // If gameState is not a separate property, try to update from the result itself
+          
           this._updateGameStateVariables(response.data)
         }
         return response.data
@@ -258,7 +258,7 @@ export const useGameStore = defineStore('game', {
         
         this.gameState = response.data
         
-        // Use the helper method to update all game state variables
+        
         this._updateGameStateVariables(response.data)
 
         return response.data
@@ -298,7 +298,7 @@ export const useGameStore = defineStore('game', {
         
         this.gameState = response.data
         
-        // Use the helper method to update all game state variables
+        
         this._updateGameStateVariables(response.data)
         
         return response.data
@@ -332,17 +332,17 @@ export const useGameStore = defineStore('game', {
       this.selectedSubjects = subjects
     },
     
-    // Helper method to update all game state variables
-    // This method handles the synchronization between frontend and backend naming conventions
+    
+    
     _updateGameStateVariables(data) {
-      // Update players if available
+      
       if (data.players) {
         this.players = data.players
       }
       
-      // Update round information if available
-      // The API may return either currentRound (frontend convention) or gCurrentRound (backend convention)
-      // We update both to ensure consistency regardless of which is used in the UI
+      
+      
+      
       if (data.currentRound !== undefined) {
         this.currentRound = data.currentRound
       }
@@ -350,8 +350,8 @@ export const useGameStore = defineStore('game', {
         this.gCurrentRound = data.gCurrentRound
       }
       
-      // Update game mode information if available
-      // Similar to round information, we maintain both naming conventions
+      
+      
       if (data.gameMode !== undefined) {
         this.gameMode = data.gameMode
       }

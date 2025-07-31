@@ -8,3 +8,4 @@ import org.springframework.stereotype.Component
 data class JwtProperties(
     var isTestUser: Boolean = false
 )
+

@@ -1,10 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600">
-  <!-- Space background with stars -->
+  
   <rect width="800" height="600" fill="#0a0e2a"/>
   
-  <!-- Stars -->
+  
   <g fill="#ffffff">
-    <!-- Small stars -->
+    
     <circle cx="50" cy="50" r="1"/>
     <circle cx="150" cy="80" r="1"/>
     <circle cx="250" cy="30" r="1"/>
@@ -56,7 +56,7 @@
     <circle cx="600" cy="570" r="1"/>
     <circle cx="700" cy="520" r="1"/>
     
-    <!-- Medium stars -->
+    
     <circle cx="75" cy="125" r="2"/>
     <circle cx="175" cy="225" r="2"/>
     <circle cx="275" cy="325" r="2"/>
@@ -66,14 +66,14 @@
     <circle cx="675" cy="225" r="2"/>
     <circle cx="775" cy="325" r="2"/>
     
-    <!-- Large stars -->
+    
     <circle cx="125" cy="75" r="3"/>
     <circle cx="325" cy="175" r="3"/>
     <circle cx="525" cy="375" r="3"/>
     <circle cx="725" cy="475" r="3"/>
   </g>
   
-  <!-- Nebula effects -->
+  
   <ellipse cx="200" cy="150" rx="100" ry="70" fill="#4a2b7e" opacity="0.3"/>
   <ellipse cx="600" cy="450" rx="120" ry="80" fill="#2b4a7e" opacity="0.3"/>
 </svg>

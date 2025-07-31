@@ -20,14 +20,14 @@ class SubjectService (
         if (subject == null) {
             subjectRepository.save(subjectRequest.to())
         } else {
-            throw RuntimeException("주제가 이미 존재합니다")
+            throw RuntimeException("주제가 ?��? 존재?�니??)
         }
     }
 
     @Transactional
     fun deleteSubject(subjectRequest: SubjectRequest) {
         val subject = subjectRepository.findByContent(subjectRequest.content)
-            ?: throw RuntimeException("주제를 찾을 수 없습니다")
+            ?: throw RuntimeException("주제�?찾을 ???�습?�다")
 
         val words = subject.word
         if (words.isNotEmpty()) {

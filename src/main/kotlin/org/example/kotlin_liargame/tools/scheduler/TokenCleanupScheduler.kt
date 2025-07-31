@@ -13,7 +13,7 @@ class TokenCleanupScheduler(
 ) {
     private val logger = LoggerFactory.getLogger(this::class.java)
 
-    //60분마다 token cleanup
+    
     @Scheduled(fixedRate = 60 * 60 * 1000)
     fun cleanupExpiredTokens() {
         logger.info("Starting scheduled cleanup of expired tokens")

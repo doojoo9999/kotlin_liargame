@@ -36,7 +36,7 @@ onMounted(async () => {
     
     chatStore.initSocket(gameNumber)
     
-    await chatStore.getChatHistory(gameNumber)
+    await chatStore.getChatHistory(gameNumber, 'LOBBY')
 
     isHost.value = gameStore.gameState && 
                   gameStore.gameState.owner === userStore.nickname
@@ -52,7 +52,7 @@ onMounted(async () => {
           })
         }
         
-        // Force update of players list to ensure UI reflects current participants
+        
         if (gameStore.gameState && gameStore.gameState.players) {
           gameStore.players = [...gameStore.gameState.players]
           console.log('Updated players list:', gameStore.players)
@@ -64,7 +64,7 @@ onMounted(async () => {
     
     loading.value = false
   } catch (error) {
-    errorMessage.value = error.message || '게임 참여에 실패했습니다'
+    errorMessage.value = error.message || '게임 참여???�패?�습?�다'
     loading.value = false
   }
 })
@@ -77,12 +77,12 @@ onBeforeUnmount(() => {
 
 const startGame = async () => {
   if (!isHost.value) {
-    errorMessage.value = '게임 시작은 방장만 할 수 있습니다'
+    errorMessage.value = '게임 ?�작?� 방장�??????�습?�다'
     return
   }
   
   if (!canStartGame.value) {
-    errorMessage.value = '게임 시작 요건이 충족되지 않았습니다'
+    errorMessage.value = '게임 ?�작 ?�건??충족?��? ?�았?�니??
     return
   }
   
@@ -91,7 +91,7 @@ const startGame = async () => {
     await gameStore.startGame(gameNumber)
     
   } catch (error) {
-    errorMessage.value = error.message || '게임 시작에 실패했습니다'
+    errorMessage.value = error.message || '게임 ?�작???�패?�습?�다'
     loading.value = false
   }
 }
@@ -117,7 +117,7 @@ const sendChatMessage = async (message) => {
     await chatStore.sendMessage(gameNumber, message, 'LOBBY')
   } catch (error) {
     console.error('Failed to send message:', error)
-    errorMessage.value = error.message || '메시지 전송에 실패했습니다'
+    errorMessage.value = error.message || '메시지 ?�송???�패?�습?�다'
   }
 }
 </script>
@@ -125,18 +125,18 @@ const sendChatMessage = async (message) => {
 <template>
   <div class="phaser-lobby">
     <div v-if="loading" class="loading">
-      로딩 중...
+      로딩 �?..
     </div>
     
     <div v-else-if="errorMessage" class="error-container">
       <p class="error">{{ errorMessage }}</p>
       <button class="btn secondary" @click="leaveGame">
-        홈으로 돌아가기
+        ?�으�??�아가�?
       </button>
     </div>
     
     <div v-else class="lobby-content">
-      <!-- Phaser Lobby Scene Component -->
+      
       <div class="phaser-lobby-section">
         <PhaserLobbyScene
           :canStartGame="canStartGame"
@@ -144,7 +144,7 @@ const sendChatMessage = async (message) => {
           :gameNumber="gameNumber"
           :gameState="gameStore.gameState"
           :isHost="isHost"
-          :messages="chatStore.messages"
+          :messages="chatStore.lobbyMessages"
           :players="gameStore.players"
           @leaveGame="leaveGame"
           @sendMessage="sendChatMessage"

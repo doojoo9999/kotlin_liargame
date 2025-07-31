@@ -4,23 +4,23 @@ import {onBeforeUnmount, onMounted, ref, watch} from 'vue';
 import Phaser from 'phaser';
 
 const props = defineProps({
-  gameState: Object,      // Current game state
-  players: Array,         // List of players in the game
-  currentRound: Number,   // Current round number
-  subject: String,        // Current subject
-  word: String,           // Current word (hidden for liar)
-  isLiar: Boolean,        // Whether the current player is the liar
-  currentPhase: String,   // Current game phase
-  currentPlayerId: String, // ID of the current player
-  messages: Array,        // Chat messages
-  timeRemaining: Number   // Time remaining in the current phase
+  gameState: Object,      
+  players: Array,         
+  currentRound: Number,   
+  subject: String,        
+  word: String,           
+  isLiar: Boolean,        
+  currentPhase: String,   
+  currentPlayerId: String, 
+  messages: Array,        
+  timeRemaining: Number   
 });
 
 const emit = defineEmits(['playerSelected', 'sendMessage']);
 
-const gameContainer = ref(null); // Reference to the DOM element for the Phaser game
-const chatInput = ref('');       // Chat input text
-let game = null;                 // Phaser game instance
+const gameContainer = ref(null); 
+const chatInput = ref('');       
+let game = null;                 
 
 const ASSETS = {
   BACKGROUND: '/src/assets/game-assets/background.svg',
@@ -300,7 +300,7 @@ watch(() => props.players?.length, (newCount, oldCount) => {
 
 const sendMessage = async () => {
   if (chatInput.value.trim()) {
-    // Define messageText outside the try block so it's available in the catch block
+    
     const messageText = chatInput.value.trim();
     
     try {
@@ -330,7 +330,7 @@ onBeforeUnmount(() => {
   <div class="phaser-game-container">
     <div ref="gameContainer" class="game-canvas"></div>
     
-    <!-- Chat input below the game canvas -->
+    
     <div class="chat-input-container">
       <input 
         v-model="chatInput" 

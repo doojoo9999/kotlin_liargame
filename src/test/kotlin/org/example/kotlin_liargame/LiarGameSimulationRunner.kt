@@ -10,7 +10,7 @@ fun main() {
 }
 
 class LiarGameSimulation {
-    private val baseUrl = "http://localhost:8080/api/v1"
+    private val baseUrl = "http:
     private val users = mutableListOf<UserInfo>()
     private var gameNumber: Int = 0
     private val subjectContent = "µ¿¹°"
@@ -46,7 +46,7 @@ class LiarGameSimulation {
         
         for (i in 1..10) {
             val nickname = "Player${i}_${Random.nextInt(1000, 9999)}"
-            val profileImgUrl = "https://example.com/profile${i}.jpg"
+            val profileImgUrl = "https:
             users.add(UserInfo(nickname, profileImgUrl))
             
             println("Created user: $nickname")
