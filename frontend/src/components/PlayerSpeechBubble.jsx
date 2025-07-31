@@ -19,7 +19,6 @@ import PropTypes from 'prop-types';
 function PlayerSpeechBubble({ message, position, duration, show, onHide }) {
   const [visible, setVisible] = useState(show);
 
-  // Set up the timeout to hide the speech bubble after the specified duration
   useEffect(() => {
     setVisible(show);
     
@@ -35,7 +34,6 @@ function PlayerSpeechBubble({ message, position, duration, show, onHide }) {
 
   if (!visible) return null;
 
-  // Determine the position and tail style based on the position prop
   const getPositionStyles = () => {
     switch (position) {
       case 'top':
