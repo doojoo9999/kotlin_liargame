@@ -305,6 +305,7 @@ function LobbyPage() {
                 value={roomForm.subjectId}
                 onChange={(e) => handleRoomFormChange('subjectId', e.target.value)}
                 label="주제"
+                variant="outlined"
               >
                 {subjects.map((subject) => (
                   <MenuItem key={subject.id} value={subject.id}>
@@ -320,6 +321,7 @@ function LobbyPage() {
                 value={roomForm.gameMode}
                 onChange={(e) => handleRoomFormChange('gameMode', e.target.value)}
                 label="게임 모드"
+                variant="outlined"
               >
                 <MenuItem value="LIAR_KNOWS">라이어가 자신이 라이어인 것을 아는 모드</MenuItem>
                 <MenuItem value="LIAR_DIFFERENT_ANSWER">라이어가 시민과 다른 답을 보는 모드</MenuItem>
