@@ -1,0 +1,145 @@
+import React from 'react'
+import {Alert, Box, Button, Paper, Typography} from '@mui/material'
+import {ErrorOutline as ErrorIcon, Refresh as RefreshIcon} from '@mui/icons-material'
+
+
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props)
+    this.state = { hasError: false, error: null, errorInfo: null }
+  }
+
+  static getDerivedStateFromError(error) {
+    // Update state so the next render will show the fallback UI
+    return { hasError: true }
+  }
+
+  componentDidCatch(error, errorInfo) {
+    // Log the error to console for debugging
+    console.error('ErrorBoundary caught an error:', error, errorInfo)
+    
+    // Update state with error details
+    this.setState({
+      error: error,
+      errorInfo: errorInfo
+    })
+
+    // In a production app, you might want to log this to an error reporting service
+    // Example: logErrorToService(error, errorInfo)
+  }
+
+  handleReload = () => {
+    // Reload the page to recover from the error
+    window.location.reload()
+  }
+
+  handleReset = () => {
+    // Reset the error boundary state
+    this.setState({ hasError: false, error: null, errorInfo: null })
+  }
+
+  render() {
+    if (this.state.hasError) {
+      // Fallback UI when an error occurs
+      return (
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            minHeight: '100vh',
+            p: 3,
+            backgroundColor: '#f5f5f5'
+          }}
+        >
+          <Paper
+            sx={{
+              p: 4,
+              maxWidth: 600,
+              textAlign: 'center',
+              boxShadow: 3
+            }}
+          >
+            <ErrorIcon
+              sx={{
+                fontSize: 64,
+                color: 'error.main',
+                mb: 2
+              }}
+            />
+            
+            <Typography variant="h4" component="h1" gutterBottom color="error">
+              앗! 문제가 발생했습니다
+            </Typography>
+            
+            <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+              예상치 못한 오류가 발생했습니다. 페이지를 새로고침하거나 잠시 후 다시 시도해 주세요.
+            </Typography>
+
+            <Alert severity="error" sx={{ mb: 3, textAlign: 'left' }}>
+              <Typography variant="subtitle2" gutterBottom>
+                오류 정보:
+              </Typography>
+              <Typography variant="body2" component="pre" sx={{ fontSize: '0.8rem', overflow: 'auto' }}>
+                {this.state.error && this.state.error.toString()}
+              </Typography>
+            </Alert>
+
+            <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
+              <Button
+                variant="contained"
+                startIcon={<RefreshIcon />}
+                onClick={this.handleReload}
+                color="primary"
+              >
+                페이지 새로고침
+              </Button>
+              
+              <Button
+                variant="outlined"
+                onClick={this.handleReset}
+                color="secondary"
+              >
+                다시 시도
+              </Button>
+            </Box>
+
+            {/* Development mode: Show detailed error info */}
+            {process.env.NODE_ENV === 'development' && this.state.errorInfo && (
+              <Box sx={{ mt: 3, textAlign: 'left' }}>
+                <Typography variant="subtitle2" gutterBottom>
+                  개발자 정보 (개발 모드에서만 표시):
+                </Typography>
+                <Paper
+                  sx={{
+                    p: 2,
+                    backgroundColor: '#f5f5f5',
+                    maxHeight: 200,
+                    overflow: 'auto'
+                  }}
+                >
+                  <Typography
+                    variant="body2"
+                    component="pre"
+                    sx={{
+                      fontSize: '0.75rem',
+                      fontFamily: 'monospace',
+                      whiteSpace: 'pre-wrap'
+                    }}
+                  >
+                    {this.state.errorInfo.componentStack}
+                  </Typography>
+                </Paper>
+              </Box>
+            )}
+          </Paper>
+        </Box>
+      )
+    }
+
+    // If no error, render children normally
+    return this.props.children
+  }
+}
+
+export default ErrorBoundary
