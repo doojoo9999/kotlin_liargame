@@ -30,7 +30,7 @@ class GameService(
 
     private fun validateExistingOwner(ownerName: String) {
         if (gameRepository.findBygOwner(ownerName) != null) {
-            throw RuntimeException("?��? 진행중인 게임???�유?�고 ?�습?�다.")
+            throw RuntimeException("이미 진행중인 게임을 보유하고 있습니다.")
         }
     }
 
@@ -46,7 +46,7 @@ class GameService(
         }
         
         
-        throw RuntimeException("모든 �?번호(1-999)가 모두 ?�용중입?�다. ?�중???�시 ?�도?�주?�요.")
+        throw RuntimeException("모든 방 번호(1-999)가 모두 사용중입니다. 나중에 다시 시도해주세요.")
     }
 
     private fun getCurrentUserNickname(): String {
@@ -201,15 +201,15 @@ class GameService(
 
         val nickname = getCurrentUserNickname()
         val game = gameRepository.findBygOwner(nickname)
-            ?: throw RuntimeException("게임??찾을 ???�습?�다. 먼�? 게임방을 ?�성?�주?�요.")
+            ?: throw RuntimeException("게임을 찾을 수 없습니다. 먼저 게임방을 생성해주세요.")
 
         if (game.gState != GameState.WAITING) {
-            throw RuntimeException("게임???��? 진행 중이거나 종료?�었?�니??")
+            throw RuntimeException("게임이 이미 진행 중이거나 종료되었습니다")
         }
 
         val players = playerRepository.findByGame(game)
         if (!game.canStart(players.size)) {
-            throw RuntimeException("게임???�작?�기 ?�한 ?�레?�어가 충분?��? ?�습?�다. (최소 3�? 최�? 15�?")
+            throw RuntimeException("게임을 시작하기 위한 플레이어가 충분하지 않습니다. (최소 3명, 최대 15명)")
         }
 
         
@@ -824,7 +824,7 @@ class GameService(
         println("[DEBUG] Creating test subjects for testing")
         
         val animalSubject = SubjectEntity(
-            content = "?�물",
+            content = "동물",
             word = emptyList()
         )
 
@@ -836,7 +836,7 @@ class GameService(
         val savedAnimalSubject = subjectRepository.save(animalSubject)
         val savedFruitSubject = subjectRepository.save(fruitSubject)
 
-        val animalWords = listOf("?�자", "?�랑??, "코끼�?, "기린")
+        val animalWords = listOf("호랑이", "사자", "코끼리", "기린")
         animalWords.forEach { wordContent ->
             val word = org.example.kotlin_liargame.domain.word.model.WordEntity(
                 content = wordContent,
@@ -845,7 +845,7 @@ class GameService(
             wordRepository.save(word)
         }
 
-        val fruitWords = listOf("?�과", "바나??, "?�렌지", "?�도")
+        val fruitWords = listOf("사과", "바나나", "오렌지", "포도")
         fruitWords.forEach { wordContent ->
             val word = org.example.kotlin_liargame.domain.word.model.WordEntity(
                 content = wordContent,

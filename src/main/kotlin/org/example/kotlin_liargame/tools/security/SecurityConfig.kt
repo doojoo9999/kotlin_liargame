@@ -38,15 +38,15 @@ class SecurityConfig(
             .cors {
                 it.configurationSource {
                     val config = CorsConfiguration()
-                    config.allowedOrigins = listOf("http:
+                    config.allowedOrigins = listOf("http://localhost:5173")
                     config.allowedMethods = listOf("*")
                     config.allowedHeaders = listOf("*")
                     config.allowCredentials = true
                     config.setAllowedOriginPatterns(listOf("*"))
-                    config.addAllowedOrigin("ws:
-                    config.addAllowedOrigin("wss:
-                    config.addAllowedOrigin("http:
-                    config.addAllowedOrigin("https:
+                    config.addAllowedOrigin("ws://localhost:20021")
+                    config.addAllowedOrigin("wss://localhost:20021")
+                    config.addAllowedOrigin("http://localhost:20021")
+                    config.addAllowedOrigin("https://localhost:20021")
                     config
                 }
             }
