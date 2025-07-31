@@ -1,14 +1,7 @@
 import {Avatar, Card, CardContent, Typography} from '@mui/material'
 import PropTypes from 'prop-types'
 
-/**
- * PlayerProfile component displays a player's avatar and nickname.
- * It highlights the current player's turn with a visual indicator.
- * 
- * @param {Object} props - Component props
- * @param {Object} props.player - Player data object containing id, nickname, and avatarUrl
- * @param {boolean} props.isCurrentTurn - Whether it's this player's turn
- */
+
 function PlayerProfile({ player, isCurrentTurn }) {
   return (
     <Card 
