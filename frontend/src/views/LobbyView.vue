@@ -1,4 +1,4 @@
-<script setup>
+ï»¿<script setup>
 import {computed, onBeforeUnmount, onMounted, ref} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 import {useGameStore} from '../stores/gameStore'
@@ -37,7 +37,7 @@ onMounted(async () => {
     
     await chatStore.getChatHistory(gameNumber)
     
-    
+    // Check if the current user is the game owner
     isHost.value = gameStore.gameState && 
                   gameStore.gameState.owner === userStore.nickname
     
@@ -58,7 +58,7 @@ onMounted(async () => {
     
     loading.value = false
   } catch (error) {
-    errorMessage.value = error.message || '°ÔÀÓ Âü¿©¿¡ ½ÇÆĞÇß½À´Ï´Ù'
+    errorMessage.value = error.message || 'ê²Œì„ ì°¸ì—¬ì— ì‹¤íŒ¨í–ˆìŠµë‹ˆë‹¤'
     loading.value = false
   }
 })
@@ -71,12 +71,12 @@ onBeforeUnmount(() => {
 
 const startGame = async () => {
   if (!isHost.value) {
-    errorMessage.value = '°ÔÀÓ ½ÃÀÛÀº ¹æÀå¸¸ ÇÒ ¼ö ÀÖ½À´Ï´Ù'
+    errorMessage.value = 'ê²Œì„ ì‹œì‘ì€ ë°©ì¥ë§Œ í•  ìˆ˜ ìˆìŠµë‹ˆë‹¤'
     return
   }
   
   if (!canStartGame.value) {
-    errorMessage.value = '°ÔÀÓ ½ÃÀÛ ¿ä°ÇÀÌ ÃæÁ·µÇÁö ¾Ê¾Ò½À´Ï´Ù'
+    errorMessage.value = 'ê²Œì„ ì‹œì‘ ìš”ê±´ì´ ì¶©ì¡±ë˜ì§€ ì•Šì•˜ìŠµë‹ˆë‹¤'
     return
   }
   
@@ -85,25 +85,25 @@ const startGame = async () => {
     await gameStore.startGame(gameNumber)
     
   } catch (error) {
-    errorMessage.value = error.message || '°ÔÀÓ ½ÃÀÛ¿¡ ½ÇÆĞÇß½À´Ï´Ù'
+    errorMessage.value = error.message || 'ê²Œì„ ì‹œì‘ì— ì‹¤íŒ¨í–ˆìŠµë‹ˆë‹¤'
     loading.value = false
   }
 }
 
 const leaveGame = async () => {
   try {
-    
+    // Call the leaveGame action in gameStore
     await gameStore.leaveGame(gameNumber)
     
-    
+    // Disconnect chat socket
     chatStore.disconnectSocket()
     
-    
+    // Navigate back to main lobby and force a refresh
     router.push({ path: '/lobby', query: { _: Date.now() } })
   } catch (error) {
     console.error('Failed to leave game:', error)
     
-    
+    // Even if the API call fails, we should still reset the state and redirect
     gameStore.resetGameState()
     chatStore.disconnectSocket()
     router.push({ path: '/lobby', query: { _: Date.now() } })
@@ -113,23 +113,23 @@ const leaveGame = async () => {
 
 <template>
   <div class="lobby">
-    <h1>°ÔÀÓ ·Îºñ</h1>
-    <h2>°ÔÀÓ ¹øÈ£: {{ gameNumber }}</h2>
+    <h1>ê²Œì„ ë¡œë¹„</h1>
+    <h2>ê²Œì„ ë²ˆí˜¸: {{ gameNumber }}</h2>
     
     <div v-if="loading" class="loading">
-      ·Îµù Áß...
+      ë¡œë”© ì¤‘...
     </div>
     
     <div v-else-if="errorMessage" class="error-container">
       <p class="error">{{ errorMessage }}</p>
       <button class="btn secondary" @click="leaveGame">
-        È¨À¸·Î µ¹¾Æ°¡±â
+        í™ˆìœ¼ë¡œ ëŒì•„ê°€ê¸°
       </button>
     </div>
     
     <div v-else class="lobby-content">
       <div class="players-section">
-        <h3>Âü°¡ÀÚ ({{ gameStore.players.length }}¸í)</h3>
+        <h3>ì°¸ê°€ì ({{ gameStore.players.length }}ëª…)</h3>
         <ul class="players-list">
           <li 
             v-for="player in gameStore.players" 
@@ -137,24 +137,24 @@ const leaveGame = async () => {
             :class="{ 'current-user': player.userId === userStore.userId, 'host': player.isHost }"
           >
             {{ player.nickname }} 
-            <span v-if="player.isHost" class="host-badge">¹æÀå</span>
-            <span v-if="player.userId === userStore.userId" class="user-badge">³ª</span>
+            <span v-if="player.isHost" class="host-badge">ë°©ì¥</span>
+            <span v-if="player.userId === userStore.userId" class="user-badge">ë‚˜</span>
           </li>
         </ul>
       </div>
       
       <div class="game-info">
-        <h3>°ÔÀÓ Á¤º¸</h3>
+        <h3>ê²Œì„ ì •ë³´</h3>
         <p v-if="gameStore.gameState">
-          <strong>»óÅÂ:</strong> {{ gameStore.gameState.gState === 'WAITING' ? '´ë±â Áß' : '½ÃÀÛµÊ' }}<br>
-          <strong>ÃÖ´ë ÀÎ¿ø:</strong> {{ gameStore.gameState.playerCount }}¸í<br>
-          <strong>Á¦ÇÑ ½Ã°£:</strong> {{ gameStore.gameState.timeLimit }}ÃÊ<br>
-          <strong>¶ó¿îµå ¼ö:</strong> {{ gameStore.gameState.roundCount }}
+          <strong>ìƒíƒœ:</strong> {{ gameStore.gameState.gState === 'WAITING' ? 'ëŒ€ê¸° ì¤‘' : 'ì‹œì‘ë¨' }}<br>
+          <strong>ìµœëŒ€ ì¸ì›:</strong> {{ gameStore.gameState.playerCount }}ëª…<br>
+          <strong>ì œí•œ ì‹œê°„:</strong> {{ gameStore.gameState.timeLimit }}ì´ˆ<br>
+          <strong>ë¼ìš´ë“œ ìˆ˜:</strong> {{ gameStore.gameState.roundCount }}
         </p>
       </div>
       
       <div class="chat-section">
-        <h3>Ã¤ÆÃ</h3>
+        <h3>ì±„íŒ…</h3>
         <div class="chat-messages">
           <div 
             v-for="(message, index) in chatStore.messages" 
@@ -174,28 +174,28 @@ const leaveGame = async () => {
           :disabled="!canStartGame"
           @click="startGame"
         >
-          °ÔÀÓ ½ÃÀÛ
+          ê²Œì„ ì‹œì‘
         </button>
         <button class="btn secondary" @click="leaveGame">
-          ³ª°¡±â
+          ë‚˜ê°€ê¸°
         </button>
       </div>
       
       <div v-if="isHost" class="requirements-container">
-        <h4>°ÔÀÓ ½ÃÀÛ ¿ä°Ç:</h4>
+        <h4>ê²Œì„ ì‹œì‘ ìš”ê±´:</h4>
         <ul class="requirements-list">
           <li :class="{ 'met': gameStore.players.length >= 3, 'not-met': gameStore.players.length < 3 }">
-            ÇÃ·¹ÀÌ¾î ¼ö: {{ gameStore.players.length }}/3 (ÃÖ¼Ò 3¸í ÇÊ¿ä)
+            í”Œë ˆì´ì–´ ìˆ˜: {{ gameStore.players.length }}/3 (ìµœì†Œ 3ëª… í•„ìš”)
           </li>
           <li :class="{ 'met': gameStore.gameState && gameStore.gameState.gState === 'WAITING' }">
-            °ÔÀÓ »óÅÂ: {{ gameStore.gameState && gameStore.gameState.gState === 'WAITING' ? '´ë±â Áß ?' : 'ÁøÇà Áß ?' }}
+            ê²Œì„ ìƒíƒœ: {{ gameStore.gameState && gameStore.gameState.gState === 'WAITING' ? 'ëŒ€ê¸° ì¤‘ âœ“' : 'ì§„í–‰ ì¤‘ âœ—' }}
           </li>
           <li :class="{ 'met': isHost }">
-            ¹æÀå ±ÇÇÑ: {{ isHost ? '¹æÀåÀÔ´Ï´Ù ?' : '¹æÀåÀÌ ¾Æ´Õ´Ï´Ù ?' }}
+            ë°©ì¥ ê¶Œí•œ: {{ isHost ? 'ë°©ì¥ì…ë‹ˆë‹¤ âœ“' : 'ë°©ì¥ì´ ì•„ë‹™ë‹ˆë‹¤ âœ—' }}
           </li>
         </ul>
         <p v-if="!canStartGame" class="hint">
-          ¸ğµç ¿ä°ÇÀ» ÃæÁ·ÇØ¾ß °ÔÀÓÀ» ½ÃÀÛÇÒ ¼ö ÀÖ½À´Ï´Ù.
+          ëª¨ë“  ìš”ê±´ì„ ì¶©ì¡±í•´ì•¼ ê²Œì„ì„ ì‹œì‘í•  ìˆ˜ ìˆìŠµë‹ˆë‹¤.
         </p>
       </div>
     </div>

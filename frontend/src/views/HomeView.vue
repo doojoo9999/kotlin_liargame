@@ -1,4 +1,4 @@
-<script setup>
+ï»¿<script setup>
 import {onMounted, ref} from 'vue'
 import {useRouter} from 'vue-router'
 import {useUserStore} from '../stores/userStore'
@@ -14,7 +14,7 @@ const showJoinForm = ref(false)
 const errorMessage = ref('')
 
 onMounted(() => {
-  
+  // Check if user is already logged in
   if (userStore.checkAuth()) {
     showLoginForm.value = false
   }
@@ -22,7 +22,7 @@ onMounted(() => {
 
 const login = async () => {
   if (!nickname.value.trim()) {
-    errorMessage.value = '»ç¿ëÀÚ ÀÌ¸§À» ÀÔ·ÂÇØÁÖ¼¼¿ä'
+    errorMessage.value = 'ì‚¬ìš©ìž ì´ë¦„ì„ ìž…ë ¥í•´ì£¼ì„¸ìš”'
     return
   }
   
@@ -31,7 +31,7 @@ const login = async () => {
     router.push('/lobby')
     errorMessage.value = ''
   } catch (error) {
-    errorMessage.value = error.message || '·Î±×ÀÎ¿¡ ½ÇÆÐÇß½À´Ï´Ù'
+    errorMessage.value = error.message || 'ë¡œê·¸ì¸ì— ì‹¤íŒ¨í–ˆìŠµë‹ˆë‹¤'
   }
 }
 
@@ -55,7 +55,7 @@ const toggleJoinForm = () => {
 
 const joinGame = () => {
   if (!gameNumber.value.trim()) {
-    errorMessage.value = '°ÔÀÓ ¹øÈ£¸¦ ÀÔ·ÂÇØÁÖ¼¼¿ä'
+    errorMessage.value = 'ê²Œìž„ ë²ˆí˜¸ë¥¼ ìž…ë ¥í•´ì£¼ì„¸ìš”'
     return
   }
   
@@ -72,60 +72,60 @@ const joinGame = () => {
     <h1>who is liar</h1>
     
     <div v-if="showLoginForm" class="login-form">
-      <h2>·Î±×ÀÎ</h2>
-      <p>°ÔÀÓ¿¡ Âü¿©ÇÏ·Á¸é »ç¿ëÀÚ ÀÌ¸§À» ÀÔ·ÂÇÏ¼¼¿ä</p>
+      <h2>ë¡œê·¸ì¸</h2>
+      <p>ê²Œìž„ì— ì°¸ì—¬í•˜ë ¤ë©´ ì‚¬ìš©ìž ì´ë¦„ì„ ìž…ë ¥í•˜ì„¸ìš”</p>
       
       <div class="form-group">
-        <label for="nickname">»ç¿ëÀÚ ÀÌ¸§:</label>
+        <label for="nickname">ì‚¬ìš©ìž ì´ë¦„:</label>
         <input 
           id="nickname" 
           v-model="nickname" 
-          placeholder="»ç¿ëÀÚ ÀÌ¸§ ÀÔ·Â"
+          placeholder="ì‚¬ìš©ìž ì´ë¦„ ìž…ë ¥"
           type="text"
           @keyup.enter="login"
         >
       </div>
       
-      <button class="btn primary" @click="login">·Î±×ÀÎ</button>
+      <button class="btn primary" @click="login">ë¡œê·¸ì¸</button>
       
       <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
     </div>
     
     <div v-else class="game-options">
-      <h2>¾È³çÇÏ¼¼¿ä, {{ userStore.nickname }}´Ô!</h2>
+      <h2>ì•ˆë…•í•˜ì„¸ìš”, {{ userStore.nickname }}ë‹˜!</h2>
       
       <div class="buttons">
-        <button class="btn primary" @click="goToCreateGame">»õ °ÔÀÓ ¸¸µé±â</button>
+        <button class="btn primary" @click="goToCreateGame">ìƒˆ ê²Œìž„ ë§Œë“¤ê¸°</button>
         <button class="btn secondary" @click="toggleJoinForm">
-          {{ showJoinForm ? 'Ãë¼Ò' : '°ÔÀÓ Âü¿©ÇÏ±â' }}
+          {{ showJoinForm ? 'ì·¨ì†Œ' : 'ê²Œìž„ ì°¸ì—¬í•˜ê¸°' }}
         </button>
-        <button class="btn danger" @click="logout">·Î±×¾Æ¿ô</button>
+        <button class="btn danger" @click="logout">ë¡œê·¸ì•„ì›ƒ</button>
       </div>
       
       <div v-if="showJoinForm" class="join-form">
-        <h3>°ÔÀÓ Âü¿©</h3>
+        <h3>ê²Œìž„ ì°¸ì—¬</h3>
         
         <div class="form-group">
-          <label for="gameNumber">°ÔÀÓ ¹øÈ£:</label>
+          <label for="gameNumber">ê²Œìž„ ë²ˆí˜¸:</label>
           <input 
             id="gameNumber" 
             v-model="gameNumber" 
-            placeholder="°ÔÀÓ ¹øÈ£ ÀÔ·Â"
+            placeholder="ê²Œìž„ ë²ˆí˜¸ ìž…ë ¥"
             type="number"
           >
         </div>
         
         <div class="form-group">
-          <label for="gamePassword">ºñ¹Ð¹øÈ£ (¼±ÅÃ»çÇ×):</label>
+          <label for="gamePassword">ë¹„ë°€ë²ˆí˜¸ (ì„ íƒì‚¬í•­):</label>
           <input 
             id="gamePassword" 
             v-model="gamePassword" 
-            placeholder="ºñ¹Ð¹øÈ£ ÀÔ·Â"
+            placeholder="ë¹„ë°€ë²ˆí˜¸ ìž…ë ¥"
             type="password"
           >
         </div>
         
-        <button class="btn primary" @click="joinGame">Âü¿©ÇÏ±â</button>
+        <button class="btn primary" @click="joinGame">ì°¸ì—¬í•˜ê¸°</button>
         
         <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
       </div>

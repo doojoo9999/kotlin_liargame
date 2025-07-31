@@ -36,7 +36,7 @@ onMounted(async () => {
     
     chatStore.initSocket(gameNumber)
     
-    await chatStore.getChatHistory(gameNumber, 'LOBBY')
+    await chatStore.getChatHistory(gameNumber)
 
     isHost.value = gameStore.gameState && 
                   gameStore.gameState.owner === userStore.nickname
@@ -52,7 +52,7 @@ onMounted(async () => {
           })
         }
         
-        
+        // Force update of players list to ensure UI reflects current participants
         if (gameStore.gameState && gameStore.gameState.players) {
           gameStore.players = [...gameStore.gameState.players]
           console.log('Updated players list:', gameStore.players)
@@ -77,12 +77,12 @@ onBeforeUnmount(() => {
 
 const startGame = async () => {
   if (!isHost.value) {
-    errorMessage.value = '게임 시작은 방장만 가능합니다'
+    errorMessage.value = '게임 시작은 방장만 할 수 있습니다'
     return
   }
   
   if (!canStartGame.value) {
-    errorMessage.value = '게임 시작 조건이 충족되지 않았습니다'
+    errorMessage.value = '게임 시작 요건이 충족되지 않았습니다'
     return
   }
   
@@ -131,12 +131,12 @@ const sendChatMessage = async (message) => {
     <div v-else-if="errorMessage" class="error-container">
       <p class="error">{{ errorMessage }}</p>
       <button class="btn secondary" @click="leaveGame">
-        로비로 돌아가기
+        홈으로 돌아가기
       </button>
     </div>
     
     <div v-else class="lobby-content">
-      
+      <!-- Phaser Lobby Scene Component -->
       <div class="phaser-lobby-section">
         <PhaserLobbyScene
           :canStartGame="canStartGame"
@@ -144,7 +144,7 @@ const sendChatMessage = async (message) => {
           :gameNumber="gameNumber"
           :gameState="gameStore.gameState"
           :isHost="isHost"
-          :messages="chatStore.lobbyMessages"
+          :messages="chatStore.messages"
           :players="gameStore.players"
           @leaveGame="leaveGame"
           @sendMessage="sendChatMessage"

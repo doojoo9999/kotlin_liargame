@@ -1,11 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 100" width="400" height="100">
-  
+  <!-- Round table with wooden texture -->
   <ellipse cx="200" cy="50" rx="200" ry="50" fill="#8B4513"/>
   
-  
+  <!-- Table surface with wood grain -->
   <ellipse cx="200" cy="50" rx="190" ry="45" fill="#A0522D"/>
   
-  
+  <!-- Wood grain details -->
   <g stroke="#8B4513" stroke-width="1" opacity="0.5" fill="none">
     <path d="M50,50 C100,30 300,70 350,50"/>
     <path d="M60,60 C120,45 280,55 340,60"/>
@@ -16,9 +16,9 @@
     <path d="M110,35 C170,50 230,50 290,35"/>
   </g>
   
-  
+  <!-- Table edge highlight -->
   <ellipse cx="200" cy="50" rx="200" ry="50" fill="none" stroke="#6B3E11" stroke-width="2"/>
   
-  
+  <!-- Table surface highlight -->
   <ellipse cx="200" cy="40" rx="180" ry="35" fill="none" stroke="#C68642" stroke-width="1" opacity="0.3"/>
 </svg>

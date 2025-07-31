@@ -4,23 +4,23 @@ import {onBeforeUnmount, onMounted, ref, watch} from 'vue';
 import Phaser from 'phaser';
 
 const props = defineProps({
-  gameState: Object,      
-  players: Array,         
-  currentRound: Number,   
-  subject: String,        
-  word: String,           
-  isLiar: Boolean,        
-  currentPhase: String,   
-  currentPlayerId: String, 
-  messages: Array,        
-  timeRemaining: Number   
+  gameState: Object,      // Current game state
+  players: Array,         // List of players in the game
+  currentRound: Number,   // Current round number
+  subject: String,        // Current subject
+  word: String,           // Current word (hidden for liar)
+  isLiar: Boolean,        // Whether the current player is the liar
+  currentPhase: String,   // Current game phase
+  currentPlayerId: String, // ID of the current player
+  messages: Array,        // Chat messages
+  timeRemaining: Number   // Time remaining in the current phase
 });
 
 const emit = defineEmits(['playerSelected', 'sendMessage']);
 
-const gameContainer = ref(null); 
-const chatInput = ref('');       
-let game = null;                 
+const gameContainer = ref(null); // Reference to the DOM element for the Phaser game
+const chatInput = ref('');       // Chat input text
+let game = null;                 // Phaser game instance
 
 const ASSETS = {
   BACKGROUND: '/src/assets/game-assets/background.svg',
@@ -69,7 +69,7 @@ const gameConfig = {
       
       this.chalkboard = this.add.image(500, 150, 'chalkboard').setScale(0.5);
       
-      this.subjectText = this.add.text(500, 130, '주제: ', {
+      this.subjectText = this.add.text(500, 130, 'Subject: ', {
         fontSize: '28px', 
         fontFamily: 'Arial', 
         color: '#ffffff',
@@ -77,7 +77,7 @@ const gameConfig = {
         strokeThickness: 1
       }).setOrigin(0.5);
       
-      this.wordText = this.add.text(500, 170, '단어: ', { 
+      this.wordText = this.add.text(500, 170, 'Word: ', { 
         fontSize: '28px', 
         fontFamily: 'Arial', 
         color: '#ffffff',
@@ -123,13 +123,13 @@ const gameConfig = {
     
     updateGameState: function() {
       if (this.vueProps.subject) {
-        this.subjectText.setText(`주제: ${this.vueProps.subject}`);
+        this.subjectText.setText(`Subject: ${this.vueProps.subject}`);
       }
       
       if (this.vueProps.word && !this.vueProps.isLiar) {
-        this.wordText.setText(`단어: ${this.vueProps.word}`);
+        this.wordText.setText(`Word: ${this.vueProps.word}`);
       } else {
-        this.wordText.setText('단어: ???');
+        this.wordText.setText('Word: ???');
       }
       
       if (this.vueProps.currentPhase) {
@@ -290,9 +290,9 @@ watch(() => props.players?.length, (newCount, oldCount) => {
   if (game && game.scene.scenes[0] && oldCount !== undefined) {
     if (newCount > oldCount) {
       const newPlayer = props.players[props.players.length - 1];
-      game.scene.scenes[0].addNotification(`${newPlayer.nickname} 님이 게임에 참가했습니다`);
+      game.scene.scenes[0].addNotification(`${newPlayer.nickname} joined the game`);
     } else if (newCount < oldCount) {
-      game.scene.scenes[0].addNotification('플레이어가 게임을 나갔습니다');
+      game.scene.scenes[0].addNotification('A player left the game');
     }
   }
   previousPlayerCount.value = newCount;
@@ -300,7 +300,7 @@ watch(() => props.players?.length, (newCount, oldCount) => {
 
 const sendMessage = async () => {
   if (chatInput.value.trim()) {
-    
+    // Define messageText outside the try block so it's available in the catch block
     const messageText = chatInput.value.trim();
     
     try {
@@ -330,15 +330,15 @@ onBeforeUnmount(() => {
   <div class="phaser-game-container">
     <div ref="gameContainer" class="game-canvas"></div>
     
-    
+    <!-- Chat input below the game canvas -->
     <div class="chat-input-container">
       <input 
         v-model="chatInput" 
         class="chat-input"
-        placeholder="메시지를 입력하세요..."
+        placeholder="Type your message here..."
         @keyup.enter="sendMessage"
       />
-      <button class="send-button" @click="sendMessage">전송</button>
+      <button class="send-button" @click="sendMessage">Send</button>
     </div>
   </div>
 </template>

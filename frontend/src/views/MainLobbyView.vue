@@ -51,7 +51,7 @@ const fetchGameRooms = async () => {
     loading.value = false
   } catch (error) {
     console.error('Failed to fetch game rooms:', error)
-    errorMessage.value = error.response?.data?.message || '게임�?목록??불러?�는???�패?�습?�다'
+    errorMessage.value = error.response?.data?.message || '게임방 목록을 불러오는데 실패했습니다'
     loading.value = false
   }
 }
@@ -62,7 +62,7 @@ const createGame = () => {
 
 const joinGame = (gameNumber, hasPassword) => {
   if (hasPassword) {
-    const password = prompt('게임�?비�?번호�??�력?�세??')
+    const password = prompt('게임방 비밀번호를 입력하세요:')
     if (password === null) return
     
     router.push({
@@ -93,9 +93,9 @@ const registerWord = () => {
 
 const getStatusText = (status) => {
   switch (status) {
-    case 'WAITING': return '?��?�?
-    case 'IN_PROGRESS': return '진행 �?
-    case 'ENDED': return '종료??
+    case 'WAITING': return '대기 중'
+    case 'IN_PROGRESS': return '진행 중'
+    case 'ENDED': return '종료됨'
     default: return status
   }
 }
@@ -106,43 +106,43 @@ const getStatusText = (status) => {
     <h1>게임 로비</h1>
     
     <div class="user-info">
-      <p>?�녕?�세?? {{ userStore.nickname }}??</p>
-      <button class="btn danger" @click="logout">로그?�웃</button>
+      <p>안녕하세요, {{ userStore.nickname }}님!</p>
+      <button class="btn danger" @click="logout">로그아웃</button>
     </div>
     
     <div class="actions">
-      <button class="btn primary" @click="createGame">??게임 만들�?/button>
-      <button class="btn secondary" @click="fetchGameRooms">?�로고침</button>
-      <button class="btn topic" @click="registerSubject">주제 ?�록?�기</button>
-      <button class="btn answer" @click="registerWord">?�안 ?�록?�기</button>
+      <button class="btn primary" @click="createGame">새 게임 만들기</button>
+      <button class="btn secondary" @click="fetchGameRooms">새로고침</button>
+      <button class="btn topic" @click="registerSubject">주제 등록하기</button>
+      <button class="btn answer" @click="registerWord">답안 등록하기</button>
     </div>
     
     <div v-if="loading" class="loading">
-      로딩 �?..
+      로딩 중...
     </div>
     
     <div v-else-if="errorMessage" class="error-container">
       <p class="error">{{ errorMessage }}</p>
-      <button class="btn secondary" @click="fetchGameRooms">?�시 ?�도</button>
+      <button class="btn secondary" @click="fetchGameRooms">다시 시도</button>
     </div>
     
     <div v-else-if="gameRooms && gameRooms.length === 0" class="empty-state">
-      <p>?�재 ?�성?�된 게임방이 ?�습?�다.</p>
-      <p>??게임??만들?�보?�요!</p>
+      <p>현재 활성화된 게임방이 없습니다.</p>
+      <p>새 게임을 만들어보세요!</p>
     </div>
     
     <div v-else-if="gameRooms" class="game-rooms">
-      <h2>게임�?목록</h2>
+      <h2>게임방 목록</h2>
       
       <table>
         <thead>
           <tr>
-            <th>�?번호</th>
-            <th>�??�름</th>
-            <th>?�원</th>
-            <th>비�?번호</th>
-            <th>?�태</th>
-            <th>?�션</th>
+            <th>방 번호</th>
+            <th>방 이름</th>
+            <th>인원</th>
+            <th>비밀번호</th>
+            <th>상태</th>
+            <th>액션</th>
           </tr>
         </thead>
         <tbody>
@@ -151,7 +151,7 @@ const getStatusText = (status) => {
             <td>{{ room.gameName }}</td>
             <td>{{ room.playerCount }} / {{ room.maxPlayers }}</td>
             <td>
-              <span v-if="room.hasPassword" class="password-icon">?��</span>
+              <span v-if="room.hasPassword" class="password-icon">🔒</span>
               <span v-else>-</span>
             </td>
             <td>{{ getStatusText(room.status) }}</td>
@@ -170,8 +170,8 @@ const getStatusText = (status) => {
     </div>
     
     <div v-else class="error-container">
-      <p class="error">?�이?��? 불러?�는 �??�류가 발생?�습?�다.</p>
-      <button class="btn secondary" @click="fetchGameRooms">?�시 ?�도</button>
+      <p class="error">데이터를 불러오는 중 오류가 발생했습니다.</p>
+      <button class="btn secondary" @click="fetchGameRooms">다시 시도</button>
     </div>
   </div>
 </template>

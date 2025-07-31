@@ -1,6 +1,6 @@
 @import './base.css';
 
-
+/* Global styles for Liar Game */
 * {
   box-sizing: border-box;
   margin: 0;
@@ -46,7 +46,7 @@ input, textarea, select {
   font-size: inherit;
 }
 
-
+/* Utility classes */
 .text-center {
   text-align: center;
 }
@@ -62,4 +62,3 @@ input, textarea, select {
 .mb-3 { margin-bottom: 1rem; }
 .mb-4 { margin-bottom: 1.5rem; }
 .mb-5 { margin-bottom: 2rem; }
-

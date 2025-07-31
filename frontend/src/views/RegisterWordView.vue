@@ -69,7 +69,7 @@ const registerWord = async () => {
     )
 
     successMessage.value = '단어가 성공적으로 등록되었습니다'
-    word.value = '' 
+    word.value = '' // Clear the word input field
     loading.value = false
   } catch (error) {
     console.error('Failed to register word:', error)
@@ -85,7 +85,7 @@ const goBack = () => {
 
 <template>
   <div class="register-word">
-    <h1>단안 등록하기</h1>
+    <h1>답안 등록하기</h1>
     
     <div class="form-container">
       <div v-if="loading && subjects.length === 0" class="loading">

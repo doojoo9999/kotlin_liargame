@@ -1,7 +1,10 @@
 <script setup>
 import WelcomeItem from './WelcomeItem.vue'
 import DocumentationIcon from './icons/IconDocumentation.vue'
+import ToolingIcon from './icons/IconTooling.vue'
 import EcosystemIcon from './icons/IconEcosystem.vue'
+import CommunityIcon from './icons/IconCommunity.vue'
+import SupportIcon from './icons/IconSupport.vue'
 
 const openReadmeInEditor = () => fetch('/__open-in-editor?file=README.md')
 </script>
@@ -13,7 +16,7 @@ const openReadmeInEditor = () => fetch('/__open-in-editor?file=README.md')
     </template>
     <template #heading>Documentation</template>
 
-    Vue's
+    Vue’s
     <a href="https://vuejs.org/" rel="noopener" target="_blank">official documentation</a>
     provides you with all information you need to get started.
   </WelcomeItem>
@@ -25,17 +28,17 @@ const openReadmeInEditor = () => fetch('/__open-in-editor?file=README.md')
     <template #heading>Tooling</template>
 
     This project is served and bundled with
-    <a href="https://vitejs.dev/guide/features.html" rel="noopener" target="_blank">Vite</a>. The
+    <a href="https://vite.dev/guide/features.html" rel="noopener" target="_blank">Vite</a>. The
     recommended IDE setup is
     <a href="https://code.visualstudio.com/" rel="noopener" target="_blank">VSCode</a>
     +
-    <a href="https://github.com/johnsoncodehk/volar" rel="noopener" target="_blank">Volar</a>. If
+    <a href="https://github.com/vuejs/language-tools" rel="noopener" target="_blank">Vue - Official</a>. If
     you need to test your components and web pages, check out
-    <a href="https://www.cypress.io/" rel="noopener" target="_blank">Cypress</a>
+    <a href="https://vitest.dev/" rel="noopener" target="_blank">Vitest</a>
     and
-    <a href="https://on.cypress.io/component" rel="noopener" target="_blank">Cypress Component Testing</a>
+    <a href="https://www.cypress.io/" rel="noopener" target="_blank">Cypress</a>
     /
-    <a href="https://test-utils.vuejs.org/" rel="noopener" target="_blank">Vue Test Utils</a>.
+    <a href="https://playwright.dev/" rel="noopener" target="_blank">Playwright</a>.
 
     <br />
 
@@ -74,7 +77,7 @@ const openReadmeInEditor = () => fetch('/__open-in-editor?file=README.md')
     >. You should also follow the official
     <a href="https://bsky.app/profile/vuejs.org" rel="noopener" target="_blank">@vuejs.org</a>
     Bluesky account or the
-    <a href="https://twitter.com/vuejs" rel="noopener" target="_blank">@vuejs</a>
+    <a href="https://x.com/vuejs" rel="noopener" target="_blank">@vuejs</a>
     X account for latest news in the Vue world.
   </WelcomeItem>
 
