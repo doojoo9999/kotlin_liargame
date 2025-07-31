@@ -37,15 +37,15 @@ class GameService(
     private fun findNextAvailableRoomNumber(): Int {
         val activeGames = gameRepository.findAllActiveGames()
         val usedNumbers = activeGames.map { it.gNumber }.toSet()
-        
-        
+
+
         for (number in 1..999) {
             if (!usedNumbers.contains(number)) {
                 return number
             }
         }
-        
-        
+
+
         throw RuntimeException("모든 방 번호(1-999)가 모두 사용중입니다. 나중에 다시 시도해주세요.")
     }
 
@@ -62,59 +62,59 @@ class GameService(
     @Transactional
     fun createGameRoom(req: CreateGameRoomRequest): Int {
         req.validate()
-        
+
         val nickname = getCurrentUserNickname()
         validateExistingOwner(nickname)
 
         val nextRoomNumber = findNextAvailableRoomNumber()
         val newGame = req.to(nextRoomNumber, nickname)
-        
+
         val selectedSubjects = selectSubjectsForGameRoom(req)
         if (selectedSubjects.isNotEmpty()) {
             val citizenSubject = selectedSubjects.first()
             newGame.citizenSubject = citizenSubject
-            
+
             val liarSubject = if (selectedSubjects.size > 1) selectedSubjects[1] else citizenSubject
             newGame.liarSubject = liarSubject
         }
-        
+
         val savedGame = gameRepository.save(newGame)
 
         joinGame(savedGame, getCurrentUserId(), nickname)
-        
+
         return savedGame.gNumber
     }
-    
+
     private fun selectSubjectsForGameRoom(req: CreateGameRoomRequest): List<SubjectEntity> {
         val allSubjects = subjectRepository.findAll().toList()
         val validSubjects = allSubjects.filter { it.word.size >= 2 }
-        
+
         if (validSubjects.isEmpty()) {
             return createTestSubjects()
         }
-        
+
         val selectedSubjects = when {
             req.subjectIds != null -> {
                 req.subjectIds.mapNotNull { subjectId ->
                     subjectRepository.findById(subjectId).orElse(null)
                 }.filter { it.word.size >= 2 }
             }
-            
+
             req.useRandomSubjects -> {
                 val count = req.randomSubjectCount ?: 1
                 val randomCount = count.coerceAtMost(validSubjects.size)
                 validSubjects.shuffled().take(randomCount)
             }
-            
+
             else -> {
                 listOf(validSubjects.random())
             }
         }
-        
+
         if (selectedSubjects.isEmpty()) {
             return listOf(validSubjects.random())
         }
-        
+
         return selectedSubjects
     }
 
@@ -201,37 +201,37 @@ class GameService(
 
         val nickname = getCurrentUserNickname()
         val game = gameRepository.findBygOwner(nickname)
-            ?: throw RuntimeException("게임을 찾을 수 없습니다. 먼저 게임방을 생성해주세요.")
+            ?: throw RuntimeException("게임??찾을 ???�습?�다. 먼�? 게임방을 ?�성?�주?�요.")
 
         if (game.gState != GameState.WAITING) {
-            throw RuntimeException("게임이 이미 진행 중이거나 종료되었습니다")
+            throw RuntimeException("게임???��? 진행 중이거나 종료?�었?�니??")
         }
 
         val players = playerRepository.findByGame(game)
         if (!game.canStart(players.size)) {
-            throw RuntimeException("게임을 시작하기 위한 플레이어가 충분하지 않습니다. (최소 3명, 최대 15명)")
+            throw RuntimeException("게임???�작?�기 ?�한 ?�레?�어가 충분?��? ?�습?�다. (최소 3�? 최�? 15�?")
         }
 
-        
+
         val selectedSubjects = if (game.citizenSubject != null) {
             val subjects = mutableListOf<SubjectEntity>()
             subjects.add(game.citizenSubject!!)
-            
+
             if (game.liarSubject != null && game.liarSubject != game.citizenSubject) {
                 subjects.add(game.liarSubject!!)
             }
-            
+
             subjects
         } else {
-            
+
             selectSubjects(req)
         }
-        
+
         assignRolesAndSubjects(game, players, selectedSubjects)
 
         game.startGame()
         gameRepository.save(game)
-        
+
         return getGameState(game)
     }
 
@@ -252,12 +252,12 @@ class GameService(
             println("[DEBUG] No subjects with at least 2 words available in database, creating test subjects")
             return createTestSubjects()
         }
-        
+
         println("[DEBUG] Found ${validSubjects.size} valid subjects with at least 2 words")
         validSubjects.forEach { subject ->
             println("[DEBUG] Valid subject '${subject.content}' (ID: ${subject.id}) has ${subject.word.size} words")
         }
-        
+
         val selectedSubjects = when {
             req.subjectIds != null -> {
                 println("[DEBUG] Using specific subject IDs: ${req.subjectIds}")
@@ -267,19 +267,19 @@ class GameService(
                         RuntimeException("Subject with ID $subjectId not found")
                     }
                     println("[DEBUG] Found subject '${subject.content}' (ID: ${subject.id}) with ${subject.word.size} words")
-                    
+
                     if (subject.word.size < 2) {
                         println("[DEBUG] Subject '${subject.content}' has insufficient words: ${subject.word.size}, but proceeding anyway")
                     }
                     subject
                 }
             }
-            
+
             req.useAllSubjects -> {
                 println("[DEBUG] Using all valid subjects")
                 validSubjects
             }
-            
+
             req.useRandomSubjects -> {
                 val count = req.randomSubjectCount ?: 1
                 println("[DEBUG] Using $count random subjects")
@@ -289,17 +289,17 @@ class GameService(
                 }
                 validSubjects.shuffled().take(randomCount)
             }
-            
+
             else -> {
                 println("[DEBUG] Using default selection (one random subject)")
                 listOf(validSubjects.random())
             }
         }
-        
+
         if (selectedSubjects.isEmpty()) {
             throw RuntimeException("No subjects were selected")
         }
-        
+
         println("[DEBUG] Selected ${selectedSubjects.size} subjects")
         selectedSubjects.forEach { subject ->
             println("[DEBUG] Selected subject '${subject.content}' (ID: ${subject.id}) has ${subject.word.size} words")
@@ -307,7 +307,7 @@ class GameService(
                 println("[DEBUG]   - Word: '${word.content}' (ID: ${word.id})")
             }
         }
-        
+
         return selectedSubjects
     }
 
@@ -320,10 +320,10 @@ class GameService(
         if (subjects.isEmpty()) {
             throw RuntimeException("No subjects available for assignment")
         }
-        
+
         val citizenSubject = subjects.first()
         game.citizenSubject = citizenSubject
-        
+
         val liarSubject = if (subjects.size > 1) subjects[1] else citizenSubject
         game.liarSubject = liarSubject
 
@@ -333,12 +333,12 @@ class GameService(
         players.forEachIndexed { index, player ->
             val isLiar = index in liarIndices
             val role = if (isLiar) PlayerRole.LIAR else PlayerRole.CITIZEN
-            
+
             val subject = when {
                 !isLiar -> subjects.random()
-                
+
                 game.gGameMode == GameMode.LIARS_DIFFERENT_WORD -> liarSubject
-                
+
                 else -> citizenSubject
             }
 
@@ -732,43 +732,43 @@ class GameService(
             winningTeam = if (liarsWin) WinningTeam.LIARS else WinningTeam.CITIZENS
         )
     }
-    
+
     fun getAllGameRooms(): GameRoomListResponse {
         val activeGames = gameRepository.findAllActiveGames()
-        
+
         val playerCounts = mutableMapOf<Long, Int>()
         activeGames.forEach { game ->
             val count = playerRepository.countByGame(game)
             playerCounts[game.id] = count
         }
-        
+
         return GameRoomListResponse.from(activeGames, playerCounts)
     }
-    
+
     @Transactional
     fun endOfRound(req: EndOfRoundRequest): GameStateResponse {
         val game = gameRepository.findBygNumber(req.gNumber)
             ?: throw RuntimeException("Game not found")
-            
+
         if (game.gState != GameState.IN_PROGRESS) {
             throw RuntimeException("Game is not in progress")
         }
-        
+
         if (game.gOwner != req.gOwner) {
             throw RuntimeException("Only the game owner can end the round")
         }
-        
+
         if (game.gCurrentRound != req.gRound) {
             throw RuntimeException("Round number mismatch")
         }
-        
+
         if (req.gIsGameOver) {
             game.endGame()
             gameRepository.save(game)
         }
-        
+
         chatService.startPostRoundChat(req.gNumber)
-        
+
         return getGameState(game)
     }
 
@@ -777,7 +777,7 @@ class GameService(
         val currentUserId = getCurrentUserId()
         val currentPhase = determineGamePhase(game, players)
         val accusedPlayer = findAccusedPlayer(players)
-        
+
         val currentPlayer = players.find { it.userId == currentUserId }
         val isChatAvailable = if (currentPlayer != null) {
             chatService.isChatAvailable(game, currentPlayer)
@@ -786,10 +786,10 @@ class GameService(
         }
 
         return GameStateResponse.from(
-            game = game, 
-            players = players, 
-            currentUserId = currentUserId, 
-            currentPhase = currentPhase, 
+            game = game,
+            players = players,
+            currentUserId = currentUserId,
+            currentPhase = currentPhase,
             accusedPlayer = accusedPlayer,
             isChatAvailable = isChatAvailable
         )
@@ -819,10 +819,10 @@ class GameService(
         return players.find { it.state == PlayerState.ACCUSED || it.state == PlayerState.DEFENDED }
     }
 
-    
+
     private fun createTestSubjects(): List<SubjectEntity> {
         println("[DEBUG] Creating test subjects for testing")
-        
+
         val animalSubject = SubjectEntity(
             content = "동물",
             word = emptyList()
@@ -859,7 +859,7 @@ class GameService(
         subjects.forEach { subject ->
             println("[DEBUG] Test subject '${subject.content}' (ID: ${subject.id}) has ${subject.word.size} words")
         }
-        
+
         return subjects
     }
 }

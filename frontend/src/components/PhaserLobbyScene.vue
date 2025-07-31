@@ -105,7 +105,7 @@ const gameConfig = {
       }).setOrigin(0.5);
       
       
-      this.playerCountText = this.add.text(500, 140, '참�??? 0/0', {
+      this.playerCountText = this.add.text(500, 140, '참가자: 0/0', {
         fontSize: '20px', 
         fontFamily: 'Arial', 
         color: '#000000'
@@ -149,11 +149,11 @@ const gameConfig = {
 
         if (this.playerCountText) {
           const previousText = this.playerCountText.text;
-          const newText = `참�??? ${currentPlayers}/${maxPlayers}`;
+          const newText = `참가자: ${currentPlayers}/${maxPlayers}`;
 
           this.playerCountText.setText(newText);
 
-          if (previousText !== '참�??? 0/0' && previousText !== newText) {
+          if (previousText !== '참가자: 0/0' && previousText !== newText) {
             this.tweens.add({
               targets: this.playerCountText,
               scaleX: 1.2,
@@ -201,7 +201,7 @@ const gameConfig = {
         const startButtonY = 700;
         
         const startButton = this.add.image(startButtonX, startButtonY, 'button').setScale(1.5).setInteractive();
-        const startButtonText = this.add.text(startButtonX, startButtonY, '게임 ?�작', {
+        const startButtonText = this.add.text(startButtonX, startButtonY, '게임 시작', {
           fontSize: '20px',
           fontFamily: 'Arial',
           color: '#ffffff'
@@ -221,14 +221,14 @@ const gameConfig = {
         const settingsButtonY = 700;
         
         const settingsButton = this.add.image(settingsButtonX, settingsButtonY, 'button').setScale(1.5).setInteractive();
-        const settingsButtonText = this.add.text(settingsButtonX, settingsButtonY, '?�정 변�?, {
+        const settingsButtonText = this.add.text(settingsButtonX, settingsButtonY, '설정 변경', {
           fontSize: '20px',
           fontFamily: 'Arial',
           color: '#ffffff'
         }).setOrigin(0.5);
         
         settingsButton.on('pointerdown', () => {
-          this.addNotification('?�정 변�?기능?� ?�직 구현?��? ?�았?�니??');
+          this.addNotification('설정 변경 기능은 아직 구현되지 않았습니다');
         });
         
         this.buttons.push(settingsButton);
@@ -240,7 +240,7 @@ const gameConfig = {
       const leaveButtonY = 700;
       
       const leaveButton = this.add.image(leaveButtonX, leaveButtonY, 'button').setScale(1.5).setInteractive();
-      const leaveButtonText = this.add.text(leaveButtonX, leaveButtonY, '?��?�?, {
+      const leaveButtonText = this.add.text(leaveButtonX, leaveButtonY, '나가기', {
         fontSize: '20px',
         fontFamily: 'Arial',
         color: '#ffffff'
@@ -311,7 +311,7 @@ const gameConfig = {
             startY = centerY + (radius + 300) * Math.sin(randomAngle);
             
             
-            this.addNotification(`${player.nickname} ?�이 ?�장?�습?�다.`);
+            this.addNotification(`${player.nickname} 님이 입장했습니다.`);
           }
           
           
@@ -527,7 +527,7 @@ watch(() => props.messages, (newMessages, oldMessages) => {
       if (newMessages && oldMessages && newMessages.length > oldMessages.length) {
         const latestMessage = newMessages[newMessages.length - 1];
         if (latestMessage && typeof game.scene.scenes[0].addNotification === 'function') {
-          game.scene.scenes[0].addNotification(`??메시지: ${latestMessage.senderName}`);
+          game.scene.scenes[0].addNotification(`새 메시지: ${latestMessage.senderName}`);
         }
       }
     } else {
@@ -587,9 +587,9 @@ watch(() => props.players?.length, (newCount, oldCount) => {
     if (typeof game.scene.scenes[0].addNotification === 'function') {
       if (newCount > oldCount) {
         const newPlayer = props.players[props.players.length - 1];
-        game.scene.scenes[0].addNotification(`${newPlayer.nickname} ?�이 ?�장?�습?�다.`);
+        game.scene.scenes[0].addNotification(`${newPlayer.nickname} 님이 입장했습니다.`);
       } else if (newCount < oldCount) {
-        game.scene.scenes[0].addNotification('?�레?�어가 ?�장?�습?�다.');
+        game.scene.scenes[0].addNotification('플레이어가 퇴장했습니다.');
       }
     } else {
       console.log('addNotification function not found, scene may not be fully initialized');
@@ -625,14 +625,14 @@ const sendMessage = async () => {
       
       
       if (game && game.scene.scenes[0] && typeof game.scene.scenes[0].addNotification === 'function') {
-        game.scene.scenes[0].addNotification('메시지가 ?�송?�었?�니??');
+        game.scene.scenes[0].addNotification('메시지가 전송되었습니다');
       }
     } catch (error) {
       console.error('Failed to send message:', error);
       
       
       if (game && game.scene.scenes[0] && typeof game.scene.scenes[0].addNotification === 'function') {
-        game.scene.scenes[0].addNotification('메시지 ?�송???�패?�습?�다.');
+        game.scene.scenes[0].addNotification('메시지 전송에 실패했습니다.');
       }
       
       
@@ -661,10 +661,10 @@ onBeforeUnmount(() => {
       <input 
         v-model="chatInput" 
         class="chat-input"
-        placeholder="메시지�??�력?�세??.."
+        placeholder="메시지를 입력하세요..."
         @keyup.enter="sendMessage"
       />
-      <button class="send-button" @click="sendMessage">?�송</button>
+      <button class="send-button" @click="sendMessage">전송</button>
     </div>
   </div>
 </template>

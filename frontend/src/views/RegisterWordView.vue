@@ -34,19 +34,19 @@ const fetchSubjects = async () => {
     loading.value = false
   } catch (error) {
     console.error('Failed to fetch subjects:', error)
-    errorMessage.value = error.response?.data?.message || '주제 목록??불러?�는???�패?�습?�다'
+    errorMessage.value = error.response?.data?.message || '주제 목록을 불러오는데 실패했습니다'
     loading.value = false
   }
 }
 
 const registerWord = async () => {
   if (!selectedSubject.value) {
-    errorMessage.value = '주제�??�택?�주?�요'
+    errorMessage.value = '주제를 선택해주세요'
     return
   }
 
   if (!word.value.trim()) {
-    errorMessage.value = '?�어�??�력?�주?�요'
+    errorMessage.value = '단어를 입력해주세요'
     return
   }
 
@@ -68,12 +68,12 @@ const registerWord = async () => {
       }
     )
 
-    successMessage.value = '?�어가 ?�공?�으�??�록?�었?�니??
+    successMessage.value = '단어가 성공적으로 등록되었습니다'
     word.value = '' 
     loading.value = false
   } catch (error) {
     console.error('Failed to register word:', error)
-    errorMessage.value = error.response?.data?.message || '?�어 ?�록???�패?�습?�다'
+    errorMessage.value = error.response?.data?.message || '단어 등록에 실패했습니다'
     loading.value = false
   }
 }
@@ -85,16 +85,16 @@ const goBack = () => {
 
 <template>
   <div class="register-word">
-    <h1>?�안 ?�록?�기</h1>
+    <h1>단안 등록하기</h1>
     
     <div class="form-container">
       <div v-if="loading && subjects.length === 0" class="loading">
-        주제 목록??불러?�는 �?..
+        주제 목록을 불러오는 중...
       </div>
       
       <div v-else-if="subjects.length === 0" class="error-container">
-        <p>?�록??주제가 ?�습?�다. 먼�? 주제�??�록?�주?�요.</p>
-        <button class="btn secondary" @click="router.push('/register-subject')">주제 ?�록?�기</button>
+        <p>등록된 주제가 없습니다. 먼저 주제를 등록해주세요.</p>
+        <button class="btn secondary" @click="router.push('/register-subject')">주제 등록하기</button>
       </div>
       
       <template v-else>
@@ -105,7 +105,7 @@ const goBack = () => {
             v-model="selectedSubject" 
             :disabled="loading"
           >
-            <option disabled value="">주제�??�택?�세??/option>
+            <option disabled value="">주제를 선택하세요</option>
             <option 
               v-for="subject in subjects" 
               :key="subject.content" 
@@ -117,12 +117,12 @@ const goBack = () => {
         </div>
         
         <div class="form-group">
-          <label for="word">?�어:</label>
+          <label for="word">단어:</label>
           <input 
             id="word" 
             v-model="word" 
             :disabled="loading"
-            placeholder="?�록???�어�??�력?�세??
+            placeholder="등록할 단어를 입력하세요"
             type="text"
           />
         </div>
@@ -133,9 +133,9 @@ const goBack = () => {
             class="btn primary"
             @click="registerWord"
           >
-            {{ loading ? '처리 �?..' : '?�록?�기' }}
+            {{ loading ? '처리 중...' : '등록하기' }}
           </button>
-          <button class="btn secondary" @click="goBack">?�아가�?/button>
+          <button class="btn secondary" @click="goBack">돌아가기</button>
         </div>
         
         <div v-if="errorMessage" class="error-message">

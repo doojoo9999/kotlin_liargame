@@ -57,8 +57,8 @@ class ChatInGameSimulationTest {
 
     private val users = mutableListOf<UserInfo>()
     private var gameNumber: Int = 0
-    private var subjectContent = "µ¿¹°_${System.currentTimeMillis()}"
-    private val words = listOf("»çÀÚ", "È£¶ûÀÌ", "ÄÚ³¢¸®", "±â¸°", "ÆÒ´õ", "¿ø¼şÀÌ", "°í¸±¶ó", "ÇÏ¸¶", "¾Ç¾î", "ÄÚ¾Ë¶ó")
+    private var subjectContent = "ë™ë¬¼_${System.currentTimeMillis()}"
+    private val words = listOf("ì‚¬ì", "í˜¸ë‘ì´", "ì½”ë¼ë¦¬", "ê¸°ë¦°", "íŒ¬ë”", "ì›ìˆ­ì´", "ê³ ì–‘ì´", "í•˜ë§ˆ", "ë±€", "ì½”ì•Œë¼")
 
     data class UserInfo(
         val nickname: String,
@@ -73,7 +73,7 @@ class ChatInGameSimulationTest {
         
         for (i in 1..10) {
             val nickname = "Player${i}_${Random.nextInt(1000, 9999)}"
-            val profileImgUrl = "https:
+            val profileImgUrl = "https://example.com/profile.png"
             users.add(UserInfo(nickname, profileImgUrl))
             
             try {

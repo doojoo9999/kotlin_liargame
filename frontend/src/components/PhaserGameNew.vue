@@ -69,7 +69,7 @@ const gameConfig = {
       
       this.chalkboard = this.add.image(500, 150, 'chalkboard').setScale(0.5);
       
-      this.subjectText = this.add.text(500, 130, 'Subject: ', {
+      this.subjectText = this.add.text(500, 130, '주제: ', {
         fontSize: '28px', 
         fontFamily: 'Arial', 
         color: '#ffffff',
@@ -77,7 +77,7 @@ const gameConfig = {
         strokeThickness: 1
       }).setOrigin(0.5);
       
-      this.wordText = this.add.text(500, 170, 'Word: ', { 
+      this.wordText = this.add.text(500, 170, '단어: ', { 
         fontSize: '28px', 
         fontFamily: 'Arial', 
         color: '#ffffff',
@@ -123,13 +123,13 @@ const gameConfig = {
     
     updateGameState: function() {
       if (this.vueProps.subject) {
-        this.subjectText.setText(`Subject: ${this.vueProps.subject}`);
+        this.subjectText.setText(`주제: ${this.vueProps.subject}`);
       }
       
       if (this.vueProps.word && !this.vueProps.isLiar) {
-        this.wordText.setText(`Word: ${this.vueProps.word}`);
+        this.wordText.setText(`단어: ${this.vueProps.word}`);
       } else {
-        this.wordText.setText('Word: ???');
+        this.wordText.setText('단어: ???');
       }
       
       if (this.vueProps.currentPhase) {
@@ -290,9 +290,9 @@ watch(() => props.players?.length, (newCount, oldCount) => {
   if (game && game.scene.scenes[0] && oldCount !== undefined) {
     if (newCount > oldCount) {
       const newPlayer = props.players[props.players.length - 1];
-      game.scene.scenes[0].addNotification(`${newPlayer.nickname} joined the game`);
+      game.scene.scenes[0].addNotification(`${newPlayer.nickname} 님이 게임에 참가했습니다`);
     } else if (newCount < oldCount) {
-      game.scene.scenes[0].addNotification('A player left the game');
+      game.scene.scenes[0].addNotification('플레이어가 게임을 나갔습니다');
     }
   }
   previousPlayerCount.value = newCount;
@@ -335,10 +335,10 @@ onBeforeUnmount(() => {
       <input 
         v-model="chatInput" 
         class="chat-input"
-        placeholder="Type your message here..."
+        placeholder="메시지를 입력하세요..."
         @keyup.enter="sendMessage"
       />
-      <button class="send-button" @click="sendMessage">Send</button>
+      <button class="send-button" @click="sendMessage">전송</button>
     </div>
   </div>
 </template>

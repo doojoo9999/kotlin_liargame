@@ -73,7 +73,7 @@ class WebSocketChatTest {
     fun setup() {
         
         val nickname = "test"
-        val profileImgUrl = "https:
+        val profileImgUrl = "https://example.com/profile.png"
         users.add(UserInfo(nickname, profileImgUrl))
         
         try {
@@ -112,7 +112,7 @@ class WebSocketChatTest {
         stompClient = WebSocketStompClient(sockJsClient)
         stompClient.messageConverter = MappingJackson2MessageConverter()
         
-        val url = "ws:
+        val url = "ws://localhost:${port}/ws"
         println("[DEBUG_LOG] Connecting to WebSocket at $url")
         
         val sessionFuture = CompletableFuture<StompSession>()
@@ -199,7 +199,7 @@ class WebSocketChatTest {
         )
         
         val restTemplate = org.springframework.boot.test.web.client.TestRestTemplate()
-        val url = "http:
+        val url = "http://localhost:${port}/api/v1/chat/send"
         
         
         val headers = org.springframework.http.HttpHeaders()
@@ -234,7 +234,7 @@ class WebSocketChatTest {
         
         
         val restTemplate = org.springframework.boot.test.web.client.TestRestTemplate()
-        val url = "http:
+        val url = "http://localhost:${port}/api/v1/chat/${gameNumber}"
         
         
         val headers = org.springframework.http.HttpHeaders()
