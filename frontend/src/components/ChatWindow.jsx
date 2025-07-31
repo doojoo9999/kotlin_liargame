@@ -1,23 +1,21 @@
-import {useEffect, useRef, useState} from 'react'
-import {Box, List, Paper, Typography} from '@mui/material'
+import {useEffect, useRef} from 'react'
+import {Alert, Box, List, Paper, Typography} from '@mui/material'
 import ChatMessage from './ChatMessage'
 import ChatInput from './ChatInput'
+import {useGame} from '../context/GameContext'
 
 /**
  * ChatWindow component serves as the main container for the chat functionality.
  * It displays chat messages and provides an input field for sending new messages.
  */
 function ChatWindow() {
-  // Initial dummy chat messages
-  const [messages, setMessages] = useState([
-    { id: 1, content: "게임이 시작되었습니다!", isSystem: true },
-    { id: 2, sender: "Player 1", content: "안녕하세요! 반갑습니다." },
-    { id: 3, sender: "Player 2", content: "저도 반가워요! 오늘 주제는 뭘까요?" },
-    { id: 4, content: "라이어가 선정되었습니다!", isSystem: true },
-    { id: 5, sender: "Player 3", content: "이번 주제는 어려울 것 같아요." },
-    { id: 6, sender: "Player 4", content: "저는 준비됐어요! 시작해봅시다." },
-    { id: 7, content: "30초 뒤 투표가 시작됩니다.", isSystem: true },
-  ])
+  // Get chat state and functions from context
+  const { 
+    chatMessages, 
+    socketConnected, 
+    sendChatMessage, 
+    error 
+  } = useGame()
 
   // Reference to the message list container for auto-scrolling
   const messagesEndRef = useRef(null)
@@ -29,17 +27,17 @@ function ChatWindow() {
 
   useEffect(() => {
     scrollToBottom()
-  }, [messages])
+  }, [chatMessages])
 
-  // Handle sending a new message
+  // Handle sending a new message via WebSocket
   const handleSendMessage = (content) => {
-    const newMessage = {
-      id: messages.length + 1,
-      sender: "You", // In a real app, this would be the current user's name
-      content,
-      isSystem: false
+    if (!socketConnected) {
+      console.warn('[DEBUG_LOG] Cannot send message: WebSocket not connected')
+      return
     }
-    setMessages([...messages, newMessage])
+    
+    console.log('[DEBUG_LOG] Sending chat message:', content)
+    sendChatMessage(content)
   }
 
   return (
@@ -62,10 +60,32 @@ function ChatWindow() {
         borderColor: 'divider',
         backgroundColor: 'primary.light'
       }}>
-        <Typography variant="h6" color="white">
-          Game Chat
-        </Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="h6" color="white">
+            Game Chat
+          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box
+              sx={{
+                width: 8,
+                height: 8,
+                borderRadius: '50%',
+                backgroundColor: socketConnected ? 'success.main' : 'error.main'
+              }}
+            />
+            <Typography variant="caption" color="white">
+              {socketConnected ? '연결됨' : '연결 끊김'}
+            </Typography>
+          </Box>
+        </Box>
       </Box>
+
+      {/* Connection Error Alert */}
+      {error.socket && (
+        <Alert severity="error" sx={{ m: 1 }}>
+          {error.socket}
+        </Alert>
+      )}
 
       {/* Chat messages area with scrolling */}
       <Box sx={{ 
@@ -76,9 +96,23 @@ function ChatWindow() {
         p: 1
       }}>
         <List sx={{ width: '100%' }}>
-          {messages.map((message) => (
-            <ChatMessage key={message.id} message={message} />
-          ))}
+          {chatMessages.length === 0 ? (
+            <Box sx={{ 
+              display: 'flex', 
+              justifyContent: 'center', 
+              alignItems: 'center', 
+              height: '100%',
+              color: 'text.secondary'
+            }}>
+              <Typography variant="body2">
+                {socketConnected ? '채팅을 시작해보세요!' : 'WebSocket에 연결 중...'}
+              </Typography>
+            </Box>
+          ) : (
+            chatMessages.map((message) => (
+              <ChatMessage key={message.id} message={message} />
+            ))
+          )}
           <div ref={messagesEndRef} /> {/* Empty div for scrolling to bottom */}
         </List>
       </Box>
