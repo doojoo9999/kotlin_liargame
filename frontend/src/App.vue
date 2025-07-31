@@ -1,5 +1,5 @@
 <script setup>
-// App.vue is the root component
+
 </script>
 
 <template>
@@ -18,3 +18,4 @@
   padding: 0;
 }
 </style>
+
