@@ -170,8 +170,8 @@ const leaveGame = async () => {
       <div class="actions">
         <button 
           v-if="isHost"
-          class="btn primary"
           :disabled="!canStartGame"
+          class="btn primary"
           @click="startGame"
         >
           게임 시작
