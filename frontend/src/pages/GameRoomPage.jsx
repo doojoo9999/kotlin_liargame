@@ -27,15 +27,6 @@ import PlayerSpeechBubble from '../components/PlayerSpeechBubble'
 import ChatWindow from '../components/ChatWindow'
 import GameInfoDisplay from '../components/GameInfoDisplay'
 
-/**
- * GameRoomPage component - Game room interface
- * Features:
- * - Display current room information
- * - Show players arranged around the screen
- * - Integrate chat functionality
- * - Leave room functionality
- * - Game controls (start game, etc.)
- */
 function GameRoomPage() {
   const {
     currentRoom,
@@ -60,12 +51,10 @@ function GameRoomPage() {
     castVote
   } = useGame()
 
-  // Local state
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false)
   const [speechBubbles, setSpeechBubbles] = useState({})
   const [selectedVoteTarget, setSelectedVoteTarget] = useState(null)
 
-  // WebSocket connection management
   useEffect(() => {
     console.log('[DEBUG_LOG] GameRoomPage mounted, connecting to WebSocket')
     

@@ -13,7 +13,11 @@ const apiClient = axios.create({
 apiClient.interceptors.request.use(
   (config) => {
     // Get token from localStorage (will be set after login)
-    const token = localStorage.getItem('accessToken')
+    // Check for admin token first, then regular user token
+    const adminToken = localStorage.getItem('adminAccessToken')
+    const userToken = localStorage.getItem('accessToken')
+    
+    const token = adminToken || userToken
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }

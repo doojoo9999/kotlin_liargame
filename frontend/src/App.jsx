@@ -6,6 +6,8 @@ import {GameProvider, useGame} from './context/GameContext'
 import LoginPage from './pages/LoginPage'
 import LobbyPage from './pages/LobbyPage'
 import GameRoomPage from './pages/GameRoomPage'
+import AdminLoginPage from './pages/AdminLoginPage'
+import AdminDashboard from './pages/AdminDashboard'
 import ErrorBoundary from './components/ErrorBoundary'
 
 const theme = createTheme({
@@ -43,6 +45,17 @@ function ProtectedRoute({ children }) {
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />
+  }
+
+  return children
+}
+
+function AdminProtectedRoute({ children }) {
+  const isUserAdmin = localStorage.getItem('isUserAdmin') === 'true'
+  const adminAccessToken = localStorage.getItem('adminAccessToken')
+
+  if (!isUserAdmin || !adminAccessToken) {
+    return <Navigate to="/admin/login" replace />
   }
 
   return children
@@ -87,6 +100,21 @@ function AppRouter() {
         path="/login" 
         element={
           isAuthenticated ? <Navigate to="/lobby" replace /> : <LoginPage />
+        } 
+      />
+      
+      {/* Admin routes */}
+      <Route 
+        path="/admin/login" 
+        element={<AdminLoginPage />} 
+      />
+      
+      <Route 
+        path="/admin" 
+        element={
+          <AdminProtectedRoute>
+            <AdminDashboard />
+          </AdminProtectedRoute>
         } 
       />
       
