@@ -25,6 +25,7 @@ bin/
 out/
 !**/src/main/**/out/
 !**/src/test/**/out/
+!**/src/main/resources
 
 ### NetBeans ###
 /nbproject/private/
@@ -41,3 +42,6 @@ out/
 
 ### .env ###
 .env
+
+## db ##
+/firebaseaccoutkey.json
