@@ -10,7 +10,7 @@ import org.springframework.stereotype.Service
 @Service
 class AdminService(
     private val jwtProvider: JwtProvider,
-    @Value("\${admin.password:admin123}")
+    @Value("\${admin.password:admin123}") // 테스트시에만 사용
     private val adminPassword: String
 ) {
     private val logger = LoggerFactory.getLogger(this::class.java)

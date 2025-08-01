@@ -26,6 +26,7 @@ import {
     Quiz as QuizIcon
 } from '@mui/icons-material'
 import {useNavigate} from 'react-router-dom'
+import SubjectWordPage from './SubjectWordPage'
 
 const DRAWER_WIDTH = 280
 
@@ -100,18 +101,7 @@ function AdminDashboard() {
           </Container>
         )
       case 'subjects':
-        return (
-          <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-            <Typography variant="h4" gutterBottom>
-              주제/답안 관리
-            </Typography>
-            <Paper sx={{ p: 3, mt: 3 }}>
-              <Typography variant="body1" color="text.secondary">
-                주제/답안 관리 기능은 추후 구현 예정입니다.
-              </Typography>
-            </Paper>
-          </Container>
-        )
+        return <SubjectWordPage />
       case 'monitoring':
         return (
           <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
