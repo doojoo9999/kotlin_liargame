@@ -1,11 +1,6 @@
 import axios from 'axios'
 
-/**
- * API Client configuration for Liar Game backend
- * Handles base URL configuration, authentication headers, and common request/response interceptors
- */
 
-// Create axios instance with base configuration
 const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/v1',
   timeout: 10000, // 10 seconds timeout
@@ -14,9 +9,7 @@ const apiClient = axios.create({
   },
 })
 
-/**
- * Request interceptor to add authentication token to requests
- */
+
 apiClient.interceptors.request.use(
   (config) => {
     // Get token from localStorage (will be set after login)
@@ -31,23 +24,94 @@ apiClient.interceptors.request.use(
   }
 )
 
-/**
- * Response interceptor to handle common response scenarios
- */
+let isRefreshing = false
+let failedQueue = []
+
+const processQueue = (error, token = null) => {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error)
+    } else {
+      prom.resolve(token)
+    }
+  })
+  
+  failedQueue = []
+}
+
 apiClient.interceptors.response.use(
   (response) => {
     return response
   },
-  (error) => {
-    // Handle common error scenarios
-    if (error.response?.status === 401) {
-      // Unauthorized - clear token and redirect to login
-      localStorage.removeItem('accessToken')
-      // In a real app, you might want to redirect to login page here
-      console.warn('Authentication failed. Please login again.')
+  async (error) => {
+    const originalRequest = error.config
+
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject })
+        }).then(token => {
+          originalRequest.headers.Authorization = `Bearer ${token}`
+          return apiClient(originalRequest)
+        }).catch(err => {
+          return Promise.reject(err)
+        })
+      }
+
+      originalRequest._retry = true
+      isRefreshing = true
+
+      const refreshToken = localStorage.getItem('refreshToken')
+      
+      if (refreshToken) {
+        try {
+          console.log('[DEBUG_LOG] Attempting to refresh token due to 401 error')
+          
+          const { refreshToken: refreshTokenAPI } = await import('./gameApi')
+          const response = await refreshTokenAPI(refreshToken)
+          
+          const { accessToken, refreshToken: newRefreshToken } = response
+          
+          localStorage.setItem('accessToken', accessToken)
+          localStorage.setItem('refreshToken', newRefreshToken)
+          
+          console.log('[DEBUG_LOG] Token refresh successful')
+          
+          originalRequest.headers.Authorization = `Bearer ${accessToken}`
+          
+          processQueue(null, accessToken)
+          
+          isRefreshing = false
+          
+          return apiClient(originalRequest)
+          
+        } catch (refreshError) {
+          console.error('[DEBUG_LOG] Token refresh failed:', refreshError)
+          
+          localStorage.removeItem('accessToken')
+          localStorage.removeItem('refreshToken')
+          localStorage.removeItem('userData')
+          
+          processQueue(refreshError, null)
+          
+          isRefreshing = false
+          
+          window.dispatchEvent(new CustomEvent('auth:logout'))
+          
+          return Promise.reject(refreshError)
+        }
+      } else {
+        console.warn('[DEBUG_LOG] No refresh token available, redirecting to login')
+        
+        localStorage.removeItem('accessToken')
+        localStorage.removeItem('userData')
+        
+        isRefreshing = false
+        
+        window.dispatchEvent(new CustomEvent('auth:logout'))
+      }
     }
     
-    // Log error for debugging
     console.error('API Error:', error.response?.data || error.message)
     
     return Promise.reject(error)
