@@ -27,6 +27,7 @@ import {
 } from '@mui/icons-material'
 import {useNavigate} from 'react-router-dom'
 import SubjectWordPage from './SubjectWordPage'
+import GameMonitoringPage from './GameMonitoringPage'
 
 const DRAWER_WIDTH = 280
 
@@ -103,18 +104,7 @@ function AdminDashboard() {
       case 'subjects':
         return <SubjectWordPage />
       case 'monitoring':
-        return (
-          <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-            <Typography variant="h4" gutterBottom>
-              게임 모니터링
-            </Typography>
-            <Paper sx={{ p: 3, mt: 3 }}>
-              <Typography variant="body1" color="text.secondary">
-                게임 모니터링 기능은 추후 구현 예정입니다.
-              </Typography>
-            </Paper>
-          </Container>
-        )
+        return <GameMonitoringPage />
       default:
         return null
     }
