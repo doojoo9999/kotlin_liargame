@@ -815,6 +815,43 @@ export const GameProvider = ({ children }) => {
       setLoading('subjects', false)
     }
   }
+
+  const addSubject = async (name) => {
+    try {
+      setLoading('subjects', true)
+      setError('subjects', null)
+      
+      await gameApi.addSubject(name)
+      
+      // Refresh subjects list after adding
+      await fetchSubjects()
+      
+      return true
+    } catch (error) {
+      console.error('[DEBUG_LOG] Failed to add subject:', error)
+      setError('subjects', error.response?.data?.message || '주제 추가에 실패했습니다.')
+      throw error
+    } finally {
+      setLoading('subjects', false)
+    }
+  }
+
+  const addWord = async (subject, word) => {
+    try {
+      setLoading('subjects', true)
+      setError('subjects', null)
+      
+      await gameApi.addWord(subject, word)
+      
+      return true
+    } catch (error) {
+      console.error('[DEBUG_LOG] Failed to add word:', error)
+      setError('subjects', error.response?.data?.message || '답안 추가에 실패했습니다.')
+      throw error
+    } finally {
+      setLoading('subjects', false)
+    }
+  }
   
   const navigateToLobby = () => {
     dispatch({ type: ActionTypes.SET_CURRENT_PAGE, payload: 'lobby' })
@@ -870,6 +907,8 @@ export const GameProvider = ({ children }) => {
     joinRoom,
     leaveRoom,
     fetchSubjects,
+    addSubject,
+    addWord,
     navigateToLobby,
     navigateToRoom,
     setLoading,
