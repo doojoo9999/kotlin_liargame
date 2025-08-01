@@ -1,17 +1,13 @@
-import React from 'react'
+import React, {useEffect} from 'react'
+import {BrowserRouter as Router, Navigate, Route, Routes, useNavigate} from 'react-router-dom'
 import {createTheme, ThemeProvider} from '@mui/material/styles'
 import {Alert, Box, CircularProgress, CssBaseline} from '@mui/material'
 import {GameProvider, useGame} from './context/GameContext'
+import LoginPage from './pages/LoginPage'
 import LobbyPage from './pages/LobbyPage'
 import GameRoomPage from './pages/GameRoomPage'
 import ErrorBoundary from './components/ErrorBoundary'
 
-/**
- * Main App component that serves as the root of the application.
- * Handles routing between lobby and game room pages based on global state.
- */
-
-// Create Material-UI theme
 const theme = createTheme({
   palette: {
     primary: {
@@ -23,13 +19,10 @@ const theme = createTheme({
   },
 })
 
-/**
- * App Router component - handles page routing based on current page state
- */
-function AppRouter() {
-  const { currentPage, loading, error } = useGame()
 
-  // Show global loading state
+function ProtectedRoute({ children }) {
+  const { isAuthenticated, loading } = useGame()
+
   if (loading.auth) {
     return (
       <Box
@@ -43,13 +36,33 @@ function AppRouter() {
         }}
       >
         <CircularProgress size={60} />
-        <Alert severity="info">인증 중...</Alert>
+        <Alert severity="info">인증 확인 중...</Alert>
       </Box>
     )
   }
 
-  // Show global error state
-  if (error.auth) {
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />
+  }
+
+  return children
+}
+
+function AppRouter() {
+  const { isAuthenticated, currentPage, loading, error } = useGame()
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      if (currentPage === 'room') {
+        navigate('/game', { replace: true })
+      } else if (currentPage === 'lobby') {
+        navigate('/lobby', { replace: true })
+      }
+    }
+  }, [currentPage, isAuthenticated, navigate])
+
+  if (error.auth && !isAuthenticated) {
     return (
       <Box
         sx={{
@@ -67,26 +80,63 @@ function AppRouter() {
     )
   }
 
-  // Route to appropriate page
-  switch (currentPage) {
-    case 'room':
-      return <GameRoomPage />
-    case 'lobby':
-    default:
-      return <LobbyPage />
-  }
+  return (
+    <Routes>
+      {/* Public route - Login page */}
+      <Route 
+        path="/login" 
+        element={
+          isAuthenticated ? <Navigate to="/lobby" replace /> : <LoginPage />
+        } 
+      />
+      
+      {/* Protected routes */}
+      <Route 
+        path="/lobby" 
+        element={
+          <ProtectedRoute>
+            <LobbyPage />
+          </ProtectedRoute>
+        } 
+      />
+      
+      <Route 
+        path="/game" 
+        element={
+          <ProtectedRoute>
+            <GameRoomPage />
+          </ProtectedRoute>
+        } 
+      />
+      
+      {/* Default redirect */}
+      <Route 
+        path="/" 
+        element={
+          <Navigate to={isAuthenticated ? "/lobby" : "/login"} replace />
+        } 
+      />
+      
+      {/* Catch all - redirect to appropriate page */}
+      <Route 
+        path="*" 
+        element={
+          <Navigate to={isAuthenticated ? "/lobby" : "/login"} replace />
+        } 
+      />
+    </Routes>
+  )
 }
 
-/**
- * Main App component with providers and error boundary
- */
 function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <ErrorBoundary>
         <GameProvider>
-          <AppRouter />
+          <Router>
+            <AppRouter />
+          </Router>
         </GameProvider>
       </ErrorBoundary>
     </ThemeProvider>
