@@ -1,6 +1,7 @@
 package org.example.kotlin_liargame.domain.auth.service
 
 import org.example.kotlin_liargame.domain.auth.dto.request.LoginRequest
+import org.example.kotlin_liargame.domain.auth.dto.request.RefreshRequest
 import org.example.kotlin_liargame.domain.auth.dto.response.TokenResponse
 import org.example.kotlin_liargame.domain.user.dto.request.UserAddRequest
 import org.example.kotlin_liargame.domain.user.model.UserEntity
@@ -48,15 +49,13 @@ class AuthService (
             userRepository.save(inactiveUser)
             logger.debug("로그인 성공: 비활성 비인증 닉네임 재활성화 - {}", request.nickname)
 
-            val token = jwtProvider.jwtBuild(
-                userId = inactiveUser.id.toString(),
-                nickname = inactiveUser.nickname,
-                expireTime = 1000 * 60 * 60L
-            )
+            val accessToken = jwtProvider.generateAccessToken(inactiveUser.id, inactiveUser.nickname)
+            val refreshToken = jwtProvider.generateRefreshToken(inactiveUser.id, inactiveUser.nickname)
 
-            saveUserToken(inactiveUser, token)
+            saveUserToken(inactiveUser, accessToken)
+            saveUserToken(inactiveUser, refreshToken)
             
-            return TokenResponse(accessToken = token)
+            return TokenResponse(accessToken = accessToken, refreshToken = refreshToken)
         }
 
         val newUser = createUser(request.nickname)
@@ -64,15 +63,57 @@ class AuthService (
         userRepository.save(newUser)
         logger.debug("로그인 성공: 새 사용자 생성 완료 - {}", request.nickname)
 
-        val token = jwtProvider.jwtBuild(
-            userId = newUser.id.toString(),
-            nickname = newUser.nickname,
-            expireTime = 1000 * 60 * 60L
-        )
+        val accessToken = jwtProvider.generateAccessToken(newUser.id, newUser.nickname)
+        val refreshToken = jwtProvider.generateRefreshToken(newUser.id, newUser.nickname)
 
-        saveUserToken(newUser, token)
+        saveUserToken(newUser, accessToken)
+        saveUserToken(newUser, refreshToken)
         
-        return TokenResponse(accessToken = token)
+        return TokenResponse(accessToken = accessToken, refreshToken = refreshToken)
+    }
+    
+    @Transactional
+    fun refresh(request: RefreshRequest): TokenResponse {
+        // Validate refresh token format and signature
+        if (!jwtProvider.validateToken(request.refreshToken)) {
+            logger.debug("리프레시 토큰 검증 실패: 유효하지 않은 토큰")
+            throw IllegalArgumentException("유효하지 않은 리프레시 토큰입니다.")
+        }
+        
+        // Check if refresh token exists in database and is not expired
+        if (!jwtProvider.isTokenInDatabase(request.refreshToken)) {
+            logger.debug("리프레시 토큰 검증 실패: 데이터베이스에 존재하지 않거나 만료됨")
+            throw IllegalArgumentException("만료되었거나 존재하지 않는 리프레시 토큰입니다.")
+        }
+        
+        // Extract user information from refresh token
+        val userId = jwtProvider.getClaims(request.refreshToken).subject.toLong()
+        val nickname = jwtProvider.getNickname(request.refreshToken)
+        
+        // Find user in database
+        val user = userRepository.findById(userId).orElse(null)
+            ?: throw IllegalArgumentException("사용자를 찾을 수 없습니다.")
+        
+        // Verify user is still active and authenticated
+        if (!user.isActive) {
+            logger.debug("리프레시 토큰 검증 실패: 비활성 사용자 - {}", nickname)
+            throw IllegalArgumentException("비활성 사용자입니다.")
+        }
+        
+        // Generate new token pair
+        val newAccessToken = jwtProvider.generateAccessToken(user.id, user.nickname)
+        val newRefreshToken = jwtProvider.generateRefreshToken(user.id, user.nickname)
+        
+        // Invalidate old refresh token
+        userTokenRepository.deleteByToken(request.refreshToken)
+        
+        // Save new tokens
+        saveUserToken(user, newAccessToken)
+        saveUserToken(user, newRefreshToken)
+        
+        logger.debug("토큰 리프레시 성공 - 사용자: {}", nickname)
+        
+        return TokenResponse(accessToken = newAccessToken, refreshToken = newRefreshToken)
     }
     
     @Transactional
