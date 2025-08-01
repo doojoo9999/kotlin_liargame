@@ -23,5 +23,7 @@ interface UserTokenRepository : JpaRepository<UserTokenEntity, Long> {
     
     fun deleteByUser(user: UserEntity): Int
     
+    fun deleteByToken(token: String): Int
+    
     fun existsByTokenAndExpiresAtAfter(token: String, dateTime: LocalDateTime): Boolean
 }
