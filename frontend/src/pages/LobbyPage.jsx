@@ -1,66 +1,62 @@
 import React, {useEffect, useState} from 'react'
 import {
-    Alert,
-    Box,
-    Button,
-    Checkbox,
-    Chip,
-    CircularProgress,
-    Container,
-    Dialog,
-    DialogActions,
-    DialogContent,
-    DialogTitle,
-    FormControl,
-    FormControlLabel,
-    InputLabel,
-    MenuItem,
-    Paper,
-    Select,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
-    TextField,
-    Tooltip,
-    Typography
+  Alert,
+  Box,
+  Button,
+  Checkbox,
+  Chip,
+  CircularProgress,
+  Container,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  FormControl,
+  FormControlLabel,
+  InputLabel,
+  MenuItem,
+  Paper,
+  Select,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TextField,
+  Tooltip,
+  Typography
 } from '@mui/material'
 import {
-    Add as AddIcon,
-    Lock as LockIcon,
-    Login as LoginIcon,
-    People as PeopleIcon,
-    PlayArrow as PlayIcon,
-    Refresh as RefreshIcon
+  Add as AddIcon,
+  Lock as LockIcon,
+  Login as LoginIcon,
+  Logout as LogoutIcon,
+  People as PeopleIcon,
+  PlayArrow as PlayIcon,
+  Refresh as RefreshIcon
 } from '@mui/icons-material'
 import {useGame} from '../context/GameContext'
 
-/**
- * LobbyPage component - Main lobby interface for viewing and managing game rooms
- * Features:
- * - Display list of available game rooms
- * - Create new game rooms
- * - Join existing rooms
- * - Refresh room list
- */
 function LobbyPage() {
   const {
     roomList,
     subjects,
+    currentUser,
     loading,
     error,
     fetchRooms,
     createRoom,
     joinRoom,
-    fetchSubjects
+    fetchSubjects,
+    logout
   } = useGame()
 
   // Modal states
   const [createRoomOpen, setCreateRoomOpen] = useState(false)
   const [joinRoomOpen, setJoinRoomOpen] = useState(false)
   const [selectedRoom, setSelectedRoom] = useState(null)
+  const [logoutDialogOpen, setLogoutDialogOpen] = useState(false)
 
   // Form states for room creation
   const [roomForm, setRoomForm] = useState({
@@ -135,6 +131,13 @@ function LobbyPage() {
     setJoinRoomOpen(true)
   }
 
+  // Handle logout
+  const handleLogout = () => {
+    console.log('[DEBUG_LOG] User logging out:', currentUser?.nickname)
+    logout()
+    setLogoutDialogOpen(false)
+  }
+
   // Get room state color
   const getRoomStateColor = (state) => {
     switch (state) {
@@ -167,9 +170,16 @@ function LobbyPage() {
     <Container maxWidth="lg" sx={{ py: 4 }}>
       {/* Header */}
       <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="h4" component="h1" gutterBottom>
-          라이어 게임 로비
-        </Typography>
+        <Box>
+          <Typography variant="h4" component="h1" gutterBottom>
+            라이어 게임 로비
+          </Typography>
+          {currentUser && (
+            <Typography variant="body2" color="text.secondary">
+              환영합니다, {currentUser.nickname}님!
+            </Typography>
+          )}
+        </Box>
         <Box sx={{ display: 'flex', gap: 2 }}>
           <Button
             variant="outlined"
@@ -185,6 +195,14 @@ function LobbyPage() {
             onClick={() => setCreateRoomOpen(true)}
           >
             방 만들기
+          </Button>
+          <Button
+            variant="outlined"
+            color="error"
+            startIcon={<LogoutIcon />}
+            onClick={() => setLogoutDialogOpen(true)}
+          >
+            로그아웃
           </Button>
         </Box>
       </Box>
@@ -397,6 +415,31 @@ function LobbyPage() {
             disabled={loading.room || (selectedRoom?.hasPassword && !joinPassword)}
           >
             {loading.room ? <CircularProgress size={20} /> : '입장'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Logout Confirmation Dialog */}
+      <Dialog open={logoutDialogOpen} onClose={() => setLogoutDialogOpen(false)}>
+        <DialogTitle>로그아웃</DialogTitle>
+        <DialogContent>
+          <Typography>
+            정말로 로그아웃하시겠습니까?
+            {currentUser && (
+              <Box component="span" sx={{ display: 'block', mt: 1, fontWeight: 'medium' }}>
+                {currentUser.nickname}님의 세션이 종료됩니다.
+              </Box>
+            )}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setLogoutDialogOpen(false)}>취소</Button>
+          <Button
+            onClick={handleLogout}
+            color="error"
+            variant="contained"
+          >
+            로그아웃
           </Button>
         </DialogActions>
       </Dialog>
