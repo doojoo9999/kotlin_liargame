@@ -63,6 +63,11 @@ export const addSubject = async (name) => {
   return response.data
 }
 
+export const addWord = async (subject, word) => {
+  const response = await apiClient.post('/words/applyw', { subject, word })
+  return response.data
+}
+
 // ==================== Chat Operations ====================
 
 export const sendMessage = async (gNumber, message) => {
