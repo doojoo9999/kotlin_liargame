@@ -17,6 +17,7 @@ import {
   MenuItem,
   Paper,
   Select,
+  Snackbar,
   Table,
   TableBody,
   TableCell,
@@ -49,6 +50,8 @@ function LobbyPage() {
     createRoom,
     joinRoom,
     fetchSubjects,
+    addSubject,
+    addWord,
     logout
   } = useGame()
 
@@ -57,6 +60,14 @@ function LobbyPage() {
   const [joinRoomOpen, setJoinRoomOpen] = useState(false)
   const [selectedRoom, setSelectedRoom] = useState(null)
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false)
+  const [addContentOpen, setAddContentOpen] = useState(false)
+
+  // Snackbar state
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success' // 'success' | 'error' | 'warning' | 'info'
+  })
 
   // Form states for room creation
   const [roomForm, setRoomForm] = useState({
@@ -71,6 +82,13 @@ function LobbyPage() {
   // Form state for joining room
   const [joinPassword, setJoinPassword] = useState('')
 
+  // Form states for adding content
+  const [contentForm, setContentForm] = useState({
+    newSubject: '',
+    selectedSubject: '',
+    newWord: ''
+  })
+
   // Load subjects on component mount
   useEffect(() => {
     if (subjects.length === 0) {
@@ -84,6 +102,28 @@ function LobbyPage() {
       ...prev,
       [field]: value
     }))
+  }
+
+  // Handle content form changes
+  const handleContentFormChange = (field, value) => {
+    setContentForm(prev => ({
+      ...prev,
+      [field]: value
+    }))
+  }
+
+  // Show snackbar message
+  const showSnackbar = (message, severity = 'success') => {
+    setSnackbar({
+      open: true,
+      message,
+      severity
+    })
+  }
+
+  // Close snackbar
+  const handleCloseSnackbar = () => {
+    setSnackbar(prev => ({ ...prev, open: false }))
   }
 
   // Handle room creation
@@ -136,6 +176,51 @@ function LobbyPage() {
     console.log('[DEBUG_LOG] User logging out:', currentUser?.nickname)
     logout()
     setLogoutDialogOpen(false)
+  }
+
+  // Handle adding subject
+  const handleAddSubject = async () => {
+    if (!contentForm.newSubject.trim()) {
+      showSnackbar('주제를 입력해주세요.', 'error')
+      return
+    }
+
+    // Check if subject already exists
+    const existingSubject = subjects.find(s => s.name.toLowerCase() === contentForm.newSubject.trim().toLowerCase())
+    if (existingSubject) {
+      showSnackbar('이미 존재하는 주제입니다.', 'error')
+      return
+    }
+
+    try {
+      await addSubject(contentForm.newSubject.trim())
+      showSnackbar('주제가 성공적으로 추가되었습니다.', 'success')
+      setContentForm(prev => ({ ...prev, newSubject: '' }))
+    } catch (error) {
+      showSnackbar('주제 추가에 실패했습니다.', 'error')
+    }
+  }
+
+  // Handle adding word
+  const handleAddWord = async () => {
+    if (!contentForm.selectedSubject) {
+      showSnackbar('주제를 선택해주세요.', 'error')
+      return
+    }
+
+    if (!contentForm.newWord.trim()) {
+      showSnackbar('답안을 입력해주세요.', 'error')
+      return
+    }
+
+    try {
+      const selectedSubjectName = subjects.find(s => s.id === contentForm.selectedSubject)?.name
+      await addWord(selectedSubjectName, contentForm.newWord.trim())
+      showSnackbar('답안이 성공적으로 추가되었습니다.', 'success')
+      setContentForm(prev => ({ ...prev, newWord: '' }))
+    } catch (error) {
+      showSnackbar('답안 추가에 실패했습니다.', 'error')
+    }
   }
 
   // Get room state color
@@ -195,6 +280,13 @@ function LobbyPage() {
             onClick={() => setCreateRoomOpen(true)}
           >
             방 만들기
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<AddIcon />}
+            onClick={() => setAddContentOpen(true)}
+          >
+            주제/답안 추가
           </Button>
           <Button
             variant="outlined"
@@ -443,6 +535,100 @@ function LobbyPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Add Content Dialog */}
+      <Dialog open={addContentOpen} onClose={() => setAddContentOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>주제/답안 추가</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: 1 }}>
+            {/* Subject Addition Section */}
+            <Box>
+              <Typography variant="h6" gutterBottom>
+                새 주제 추가
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                <TextField
+                  label="주제 이름"
+                  value={contentForm.newSubject}
+                  onChange={(e) => handleContentFormChange('newSubject', e.target.value)}
+                  placeholder="예: 음식, 동물, 직업"
+                  fullWidth
+                />
+                <Button
+                  variant="contained"
+                  onClick={handleAddSubject}
+                  disabled={loading.subjects || !contentForm.newSubject.trim()}
+                  sx={{ minWidth: '100px' }}
+                >
+                  {loading.subjects ? <CircularProgress size={20} /> : '추가'}
+                </Button>
+              </Box>
+            </Box>
+
+            {/* Word Addition Section */}
+            <Box>
+              <Typography variant="h6" gutterBottom>
+                답안 추가
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <FormControl fullWidth>
+                  <InputLabel>주제 선택</InputLabel>
+                  <Select
+                    value={contentForm.selectedSubject}
+                    onChange={(e) => handleContentFormChange('selectedSubject', e.target.value)}
+                    label="주제 선택"
+                    variant="outlined"
+                  >
+                    {subjects.map((subject) => (
+                      <MenuItem key={subject.id} value={subject.id}>
+                        {subject.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                
+                <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                  <TextField
+                    label="답안"
+                    value={contentForm.newWord}
+                    onChange={(e) => handleContentFormChange('newWord', e.target.value)}
+                    placeholder="답안을 입력하세요"
+                    fullWidth
+                    disabled={!contentForm.selectedSubject}
+                  />
+                  <Button
+                    variant="contained"
+                    onClick={handleAddWord}
+                    disabled={loading.subjects || !contentForm.selectedSubject || !contentForm.newWord.trim()}
+                    sx={{ minWidth: '100px' }}
+                  >
+                    {loading.subjects ? <CircularProgress size={20} /> : '추가'}
+                  </Button>
+                </Box>
+              </Box>
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAddContentOpen(false)}>닫기</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Snackbar for notifications */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert 
+          onClose={handleCloseSnackbar} 
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Container>
   )
 }
