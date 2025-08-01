@@ -638,15 +638,29 @@ export const GameProvider = ({ children }) => {
       setLoading('auth', true)
       setError('auth', null)
       
+      console.log('[DEBUG_LOG] Attempting login for:', nickname)
       const response = await gameApi.login(nickname)
+      
       localStorage.setItem('accessToken', response.accessToken)
+      const userData = { nickname }
+      localStorage.setItem('userData', JSON.stringify(userData))
       
       const user = { nickname, accessToken: response.accessToken }
       dispatch({ type: ActionTypes.SET_USER, payload: user })
       
+      console.log('[DEBUG_LOG] Login successful, token stored')
+      
+      try {
+        await fetchRooms()
+        await fetchSubjects()
+      } catch (dataError) {
+        console.warn('[DEBUG_LOG] Failed to load initial data after login:', dataError)
+      }
+      
       return user
     } catch (error) {
-      setError('auth', error.response?.data?.message || 'Login failed')
+      console.error('[DEBUG_LOG] Login failed:', error)
+      setError('auth', error.response?.data?.message || '로그인에 실패했습니다.')
       throw error
     } finally {
       setLoading('auth', false)
@@ -654,10 +668,24 @@ export const GameProvider = ({ children }) => {
   }
   
   const logout = () => {
+    console.log('[DEBUG_LOG] User logging out, clearing session data')
+    
+    // Clear all stored authentication data
+    localStorage.removeItem('accessToken')
+    localStorage.removeItem('userData')
+    
+    // Disconnect WebSocket if connected
+    try {
+      if (socketRef.current) {
+        disconnectSocket()
+      }
+    } catch (error) {
+      console.warn('[DEBUG_LOG] Error disconnecting WebSocket during logout:', error)
+    }
+    
     dispatch({ type: ActionTypes.LOGOUT })
   }
   
-  // Room functions
   const fetchRooms = async () => {
     try {
       setLoading('rooms', true)
@@ -684,7 +712,6 @@ export const GameProvider = ({ children }) => {
       
       const gameNumber = await gameApi.createRoom(roomData)
       
-      // Refresh room list after creating
       await fetchRooms()
       
       return gameNumber
@@ -704,28 +731,23 @@ export const GameProvider = ({ children }) => {
       const roomData = await gameApi.joinRoom(gameNumber, password)
       dispatch({ type: ActionTypes.SET_CURRENT_ROOM, payload: roomData })
       
-      // Connect to WebSocket and join room
       try {
         if (!socketRef.current) {
           connectSocket()
         }
-        // Wait a bit for socket to connect before joining room
         setTimeout(() => {
           joinSocketRoom(gameNumber)
         }, 1000)
       } catch (socketError) {
         console.warn('[DEBUG_LOG] Failed to connect to WebSocket:', socketError)
-        // Continue without WebSocket - the app should still work
       }
       
       return roomData
     } catch (error) {
-      // Use dummy data if API fails
       console.warn('API failed, using dummy data:', error.message)
       const dummyRoom = gameApi.dummyData.gameState
       dispatch({ type: ActionTypes.SET_CURRENT_ROOM, payload: dummyRoom })
       
-      // Still try to connect WebSocket for dummy mode
       try {
         if (!socketRef.current) {
           connectSocket()
@@ -748,7 +770,6 @@ export const GameProvider = ({ children }) => {
       setLoading('room', true)
       setError('room', null)
       
-      // Leave WebSocket room first
       try {
         leaveSocketRoom()
       } catch (socketError) {
@@ -758,13 +779,11 @@ export const GameProvider = ({ children }) => {
       await gameApi.leaveRoom(gameNumber)
       dispatch({ type: ActionTypes.CLEAR_CURRENT_ROOM })
       
-      // Refresh room list after leaving
       await fetchRooms()
       
       return true
     } catch (error) {
       setError('room', error.response?.data?.message || 'Failed to leave room')
-      // Still clear current room and leave socket room even if API fails
       try {
         leaveSocketRoom()
       } catch (socketError) {
@@ -777,7 +796,6 @@ export const GameProvider = ({ children }) => {
     }
   }
   
-  // Subject functions
   const fetchSubjects = async () => {
     try {
       setLoading('subjects', true)
@@ -788,7 +806,6 @@ export const GameProvider = ({ children }) => {
       
       return subjects
     } catch (error) {
-      // Use dummy data if API fails
       console.warn('API failed, using dummy data:', error.message)
       dispatch({ type: ActionTypes.SET_SUBJECTS, payload: gameApi.dummyData.subjects })
       return gameApi.dummyData.subjects
@@ -797,7 +814,6 @@ export const GameProvider = ({ children }) => {
     }
   }
   
-  // Navigation functions
   const navigateToLobby = () => {
     dispatch({ type: ActionTypes.SET_CURRENT_PAGE, payload: 'lobby' })
   }
@@ -806,26 +822,45 @@ export const GameProvider = ({ children }) => {
     dispatch({ type: ActionTypes.SET_CURRENT_PAGE, payload: 'room' })
   }
   
-  // Initialize data on mount
   useEffect(() => {
-    // Check for existing token
-    const token = localStorage.getItem('accessToken')
-    if (token) {
-      // In a real app, you might want to validate the token with the server
-      dispatch({ type: ActionTypes.SET_USER, payload: { accessToken: token } })
+    const initializeAuth = async () => {
+      try {
+        setLoading('auth', true)
+        
+        const token = localStorage.getItem('accessToken')
+        const userData = localStorage.getItem('userData')
+        
+        if (token && userData) {
+          try {
+            const user = JSON.parse(userData)
+            console.log('[DEBUG_LOG] Restoring user session:', user.nickname)
+            dispatch({ type: ActionTypes.SET_USER, payload: { ...user, accessToken: token } })
+            
+            await fetchRooms()
+            await fetchSubjects()
+          } catch (parseError) {
+            console.warn('[DEBUG_LOG] Failed to parse stored user data, clearing storage')
+            localStorage.removeItem('accessToken')
+            localStorage.removeItem('userData')
+          }
+        } else if (token && !userData) {
+          console.warn('[DEBUG_LOG] Token exists but no user data, clearing storage')
+          localStorage.removeItem('accessToken')
+        }
+      } catch (error) {
+        console.error('[DEBUG_LOG] Error during auth initialization:', error)
+        setError('auth', 'Authentication initialization failed')
+      } finally {
+        setLoading('auth', false)
+      }
     }
     
-    // Load initial data
-    fetchRooms()
-    fetchSubjects()
+    initializeAuth()
   }, [])
   
-  // Context value
   const value = {
-    // State
     ...state,
     
-    // Actions
     login,
     logout,
     fetchRooms,
