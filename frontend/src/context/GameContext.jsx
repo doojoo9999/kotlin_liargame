@@ -642,10 +642,11 @@ export const GameProvider = ({ children }) => {
       const response = await gameApi.login(nickname)
       
       localStorage.setItem('accessToken', response.accessToken)
+      localStorage.setItem('refreshToken', response.refreshToken)
       const userData = { nickname }
       localStorage.setItem('userData', JSON.stringify(userData))
       
-      const user = { nickname, accessToken: response.accessToken }
+      const user = { nickname, accessToken: response.accessToken, refreshToken: response.refreshToken }
       dispatch({ type: ActionTypes.SET_USER, payload: user })
       
       console.log('[DEBUG_LOG] Login successful, token stored')
@@ -672,6 +673,7 @@ export const GameProvider = ({ children }) => {
     
     // Clear all stored authentication data
     localStorage.removeItem('accessToken')
+    localStorage.removeItem('refreshToken')
     localStorage.removeItem('userData')
     
     // Disconnect WebSocket if connected
