@@ -1,6 +1,7 @@
 package org.example.kotlin_liargame.domain.auth.controller
 
 import org.example.kotlin_liargame.domain.auth.dto.request.LoginRequest
+import org.example.kotlin_liargame.domain.auth.dto.request.RefreshRequest
 import org.example.kotlin_liargame.domain.auth.service.AuthService
 import org.example.kotlin_liargame.global.dto.ErrorResponse
 import org.slf4j.LoggerFactory
@@ -21,19 +22,39 @@ class AuthController(private val authService: AuthService) {
     fun login(
         @RequestBody req: LoginRequest
     ) : ResponseEntity<Any> {
-        logger.debug("·Î±×ÀÎ ¿äÃ» nickname = {}", req.nickname)
+        logger.debug("ï¿½Î±ï¿½ï¿½ï¿½ ï¿½ï¿½Ã» nickname = {}", req.nickname)
         return try {
             val tokenResponse = authService.login(req)
-            logger.debug("·Î±×ÀÎ ¼º°ø nickname = {}", req.nickname)
+            logger.debug("ï¿½Î±ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ nickname = {}", req.nickname)
             ResponseEntity.ok(tokenResponse)
         } catch (e: IllegalArgumentException) {
-            logger.debug("·Î±×ÀÎ ½ÇÆĞ nickname = {}, ¿øÀÎ: {}", req.nickname, e.message)
+            logger.debug("ï¿½Î±ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ nickname = {}, ï¿½ï¿½ï¿½ï¿½: {}", req.nickname, e.message)
             ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(ErrorResponse(message = e.message ?: "·Î±×ÀÎ ½ÇÆĞ"))
+                .body(ErrorResponse(message = e.message ?: "ï¿½Î±ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½"))
         } catch (e: Exception) {
-            logger.error("·Î±×ÀÎ Áß ¿À·ù ¹ß»ı nickname = {}", req.nickname, e)
+            logger.error("ï¿½Î±ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ß»ï¿½ nickname = {}", req.nickname, e)
             ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ErrorResponse(message = "¼­¹ö ¿À·ù°¡ ¹ß»ıÇß½À´Ï´Ù"))
+                .body(ErrorResponse(message = "ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ß»ï¿½ï¿½ß½ï¿½ï¿½Ï´ï¿½"))
+        }
+    }
+
+    @PostMapping("/refresh")
+    fun refresh(
+        @RequestBody req: RefreshRequest
+    ) : ResponseEntity<Any> {
+        logger.debug("í† í° ë¦¬í”„ë ˆì‹œ ìš”ì²­")
+        return try {
+            val tokenResponse = authService.refresh(req)
+            logger.debug("í† í° ë¦¬í”„ë ˆì‹œ ì„±ê³µ")
+            ResponseEntity.ok(tokenResponse)
+        } catch (e: IllegalArgumentException) {
+            logger.debug("í† í° ë¦¬í”„ë ˆì‹œ ì‹¤íŒ¨: {}", e.message)
+            ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ErrorResponse(message = e.message ?: "í† í° ë¦¬í”„ë ˆì‹œ ì‹¤íŒ¨"))
+        } catch (e: Exception) {
+            logger.error("í† í° ë¦¬í”„ë ˆì‹œ ì¤‘ ì„œë²„ ì˜¤ë¥˜ ë°œìƒ", e)
+            ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ErrorResponse(message = "ì„œë²„ ì˜¤ë¥˜ê°€ ë°œìƒí–ˆìŠµë‹ˆë‹¤"))
         }
     }
 }
