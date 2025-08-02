@@ -14,6 +14,7 @@ function ChatWindow() {
     chatMessages, 
     socketConnected, 
     sendChatMessage, 
+    currentUser,
     error 
   } = useGame()
 
@@ -31,7 +32,10 @@ function ChatWindow() {
 
   // Handle sending a new message via WebSocket
   const handleSendMessage = (content) => {
-    if (!socketConnected) {
+    // 더미 모드에서도 채팅 허용
+    const isDummyMode = import.meta.env.VITE_USE_DUMMY_WEBSOCKET === 'true'
+    
+    if (!socketConnected && !isDummyMode) {
       console.warn('[DEBUG_LOG] Cannot send message: WebSocket not connected')
       return
     }
