@@ -1,4 +1,4 @@
-import React, {createContext, useContext, useEffect, useReducer, useRef} from 'react'
+import React, {createContext, useCallback, useContext, useEffect, useReducer, useRef} from 'react'
 import * as gameApi from '../api/gameApi'
 import {getSocketClient} from '../socket/socketClient'
 
@@ -541,7 +541,7 @@ export const GameProvider = ({ children }) => {
   }
 
   // WebSocket functions
-  const connectSocket = () => {
+  const connectSocket = useCallback(() => {
     if (socketRef.current && socketRef.current.isConnected()) {
       console.log('[DEBUG_LOG] Socket already connected')
       return socketRef.current
@@ -636,16 +636,16 @@ export const GameProvider = ({ children }) => {
       setLoading('socket', false)
       throw error
     }
-  }
+  }, [])
 
-  const disconnectSocket = () => {
+  const disconnectSocket = useCallback(() => {
     if (socketRef.current) {
       console.log('[DEBUG_LOG] Disconnecting WebSocket')
       socketRef.current.disconnect()
       socketRef.current = null
       dispatch({ type: ActionTypes.SET_SOCKET_CONNECTION, payload: false })
     }
-  }
+  }, [])
 
   // Game functions
   const startGame = () => {
