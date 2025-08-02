@@ -121,21 +121,103 @@ export const getAllSubjects = async () => {
   
   try {
     const response = await apiClient.get('/subjects/listsubj')
-    return response.data
+    
+    // 🔍 임시 디버깅 (검증 후 제거 예정)
+    console.log('=== SUBJECTS API RESPONSE STRUCTURE DEBUG ===')
+    console.log('Full response:', response)
+    console.log('response.data type:', typeof response.data)
+    console.log('response.data:', response.data)
+    console.log('Is response.data an array?', Array.isArray(response.data))
+    if (Array.isArray(response.data) && response.data.length > 0) {
+      console.log('First subject example:', response.data[0])
+      console.log('First subject keys:', Object.keys(response.data[0] || {}))
+    }
+    console.log('===============================================')
+    
+    console.log('[DEBUG] Raw subjects API response:', response.data)
+    
+    let subjects = []
+    if (Array.isArray(response.data)) {
+      subjects = response.data
+    } else if (response.data && response.data.subjects && Array.isArray(response.data.subjects)) {
+      subjects = response.data.subjects
+    } else {
+      console.warn('[DEBUG] Unexpected subjects API response structure:', response.data)
+      return dummyData.subjects
+    }
+    
+    // ✅ 각 주제 객체의 필드 검증 및 정규화
+    const validSubjects = subjects
+      .filter(subject => subject && typeof subject === 'object')
+      .map(subject => ({
+        id: subject.id || subject.subjectId || Date.now() + Math.random(),
+        name: subject.name || subject.subjectName || subject.title || '이름 없음'
+      }))
+      .filter(subject => subject.name && subject.name !== '이름 없음')
+    
+    if (validSubjects.length !== subjects.length) {
+      console.warn('[WARN] Some subjects had invalid structure and were filtered out:', 
+        subjects.length - validSubjects.length, 'subjects removed')
+    }
+    
+    console.log('[DEBUG] Processed subjects for frontend:', validSubjects)
+    
+    return validSubjects.length > 0 ? validSubjects : dummyData.subjects
   } catch (error) {
-    console.error('API failed, falling back to dummy data:', error)
+    console.error('Subjects API failed, falling back to dummy data:', error)
     return dummyData.subjects
   }
 }
 
 export const addSubject = async (name) => {
-  const response = await apiClient.post('/subjects/applysubj', { name })
-  return response.data
+  try {
+    console.log('[DEBUG] Adding subject via API:', name)
+    const response = await apiClient.post('/subjects/applysubj', { name })
+    console.log('[DEBUG] Add subject API response:', response.data)
+    
+    // ✅ 응답 구조 검증 및 정규화
+    if (response.data) {
+      const result = {
+        id: response.data.id || response.data.subjectId || Date.now(),
+        name: response.data.name || response.data.subjectName || name,
+        success: response.data.success !== false // 기본값 true
+      }
+      console.log('[DEBUG] Normalized add subject response:', result)
+      return result
+    }
+    
+    // 응답이 없는 경우 기본 구조 반환
+    return { id: Date.now(), name: name, success: true }
+  } catch (error) {
+    console.error('Add subject API failed:', error)
+    throw error
+  }
 }
 
 export const addWord = async (subject, word) => {
-  const response = await apiClient.post('/words/applyw', { subject, word })
-  return response.data
+  try {
+    console.log('[DEBUG] Adding word via API:', { subject, word })
+    const response = await apiClient.post('/words/applyw', { subject, word })
+    console.log('[DEBUG] Add word API response:', response.data)
+    
+    // ✅ 응답 구조 검증 및 정규화
+    if (response.data) {
+      const result = {
+        id: response.data.id || response.data.wordId || Date.now(),
+        word: response.data.word || word,
+        subject: response.data.subject || subject,
+        success: response.data.success !== false // 기본값 true
+      }
+      console.log('[DEBUG] Normalized add word response:', result)
+      return result
+    }
+    
+    // 응답이 없는 경우 기본 구조 반환
+    return { id: Date.now(), word: word, subject: subject, success: true }
+  } catch (error) {
+    console.error('Add word API failed:', error)
+    throw error
+  }
 }
 
 // ==================== Chat Operations ====================
