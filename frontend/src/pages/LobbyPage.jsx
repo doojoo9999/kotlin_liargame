@@ -379,6 +379,35 @@ function LobbyPage() {
                 <TableRow>
                   <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
                     <CircularProgress />
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                      방 목록을 불러오는 중...
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              ) : error.rooms ? (
+                <TableRow>
+                  <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                    <Typography variant="body1" color="error" sx={{ mb: 2 }}>
+                      {error.rooms}
+                    </Typography>
+                    <Button variant="outlined" onClick={fetchRooms}>
+                      다시 시도
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ) : !Array.isArray(roomList) ? (
+                <TableRow>
+                  <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                    <Typography variant="body1" color="error" sx={{ mb: 2 }}>
+                      데이터 형식 오류가 발생했습니다. 페이지를 새로고침해주세요.
+                    </Typography>
+                    <Button 
+                      variant="outlined" 
+                      onClick={() => window.location.reload()} 
+                      sx={{ mt: 1 }}
+                    >
+                      새로고침
+                    </Button>
                   </TableCell>
                 </TableRow>
               ) : roomList.length === 0 ? (
