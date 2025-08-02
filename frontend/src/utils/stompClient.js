@@ -20,7 +20,7 @@ class AdminStompClient {
      * @param {string} serverUrl - WebSocket server URL
      * @param {Object} options - Connection options
      */
-    connect(serverUrl = 'http://localhost:8080', options = {}) {
+    connect(serverUrl = 'http://localhost:20021', options = {}) {
         return new Promise((resolve, reject) => {
             try {
                 console.log('[DEBUG_LOG] Connecting to STOMP server:', serverUrl)

@@ -15,7 +15,7 @@ class SubjectService (
 
     @Transactional
     fun applySubject(subjectRequest: SubjectRequest) {
-        val subject = subjectRepository.findByContent(subjectRequest.content)
+        val subject = subjectRepository.findByContent(subjectRequest.name)
 
         if (subject == null) {
             subjectRepository.save(subjectRequest.to())
@@ -26,7 +26,7 @@ class SubjectService (
 
     @Transactional
     fun deleteSubject(subjectRequest: SubjectRequest) {
-        val subject = subjectRepository.findByContent(subjectRequest.content)
+        val subject = subjectRepository.findByContent(subjectRequest.name)
             ?: throw RuntimeException("주제를 찾을 수 없습니다")
 
         val words = subject.word

@@ -526,7 +526,7 @@ export const getSocketClient = () => {
 
 export const connectToServer = (options = {}) => {
   const client = getSocketClient()
-  const serverUrl = import.meta.env.VITE_WEBSOCKET_URL || 'http://localhost:8080'
+  const serverUrl = import.meta.env.VITE_WEBSOCKET_URL || 'http://localhost:20021'
   
   return client.connect(serverUrl, options)
 }

@@ -16,7 +16,7 @@ function PlayerProfile({ player, isCurrentTurn }) {
     >
       <CardContent sx={{ padding: 2 }}>
         <Avatar 
-          src={player.avatarUrl} 
+          src={player.avatarUrl || `https://via.placeholder.com/60/4CAF50/FFFFFF?text=${player.nickname?.charAt(0) || 'U'}`} 
           alt={player.nickname}
           sx={{ 
             width: 60, 
@@ -37,7 +37,7 @@ PlayerProfile.propTypes = {
   player: PropTypes.shape({
     id: PropTypes.number.isRequired,
     nickname: PropTypes.string.isRequired,
-    avatarUrl: PropTypes.string.isRequired
+    avatarUrl: PropTypes.string
   }).isRequired,
   isCurrentTurn: PropTypes.bool
 }

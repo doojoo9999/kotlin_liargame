@@ -36,8 +36,8 @@ export const leaveRoom = async (gNumber) => {
   return response.data
 }
 
-export const getRoomInfo = async (roomId) => {
-  const response = await apiClient.get(`/game/rooms/${roomId}`)
+export const getRoomInfo = async (gNumber) => {
+  const response = await apiClient.get(`/game/${gNumber}`)
   return response.data
 }
 
@@ -47,7 +47,7 @@ export const startGame = async (gNumber) => {
 }
 
 export const getGameState = async (gNumber) => {
-  const response = await apiClient.get(`/game/state/${gNumber}`)
+  const response = await apiClient.get(`/game/${gNumber}`)
   return response.data
 }
 

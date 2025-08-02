@@ -1,41 +1,41 @@
 import React, {useEffect, useState} from 'react'
 import {
-  Alert,
-  Box,
-  Button,
-  Checkbox,
-  Chip,
-  CircularProgress,
-  Container,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  FormControl,
-  FormControlLabel,
-  InputLabel,
-  MenuItem,
-  Paper,
-  Select,
-  Snackbar,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TextField,
-  Tooltip,
-  Typography
+    Alert,
+    Box,
+    Button,
+    Checkbox,
+    Chip,
+    CircularProgress,
+    Container,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogTitle,
+    FormControl,
+    FormControlLabel,
+    InputLabel,
+    MenuItem,
+    Paper,
+    Select,
+    Snackbar,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableRow,
+    TextField,
+    Tooltip,
+    Typography
 } from '@mui/material'
 import {
-  Add as AddIcon,
-  Lock as LockIcon,
-  Login as LoginIcon,
-  Logout as LogoutIcon,
-  People as PeopleIcon,
-  PlayArrow as PlayIcon,
-  Refresh as RefreshIcon
+    Add as AddIcon,
+    Lock as LockIcon,
+    Login as LoginIcon,
+    Logout as LogoutIcon,
+    People as PeopleIcon,
+    PlayArrow as PlayIcon,
+    Refresh as RefreshIcon
 } from '@mui/icons-material'
 import {useGame} from '../context/GameContext'
 
@@ -130,12 +130,16 @@ function LobbyPage() {
   const handleCreateRoom = async () => {
     try {
       const roomData = {
-        title: roomForm.title,
-        maxPlayers: roomForm.maxPlayers,
-        subjectId: roomForm.subjectId,
-        ...(roomForm.hasPassword && { password: roomForm.password })
+        gName: roomForm.title,
+        gParticipants: roomForm.maxPlayers,
+        gTotalRounds: 3, // Default value
+        gPassword: roomForm.hasPassword ? roomForm.password : null,
+        subjectIds: roomForm.subjectId ? [roomForm.subjectId] : null,
+        useRandomSubjects: !roomForm.subjectId,
+        randomSubjectCount: !roomForm.subjectId ? 1 : null
       }
 
+      console.log('[DEBUG_LOG] Creating room with data:', roomData)
       await createRoom(roomData)
       setCreateRoomOpen(false)
       

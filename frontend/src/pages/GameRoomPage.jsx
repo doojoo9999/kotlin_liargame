@@ -1,4 +1,4 @@
-import React, {useState} from 'react'
+import React, {useEffect, useState} from 'react'
 import {
     Alert,
     AppBar,
@@ -445,7 +445,15 @@ function GameRoomPage() {
             timeRemaining={gameTimer}
             word={assignedWord}
             subject={currentRoom.subject}
-            gameInfo={currentRoom.gameInfo}/>
+            gameInfo={{
+              round: currentRound || 1,
+              topic: currentRoom.subject?.name || '주제 없음',
+              status: gameStatus === 'WAITING' ? '대기 중' : 
+                      gameStatus === 'SPEAKING' ? '발언 단계' :
+                      gameStatus === 'VOTING' ? '투표 단계' :
+                      gameStatus === 'RESULTS' ? '결과 발표' :
+                      gameStatus === 'FINISHED' ? '게임 종료' : '게임 진행 중'
+            }}/>
 
           {/* Game Start Button - Only visible for host when game is waiting */}
           {gameStatus === 'WAITING' && isHost() && (
