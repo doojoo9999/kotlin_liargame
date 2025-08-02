@@ -17,7 +17,11 @@ class GameEntity(
     val gTotalRounds: Int,
     var gCurrentRound: Int = 0,
     val gLiarCount: Int = 1,
+    @Column(name = "g_game_mode")
+    @Enumerated(EnumType.STRING)
     val gGameMode: GameMode = GameMode.LIARS_KNOW,
+    @Column(name = "g_state")
+    @Enumerated(EnumType.STRING)
     var gState: GameState = GameState.WAITING,
     var gOwner: String,
     var gEndTime: Instant? = null,
