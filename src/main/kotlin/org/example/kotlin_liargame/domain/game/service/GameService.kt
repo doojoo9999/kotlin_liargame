@@ -29,7 +29,8 @@ class GameService(
 ) {
 
     private fun validateExistingOwner(ownerName: String) {
-        if (gameRepository.findBygOwner(ownerName) != null) {
+        val existingGame = gameRepository.findBygOwner(ownerName)
+        if (existingGame != null && existingGame.gState != GameState.ENDED) {
             throw RuntimeException("이미 진행중인 게임을 보유하고 있습니다.")
         }
     }
@@ -181,15 +182,71 @@ class GameService(
             ?: throw RuntimeException("Game not found")
 
         val userId = getCurrentUserId()
-        val player = playerRepository.findByGameAndUserId(game, userId)
+        val leavingPlayer = playerRepository.findByGameAndUserId(game, userId)
             ?: throw RuntimeException("You are not in this game")
 
-        if (player.nickname == game.gOwner && game.gState == GameState.WAITING) {
-            game.endGame()
-            gameRepository.save(game)
+        // 방장이 나가는 경우
+        if (leavingPlayer.nickname == game.gOwner) {
+            // 현재 게임의 모든 플레이어 조회 (나가는 플레이어 제외)
+            val remainingPlayers = playerRepository.findByGame(game)
+                .filter { it.id != leavingPlayer.id }
+                .sortedBy { it.id } // ID 순서로 정렬 (입장 순서)
+            
+            if (remainingPlayers.isNotEmpty()) {
+                // ✅ 다음 플레이어에게 방장 권한 이양
+                val newOwner = remainingPlayers.first()
+                game.gOwner = newOwner.nickname
+                gameRepository.save(game)
+                
+                // 나가는 플레이어만 제거
+                playerRepository.delete(leavingPlayer)
+                
+                // 게임이 진행 중이고 최소 인원 미달 시 대기 상태로 변경
+                val remainingCount = remainingPlayers.size
+                if (game.gState == GameState.IN_PROGRESS && remainingCount < 3) {
+                    game.gState = GameState.WAITING
+                    game.gCurrentRound = 1
+                    gameRepository.save(game)
+                    
+                    // 모든 플레이어 상태 초기화
+                    remainingPlayers.forEach { player ->
+                        player.resetForNewRound()
+                        player.isAlive = true
+                        playerRepository.save(player)
+                    }
+                }
+            } else {
+                // ✅ 마지막 플레이어(방장)가 나가는 경우에만 게임 종료
+                game.endGame()
+                gameRepository.save(game)
+                playerRepository.delete(leavingPlayer)
+            }
+        } else {
+            // ✅ 일반 플레이어가 나가는 경우
+            playerRepository.delete(leavingPlayer)
+            
+            // 남은 플레이어 수 확인 및 상태 관리
+            val remainingPlayerCount = playerRepository.countByGame(game)
+            
+            if (remainingPlayerCount < 3 && game.gState == GameState.IN_PROGRESS) {
+                game.gState = GameState.WAITING
+                game.gCurrentRound = 1
+                gameRepository.save(game)
+                
+                // 남은 플레이어들 상태 초기화
+                val remainingPlayers = playerRepository.findByGame(game)
+                remainingPlayers.forEach { player ->
+                    player.resetForNewRound()
+                    player.isAlive = true
+                    playerRepository.save(player)
+                }
+            }
+            
+            if (remainingPlayerCount == 0) {
+                game.endGame()
+                gameRepository.save(game)
+            }
         }
-
-        playerRepository.delete(player)
 
         return true
     }
