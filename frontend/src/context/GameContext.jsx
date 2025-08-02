@@ -386,6 +386,17 @@ export const GameProvider = ({ children }) => {
         dispatch({ type: ActionTypes.SET_ROOM_LIST, payload: gameApi.dummyData.rooms })
       } else {
         const rooms = await gameApi.getAllRooms()
+        
+        // ✅ 배열 검증 추가
+        if (!Array.isArray(rooms)) {
+          console.error('[ERROR] Expected array but got:', typeof rooms, rooms)
+          setError('rooms', 'API 응답 형식이 올바르지 않습니다. 관리자에게 문의하세요.')
+          dispatch({ type: ActionTypes.SET_ROOM_LIST, payload: [] })
+          setLoading('rooms', false)
+          return
+        }
+        
+        console.log('[DEBUG] Successfully fetched rooms:', rooms.length, 'rooms')
         dispatch({ type: ActionTypes.SET_ROOM_LIST, payload: rooms })
       }
       
@@ -393,6 +404,8 @@ export const GameProvider = ({ children }) => {
     } catch (error) {
       console.error('Failed to fetch rooms:', error)
       setError('rooms', '방 목록을 불러오는데 실패했습니다.')
+      // ✅ 에러 시에도 빈 배열로 초기화하여 map 오류 방지
+      dispatch({ type: ActionTypes.SET_ROOM_LIST, payload: [] })
       setLoading('rooms', false)
     }
   }
