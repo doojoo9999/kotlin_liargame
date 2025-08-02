@@ -18,7 +18,7 @@ class GameEntity(
     val gLiarCount: Int = 1,
     val gGameMode: GameMode = GameMode.LIARS_KNOW,
     var gState: GameState = GameState.WAITING,
-    val gOwner: String,
+    var gOwner: String,
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "citizen_subject_id")
