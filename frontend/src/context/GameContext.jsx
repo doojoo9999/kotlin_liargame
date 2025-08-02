@@ -378,34 +378,26 @@ export const GameProvider = ({ children }) => {
       setLoading('rooms', true)
       setError('rooms', null)
       
-      // Use dummy data if WebSocket is not available
-      const useDummy = import.meta.env.VITE_USE_DUMMY_WEBSOCKET === 'true'
+      // ✅ 실제 API만 사용
+      const rooms = await gameApi.getAllRooms()
       
-      if (useDummy) {
-        console.log('[DEBUG_LOG] Using dummy room data')
-        dispatch({ type: ActionTypes.SET_ROOM_LIST, payload: gameApi.dummyData.rooms })
-      } else {
-        const rooms = await gameApi.getAllRooms()
-        
-        // ✅ 배열 검증 추가
-        if (!Array.isArray(rooms)) {
-          console.error('[ERROR] Expected array but got:', typeof rooms, rooms)
-          setError('rooms', 'API 응답 형식이 올바르지 않습니다. 관리자에게 문의하세요.')
-          dispatch({ type: ActionTypes.SET_ROOM_LIST, payload: [] })
-          setLoading('rooms', false)
-          return
-        }
-        
-        console.log('[DEBUG] Successfully fetched rooms:', rooms.length, 'rooms')
-        dispatch({ type: ActionTypes.SET_ROOM_LIST, payload: rooms })
+      // 안전한 배열 검증
+      if (!Array.isArray(rooms)) {
+        console.error('[ERROR] API response is not array:', rooms)
+        dispatch({ type: ActionTypes.SET_ROOM_LIST, payload: [] })
+        setError('rooms', 'API 응답 오류가 발생했습니다.')
+        setLoading('rooms', false)
+        return
       }
       
+      console.log('[DEBUG] Fetched rooms:', rooms.length)
+      dispatch({ type: ActionTypes.SET_ROOM_LIST, payload: rooms })
       setLoading('rooms', false)
+      
     } catch (error) {
       console.error('Failed to fetch rooms:', error)
       setError('rooms', '방 목록을 불러오는데 실패했습니다.')
-      // ✅ 에러 시에도 빈 배열로 초기화하여 map 오류 방지
-      dispatch({ type: ActionTypes.SET_ROOM_LIST, payload: [] })
+      dispatch({ type: ActionTypes.SET_ROOM_LIST, payload: [] }) // 빈 배열로 초기화
       setLoading('rooms', false)
     }
   }
@@ -471,28 +463,59 @@ export const GameProvider = ({ children }) => {
     }
   }
 
-  const leaveRoom = async (gameNumber) => {
+  // getCurrentRoom 함수 추가
+  const getCurrentRoom = async (gameNumber) => {
     try {
       setLoading('room', true)
       setError('room', null)
       
-      await gameApi.leaveRoom(gameNumber)
+      // ✅ 실제 API만 사용
+      const roomData = await gameApi.getRoomDetails(gameNumber)
       
-      dispatch({ type: ActionTypes.CLEAR_CURRENT_ROOM })
-      dispatch({ type: ActionTypes.CLEAR_CHAT_MESSAGES })
-      dispatch({ type: ActionTypes.RESET_GAME_STATE })
-      
-      // Disconnect socket when leaving room
-      if (socketRef.current) {
-        socketRef.current.disconnect()
-        socketRef.current = null
+      if (!roomData) {
+        throw new Error('방 정보를 찾을 수 없습니다.')
       }
       
+      // 플레이어 데이터 구조 검증
+      if (roomData.players && Array.isArray(roomData.players)) {
+        roomData.players = roomData.players.map((player, index) => ({
+          id: player.id || index + 1, // id가 없으면 인덱스 사용
+          nickname: player.nickname || `Player${index + 1}`,
+          isHost: player.isHost || false,
+          isAlive: player.isAlive !== false, // 기본값 true
+          avatar: player.avatar || null
+        }))
+      } else {
+        roomData.players = []
+      }
+      
+      dispatch({ type: ActionTypes.SET_CURRENT_ROOM, payload: roomData })
       setLoading('room', false)
+      return roomData
+      
     } catch (error) {
-      console.error('Failed to leave room:', error)
-      setError('room', '방 나가기에 실패했습니다.')
+      console.error('Failed to get room details:', error)
+      setError('room', '방 정보를 불러오는데 실패했습니다.')
       setLoading('room', false)
+      throw error
+    }
+  }
+
+  const leaveRoom = async (gameNumber) => {
+    try {
+      console.log('[DEBUG_LOG] Leaving room with gameNumber:', gameNumber)
+      const response = await gameApi.leaveRoom({
+        gNumber: parseInt(gameNumber)
+      })
+      console.log('[DEBBUG_LOG] Leave room response:', response)
+
+      setCurrentRoom(null)
+      setRoomPlayers([])
+      setGameStatus('WAITING')
+      return response
+
+      } catch (error) {
+      console.error('Failed to leave room:', error)
       throw error
     }
   }
@@ -752,29 +775,15 @@ export const GameProvider = ({ children }) => {
   }
 
   const sendChatMessage = (content) => {
-    const isDummyMode = import.meta.env.VITE_USE_DUMMY_WEBSOCKET === 'true'
-    
-    if (isDummyMode) {
-      // 더미 모드에서는 로컬에서 메시지 처리
-      console.log('[DEBUG_LOG] Sending chat message in dummy mode:', content)
-      const dummyMessage = {
-        id: Date.now(),
-        sender: state.currentUser?.nickname || 'Unknown',
-        content: content,
-        isSystem: false,
-        timestamp: new Date().toISOString()
-      }
-      dispatch({ type: ActionTypes.ADD_CHAT_MESSAGE, payload: dummyMessage })
-      return
-    }
-    
-    // 실제 WebSocket을 통한 메시지 전송
+    // ✅ 실제 WebSocket을 통한 메시지 전송만 사용
     if (socketRef.current && state.currentRoom) {
       console.log('[DEBUG_LOG] Sending chat message via WebSocket:', content)
       socketRef.current.emit('sendMessage', {
         roomId: state.currentRoom.gameNumber,
         message: content
       })
+    } else {
+      console.error('Cannot send message: WebSocket not connected or no current room')
     }
   }
 
@@ -818,6 +827,7 @@ export const GameProvider = ({ children }) => {
     createRoom,
     joinRoom,
     leaveRoom,
+    getCurrentRoom,
     
     // Subject functions
     fetchSubjects,
