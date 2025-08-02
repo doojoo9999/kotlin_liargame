@@ -54,7 +54,7 @@ class AuthService (
 
             saveUserToken(inactiveUser, accessToken)
             saveUserToken(inactiveUser, refreshToken)
-            
+
             return TokenResponse(accessToken = accessToken, refreshToken = refreshToken)
         }
 
@@ -68,64 +68,61 @@ class AuthService (
 
         saveUserToken(newUser, accessToken)
         saveUserToken(newUser, refreshToken)
-        
+
         return TokenResponse(accessToken = accessToken, refreshToken = refreshToken)
     }
-    
+
     @Transactional
     fun refresh(request: RefreshRequest): TokenResponse {
-        // Validate refresh token format and signature
         if (!jwtProvider.validateToken(request.refreshToken)) {
             logger.debug("리프레시 토큰 검증 실패: 유효하지 않은 토큰")
             throw IllegalArgumentException("유효하지 않은 리프레시 토큰입니다.")
         }
-        
-        // Check if refresh token exists in database and is not expired
+
         if (!jwtProvider.isTokenInDatabase(request.refreshToken)) {
             logger.debug("리프레시 토큰 검증 실패: 데이터베이스에 존재하지 않거나 만료됨")
             throw IllegalArgumentException("만료되었거나 존재하지 않는 리프레시 토큰입니다.")
         }
-        
-        // Extract user information from refresh token
-        val userId = jwtProvider.getClaims(request.refreshToken).subject.toLong()
+
+        val claims = jwtProvider.getClaimsSafely(request.refreshToken)
+            ?: throw IllegalArgumentException("토큰에서 정보를 추출할 수 없습니다.")
+
+        val userId = claims.subject.toLong()
         val nickname = jwtProvider.getNickname(request.refreshToken)
-        
-        // Find user in database
+            ?: throw IllegalArgumentException("토큰에서 닉네임을 추출할 수 없습니다.")
+
         val user = userRepository.findById(userId).orElse(null)
             ?: throw IllegalArgumentException("사용자를 찾을 수 없습니다.")
-        
-        // Verify user is still active and authenticated
+
         if (!user.isActive) {
             logger.debug("리프레시 토큰 검증 실패: 비활성 사용자 - {}", nickname)
             throw IllegalArgumentException("비활성 사용자입니다.")
         }
-        
-        // Generate new token pair
+
         val newAccessToken = jwtProvider.generateAccessToken(user.id, user.nickname)
         val newRefreshToken = jwtProvider.generateRefreshToken(user.id, user.nickname)
-        
-        // Invalidate old refresh token
+
         userTokenRepository.deleteByToken(request.refreshToken)
-        
-        // Save new tokens
+
         saveUserToken(user, newAccessToken)
         saveUserToken(user, newRefreshToken)
-        
+
         logger.debug("토큰 리프레시 성공 - 사용자: {}", nickname)
-        
+
         return TokenResponse(accessToken = newAccessToken, refreshToken = newRefreshToken)
     }
-    
+
     @Transactional
     fun saveUserToken(user: UserEntity, token: String) {
         val expiresAt = jwtProvider.getTokenExpirationTime(token)
+            ?: throw IllegalArgumentException("토큰 만료 시간을 가져올 수 없습니다.")
 
         val userToken = UserTokenEntity.create(user, token, expiresAt)
         userTokenRepository.save(userToken)
-        
+
         logger.debug("Token saved for user: {}, expires at: {}", user.nickname, expiresAt)
     }
-    
+
     @Transactional
     fun invalidateUserTokens(userId: Long) {
         val user = userRepository.findById(userId).orElse(null) ?: return
@@ -138,7 +135,7 @@ class AuthService (
             logger.debug("Invalidated {} tokens for user: {}", deletedCount, user.nickname)
         }
     }
-    
+
     @Transactional
     fun cleanupExpiredTokens() {
         val now = LocalDateTime.now()
