@@ -17,6 +17,7 @@ import {
     MenuItem,
     Paper,
     Select,
+    Slider,
     Snackbar,
     Table,
     TableBody,
@@ -72,7 +73,8 @@ function LobbyPage() {
   // Form states for room creation
   const [roomForm, setRoomForm] = useState({
     title: '',
-    maxPlayers: 8,
+    maxPlayers: 6,
+    gTotalRounds: 3,
     password: '',
     subjectId: 1,
     hasPassword: false,
@@ -126,13 +128,43 @@ function LobbyPage() {
     setSnackbar(prev => ({ ...prev, open: false }))
   }
 
+  // Validate form data
+  const validateFormData = (data) => {
+    const errors = []
+    
+    if (!data.title || data.title.trim().length === 0) {
+      errors.push('방 제목을 입력해주세요.')
+    }
+    
+    if (data.maxPlayers < 3 || data.maxPlayers > 15) {
+      errors.push('참가자는 3명에서 15명 사이로 설정해주세요.')
+    }
+    
+    if (data.gTotalRounds < 1 || data.gTotalRounds > 10) {
+      errors.push('라운드는 1라운드에서 10라운드 사이로 설정해주세요.')
+    }
+    
+    if (!data.subjectId) {
+      errors.push('주제를 하나 이상 선택해주세요.')
+    }
+    
+    return errors
+  }
+
   // Handle room creation
   const handleCreateRoom = async () => {
+    const validationErrors = validateFormData(roomForm)
+    
+    if (validationErrors.length > 0) {
+      showSnackbar(validationErrors.join('\n'), 'error')
+      return
+    }
+
     try {
       const roomData = {
         gName: roomForm.title,
         gParticipants: roomForm.maxPlayers,
-        gTotalRounds: 3, // Default value
+        gTotalRounds: roomForm.gTotalRounds,
         gPassword: roomForm.hasPassword ? roomForm.password : null,
         subjectIds: roomForm.subjectId ? [roomForm.subjectId] : null,
         useRandomSubjects: !roomForm.subjectId,
@@ -142,11 +174,13 @@ function LobbyPage() {
       console.log('[DEBUG_LOG] Creating room with data:', roomData)
       await createRoom(roomData)
       setCreateRoomOpen(false)
+      showSnackbar('방이 성공적으로 생성되었습니다.', 'success')
       
       // Reset form
       setRoomForm({
         title: '',
-        maxPlayers: 8,
+        maxPlayers: 6,
+        gTotalRounds: 3,
         password: '',
         subjectId: 1,
         hasPassword: false,
@@ -154,6 +188,20 @@ function LobbyPage() {
       })
     } catch (error) {
       console.error('Failed to create room:', error)
+      
+      // 에러 메시지 파싱 및 사용자 친화적 메시지 표시
+      let errorMessage = '방 생성에 실패했습니다.'
+      
+      if (error.response?.data?.message) {
+        const backendError = error.response.data.message
+        if (backendError.includes('참가자는')) {
+          errorMessage = '참가자 수는 3명에서 15명 사이로 설정해주세요.'
+        } else if (backendError.includes('라운드')) {
+          errorMessage = '라운드 수를 확인해주세요.'
+        }
+      }
+      
+      showSnackbar(errorMessage, 'error')
     }
   }
 
@@ -404,14 +452,49 @@ function LobbyPage() {
               required
             />
             
-            <TextField
-              label="최대 인원"
-              type="number"
-              value={roomForm.maxPlayers}
-              onChange={(e) => handleRoomFormChange('maxPlayers', parseInt(e.target.value))}
-              inputProps={{ min: 3, max: 12 }}
-              fullWidth
-            />
+            <Box sx={{ px: 2, py: 1 }}>
+              <Typography gutterBottom>
+                참가자 수: {roomForm.maxPlayers}명
+              </Typography>
+              <Slider
+                value={roomForm.maxPlayers}
+                onChange={(e, value) => handleRoomFormChange('maxPlayers', value)}
+                min={3}
+                max={15}
+                step={1}
+                marks={[
+                  { value: 3, label: '3명' },
+                  { value: 8, label: '8명' },
+                  { value: 15, label: '15명' }
+                ]}
+                valueLabelDisplay="auto"
+                sx={{ mt: 2, mb: 1 }}
+              />
+              <Typography variant="caption" color="text.secondary">
+                최소 3명, 최대 15명까지 설정 가능합니다.
+              </Typography>
+            </Box>
+
+            <Box sx={{ px: 2, py: 1 }}>
+              <Typography gutterBottom>
+                라운드 수: {roomForm.gTotalRounds}라운드
+              </Typography>
+              <Slider
+                value={roomForm.gTotalRounds}
+                onChange={(e, value) => handleRoomFormChange('gTotalRounds', value)}
+                min={1}
+                max={10}
+                step={1}
+                marks={[
+                  { value: 1, label: '1' },
+                  { value: 3, label: '3' },
+                  { value: 5, label: '5' },
+                  { value: 10, label: '10' }
+                ]}
+                valueLabelDisplay="auto"
+                sx={{ mt: 2, mb: 1 }}
+              />
+            </Box>
 
             <FormControl fullWidth>
               <InputLabel>주제</InputLabel>
