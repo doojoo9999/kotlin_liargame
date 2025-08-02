@@ -19,19 +19,22 @@ export const addUser = async (nickname, profileImgUrl) => {
 
 // 백엔드 데이터를 프론트엔드 형식으로 변환하는 매핑 함수
 const mapBackendRoomToFrontend = (backendRoom) => {
+  console.log('[DEBUG] Mapping backend room:', backendRoom)
+  
+  // 백엔드 필드명 → 프론트엔드 필드명 매핑
   return {
-    gameNumber: backendRoom.gameNumber,
-    title: backendRoom.gameName || backendRoom.title, // gameName → title
-    host: backendRoom.host || '알 수 없음',
-    currentPlayers: backendRoom.playerCount || backendRoom.currentPlayers,
-    maxPlayers: backendRoom.maxPlayers,
-    hasPassword: backendRoom.hasPassword,
-    subject: backendRoom.subject || '주제 없음',
-    state: backendRoom.status || backendRoom.state, // status → state
+    gameNumber: backendRoom.gameNumber || backendRoom.gNumber,
+    title: backendRoom.gameName || backendRoom.gName || backendRoom.title || '제목 없음',
+    host: backendRoom.host || backendRoom.hostName || '알 수 없음',
+    currentPlayers: backendRoom.playerCount || backendRoom.currentPlayers || 0,
+    maxPlayers: backendRoom.maxPlayers || backendRoom.gParticipants || 8,
+    hasPassword: backendRoom.hasPassword || backendRoom.isPasswordProtected || false,
+    subject: backendRoom.subject || backendRoom.gSubject || '주제 없음',
+    state: backendRoom.status || backendRoom.gState || backendRoom.state || 'WAITING',
     // 프론트엔드 추가 필드
     players: backendRoom.players || [],
-    password: backendRoom.password || null,
-    playerCount: backendRoom.playerCount || backendRoom.currentPlayers // LobbyPage에서 사용하는 필드
+    password: null,
+    playerCount: backendRoom.playerCount || backendRoom.currentPlayers || 0 // LobbyPage에서 사용하는 필드
   }
 }
 
@@ -61,12 +64,20 @@ export const getAllRooms = async () => {
     console.log('[DEBUG] Raw API response:', response.data)
     
     let rooms = []
-    if (response.data && response.data.rooms && Array.isArray(response.data.rooms)) {
-      rooms = response.data.rooms
+
+    // ✅ 백엔드 실제 응답 구조에 맞게 수정
+    if (response.data && response.data.gameRooms && Array.isArray(response.data.gameRooms)) {
+      rooms = response.data.gameRooms  // ✅ "gameRooms" 키 사용
+      console.log('[DEBUG] Found gameRooms:', rooms.length, 'rooms')
+    } else if (response.data && response.data.rooms && Array.isArray(response.data.rooms)) {
+      rooms = response.data.rooms      // ✅ 기존 "rooms" 키도 지원 (호환성)
+      console.log('[DEBUG] Found rooms:', rooms.length, 'rooms')
     } else if (Array.isArray(response.data)) {
       rooms = response.data
+      console.log('[DEBUG] Response data is direct array:', rooms.length, 'rooms')
     } else {
       console.warn('[DEBUG] Unexpected API response structure:', response.data)
+      console.warn('[DEBUG] Available keys:', Object.keys(response.data || {}))
       return []
     }
     
