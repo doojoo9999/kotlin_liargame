@@ -238,8 +238,13 @@ function LobbyPage() {
       return
     }
 
-    // Check if subject already exists
-    const existingSubject = subjects.find(s => s.name.toLowerCase() === contentForm.newSubject.trim().toLowerCase())
+    // Check if subject already exists (safe object access)
+    const existingSubject = subjects.find(s => 
+      s && 
+      s.name && 
+      typeof s.name === 'string' && 
+      s.name.toLowerCase() === contentForm.newSubject.trim().toLowerCase()
+    )
     if (existingSubject) {
       showSnackbar('이미 존재하는 주제입니다.', 'error')
       return
