@@ -1,4 +1,5 @@
 import apiClient from './apiClient'
+import config from '../config/environment'
 
 export const login = async (nickname) => {
   const response = await apiClient.post('/auth/login', { nickname })
@@ -17,8 +18,18 @@ export const addUser = async (nickname, profileImgUrl) => {
 }
 
 export const getAllRooms = async () => {
-  const response = await apiClient.get('/game/rooms')
-  return response.data
+  if (config.useDummyData) {
+    console.log('[DEBUG] Using dummy room data (environment setting)')
+    return dummyData.rooms
+  }
+  
+  try {
+    const response = await apiClient.get('/game/rooms')
+    return response.data
+  } catch (error) {
+    console.error('API failed, falling back to dummy data:', error)
+    return dummyData.rooms
+  }
 }
 
 export const createRoom = async (roomData) => {
@@ -54,8 +65,18 @@ export const getGameState = async (gNumber) => {
 // ==================== Subject Operations ====================
 
 export const getAllSubjects = async () => {
-  const response = await apiClient.get('/subjects/listsubj')
-  return response.data
+  if (config.useDummyData) {
+    console.log('[DEBUG] Using dummy subjects data (environment setting)')
+    return dummyData.subjects
+  }
+  
+  try {
+    const response = await apiClient.get('/subjects/listsubj')
+    return response.data
+  } catch (error) {
+    console.error('API failed, falling back to dummy data:', error)
+    return dummyData.subjects
+  }
 }
 
 export const addSubject = async (name) => {

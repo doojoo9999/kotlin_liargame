@@ -1,44 +1,45 @@
 import React, {useEffect, useState} from 'react'
 import {
-    Alert,
-    Box,
-    Button,
-    Checkbox,
-    Chip,
-    CircularProgress,
-    Container,
-    Dialog,
-    DialogActions,
-    DialogContent,
-    DialogTitle,
-    FormControl,
-    FormControlLabel,
-    InputLabel,
-    MenuItem,
-    Paper,
-    Select,
-    Slider,
-    Snackbar,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
-    TextField,
-    Tooltip,
-    Typography
+  Alert,
+  Box,
+  Button,
+  Checkbox,
+  Chip,
+  CircularProgress,
+  Container,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  FormControl,
+  FormControlLabel,
+  InputLabel,
+  MenuItem,
+  Paper,
+  Select,
+  Slider,
+  Snackbar,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TextField,
+  Tooltip,
+  Typography
 } from '@mui/material'
 import {
-    Add as AddIcon,
-    Lock as LockIcon,
-    Login as LoginIcon,
-    Logout as LogoutIcon,
-    People as PeopleIcon,
-    PlayArrow as PlayIcon,
-    Refresh as RefreshIcon
+  Add as AddIcon,
+  Lock as LockIcon,
+  Login as LoginIcon,
+  Logout as LogoutIcon,
+  People as PeopleIcon,
+  PlayArrow as PlayIcon,
+  Refresh as RefreshIcon
 } from '@mui/icons-material'
 import {useGame} from '../context/GameContext'
+import config from '../config/environment'
 
 function LobbyPage() {
   const {
@@ -73,8 +74,8 @@ function LobbyPage() {
   // Form states for room creation
   const [roomForm, setRoomForm] = useState({
     title: '',
-    maxPlayers: 6,
-    gTotalRounds: 3,
+    maxPlayers: config.game.minPlayers,
+    gTotalRounds: config.game.defaultRounds,
     password: '',
     subjectId: 1,
     hasPassword: false,
@@ -459,19 +460,19 @@ function LobbyPage() {
               <Slider
                 value={roomForm.maxPlayers}
                 onChange={(e, value) => handleRoomFormChange('maxPlayers', value)}
-                min={3}
-                max={15}
+                min={config.game.minPlayers}
+                max={config.game.maxPlayers}
                 step={1}
                 marks={[
-                  { value: 3, label: '3명' },
-                  { value: 8, label: '8명' },
-                  { value: 15, label: '15명' }
+                  { value: config.game.minPlayers, label: `${config.game.minPlayers}명` },
+                  { value: Math.floor((config.game.minPlayers + config.game.maxPlayers) / 2), label: `${Math.floor((config.game.minPlayers + config.game.maxPlayers) / 2)}명` },
+                  { value: config.game.maxPlayers, label: `${config.game.maxPlayers}명` }
                 ]}
                 valueLabelDisplay="auto"
                 sx={{ mt: 2, mb: 1 }}
               />
               <Typography variant="caption" color="text.secondary">
-                최소 3명, 최대 15명까지 설정 가능합니다.
+                최소 {config.game.minPlayers}명, 최대 {config.game.maxPlayers}명까지 설정 가능합니다.
               </Typography>
             </Box>
 
@@ -482,14 +483,14 @@ function LobbyPage() {
               <Slider
                 value={roomForm.gTotalRounds}
                 onChange={(e, value) => handleRoomFormChange('gTotalRounds', value)}
-                min={1}
-                max={10}
+                min={config.game.minRounds}
+                max={config.game.maxRounds}
                 step={1}
                 marks={[
-                  { value: 1, label: '1' },
-                  { value: 3, label: '3' },
-                  { value: 5, label: '5' },
-                  { value: 10, label: '10' }
+                  { value: config.game.minRounds, label: `${config.game.minRounds}` },
+                  { value: config.game.defaultRounds, label: `${config.game.defaultRounds}` },
+                  { value: Math.floor((config.game.minRounds + config.game.maxRounds) / 2), label: `${Math.floor((config.game.minRounds + config.game.maxRounds) / 2)}` },
+                  { value: config.game.maxRounds, label: `${config.game.maxRounds}` }
                 ]}
                 valueLabelDisplay="auto"
                 sx={{ mt: 2, mb: 1 }}

@@ -1,14 +1,21 @@
 import axios from 'axios'
-
+import config from '../config/environment'
 
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:20021/api/v1',
-  timeout: 10000, // 10 seconds timeout
+  baseURL: config.apiBaseUrl + '/api/v1',
+  timeout: config.timeouts.apiRequest,
   headers: {
     'Content-Type': 'application/json',
   },
 })
 
+// 환경별 로깅 설정
+if (config.enableDebugLogs) {
+  apiClient.interceptors.request.use(request => {
+    console.log('[API REQUEST]', request.method?.toUpperCase(), request.url)
+    return request
+  })
+}
 
 apiClient.interceptors.request.use(
   (config) => {
