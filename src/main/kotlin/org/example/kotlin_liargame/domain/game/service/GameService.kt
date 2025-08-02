@@ -30,15 +30,21 @@ class GameService(
 
     private fun validateExistingOwner() {
         val userId = getCurrentUserId()
-        
-        // Check if user is actually participating in any active game
-        val activeGames = gameRepository.findAllActiveGames()
+
+        val activeGames = gameRepository.findAll()
+            .filter { it.gState == GameState.WAITING ||
+            it.gState == GameState.IN_PROGRESS }
+
         for (game in activeGames) {
             val playerInGame = playerRepository.findByGameAndUserId(game, userId)
             if (playerInGame != null) {
+                println("[DEBUG] User already in game: gameId = ${game.gNumber}, state = ${game.gState}")
                 throw RuntimeException("이미 진행중인 게임에 참여하고 있습니다.")
             }
         }
+
+        println("[DEBUG] validateExistingOwner passed")
+
     }
 
     private fun findNextAvailableRoomNumber(): Int {
@@ -180,83 +186,49 @@ class GameService(
         playerRepository.save(player)
     }
 
-    @Transactional
+    @Transactional  
     fun leaveGame(req: LeaveGameRequest): Boolean {
-        req.validate()
+        println("[DEBUG] LeaveGame request: gNumber = ${req.gNumber}")
 
         val game = gameRepository.findBygNumber(req.gNumber)
-            ?: throw RuntimeException("Game not found")
+            ?: throw RuntimeException("게임을 찾을 수 없습니다: ${req.gNumber}")
 
         val userId = getCurrentUserId()
         val leavingPlayer = playerRepository.findByGameAndUserId(game, userId)
-            ?: throw RuntimeException("You are not in this game")
+            ?: throw RuntimeException("해당 게임에 참여하고 있지 않습니다")
 
-        // 방장이 나가는 경우
+        println("[DEBUG] Player leaving: ${leavingPlayer.nickname}, isOwner: ${leavingPlayer.nickname == game.gOwner}")
+
+        playerRepository.delete(leavingPlayer)
+        playerRepository.flush()
+
         if (leavingPlayer.nickname == game.gOwner) {
-            // 현재 게임의 모든 플레이어 조회 (나가는 플레이어 제외)
             val remainingPlayers = playerRepository.findByGame(game)
-                .filter { it.id != leavingPlayer.id }
-                .sortedBy { it.id } // ID 순서로 정렬 (입장 순서)
-            
+                .sortedBy { it.id }
+
             if (remainingPlayers.isNotEmpty()) {
-                // ✅ 다음 플레이어에게 방장 권한 이양
                 val newOwner = remainingPlayers.first()
                 game.gOwner = newOwner.nickname
-                gameRepository.save(game)
-                
-                // 나가는 플레이어만 제거
-                playerRepository.delete(leavingPlayer)
-                
-                // 게임이 진행 중이고 최소 인원 미달 시 대기 상태로 변경
-                val remainingCount = remainingPlayers.size
-                if (game.gState == GameState.IN_PROGRESS && remainingCount < 3) {
-                    game.gState = GameState.WAITING
-                    game.gCurrentRound = 1
-                    gameRepository.save(game)
-                    
-                    // 모든 플레이어 상태 초기화
-                    remainingPlayers.forEach { player ->
-                        player.resetForNewRound()
-                        player.isAlive = true
-                        playerRepository.save(player)
-                    }
-                }
+                println("[DEBUG] Owner delegated to: ${newOwner.nickname}")
             } else {
-                // ✅ 마지막 플레이어(방장)가 나가는 경우에만 게임 종료
-                game.endGame()
-                gameRepository.save(game)
-                playerRepository.delete(leavingPlayer)
-            }
-        } else {
-            // ✅ 일반 플레이어가 나가는 경우
-            playerRepository.delete(leavingPlayer)
-            
-            // 남은 플레이어 수 확인 및 상태 관리
-            val remainingPlayerCount = playerRepository.countByGame(game)
-            
-            if (remainingPlayerCount < 3 && game.gState == GameState.IN_PROGRESS) {
-                game.gState = GameState.WAITING
-                game.gCurrentRound = 1
-                gameRepository.save(game)
-                
-                // 남은 플레이어들 상태 초기화
-                val remainingPlayers = playerRepository.findByGame(game)
-                remainingPlayers.forEach { player ->
-                    player.resetForNewRound()
-                    player.isAlive = true
-                    playerRepository.save(player)
-                }
-            }
-            
-            if (remainingPlayerCount == 0) {
-                game.endGame()
-                gameRepository.save(game)
+                game.gState = GameState.ENDED
+                println("[DEBUG] Game ended - no remaining players")
             }
         }
 
+    val remainingCount = playerRepository.countByGame(game)
+        if (remainingCount == 0) {
+            game.gState = GameState.ENDED
+        } else if (remainingCount < 3 && game.gState == GameState.IN_PROGRESS) {
+            game.gState = GameState.WAITING
+            game.gCurrentRound = 1
+        }
+
+        gameRepository.save(game)
+        gameRepository.flush()
+        println("[DEBUG] LeaveGame completed successfully")
         return true
     }
-
 
     @Transactional
     fun startGame(req: StartGameRequest): GameStateResponse {
