@@ -225,8 +225,8 @@ function GameRoomPage() {
       <AppBar position="static" color="primary">
         <Toolbar>
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            {currentRoom.subject?.name && `[${currentRoom.subject.name}] `}
-            게임 방 #{currentRoom.gameNumber}
+            {currentRoom.title || '제목 없음'} #{currentRoom.gameNumber}
+            {currentRoom.subject?.name && ` - [${currentRoom.subject.name}]`}
           </Typography>
           
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -241,7 +241,7 @@ function GameRoomPage() {
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'white' }}>
               <PeopleIcon />
               <Typography variant="body2">
-                {players.length}/{currentRoom.maxPlayers || 8}
+                {players.length}/{currentRoom.maxPlayers || parseInt(localStorage.getItem('lastCreatedRoomMaxPlayers')) || 8}
               </Typography>
             </Box>
             
