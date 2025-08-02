@@ -404,15 +404,32 @@ export const GameProvider = ({ children }) => {
       
       const result = await gameApi.createRoom(roomData)
       
-      // Join the created room
-      const roomInfo = await gameApi.getRoomInfo(result.gameNumber || result)
-      dispatch({ type: ActionTypes.SET_CURRENT_ROOM, payload: roomInfo })
+      // 실제 생성된 방 정보를 사용하도록 수정
+      const createdRoom = {
+        gameNumber: result.gameNumber || result,
+        title: roomData.gName,
+        maxPlayers: roomData.gParticipants,
+        currentPlayers: 1,
+        gameState: 'WAITING',
+        subject: roomData.subjectIds?.length > 0 ? await getSubjectById(roomData.subjectIds[0]) : null,
+        players: [{
+          id: state.currentUser.id,
+          nickname: state.currentUser.nickname,
+          isHost: true,
+          isAlive: true,
+          avatarUrl: null
+        }],
+        password: roomData.gPassword,
+        rounds: roomData.gTotalRounds
+      }
+      
+      dispatch({ type: ActionTypes.SET_CURRENT_ROOM, payload: createdRoom })
       
       // Refresh room list
       await fetchRooms()
       
       setLoading('room', false)
-      return result
+      return createdRoom
     } catch (error) {
       console.error('Failed to create room:', error)
       setError('room', '방 생성에 실패했습니다.')
@@ -489,6 +506,22 @@ export const GameProvider = ({ children }) => {
       console.error('Failed to fetch subjects:', error)
       setError('subjects', '주제 목록을 불러오는데 실패했습니다.')
       setLoading('subjects', false)
+    }
+  }
+
+  const getSubjectById = async (subjectId) => {
+    try {
+      // subjects 배열에서 찾기
+      const subject = state.subjects.find(s => s.id === subjectId)
+      if (subject) return subject
+      
+      // 없으면 API에서 가져오기 (필요시)
+      const allSubjects = await gameApi.getAllSubjects()
+      const foundSubject = allSubjects.find(s => s.id === subjectId)
+      return foundSubject || { id: subjectId, name: '알 수 없는 주제' }
+    } catch (error) {
+      console.error('Failed to get subject:', error)
+      return { id: subjectId, name: '주제 오류' }
     }
   }
 
@@ -665,6 +698,33 @@ export const GameProvider = ({ children }) => {
     }
   }
 
+  const sendChatMessage = (content) => {
+    const isDummyMode = import.meta.env.VITE_USE_DUMMY_WEBSOCKET === 'true'
+    
+    if (isDummyMode) {
+      // 더미 모드에서는 로컬에서 메시지 처리
+      console.log('[DEBUG_LOG] Sending chat message in dummy mode:', content)
+      const dummyMessage = {
+        id: Date.now(),
+        sender: state.currentUser?.nickname || 'Unknown',
+        content: content,
+        isSystem: false,
+        timestamp: new Date().toISOString()
+      }
+      dispatch({ type: ActionTypes.ADD_CHAT_MESSAGE, payload: dummyMessage })
+      return
+    }
+    
+    // 실제 WebSocket을 통한 메시지 전송
+    if (socketRef.current && state.currentRoom) {
+      console.log('[DEBUG_LOG] Sending chat message via WebSocket:', content)
+      socketRef.current.emit('sendMessage', {
+        roomId: state.currentRoom.gameNumber,
+        message: content
+      })
+    }
+  }
+
   // Auto-authenticate on mount
   useEffect(() => {
     const token = localStorage.getItem('accessToken')
@@ -721,7 +781,8 @@ export const GameProvider = ({ children }) => {
     
     // Game functions
     startGame,
-    castVote
+    castVote,
+    sendChatMessage
   }
 
   return (
