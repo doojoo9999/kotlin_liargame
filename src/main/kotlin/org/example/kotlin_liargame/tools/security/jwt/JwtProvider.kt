@@ -1,6 +1,7 @@
 package org.example.kotlin_liargame.tools.security.jwt
 
 import io.jsonwebtoken.Claims
+import io.jsonwebtoken.ExpiredJwtException
 import io.jsonwebtoken.Jwts
 import io.jsonwebtoken.security.Keys
 import org.example.kotlin_liargame.domain.user.repository.UserTokenRepository
@@ -39,8 +40,11 @@ class JwtProvider(
             }
             
             return true
+        } catch (e: ExpiredJwtException) {
+            logger.debug("Token is expired: ${e.message}")
+            false
         } catch (e: Exception) {
-            logger.error("Error validating token", e)
+            logger.error("Error validating token: ${e.message}")
             false
         }
     }
@@ -71,8 +75,16 @@ class JwtProvider(
         return generateToken(userId.toString(), nickname, REFRESH_TOKEN_EXPIRE_TIME)
     }
 
-    fun getNickname(token: String): String {
-        return getClaims(token).get("nickname", String::class.java)
+    fun getNickname(token: String): String? {
+        return try {
+            getClaims(token).get("nickname", String::class.java)
+        } catch (e: ExpiredJwtException) {
+            logger.debug("Cannot get nickname from expired token")
+            null
+        } catch (e: Exception) {
+            logger.error("Error getting nickname from token", e)
+            null
+        }
     }
 
     fun getClaims(token: String): Claims {
@@ -81,6 +93,18 @@ class JwtProvider(
             .build()
             .parseClaimsJws(token)
             .body
+    }
+
+    fun getClaimsSafely(token: String): Claims? {
+        return try {
+            getClaims(token)
+        } catch (e: ExpiredJwtException) {
+            logger.debug("Token is expired, cannot get claims")
+            null
+        } catch (e: Exception) {
+            logger.error("Error getting claims from token", e)
+            null
+        }
     }
 
     fun generateToken(userId: String, nickname: String, expireTime: Long): String {
@@ -98,9 +122,17 @@ class JwtProvider(
             .compact()
     }
     
-    fun getTokenExpirationTime(token: String): LocalDateTime {
-        val claims = getClaims(token)
-        return convertToLocalDateTime(claims.expiration)
+    fun getTokenExpirationTime(token: String): LocalDateTime? {
+        return try {
+            val claims = getClaims(token)
+            convertToLocalDateTime(claims.expiration)
+        } catch (e: ExpiredJwtException) {
+            logger.debug("Cannot get expiration time from expired token")
+            null
+        } catch (e: Exception) {
+            logger.error("Error getting token expiration time", e)
+            null
+        }
     }
     
     fun convertToLocalDateTime(date: Date): LocalDateTime {
