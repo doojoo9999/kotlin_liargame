@@ -503,21 +503,49 @@ export const GameProvider = ({ children }) => {
       setLoading('subjects', true)
       setError('subjects', null)
       
-      // Use dummy data if needed
-      const useDummy = import.meta.env.VITE_USE_DUMMY_WEBSOCKET === 'true'
+      // Use dummy data if needed (fix: use correct environment variable)
+      const useDummy = import.meta.env.VITE_USE_DUMMY_DATA === 'true'
       
       if (useDummy) {
-        console.log('[DEBUG_LOG] Using dummy subjects data')
+        console.log('[DEBUG_LOG] Using dummy subjects data (environment setting)')
         dispatch({ type: ActionTypes.SET_SUBJECTS, payload: gameApi.dummyData.subjects })
       } else {
+        console.log('[DEBUG_LOG] Fetching subjects from API')
         const subjects = await gameApi.getAllSubjects()
-        dispatch({ type: ActionTypes.SET_SUBJECTS, payload: subjects })
+        
+        // ✅ 배열 및 데이터 구조 검증
+        if (!Array.isArray(subjects)) {
+          console.error('[ERROR] Expected subjects array but got:', typeof subjects, subjects)
+          setError('subjects', '주제 데이터 형식이 올바르지 않습니다.')
+          dispatch({ type: ActionTypes.SET_SUBJECTS, payload: [] })
+          setLoading('subjects', false)
+          return
+        }
+        
+        // ✅ 각 주제 객체의 필드 검증
+        const validSubjects = subjects.filter(subject => 
+          subject && 
+          typeof subject === 'object' && 
+          subject.hasOwnProperty('id') && 
+          subject.hasOwnProperty('name') &&
+          subject.name &&
+          typeof subject.name === 'string'
+        )
+        
+        if (validSubjects.length !== subjects.length) {
+          console.warn('[WARN] Some subjects have invalid structure:', 
+            subjects.filter(s => !validSubjects.includes(s)))
+        }
+        
+        console.log('[DEBUG_LOG] Successfully fetched subjects:', validSubjects.length, 'subjects')
+        dispatch({ type: ActionTypes.SET_SUBJECTS, payload: validSubjects })
       }
       
       setLoading('subjects', false)
     } catch (error) {
       console.error('Failed to fetch subjects:', error)
       setError('subjects', '주제 목록을 불러오는데 실패했습니다.')
+      dispatch({ type: ActionTypes.SET_SUBJECTS, payload: [] })
       setLoading('subjects', false)
     }
   }
@@ -543,11 +571,23 @@ export const GameProvider = ({ children }) => {
       setLoading('subjects', true)
       setError('subjects', null)
       
+      console.log('[DEBUG_LOG] Adding subject:', name)
       const result = await gameApi.addSubject(name)
+      console.log('[DEBUG_LOG] Add subject API response:', result)
       
-      // Add to local state
-      const newSubject = { id: result.id || Date.now(), name: name }
-      dispatch({ type: ActionTypes.ADD_SUBJECT, payload: newSubject })
+      // ✅ 응답 검증 후 상태 업데이트
+      if (result && (result.id || result.subjectId) && (result.name || name)) {
+        const newSubject = { 
+          id: result.id || result.subjectId || Date.now(), 
+          name: result.name || name 
+        }
+        dispatch({ type: ActionTypes.ADD_SUBJECT, payload: newSubject })
+        console.log('[DEBUG_LOG] Subject added to local state:', newSubject)
+      } else {
+        // 응답이 없거나 불완전한 경우 다시 fetch
+        console.log('[DEBUG_LOG] Invalid add subject response, refetching all subjects')
+        await fetchSubjects()
+      }
       
       setLoading('subjects', false)
       return result
