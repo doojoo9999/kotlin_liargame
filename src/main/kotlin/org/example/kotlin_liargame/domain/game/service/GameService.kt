@@ -28,10 +28,16 @@ class GameService(
     private val chatService: org.example.kotlin_liargame.domain.chat.service.ChatService
 ) {
 
-    private fun validateExistingOwner(ownerName: String) {
-        val existingGame = gameRepository.findBygOwner(ownerName)
-        if (existingGame != null && existingGame.gState != GameState.ENDED) {
-            throw RuntimeException("이미 진행중인 게임을 보유하고 있습니다.")
+    private fun validateExistingOwner() {
+        val userId = getCurrentUserId()
+        
+        // Check if user is actually participating in any active game
+        val activeGames = gameRepository.findAllActiveGames()
+        for (game in activeGames) {
+            val playerInGame = playerRepository.findByGameAndUserId(game, userId)
+            if (playerInGame != null) {
+                throw RuntimeException("이미 진행중인 게임에 참여하고 있습니다.")
+            }
         }
     }
 
@@ -65,7 +71,7 @@ class GameService(
         req.validate()
 
         val nickname = getCurrentUserNickname()
-        validateExistingOwner(nickname)
+        validateExistingOwner()
 
         val nextRoomNumber = findNextAvailableRoomNumber()
         val newGame = req.to(nextRoomNumber, nickname)
