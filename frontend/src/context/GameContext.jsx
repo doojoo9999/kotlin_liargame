@@ -646,23 +646,25 @@ export const GameProvider = ({ children }) => {
       
       console.log('[DEBUG_LOG] Connecting to STOMP server for game:', gameNumber)
       
-      // STOMP 연결
       await gameStompClient.connect()
       
-      // 채팅 메시지 구독 (백엔드 형식에 맞춤)
       gameStompClient.subscribeToGameChat(gameNumber, (message) => {
         console.log('[DEBUG_LOG] Received chat message:', message)
-        
-        // 메시지 형식 정규화
+
         const chatMessage = {
           id: message.id || Date.now(),
-          content: message.content || message.message || '',
-          playerName: message.playerName || message.nickname || 'Unknown',
-          timestamp: message.timestamp || new Date().toISOString(),
-          type: message.type || 'LOBBY'
+          sender: message.playerNickname || '익명',
+          content: message.content,
+          timestamp: message.timestamp,
+          playerId: message.playerId,
+          playerNickname: message.playerNickname,
+          type: message.type,
+          isSystem: false
         }
-        
+        console.log('[DEBUG_LOG] Converted chat message for frontend:', chatMessage)
+
         dispatch({ type: ActionTypes.ADD_CHAT_MESSAGE, payload: chatMessage })
+
       })
       
       // 게임 상태 업데이트 구독
