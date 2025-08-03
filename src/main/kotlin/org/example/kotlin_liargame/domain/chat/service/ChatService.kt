@@ -44,11 +44,52 @@ class ChatService(
             return principal.userId
         }
 
-        // WebSocket에서는 SecurityContext가 비어있을 수 있으므로 기본값 반환
         println("[WARN] No authentication found in SecurityContext, using default user ID")
         return 1L
     }
 
+    fun getCurrentUserIdForWebSocket(overrideUserId: Long?): Long {
+        if (overrideUserId != null) return overrideUserId
+        
+        val authentication = SecurityContextHolder.getContext().authentication
+        if (authentication?.principal is UserPrincipal) {
+            return (authentication.principal as UserPrincipal).userId
+        }
+        println("[WARN] No authentication found for WebSocket, using default user ID")
+        return 1L
+    }
+
+    @Transactional
+    fun sendMessageViaWebSocket(req: SendChatMessageRequest, sessionUserId: Long? = null): ChatMessageResponse {
+        req.validate()
+        
+        val game = gameRepository.findBygNumber(req.gNumber)
+            ?: throw RuntimeException("Game not found")
+        
+        val userId = getCurrentUserIdForWebSocket(sessionUserId)
+        println("[DEBUG] WebSocket message from userId: $userId")
+        
+        val player = playerRepository.findByGameAndUserId(game, userId)
+            ?: throw RuntimeException("You are not in this game")
+        
+        val messageType = if (game.gState == GameState.WAITING) {
+            ChatMessageType.LOBBY
+        } else {
+            determineMessageType(game, player) ?: ChatMessageType.POST_ROUND
+        }
+        
+        val chatMessage = ChatMessageEntity(
+            game = game,
+            player = player,
+            content = req.content,
+            type = messageType
+        )
+        
+        val savedMessage = chatMessageRepository.save(chatMessage)
+        println("[DEBUG] Chat message saved to database: ${savedMessage.id}")
+        
+        return ChatMessageResponse.from(savedMessage)
+    }
 
     @Transactional
     fun sendMessage(req: SendChatMessageRequest, overrideUserId: Long? = null): ChatMessageResponse {

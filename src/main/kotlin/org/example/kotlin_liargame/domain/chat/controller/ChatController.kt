@@ -34,17 +34,25 @@ class ChatController(
         headerAccessor: SimpMessageHeaderAccessor
     ) {
         try {
+            println("[DEBUG] Received WebSocket chat message: $request")
+            
+            // ✅ 세션에서 userId 추출 시도 (실패해도 서비스에서 처리)
             val sessionAttributes = headerAccessor.sessionAttributes
-            val userId = sessionAttributes?.get("userId") as? Long
-
-            val response = chatService.sendMessage(request, userId)
+            val sessionUserId = sessionAttributes?.get("userId") as? Long
+            println("[DEBUG] Session userId: $sessionUserId")
             
-            messagingTemplate.convertAndSend("/topic/chat.${request.gNumber}", response)
+            // ✅ 서비스에서 모든 인증 로직 처리
+            val response = chatService.sendMessageViaWebSocket(request, sessionUserId)
             
-            println("[DEBUG] Broadcasting chat message to /topic/chat.${request.gNumber}: $response")
+            // ✅ 브로드캐스트 실행
+            val topic = "/topic/chat.${request.gNumber}"
+            messagingTemplate.convertAndSend(topic, response)
+            
+            println("[DEBUG] Broadcasting chat message to $topic: $response")
+            println("[SUCCESS] WebSocket chat message processed successfully")
             
         } catch (e: Exception) {
-            println("[ERROR] Failed to handle WebSocket chatting message: ${e.message}")
+            println("[ERROR] Failed to handle WebSocket chat message: ${e.message}")
             e.printStackTrace()
         }
     }
