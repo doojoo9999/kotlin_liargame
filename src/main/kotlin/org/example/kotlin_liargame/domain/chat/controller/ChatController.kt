@@ -22,21 +22,30 @@ class ChatController(
     @PostMapping("/send")
     fun sendMessage(@RequestBody request: SendChatMessageRequest): ResponseEntity<ChatMessageResponse> {
         val response = chatService.sendMessage(request)
+        
+        messagingTemplate.convertAndSend("/topic/chat.${request.gNumber}", response)
+        
         return ResponseEntity.ok(response)
     }
     
-        @MessageMapping("/chat.send")
-    fun handleChatMessage(@Payload request: SendChatMessageRequest,
-    headerAccessor: SimpMessageHeaderAccessor
+    @MessageMapping("/chat.send")
+    fun handleChatMessage(
+        @Payload request: SendChatMessageRequest,
+        headerAccessor: SimpMessageHeaderAccessor
     ) {
         try {
             val sessionAttributes = headerAccessor.sessionAttributes
             val userId = sessionAttributes?.get("userId") as? Long
 
             val response = chatService.sendMessage(request, userId)
+            
             messagingTemplate.convertAndSend("/topic/chat.${request.gNumber}", response)
+            
+            println("[DEBUG] Broadcasting chat message to /topic/chat.${request.gNumber}: $response")
+            
         } catch (e: Exception) {
             println("[ERROR] Failed to handle WebSocket chatting message: ${e.message}")
+            e.printStackTrace()
         }
     }
 
