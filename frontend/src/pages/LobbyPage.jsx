@@ -227,17 +227,21 @@ function LobbyPage() {
     }
   }
 
-  // Handle room join
   const handleJoinRoom = async () => {
     try {
       await joinRoom(selectedRoom.gameNumber, joinPassword)
       setJoinRoomOpen(false)
       setJoinPassword('')
       setSelectedRoom(null)
+
+      setTimeout(() => {
+        fetchRooms()
+      }, 1000)
     } catch (error) {
       console.error('Failed to join room:', error)
     }
   }
+
 
   // Open join room dialog
   const openJoinDialog = (room) => {
@@ -456,7 +460,7 @@ function LobbyPage() {
                     <TableCell align="center">
                       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
                         <PeopleIcon fontSize="small" />
-                        {room.playerCount}/{room.maxPlayers}
+                        {room.playerCount || room.currentPlayers || 0}/{room.maxPlayers}
                       </Box>
                     </TableCell>
                     <TableCell align="center">
@@ -482,7 +486,11 @@ function LobbyPage() {
                         size="small"
                         startIcon={room.state === 'WAITING' ? <LoginIcon /> : <PlayIcon />}
                         onClick={() => openJoinDialog(room)}
-                        disabled={room.state === 'FINISHED' || room.playerCount >= room.maxPlayers}
+                        disabled={
+                            room.state === 'FINISHED' ||
+                            room.state === 'ENDED' ||
+                            (parseInt(room.currentPlayers || room.playerCount || 0) >= parseInt(room.maxPlayers || 0))
+                      }
                       >
                         {room.state === 'WAITING' ? '입장' : '관전'}
                       </Button>
