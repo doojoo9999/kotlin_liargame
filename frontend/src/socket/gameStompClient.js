@@ -94,19 +94,19 @@ class GameStompClient {
 
     // 게임방 구독
     subscribeToGameRoom(gameNumber, callback) {
-        const topic = `/topic/game/${gameNumber}`
+        const topic = `/topic/game.${gameNumber}`
         return this.subscribe(topic, callback)
     }
 
     // 채팅 구독
     subscribeToGameChat(gameNumber, callback) {
-        const topic = `/topic/chat/${gameNumber}`
+        const topic = `/topic/chat.${gameNumber}`
         return this.subscribe(topic, callback)
     }
 
     // 플레이어 업데이트 구독
     subscribeToPlayerUpdates(gameNumber, callback) {
-        const topic = `/topic/players/${gameNumber}`
+        const topic = `/topic/players.${gameNumber}`
         return this.subscribe(topic, callback)
     }
 
@@ -144,8 +144,11 @@ class GameStompClient {
 
     // 채팅 메시지 전송
     sendChatMessage(gameNumber, message) {
-        const destination = `/app/chat/${gameNumber}`
-        this.send(destination, { message })
+        const destination = `/app/chat.send`
+        this.send(destination, { 
+            gNumber: parseInt(gameNumber),
+            content: message 
+        })
     }
 
     // 게임 액션 전송
@@ -157,18 +160,25 @@ class GameStompClient {
     send(destination, body = {}, headers = {}) {
         if (!this.isConnected || !this.client) {
             console.warn('[DEBUG_LOG] Game STOMP not connected, cannot send to:', destination)
-            return
+            return false
         }
 
         console.log('[DEBUG_LOG] Game STOMP sending to', destination, ':', body)
-        this.client.publish({
-            destination,
-            body: JSON.stringify(body),
-            headers: {
-                'content-type': 'application/json',
-                ...headers
-            }
-        })
+        
+        try {
+            this.client.publish({
+                destination,
+                body: JSON.stringify(body),
+                headers: {
+                    'content-type': 'application/json',
+                    ...headers
+                }
+            })
+            return true
+        } catch (error) {
+            console.error('[DEBUG_LOG] Failed to send STOMP message:', error)
+            return false
+        }
     }
 
     disconnect() {
