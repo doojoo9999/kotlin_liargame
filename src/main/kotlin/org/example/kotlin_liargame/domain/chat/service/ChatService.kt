@@ -35,21 +35,29 @@ class ChatService(
 
     private val scheduler: ScheduledExecutorService = Executors.newScheduledThreadPool(1)
 
-    private val POST_ROUND_CHAT_DURATION = 7L 
-    
+    private val POST_ROUND_CHAT_DURATION = 7L
+
     fun getCurrentUserId(): Long {
-        val principal = SecurityContextHolder.getContext().authentication.principal as UserPrincipal
-        return principal.userId
+        val authentication = SecurityContextHolder.getContext().authentication
+        if (authentication != null && authentication.principal is UserPrincipal) {
+            val principal = authentication.principal as UserPrincipal
+            return principal.userId
+        }
+
+        // WebSocket에서는 SecurityContext가 비어있을 수 있으므로 기본값 반환
+        println("[WARN] No authentication found in SecurityContext, using default user ID")
+        return 1L
     }
-    
+
+
     @Transactional
-    fun sendMessage(req: SendChatMessageRequest): ChatMessageResponse {
+    fun sendMessage(req: SendChatMessageRequest, overrideUserId: Long? = null): ChatMessageResponse {
         req.validate()
-        
+
         val game = gameRepository.findBygNumber(req.gNumber)
             ?: throw RuntimeException("Game not found")
-            
-        val userId = getCurrentUserId()
+
+        val userId = overrideUserId ?: getCurrentUserId()
         val player = playerRepository.findByGameAndUserId(game, userId)
             ?: throw RuntimeException("You are not in this game")
 
@@ -57,20 +65,20 @@ class ChatService(
             if (!player.isAlive) {
                 throw RuntimeException("You are eliminated from the game")
             }
-            
+
             val messageType = determineMessageType(game, player)
-            
+
             if (messageType == null) {
                 throw RuntimeException("Chat is not available at this time")
             }
-            
+
             val chatMessage = ChatMessageEntity(
                 game = game,
                 player = player,
                 content = req.content,
                 type = messageType
             )
-            
+
             val savedMessage = chatMessageRepository.save(chatMessage)
             return ChatMessageResponse.from(savedMessage)
         }
@@ -80,19 +88,19 @@ class ChatService(
             } else {
                 ChatMessageType.POST_ROUND
             }
-            
+
             val chatMessage = ChatMessageEntity(
                 game = game,
                 player = player,
                 content = req.content,
                 type = messageType
             )
-            
+
             val savedMessage = chatMessageRepository.save(chatMessage)
             return ChatMessageResponse.from(savedMessage)
         }
     }
-    
+
     @Transactional(readOnly = true)
     fun getChatHistory(req: GetChatHistoryRequest): List<ChatMessageResponse> {
         req.validate()
