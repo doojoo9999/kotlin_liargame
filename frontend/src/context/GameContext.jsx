@@ -897,33 +897,49 @@ export const GameProvider = ({ children }) => {
   }
 
   useEffect(() => {
-    const subscribeToSubjectUpdates = () => {
-      if (gameStompClient && gameStompClient.isClientConnected()) {
-        const subscription = gameStompClient.subscribe('/topic/subjects', (message) => {
-          console.log('[DEBUG] Subject update received:', message)
+    const subscribeToGlobalSubjects = async () => {
+      try {
+        if (!gameStompClient.isClientConnected()) {
+          console.log('[DEBUG] Connecting to STOMP for global subject updates')
+          await gameStompClient.connect()
+        }
+        
+        gameStompClient.subscribe('/topic/subjects', (message) => {
+          console.log('[DEBUG] Global subject update received:', message)
 
           if (message.type === 'SUBJECT_ADDED') {
+            // 새로운 주제 추가
             dispatch({
               type: ActionTypes.ADD_SUBJECT,
-              payload: message.subject
+              payload: {
+                id: message.subject.id,
+                name: message.subject.name
+              }
             })
             console.log('[DEBUG] New subject added via WebSocket:', message.subject)
+          } else if (message.type === 'SUBJECT_DELETED') {
+            // 주제 삭제 (나중에 구현 시)
+            console.log('[DEBUG] Subject deleted via WebSocket:', message.subjectId)
           }
         })
-
-        return subscription
+        
+        dispatch({ type: ActionTypes.SET_SOCKET_CONNECTION, payload: true })
+        
+      } catch (error) {
+        console.error('[DEBUG] Failed to set up global subject subscription:', error)
       }
-      return null
     }
 
-    const subscription = subscribeToSubjectUpdates()
+    if (state.isAuthenticated) {
+      subscribeToGlobalSubjects()
+    }
 
     return () => {
-      if (subscription) {
-        subscription.unsubscribe()
+      if (gameStompClient.isClientConnected()) {
+        gameStompClient.unsubscribe('/topic/subjects')
       }
     }
-  }, [gameStompClient?.isConnected])
+  }, [state.isAuthenticated]) // 인증 상태 변경 시에만 실행
 
 
   return (

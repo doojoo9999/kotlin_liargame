@@ -58,6 +58,7 @@ function LobbyPage() {
   } = useGame()
 
   const subjectsInitialized = useRef(false)
+  const prevSubjectCount = useRef(0)
 
   // Modal states
   const [createRoomOpen, setCreateRoomOpen] = useState(false)
@@ -100,6 +101,24 @@ function LobbyPage() {
       fetchSubjects()
     }
   }, [subjects.length, loading.subjects, fetchSubjects])
+
+  useEffect(() => {
+    if (subjects.length > 0 && roomForm.subjectId === 1 && !subjects.find(s => s.id === 1)) {
+      setRoomForm(prev => ({
+        ...prev,
+        subjectId: subjects[0]?.id || ''
+      }))
+    }
+  }, [subjects, roomForm.subjectId])
+
+  useEffect(() => {
+    if (subjects.length > prevSubjectCount.current && prevSubjectCount.current > 0) {
+      const newSubject = subjects[subjects.length - 1]
+      showSnackbar(`새로운 주제 "${newSubject.name}"가 추가되었습니다!`, 'info')
+    }
+    
+    prevSubjectCount.current = subjects.length
+  }, [subjects.length])
 
   // Handle room creation form changes
   const handleRoomFormChange = (field, value) => {
