@@ -34,6 +34,7 @@ function GameRoomPage() {
     loading,
     error,
     socketConnected,
+    chatMessages,  // 추가
     roomPlayers,
     currentTurnPlayerId,
     gameStatus,
@@ -43,10 +44,13 @@ function GameRoomPage() {
     gameTimer,
     votingResults,
     gameResults,
-    leaveRoom,
-    navigateToLobby,
+    // ... 기타 상태들
     connectSocket,
     disconnectSocket,
+    loadChatHistory,  // 추가
+    sendChatMessage,  // 추가
+    leaveRoom,
+    navigateToLobby,
     startGame,
     castVote
   } = useGame()
@@ -56,15 +60,23 @@ function GameRoomPage() {
   const [selectedVoteTarget, setSelectedVoteTarget] = useState(null)
 
   useEffect(() => {
-    // ✅ WebSocket 연결 활성화
     console.log('[DEBUG_LOG] Connecting to WebSocket for room:', currentRoom?.gameNumber)
     
     if (currentRoom?.gameNumber) {
-      try {
-        connectSocket(currentRoom.gameNumber)
-      } catch (error) {
-        console.error('[DEBUG_LOG] Failed to connect WebSocket on mount:', error)
+      const init = async () => {
+        try {
+          // WebSocket 연결
+          await connectSocket(currentRoom.gameNumber)
+          
+          // 채팅 히스토리 로드
+          await loadChatHistory(currentRoom.gameNumber)
+          
+        } catch (error) {
+          console.error('[DEBUG_LOG] Failed to initialize room:', error)
+        }
       }
+      
+      init()
     }
 
     // Cleanup on unmount
@@ -76,7 +88,7 @@ function GameRoomPage() {
         console.error('[DEBUG_LOG] Failed to disconnect WebSocket on unmount:', error)
       }
     }
-  }, [currentRoom?.gameNumber]) // gameNumber 변경 시에도 재연결
+  }, [currentRoom?.gameNumber, connectSocket, disconnectSocket, loadChatHistory])
 
   // Handle connection status changes
   useEffect(() => {
