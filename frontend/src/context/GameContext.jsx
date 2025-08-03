@@ -1,30 +1,21 @@
 import React, {createContext, useCallback, useContext, useEffect, useReducer, useRef} from 'react'
 import * as gameApi from '../api/gameApi'
-import {getSocketClient} from '../socket/socketClient'
+import gameStompClient from '../socket/gameStompClient'
 
-/**
- * Game Context for managing global application state
- * Handles currentUser, currentRoom, roomList, and related operations
- */
 
-// Initial state
 const initialState = {
-  // User state
   currentUser: null,
   isAuthenticated: false,
-  
-  // Room state
+
   currentRoom: null,
   roomList: [],
   subjects: [],
-  
-  // WebSocket state
+
   socketConnected: false,
   chatMessages: [],
   roomPlayers: [],
   currentTurnPlayerId: null,
-  
-  // Game logic state
+
   gameStatus: 'WAITING', // 'WAITING' | 'SPEAKING' | 'VOTING' | 'RESULTS' | 'FINISHED'
   currentRound: 0,
   playerRole: null, // 'LIAR' | 'CITIZEN' | null
@@ -454,6 +445,9 @@ export const GameProvider = ({ children }) => {
       dispatch({ type: ActionTypes.SET_CURRENT_ROOM, payload: roomInfo })
       dispatch({ type: ActionTypes.CLEAR_CHAT_MESSAGES })
       
+      // ✅ STOMP 연결 추가
+      await connectSocket(gameNumber)
+      
       setLoading('room', false)
     } catch (error) {
       console.error('Failed to join room:', error)
@@ -520,7 +514,6 @@ export const GameProvider = ({ children }) => {
     }
   }
 
-  // Subject functions
   const fetchSubjects = async () => {
     try {
       setLoading('subjects', true)
@@ -535,8 +528,7 @@ export const GameProvider = ({ children }) => {
       } else {
         console.log('[DEBUG_LOG] Fetching subjects from API')
         const subjects = await gameApi.getAllSubjects()
-        
-        // ✅ 배열 및 데이터 구조 검증
+
         if (!Array.isArray(subjects)) {
           console.error('[ERROR] Expected subjects array but got:', typeof subjects, subjects)
           setError('subjects', '주제 데이터 형식이 올바르지 않습니다.')
@@ -544,8 +536,7 @@ export const GameProvider = ({ children }) => {
           setLoading('subjects', false)
           return
         }
-        
-        // ✅ 각 주제 객체의 필드 검증
+
         const validSubjects = subjects.filter(subject => 
           subject && 
           typeof subject === 'object' && 
@@ -593,27 +584,12 @@ export const GameProvider = ({ children }) => {
     try {
       setLoading('subjects', true)
       setError('subjects', null)
-      
-      console.log('[DEBUG_LOG] Adding subject:', name)
-      const result = await gameApi.addSubject(name)
-      console.log('[DEBUG_LOG] Add subject API response:', result)
-      
-      // ✅ 응답 검증 후 상태 업데이트
-      if (result && (result.id || result.subjectId) && (result.name || name)) {
-        const newSubject = { 
-          id: result.id || result.subjectId || Date.now(), 
-          name: result.name || name 
-        }
-        dispatch({ type: ActionTypes.ADD_SUBJECT, payload: newSubject })
-        console.log('[DEBUG_LOG] Subject added to local state:', newSubject)
-      } else {
-        // 응답이 없거나 불완전한 경우 다시 fetch
-        console.log('[DEBUG_LOG] Invalid add subject response, refetching all subjects')
-        await fetchSubjects()
-      }
-      
+
+      await gameApi.addSubject(name)
+
+      await fetchSubjects()
+
       setLoading('subjects', false)
-      return result
     } catch (error) {
       console.error('Failed to add subject:', error)
       setError('subjects', '주제 추가에 실패했습니다.')
@@ -621,6 +597,8 @@ export const GameProvider = ({ children }) => {
       throw error
     }
   }
+
+
 
   const addWord = async (subject, word) => {
     try {
@@ -649,141 +627,105 @@ export const GameProvider = ({ children }) => {
     dispatch({ type: ActionTypes.SET_CURRENT_PAGE, payload: 'room' })
   }
 
-  // WebSocket functions
-  const connectSocket = useCallback(() => {
-    if (socketRef.current && socketRef.current.isConnected()) {
-      console.log('[DEBUG_LOG] Socket already connected')
-      return socketRef.current
+  // WebSocket functions - STOMP 버전으로 교체
+  const connectSocket = useCallback(async (gameNumber) => {
+    if (gameStompClient.isClientConnected()) {
+      console.log('[DEBUG_LOG] STOMP already connected')
+      return gameStompClient
     }
 
     try {
       setLoading('socket', true)
       setError('socket', null)
       
-      const socket = getSocketClient()
-      socketRef.current = socket
+      console.log('[DEBUG_LOG] Connecting to STOMP server...')
       
-      // Setup event listeners
-      socket.on('connect', () => {
-        console.log('[DEBUG_LOG] Socket connected')
-        dispatch({ type: ActionTypes.SET_SOCKET_CONNECTION, payload: true })
-        setLoading('socket', false)
-      })
-
-      socket.on('disconnect', (reason) => {
-        console.log('[DEBUG_LOG] Socket disconnected:', reason)
-        dispatch({ type: ActionTypes.SET_SOCKET_CONNECTION, payload: false })
-      })
-
-      socket.on('connect_error', (error) => {
-        console.error('[DEBUG_LOG] Socket connection error:', error)
-        setError('socket', 'WebSocket 연결에 실패했습니다.')
-        setLoading('socket', false)
-      })
-
-      socket.on('receiveMessage', (messageData) => {
-        console.log('[DEBUG_LOG] Received chat message:', messageData)
-        const message = {
-          id: messageData.id || Date.now(),
-          sender: messageData.sender,
-          content: messageData.message,
-          isSystem: messageData.isSystem || false,
-          timestamp: messageData.timestamp || new Date().toISOString()
-        }
-        dispatch({ type: ActionTypes.ADD_CHAT_MESSAGE, payload: message })
-      })
-
-      socket.on('updatePlayers', (players) => {
-        console.log('[DEBUG_LOG] Players updated:', players)
-        dispatch({ type: ActionTypes.SET_ROOM_PLAYERS, payload: players })
-        
-        // Also update current room players if we have a current room
-        if (state.currentRoom) {
-          dispatch({ 
-            type: ActionTypes.SET_CURRENT_ROOM, 
-            payload: { ...state.currentRoom, players } 
-          })
-        }
-      })
-
-      socket.on('currentTurn', (playerId) => {
-        console.log('[DEBUG_LOG] Current turn player:', playerId)
-        dispatch({ type: ActionTypes.SET_CURRENT_TURN_PLAYER, payload: playerId })
-      })
-
-      socket.on('roomUpdate', (roomData) => {
-        console.log('[DEBUG_LOG] Room updated:', roomData)
-        if (state.currentRoom && roomData.gameNumber === state.currentRoom.gameNumber) {
-          dispatch({ type: ActionTypes.SET_CURRENT_ROOM, payload: roomData })
-        }
-      })
-
-      socket.on('gameStateUpdate', (gameState) => {
-        console.log('[DEBUG_LOG] Game state updated:', gameState)
-        dispatch({ type: ActionTypes.SET_GAME_STATUS, payload: gameState.status })
-        dispatch({ type: ActionTypes.SET_CURRENT_ROUND, payload: gameState.round })
-        dispatch({ type: ActionTypes.SET_GAME_TIMER, payload: gameState.timeRemaining })
-        
-        if (gameState.playerRole) {
-          dispatch({ type: ActionTypes.SET_PLAYER_ROLE, payload: gameState.playerRole })
-        }
-        
-        if (gameState.assignedWord) {
-          dispatch({ type: ActionTypes.SET_ASSIGNED_WORD, payload: gameState.assignedWord })
-        }
-      })
-
-      // Connect to WebSocket
-      const wsUrl = import.meta.env.VITE_WEBSOCKET_URL || 'http://localhost:8080'
-      socket.connect(wsUrl)
+      // STOMP 연결
+      await gameStompClient.connect()
       
-      return socket
+      // 게임방 관련 토픽 구독
+      if (gameNumber) {
+        gameStompClient.subscribeToGameRoom(gameNumber, (data) => {
+          console.log('[DEBUG_LOG] Game state update:', data)
+          if (data.status) {
+            dispatch({ type: ActionTypes.SET_GAME_STATUS, payload: data.status })
+          }
+          if (data.round) {
+            dispatch({ type: ActionTypes.SET_CURRENT_ROUND, payload: data.round })
+          }
+          if (data.timeRemaining) {
+            dispatch({ type: ActionTypes.SET_GAME_TIMER, payload: data.timeRemaining })
+          }
+        })
+        
+        gameStompClient.subscribeToGameChat(gameNumber, (data) => {
+          console.log('[DEBUG_LOG] Chat message received:', data)
+          const message = {
+            id: data.id || Date.now(),
+            sender: data.sender || data.nickname,
+            content: data.message || data.content,
+            isSystem: data.isSystem || false,
+            timestamp: data.timestamp || new Date().toISOString()
+          }
+          dispatch({ type: ActionTypes.ADD_CHAT_MESSAGE, payload: message })
+        })
+        
+        gameStompClient.subscribeToPlayerUpdates(gameNumber, (data) => {
+          console.log('[DEBUG_LOG] Players updated:', data)
+          dispatch({ type: ActionTypes.SET_ROOM_PLAYERS, payload: data })
+          
+          // 현재 방 정보도 업데이트
+          if (state.currentRoom) {
+            dispatch({ 
+              type: ActionTypes.SET_CURRENT_ROOM, 
+              payload: { ...state.currentRoom, players: data } 
+            })
+          }
+        })
+      }
+      
+      dispatch({ type: ActionTypes.SET_SOCKET_CONNECTION, payload: true })
+      setLoading('socket', false)
+      
+      console.log('[DEBUG_LOG] STOMP connection successful')
+      return gameStompClient
       
     } catch (error) {
-      console.error('[DEBUG_LOG] Failed to create WebSocket connection:', error)
+      console.error('[DEBUG_LOG] STOMP connection failed:', error)
       setError('socket', 'WebSocket 연결에 실패했습니다.')
       setLoading('socket', false)
+      dispatch({ type: ActionTypes.SET_SOCKET_CONNECTION, payload: false })
       throw error
     }
   }, [])
 
   const disconnectSocket = useCallback(() => {
-    if (socketRef.current) {
-      console.log('[DEBUG_LOG] Disconnecting WebSocket')
-      socketRef.current.disconnect()
-      socketRef.current = null
-      dispatch({ type: ActionTypes.SET_SOCKET_CONNECTION, payload: false })
-    }
+    console.log('[DEBUG_LOG] Disconnecting STOMP client')
+    gameStompClient.disconnect()
+    dispatch({ type: ActionTypes.SET_SOCKET_CONNECTION, payload: false })
   }, [])
 
-  // Game functions
+  // Game functions - STOMP 버전
   const startGame = () => {
-    if (socketRef.current && state.currentRoom) {
+    if (gameStompClient.isClientConnected() && state.currentRoom) {
       console.log('[DEBUG_LOG] Starting game for room:', state.currentRoom.gameNumber)
-      socketRef.current.emit('startGame', { roomId: state.currentRoom.gameNumber })
+      gameStompClient.sendGameAction(state.currentRoom.gameNumber, 'start')
     }
   }
 
   const castVote = (playerId) => {
-    if (socketRef.current && state.currentRoom) {
+    if (gameStompClient.isClientConnected() && state.currentRoom) {
       console.log('[DEBUG_LOG] Casting vote for player:', playerId)
-      socketRef.current.emit('castVote', { 
-        roomId: state.currentRoom.gameNumber, 
-        targetPlayerId: playerId 
-      })
+      gameStompClient.sendGameAction(state.currentRoom.gameNumber, 'vote', { targetPlayerId: playerId })
     }
   }
 
   const sendChatMessage = (content) => {
-    // ✅ 실제 WebSocket을 통한 메시지 전송만 사용
-    if (socketRef.current && state.currentRoom) {
-      console.log('[DEBUG_LOG] Sending chat message via WebSocket:', content)
-      socketRef.current.emit('sendMessage', {
-        roomId: state.currentRoom.gameNumber,
-        message: content
-      })
+    if (gameStompClient.isClientConnected() && state.currentRoom) {
+      console.log('[DEBUG_LOG] Sending chat message via STOMP:', content)
+      gameStompClient.sendChatMessage(state.currentRoom.gameNumber, content)
     } else {
-      console.error('Cannot send message: WebSocket not connected or no current room')
+      console.error('Cannot send message: STOMP not connected or no current room')
     }
   }
 
