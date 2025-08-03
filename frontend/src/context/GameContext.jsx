@@ -567,16 +567,10 @@ export const GameProvider = ({ children }) => {
       setLoading('subjects', true)
       setError('subjects', null)
 
-      const result = await gameApi.addSubject(name)
+      const newSubject = await gameApi.addSubject(name)
 
-      if (result && result.success) {
-        const newSubject = {
-          id: result.id,
-          name: result.name
-        }
-        dispatch({ type: ActionTypes.ADD_SUBJECT, payload: newSubject })
-        console.log('[DEBUG_LOG] Subject added to local state:', newSubject)
-      }
+      dispatch({ type: ActionTypes.ADD_SUBJECT, payload: newSubject })
+      console.log('[DEBUG_LOG] Subject added to local state:', newSubject)
 
       setLoading('subjects', false)
     } catch (error) {
