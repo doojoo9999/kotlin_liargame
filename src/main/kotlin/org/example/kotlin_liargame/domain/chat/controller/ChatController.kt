@@ -41,8 +41,8 @@ class ChatController(
             val sessionUserId = sessionAttributes?.get("userId") as? Long
             println("[DEBUG] Session userId: $sessionUserId")
             
-            // ✅ 서비스에서 모든 인증 로직 처리
-            val response = chatService.sendMessageViaWebSocket(request, sessionUserId)
+            // ✅ 서비스에서 모든 인증 로직 처리 - 수정된 sendMessage 메서드 사용
+            val response = chatService.sendMessage(request, sessionUserId)
             
             // ✅ 브로드캐스트 실행
             val topic = "/topic/chat.${request.gNumber}"

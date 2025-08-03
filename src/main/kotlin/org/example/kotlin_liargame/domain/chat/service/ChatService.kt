@@ -18,7 +18,6 @@ import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
-import java.time.temporal.ChronoUnit
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
@@ -94,13 +93,49 @@ class ChatService(
     @Transactional
     fun sendMessage(req: SendChatMessageRequest, overrideUserId: Long? = null): ChatMessageResponse {
         req.validate()
-
+        
         val game = gameRepository.findBygNumber(req.gNumber)
             ?: throw RuntimeException("Game not found")
-
-        val userId = overrideUserId ?: getCurrentUserId()
+        val userId = when {
+            overrideUserId != null -> {
+                println("[DEBUG] Using provided userId: $overrideUserId")
+                overrideUserId
+            }
+            else -> {
+                try {
+                    val authentication = SecurityContextHolder.getContext().authentication
+                    if (authentication != null && authentication.principal is UserPrincipal) {
+                        val principal = authentication.principal as UserPrincipal
+                        println("[DEBUG] Using SecurityContext userId: ${principal.userId}")
+                        principal.userId
+                    } else {
+                        println("[WARN] No authentication found, using fallback logic")
+                        val firstPlayer = playerRepository.findByGame(game).firstOrNull()
+                        firstPlayer?.userId ?: throw RuntimeException("No players found in game")
+                    }
+                } catch (e: Exception) {
+                    println("[WARN] Failed to get user from SecurityContext: ${e.message}")
+                    val firstPlayer = playerRepository.findByGame(game).firstOrNull()
+                    firstPlayer?.userId ?: throw RuntimeException("No players found in game")
+                }
+            }
+        }
+        
+        println("[DEBUG] Final userId for WebSocket message: $userId, gameNumber: ${req.gNumber}")
+        
         val player = playerRepository.findByGameAndUserId(game, userId)
-            ?: throw RuntimeException("You are not in this game")
+        
+        if (player == null) {
+            val allPlayers = playerRepository.findByGame(game)
+            println("[DEBUG] Player not found! All players in game ${req.gNumber}:")
+            allPlayers.forEach { p ->
+                println("[DEBUG]   - Player: ${p.nickname} (ID: ${p.id}, UserId: ${p.userId})")
+            }
+            println("[DEBUG] Searched for UserId: $userId")
+            throw RuntimeException("You are not in this game. UserId: $userId, GameNumber: ${req.gNumber}")
+        }
+
+        println("[DEBUG] Found player: ${player.nickname} (ID: ${player.id}, UserId: ${player.userId})")
 
         if (game.gState == GameState.IN_PROGRESS) {
             if (!player.isAlive) {
@@ -108,7 +143,6 @@ class ChatService(
             }
 
             val messageType = determineMessageType(game, player)
-
             if (messageType == null) {
                 throw RuntimeException("Chat is not available at this time")
             }
@@ -121,6 +155,8 @@ class ChatService(
             )
 
             val savedMessage = chatMessageRepository.save(chatMessage)
+            println("[SUCCESS] Chat message saved to database: ${savedMessage.id}")
+            
             return ChatMessageResponse.from(savedMessage)
         }
         else {
@@ -138,6 +174,8 @@ class ChatService(
             )
 
             val savedMessage = chatMessageRepository.save(chatMessage)
+            println("[SUCCESS] Chat message saved to database: ${savedMessage.id}")
+            
             return ChatMessageResponse.from(savedMessage)
         }
     }
@@ -146,32 +184,57 @@ class ChatService(
     fun getChatHistory(req: GetChatHistoryRequest): List<ChatMessageResponse> {
         req.validate()
         
+        println("[DEBUG] ========== getChatHistory Debug Start ==========")
+        println("[DEBUG] Request: gNumber=${req.gNumber}, type=${req.type}, limit=${req.limit}")
+        
         val game = gameRepository.findBygNumber(req.gNumber)
-            ?: throw RuntimeException("Game not found")
-            
-        val messages = when {
-            req.type != null && req.round != null -> {
-                chatMessageRepository.findByGameAndTypeAndTimestampAfter(
-                    game = game,
-                    type = req.type,
-                    timestamp = Instant.now().minus(30, ChronoUnit.DAYS)
-                ).filter { it.game.gCurrentRound == req.round }
-            }
+        if (game == null) {
+            println("[ERROR] Game not found for gNumber: ${req.gNumber}")
+            throw RuntimeException("Game not found")
+        }
+        
+        println("[DEBUG] Found game: '${game.gName}' (ID: ${game.id}, State: ${game.gState})")
+        
+        // 해당 게임의 모든 플레이어 조회
+        val allPlayers = playerRepository.findByGame(game)
+        println("[DEBUG] Players in game ${req.gNumber}:")
+        allPlayers.forEach { player ->
+            println("[DEBUG]   - Player: ${player.nickname} (ID: ${player.id}, UserId: ${player.userId})")
+        }
+        
+        // 해당 게임의 모든 채팅 메시지 조회 (필터 없이)
+        val allMessages = chatMessageRepository.findByGame(game)
+        println("[DEBUG] All messages in database for game ${req.gNumber}: ${allMessages.size}")
+        allMessages.forEach { msg ->
+            println("[DEBUG]   - Message ID: ${msg.id}, Player: ${msg.player.nickname}, Content: '${msg.content}', Type: ${msg.type}, Time: ${msg.timestamp}")
+        }
+        
+        // 필터링 적용
+        val filteredMessages = when {
             req.type != null -> {
-                chatMessageRepository.findByGameAndType(game, req.type)
-            }
-            req.round != null -> {
-                chatMessageRepository.findByGameAndgCurrentRound(game, req.round)
+                println("[DEBUG] Filtering by type: ${req.type}")
+                allMessages.filter { it.type == req.type }
             }
             else -> {
-                chatMessageRepository.findByGame(game)
+                println("[DEBUG] No type filter applied")
+                allMessages
             }
         }
         
-        return messages
+        println("[DEBUG] Messages after filtering: ${filteredMessages.size}")
+        
+        val result = filteredMessages
             .sortedByDescending { it.timestamp }
             .take(req.limit)
             .map { ChatMessageResponse.from(it) }
+            
+        println("[DEBUG] Final result: ${result.size} messages")
+        result.forEach { msg ->
+            println("[DEBUG]   - Response: ID=${msg.id}, Player=${msg.playerNickname}, Content='${msg.content}'")
+        }
+        println("[DEBUG] ========== getChatHistory Debug End ==========")
+        
+        return result
     }
     
     fun isChatAvailable(game: GameEntity, player: PlayerEntity): Boolean {

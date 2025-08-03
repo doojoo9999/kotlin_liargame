@@ -1,5 +1,5 @@
 import {useEffect, useRef} from 'react'
-import {Alert, Box, List, Paper, Typography} from '@mui/material'
+import {Alert, Box, Button, List, Paper, Typography} from '@mui/material'
 import ChatMessage from './ChatMessage'
 import ChatInput from './ChatInput'
 import {useGame} from '../context/GameContext'
@@ -78,6 +78,33 @@ function ChatWindow() {
               Game Chat {currentRoom?.gameNumber ? `#${currentRoom.gameNumber}` : ''}
             </Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              {/* 디버그 버튼들 */}
+              <Button 
+                size="small" 
+                variant="outlined" 
+                sx={{ color: 'white', borderColor: 'white', fontSize: '10px' }}
+                onClick={() => {
+                  if (currentRoom?.gameNumber) {
+                    console.log('[DEBUG] Manual chat history reload triggered')
+                    // GameContext에서 loadChatHistory 함수를 export하여 사용
+                    window.location.reload() // 임시 해결책
+                  }
+                }}
+              >
+                새로고침
+              </Button>
+              <Button 
+                size="small" 
+                variant="outlined" 
+                sx={{ color: 'white', borderColor: 'white', fontSize: '10px' }}
+                onClick={() => {
+                  console.log('[DEBUG] Current chat state:', chatMessages)
+                  console.log('[DEBUG] Socket connected:', socketConnected)
+                  console.log('[DEBUG] Current room:', currentRoom)
+                }}
+              >
+                상태확인
+              </Button>
               <Box
                   sx={{
                     width: 8,

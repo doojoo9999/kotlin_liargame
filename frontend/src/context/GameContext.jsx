@@ -461,7 +461,7 @@ export const GameProvider = ({ children }) => {
 
       dispatch({ type: ActionTypes.SET_CURRENT_ROOM, payload: response })
 
-      await connectToGame(gameNumber)
+      await connectToRoom(gameNumber)
 
       setLoading('room', false)
       return response
@@ -732,106 +732,110 @@ export const GameProvider = ({ children }) => {
 
   const loadChatHistory = useCallback(async (gameNumber) => {
     try {
+      console.log('[DEBUG_LOG] ========== loadChatHistory Start ==========')
       console.log('[DEBUG_LOG] Loading chat history for game:', gameNumber)
-
-      const history = await gameApi.getChatHistory(gameNumber)
-
-      if (Array.isArray(history)) {
-        const formattedMessages = history.map(msg => ({
-          id: msg.id || Date.now() + Math.random(),
-          content: msg.content || msg.message || '',
-          sender: msg.playerNickname || msg.playerName || msg.sender || 'Unknown',
-          timestamp: msg.timestamp || new Date().toISOString(),
-          type: msg.type || 'GAME',
-          isSystem: msg.isSystem || false,
-          playerId: msg.playerId
-        }))
-
-        dispatch({ type: ActionTypes.SET_CHAT_MESSAGES, payload: formattedMessages })
-        console.log('[DEBUG_LOG] Loaded chat history:', formattedMessages.length, 'messages')
+      
+      const messages = await gameApi.getChatHistory(gameNumber)
+      console.log('[DEBUG_LOG] API returned messages:', messages)
+      console.log('[DEBUG_LOG] Number of messages:', Array.isArray(messages) ? messages.length : 'Not an array')
+      
+      if (Array.isArray(messages)) {
+        // 시간순 정렬
+        const sortedMessages = messages.sort((a, b) => 
+          new Date(a.timestamp) - new Date(b.timestamp)
+        )
+        
+        console.log('[DEBUG_LOG] Sorted messages for display:')
+        sortedMessages.forEach((msg, index) => {
+          console.log(`[DEBUG_LOG]   ${index + 1}. ${msg.playerNickname}: ${msg.content}`)
+        })
+        
+        dispatch({ type: ActionTypes.SET_CHAT_MESSAGES, payload: sortedMessages })
+        console.log('[SUCCESS] Chat history loaded successfully')
       } else {
-        console.log('[DEBUG_LOG] No chat history or invalid format')
+        console.warn('[WARN] Invalid chat history format')
         dispatch({ type: ActionTypes.SET_CHAT_MESSAGES, payload: [] })
       }
+      
+      console.log('[DEBUG_LOG] ========== loadChatHistory End ==========')
+      return messages
     } catch (error) {
-      console.error('[DEBUG_LOG] Failed to load chat history:', error)
+      console.error('[ERROR] Failed to load chat history:', error)
       dispatch({ type: ActionTypes.SET_CHAT_MESSAGES, payload: [] })
+      setError('socket', '채팅 기록 로드 실패')
+      return []
     }
   }, [])
 
 
-  const connectToGame = async (gameNumber) => {
+  const connectToRoom = async (gameNumber) => {
     try {
+      console.log('[DEBUG_LOG] ========== connectToRoom Start ==========')
+      console.log('[DEBUG_LOG] Connecting to game room:', gameNumber)
       setLoading('socket', true)
+      setError('socket', null)
 
-      await gameStompClient.connect()
-      dispatch({ type: ActionTypes.SET_SOCKET_CONNECTION, payload: true })
+      // 1. 기존 연결 정리
+      if (socketRef.current) {
+        console.log('[DEBUG_LOG] Cleaning up existing socket connection')
+        socketRef.current.disconnect()
+        socketRef.current = null
+      }
 
-      gameStompClient.subscribe(`/topic/room.${gameNumber}`, (message) => {
-        console.log('[DEBUG_LOG] Room update received:', message)
-
-        if (message.type === 'PLAYER_JOINED' || message.type === 'PLAYER_LEFT') {
-          fetchRoomDetails(gameNumber)
-
-          dispatch({ type: ActionTypes.ADD_CHAT_MESSAGE, payload: {
-              id: Date.now() + Math.random(),
-              sender: '시스템',
-              content: message.type === 'PLAYER_JOINED'
-                  ? `${message.playerName || '플레이어'}님이 입장했습니다.`
-                  : `${message.playerName || '플레이어'}님이 퇴장했습니다.`,
-              isSystem: true,
-              timestamp: new Date().toISOString()
-            }})
-        }
-
-        if (message.roomData) {
-          dispatch({ type: ActionTypes.SET_CURRENT_ROOM, payload: {
-              ...state.currentRoom,
-              ...message.roomData
-            }})
-        }
-      })
-
-      gameStompClient.subscribeToGameChat(gameNumber, (message) => {
-        console.log('[DEBUG_LOG] Chat message received from WebSocket:', message)
-
-        const chatMessage = {
-          id: message.id || `${Date.now()}-${Math.random()}`,
-          sender: message.playerNickname || message.sender || '익명',
-          content: message.content || message.message || '',
-          timestamp: message.timestamp || new Date().toISOString(),
-          playerId: message.playerId,
-          playerNickname: message.playerNickname,
-          type: message.type || 'GAME',
-          isSystem: message.isSystem || false
-        }
-
-        dispatch({ type: ActionTypes.ADD_CHAT_MESSAGE, payload: chatMessage })
-      })
-
-      gameStompClient.subscribe(`/topic/game.${gameNumber}`, (data) => {
-        console.log('[DEBUG_LOG] Game state update:', data)
-
-        if (data.gameState || data.status) {
-          dispatch({ type: ActionTypes.SET_GAME_STATUS, payload: data.gameState || data.status })
-        }
-        if (data.players) {
-          dispatch({ type: ActionTypes.SET_ROOM_PLAYERS, payload: data.players })
-        }
-        if (data.currentRound !== undefined) {
-          dispatch({ type: ActionTypes.SET_CURRENT_ROUND, payload: data.currentRound })
-        }
-      })
-
+      // 2. 채팅 히스토리 먼저 로드
+      console.log('[DEBUG_LOG] Loading chat history before WebSocket connection')
       await loadChatHistory(gameNumber)
 
-      await fetchRoomDetails(gameNumber)
+      // 3. WebSocket 연결
+      console.log('[DEBUG_LOG] Establishing WebSocket connection')
+      socketRef.current = gameStompClient
+      await gameStompClient.connect()
 
+      // 4. 연결 상태 확인
+      if (!gameStompClient.isClientConnected()) {
+        throw new Error('WebSocket connection failed')
+      }
+
+      // 5. 채팅 구독 설정 (실시간 메시지)
+      console.log('[DEBUG_LOG] Setting up chat subscription for game:', gameNumber)
+      const chatSubscription = gameStompClient.subscribeToGameChat(gameNumber, (message) => {
+        console.log('[DEBUG_LOG] ========== Real-time Chat Message Received ==========')
+        console.log('[DEBUG_LOG] Message data:', message)
+        
+        // 메시지 검증
+        if (message && message.id) {
+          dispatch({ type: ActionTypes.ADD_CHAT_MESSAGE, payload: message })
+          console.log('[SUCCESS] Chat message added to state')
+        } else {
+          console.error('[ERROR] Invalid message format:', message)
+        }
+      })
+
+      if (!chatSubscription) {
+        throw new Error('Failed to subscribe to chat topic')
+      }
+
+      // 6. 게임방 업데이트 구독
+      console.log('[DEBUG_LOG] Setting up game room subscription')
+      gameStompClient.subscribeToGameRoom(gameNumber, (update) => {
+        console.log('[DEBUG_LOG] Game room update received:', update)
+        
+        if (update.type === 'PLAYER_JOINED' || update.type === 'PLAYER_LEFT') {
+          // 플레이어 목록 업데이트가 필요한 경우
+          console.log('[DEBUG_LOG] Player list update needed')
+          fetchRoomDetails(gameNumber)
+        }
+      })
+
+      // 7. 연결 완료
+      dispatch({ type: ActionTypes.SET_SOCKET_CONNECTION, payload: true })
       setLoading('socket', false)
+      console.log('[SUCCESS] ========== connectToRoom Complete ==========')
 
     } catch (error) {
-      console.error('Failed to connect to game:', error)
-      setError('socket', '게임 연결에 실패했습니다.')
+      console.error('[ERROR] connectToRoom failed:', error)
+      setError('socket', `WebSocket 연결 실패: ${error.message}`)
+      dispatch({ type: ActionTypes.SET_SOCKET_CONNECTION, payload: false })
       setLoading('socket', false)
     }
   }
@@ -937,7 +941,7 @@ export const GameProvider = ({ children }) => {
     castVote,
 
     // Game Connection
-    connectToGame,
+    connectToRoom,
     fetchRoomDetails
   }
 
