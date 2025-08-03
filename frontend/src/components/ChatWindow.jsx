@@ -15,6 +15,7 @@ function ChatWindow() {
     socketConnected, 
     sendChatMessage, 
     currentUser,
+    currentRoom,  // 추가: gameNumber를 얻기 위해
     error 
   } = useGame()
 
@@ -40,8 +41,15 @@ function ChatWindow() {
       return
     }
     
-    console.log('[DEBUG_LOG] Sending chat message:', content)
-    sendChatMessage(content)
+    // gameNumber 확인
+    if (!currentRoom?.gameNumber) {
+      console.warn('[DEBUG_LOG] Cannot send message: No gameNumber available')
+      return
+    }
+    
+    console.log('[DEBUG_LOG] Sending chat message:', content, 'to game:', currentRoom.gameNumber)
+    // gameNumber와 content 모두 전달
+    sendChatMessage(currentRoom.gameNumber, content)
   }
 
   return (
