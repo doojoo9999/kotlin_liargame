@@ -322,7 +322,13 @@ export const GameProvider = ({ children }) => {
     try {
       setLoading('auth', true)
       setError('auth', null)
-      
+
+      localStorage.removeItem('accessToken')
+      localStorage.removeItem('refreshToken')
+      localStorage.removeItem('adminAccessToken')
+      localStorage.removeItem('adminRefreshToken')
+
+
       const result = await gameApi.login(nickname)
       const userData = {
         id: result.userId,
