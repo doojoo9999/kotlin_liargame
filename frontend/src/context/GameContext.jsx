@@ -835,7 +835,6 @@ export const GameProvider = ({ children }) => {
     }
   }
 
-  // Auto-authenticate on mount
   useEffect(() => {
     const token = localStorage.getItem('accessToken')
     if (token) {
@@ -896,6 +895,36 @@ export const GameProvider = ({ children }) => {
     connectToGame,
     fetchRoomDetails
   }
+
+  useEffect(() => {
+    const subscribeToSubjectUpdates = () => {
+      if (gameStompClient && gameStompClient.isClientConnected()) {
+        const subscription = gameStompClient.subscribe('/topic/subjects', (message) => {
+          console.log('[DEBUG] Subject update received:', message)
+
+          if (message.type === 'SUBJECT_ADDED') {
+            dispatch({
+              type: ActionTypes.ADD_SUBJECT,
+              payload: message.subject
+            })
+            console.log('[DEBUG] New subject added via WebSocket:', message.subject)
+          }
+        })
+
+        return subscription
+      }
+      return null
+    }
+
+    const subscription = subscribeToSubjectUpdates()
+
+    return () => {
+      if (subscription) {
+        subscription.unsubscribe()
+      }
+    }
+  }, [gameStompClient?.isConnected])
+
 
   return (
     <GameContext.Provider value={contextValue}>
