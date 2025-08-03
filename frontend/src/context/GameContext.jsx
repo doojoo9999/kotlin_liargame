@@ -644,63 +644,56 @@ export const GameProvider = ({ children }) => {
       setLoading('socket', true)
       setError('socket', null)
       
-      console.log('[DEBUG_LOG] Connecting to STOMP server...')
+      console.log('[DEBUG_LOG] Connecting to STOMP server for game:', gameNumber)
       
       // STOMP 연결
       await gameStompClient.connect()
       
-      // 게임방 관련 토픽 구독
-      if (gameNumber) {
-        gameStompClient.subscribeToGameRoom(gameNumber, (data) => {
-          console.log('[DEBUG_LOG] Game state update:', data)
-          if (data.status) {
-            dispatch({ type: ActionTypes.SET_GAME_STATUS, payload: data.status })
-          }
-          if (data.round) {
-            dispatch({ type: ActionTypes.SET_CURRENT_ROUND, payload: data.round })
-          }
-          if (data.timeRemaining) {
-            dispatch({ type: ActionTypes.SET_GAME_TIMER, payload: data.timeRemaining })
-          }
-        })
+      // 채팅 메시지 구독 (백엔드 형식에 맞춤)
+      gameStompClient.subscribe(`/topic/chat.${gameNumber}`, (message) => {
+        console.log('[DEBUG_LOG] Received chat message:', message)
         
-        gameStompClient.subscribeToGameChat(gameNumber, (data) => {
-          console.log('[DEBUG_LOG] Chat message received:', data)
-          const message = {
-            id: data.id || Date.now(),
-            sender: data.sender || data.nickname,
-            content: data.message || data.content,
-            isSystem: data.isSystem || false,
-            timestamp: data.timestamp || new Date().toISOString()
-          }
-          dispatch({ type: ActionTypes.ADD_CHAT_MESSAGE, payload: message })
-        })
+        // 메시지 형식 정규화
+        const chatMessage = {
+          id: message.id || Date.now(),
+          content: message.content || message.message || '',
+          playerName: message.playerName || message.nickname || 'Unknown',
+          timestamp: message.timestamp || new Date().toISOString(),
+          type: message.type || 'LOBBY'
+        }
         
-        gameStompClient.subscribeToPlayerUpdates(gameNumber, (data) => {
-          console.log('[DEBUG_LOG] Players updated:', data)
-          dispatch({ type: ActionTypes.SET_ROOM_PLAYERS, payload: data })
-          
-          // 현재 방 정보도 업데이트
-          if (state.currentRoom) {
-            dispatch({ 
-              type: ActionTypes.SET_CURRENT_ROOM, 
-              payload: { ...state.currentRoom, players: data } 
-            })
-          }
-        })
-      }
+        dispatch({ type: ActionTypes.ADD_CHAT_MESSAGE, payload: chatMessage })
+      })
+      
+      // 게임 상태 업데이트 구독
+      gameStompClient.subscribe(`/topic/game.${gameNumber}`, (data) => {
+        console.log('[DEBUG_LOG] Game state update:', data)
+        if (data.status) {
+          dispatch({ type: ActionTypes.SET_GAME_STATUS, payload: data.status })
+        }
+        if (data.players) {
+          dispatch({ type: ActionTypes.SET_ROOM_PLAYERS, payload: data.players })
+        }
+      })
+      
+      // 플레이어 업데이트 구독
+      gameStompClient.subscribe(`/topic/players.${gameNumber}`, (data) => {
+        console.log('[DEBUG_LOG] Players update:', data)
+        if (data.players) {
+          dispatch({ type: ActionTypes.SET_ROOM_PLAYERS, payload: data.players })
+        }
+      })
       
       dispatch({ type: ActionTypes.SET_SOCKET_CONNECTION, payload: true })
       setLoading('socket', false)
       
-      console.log('[DEBUG_LOG] STOMP connection successful')
+      console.log('[DEBUG_LOG] STOMP connection established successfully')
       return gameStompClient
       
     } catch (error) {
       console.error('[DEBUG_LOG] STOMP connection failed:', error)
       setError('socket', 'WebSocket 연결에 실패했습니다.')
       setLoading('socket', false)
-      dispatch({ type: ActionTypes.SET_SOCKET_CONNECTION, payload: false })
       throw error
     }
   }, [])
@@ -726,14 +719,54 @@ export const GameProvider = ({ children }) => {
     }
   }
 
-  const sendChatMessage = (content) => {
-    if (gameStompClient.isClientConnected() && state.currentRoom) {
-      console.log('[DEBUG_LOG] Sending chat message via STOMP:', content)
-      gameStompClient.sendChatMessage(state.currentRoom.gameNumber, content)
-    } else {
-      console.error('Cannot send message: STOMP not connected or no current room')
+  // 채팅 메시지 전송 함수 수정
+  const sendChatMessage = useCallback((gameNumber, message) => {
+    try {
+      if (!gameStompClient.isClientConnected()) {
+        console.warn('[DEBUG_LOG] Cannot send message: STOMP not connected')
+        return false
+      }
+      
+      console.log('[DEBUG_LOG] Sending chat message via STOMP:', message)
+      
+      // 백엔드가 기대하는 형식으로 전송
+      const chatData = {
+        gNumber: parseInt(gameNumber),
+        content: message,  // message → content
+        timestamp: new Date().toISOString()
+      }
+      
+      // 올바른 destination 사용
+      gameStompClient.send('/app/chat.send', chatData)
+      return true
+      
+    } catch (error) {
+      console.error('[DEBUG_LOG] Failed to send chat message:', error)
+      return false
     }
-  }
+  }, [])
+
+  // 채팅 히스토리 로드
+  const loadChatHistory = useCallback(async (gameNumber) => {
+    try {
+      console.log('[DEBUG_LOG] Loading chat history for game:', gameNumber)
+      const history = await gameApi.getChatHistory(gameNumber)
+      
+      if (Array.isArray(history)) {
+        const formattedMessages = history.map(msg => ({
+          id: msg.id || Date.now(),
+          content: msg.content || msg.message || '',
+          playerName: msg.playerName || msg.nickname || 'Unknown',
+          timestamp: msg.timestamp || new Date().toISOString(),
+          type: msg.type || 'LOBBY'
+        }))
+        
+        dispatch({ type: ActionTypes.SET_CHAT_MESSAGES, payload: formattedMessages })
+      }
+    } catch (error) {
+      console.error('[DEBUG_LOG] Failed to load chat history:', error)
+    }
+  }, [])
 
   // Auto-authenticate on mount
   useEffect(() => {
@@ -789,11 +822,12 @@ export const GameProvider = ({ children }) => {
     // WebSocket functions
     connectSocket,
     disconnectSocket,
+    sendChatMessage,
+    loadChatHistory,
     
     // Game functions
     startGame,
-    castVote,
-    sendChatMessage
+    castVote
   }
 
   return (
