@@ -56,26 +56,27 @@ function GameRoomPage() {
   const [selectedVoteTarget, setSelectedVoteTarget] = useState(null)
 
   useEffect(() => {
-    // 임시로 WebSocket 연결 비활성화 (API 문제 해결 후 활성화)
-    console.log('[DEBUG_LOG] WebSocket connection temporarily disabled for debugging')
+    // ✅ WebSocket 연결 활성화
+    console.log('[DEBUG_LOG] Connecting to WebSocket for room:', currentRoom?.gameNumber)
     
-    // Connect to WebSocket when component mounts
-    // try {
-    //   connectSocket()
-    // } catch (error) {
-    //   console.error('[DEBUG_LOG] Failed to connect WebSocket on mount:', error)
-    // }
+    if (currentRoom?.gameNumber) {
+      try {
+        connectSocket(currentRoom.gameNumber)
+      } catch (error) {
+        console.error('[DEBUG_LOG] Failed to connect WebSocket on mount:', error)
+      }
+    }
 
     // Cleanup on unmount
-    // return () => {
-    //   console.log('[DEBUG_LOG] GameRoomPage unmounting, disconnecting WebSocket')
-    //   try {
-    //     disconnectSocket()
-    //   } catch (error) {
-    //     console.error('[DEBUG_LOG] Failed to disconnect WebSocket on unmount:', error)
-    //   }
-    // }
-  }, [])
+    return () => {
+      console.log('[DEBUG_LOG] GameRoomPage unmounting, disconnecting WebSocket')
+      try {
+        disconnectSocket()
+      } catch (error) {
+        console.error('[DEBUG_LOG] Failed to disconnect WebSocket on unmount:', error)
+      }
+    }
+  }, [currentRoom?.gameNumber]) // gameNumber 변경 시에도 재연결
 
   // Handle connection status changes
   useEffect(() => {
