@@ -78,7 +78,7 @@ export const getRoomDetails = async (gameNumber) => {
       throw new Error('Game number is required')
     }
     
-    const response = await apiClient.get(`/game/room/${gameNumber}`)
+    const response = await apiClient.get(`/game/${gameNumber}`)
     return response.data
   } catch (error) {
     console.error('Failed to get room details:', error)
@@ -89,8 +89,9 @@ export const getRoomDetails = async (gameNumber) => {
 // 플레이어 목록 조회 API 추가
 export const getRoomPlayers = async (gameNumber) => {
   try {
-    const response = await apiClient.get(`/game/room/${gameNumber}/players`)
-    return response.data || []
+    const response = await apiClient.get(`/game/${gameNumber}`)
+    // Extract players from game state response
+    return response.data?.players || []
   } catch (error) {
     console.error('Failed to get room players:', error)
     return []
