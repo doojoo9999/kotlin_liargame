@@ -5,7 +5,7 @@ data class LeaveGameRequest(
 ) {
     fun validate() {
         if (gNumber <= 0) {
-            throw IllegalArgumentException("Game number must be positive")
+            throw IllegalArgumentException("유효하지 않은 게임 번호입니다: $gNumber")
         }
     }
 }

@@ -1,10 +1,7 @@
 import {Client} from '@stomp/stompjs'
 import SockJS from 'sockjs-client'
 
-/**
- * STOMP WebSocket client for admin monitoring
- * Handles real-time updates for game monitoring dashboard
- */
+
 class AdminStompClient {
     constructor() {
         this.client = null
@@ -15,12 +12,8 @@ class AdminStompClient {
         this.reconnectDelay = 3000
     }
 
-    /**
-     * Connect to STOMP WebSocket server
-     * @param {string} serverUrl - WebSocket server URL
-     * @param {Object} options - Connection options
-     */
-    connect(serverUrl = 'http://localhost:8080', options = {}) {
+
+    connect(serverUrl = 'http://localhost:20021', options = {}) {
         return new Promise((resolve, reject) => {
             try {
                 console.log('[DEBUG_LOG] Connecting to STOMP server:', serverUrl)
@@ -72,9 +65,6 @@ class AdminStompClient {
         })
     }
 
-    /**
-     * Handle reconnection attempts
-     */
     handleReconnect() {
         if (this.reconnectAttempts >= this.maxReconnectAttempts) {
             console.error('[DEBUG_LOG] Max STOMP reconnection attempts reached')
@@ -91,12 +81,7 @@ class AdminStompClient {
         }, this.reconnectDelay * this.reconnectAttempts)
     }
 
-    /**
-     * Subscribe to a topic
-     * @param {string} topic - Topic to subscribe to
-     * @param {Function} callback - Callback function for messages
-     * @returns {Object} Subscription object
-     */
+
     subscribe(topic, callback) {
         if (!this.isConnected || !this.client) {
             console.warn('[DEBUG_LOG] STOMP not connected, cannot subscribe to:', topic)
@@ -120,10 +105,7 @@ class AdminStompClient {
         return subscription
     }
 
-    /**
-     * Unsubscribe from a topic
-     * @param {string} topic - Topic to unsubscribe from
-     */
+
     unsubscribe(topic) {
         const subscription = this.subscriptions.get(topic)
         if (subscription) {
@@ -133,12 +115,6 @@ class AdminStompClient {
         }
     }
 
-    /**
-     * Send a message to a destination
-     * @param {string} destination - Destination to send to
-     * @param {Object} body - Message body
-     * @param {Object} headers - Additional headers
-     */
     send(destination, body = {}, headers = {}) {
         if (!this.isConnected || !this.client) {
             console.warn('[DEBUG_LOG] STOMP not connected, cannot send message to:', destination)

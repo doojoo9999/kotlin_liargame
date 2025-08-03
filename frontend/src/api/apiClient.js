@@ -1,17 +1,37 @@
 import axios from 'axios'
-
+import config from '../config/environment'
 
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/v1',
-  timeout: 10000, // 10 seconds timeout
+  baseURL: config.apiBaseUrl + '/api/v1',
+  timeout: config.timeouts.apiRequest,
   headers: {
     'Content-Type': 'application/json',
   },
 })
 
+// 환경별 로깅 설정
+apiClient.interceptors.request.use(
+    (config) => {
+      // 일반 사용자 토큰 우선 사용
+      const accessToken = localStorage.getItem('accessToken')
+      const adminToken = localStorage.getItem('adminAccessToken')
+
+      const token = accessToken || adminToken
+
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`
+        console.log('[API_CLIENT] Using token:', token.substring(0, 20) + '...')
+      } else {
+        console.warn('[API_CLIENT] No token found in localStorage')
+      }
+
+      return config
+    },
+    (error) => Promise.reject(error)
+)
 
 apiClient.interceptors.request.use(
-  (config) => {
+  (requestConfig) => {
     // Get token from localStorage (will be set after login)
     // Check for admin token first, then regular user token
     const adminToken = localStorage.getItem('adminAccessToken')
@@ -19,11 +39,23 @@ apiClient.interceptors.request.use(
     
     const token = adminToken || userToken
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`
+      requestConfig.headers.Authorization = `Bearer ${token}`
+      
+      // Enhanced debugging for JWT authentication issues
+      if (config.enableDebugLogs) {
+        console.log('[API_CLIENT] Adding Authorization header:', `Bearer ${token.substring(0, 20)}...`)
+        console.log('[API_CLIENT] Request URL:', requestConfig.url)
+        console.log('[API_CLIENT] Request method:', requestConfig.method?.toUpperCase())
+      }
+    } else {
+      if (config.enableDebugLogs) {
+        console.warn('[API_CLIENT] No token found in localStorage for request:', requestConfig.url)
+      }
     }
-    return config
+    return requestConfig
   },
   (error) => {
+    console.error('[API_CLIENT] Request interceptor error:', error)
     return Promise.reject(error)
   }
 )

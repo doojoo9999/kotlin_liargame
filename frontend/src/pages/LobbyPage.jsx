@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react'
+import React, {useEffect, useRef, useState} from 'react'
 import {
   Alert,
   Box,
@@ -17,6 +17,7 @@ import {
   MenuItem,
   Paper,
   Select,
+  Slider,
   Snackbar,
   Table,
   TableBody,
@@ -38,6 +39,7 @@ import {
   Refresh as RefreshIcon
 } from '@mui/icons-material'
 import {useGame} from '../context/GameContext'
+import config from '../config/environment'
 
 function LobbyPage() {
   const {
@@ -54,6 +56,9 @@ function LobbyPage() {
     addWord,
     logout
   } = useGame()
+
+  const subjectsInitialized = useRef(false)
+  const prevSubjectCount = useRef(0)
 
   // Modal states
   const [createRoomOpen, setCreateRoomOpen] = useState(false)
@@ -72,7 +77,8 @@ function LobbyPage() {
   // Form states for room creation
   const [roomForm, setRoomForm] = useState({
     title: '',
-    maxPlayers: 8,
+    maxPlayers: config.game.minPlayers,
+    gTotalRounds: config.game.defaultRounds,
     password: '',
     subjectId: 1,
     hasPassword: false,
@@ -89,12 +95,30 @@ function LobbyPage() {
     newWord: ''
   })
 
-  // Load subjects on component mount
   useEffect(() => {
-    if (subjects.length === 0) {
+    if (!subjectsInitialized.current && subjects.length === 0 && !loading.subjects) {
+      subjectsInitialized.current = true
       fetchSubjects()
     }
-  }, [subjects.length, fetchSubjects])
+  }, [subjects.length, loading.subjects, fetchSubjects])
+
+  useEffect(() => {
+    if (subjects.length > 0 && roomForm.subjectId === 1 && !subjects.find(s => s.id === 1)) {
+      setRoomForm(prev => ({
+        ...prev,
+        subjectId: subjects[0]?.id || ''
+      }))
+    }
+  }, [subjects, roomForm.subjectId])
+
+  useEffect(() => {
+    if (subjects.length > prevSubjectCount.current && prevSubjectCount.current > 0) {
+      const newSubject = subjects[subjects.length - 1]
+      showSnackbar(`새로운 주제 "${newSubject.name}"가 추가되었습니다!`, 'info')
+    }
+    
+    prevSubjectCount.current = subjects.length
+  }, [subjects.length])
 
   // Handle room creation form changes
   const handleRoomFormChange = (field, value) => {
@@ -126,23 +150,59 @@ function LobbyPage() {
     setSnackbar(prev => ({ ...prev, open: false }))
   }
 
+  // Validate form data
+  const validateFormData = (data) => {
+    const errors = []
+    
+    if (!data.title || data.title.trim().length === 0) {
+      errors.push('방 제목을 입력해주세요.')
+    }
+    
+    if (data.maxPlayers < 3 || data.maxPlayers > 15) {
+      errors.push('참가자는 3명에서 15명 사이로 설정해주세요.')
+    }
+    
+    if (data.gTotalRounds < 1 || data.gTotalRounds > 10) {
+      errors.push('라운드는 1라운드에서 10라운드 사이로 설정해주세요.')
+    }
+    
+    if (!data.subjectId) {
+      errors.push('주제를 하나 이상 선택해주세요.')
+    }
+    
+    return errors
+  }
+
   // Handle room creation
   const handleCreateRoom = async () => {
+    const validationErrors = validateFormData(roomForm)
+    
+    if (validationErrors.length > 0) {
+      showSnackbar(validationErrors.join('\n'), 'error')
+      return
+    }
+
     try {
       const roomData = {
-        title: roomForm.title,
-        maxPlayers: roomForm.maxPlayers,
-        subjectId: roomForm.subjectId,
-        ...(roomForm.hasPassword && { password: roomForm.password })
+        gName: roomForm.title,
+        gParticipants: roomForm.maxPlayers,
+        gTotalRounds: roomForm.gTotalRounds,
+        gPassword: roomForm.hasPassword ? roomForm.password : null,
+        subjectIds: roomForm.subjectId ? [roomForm.subjectId] : null,
+        useRandomSubjects: !roomForm.subjectId,
+        randomSubjectCount: !roomForm.subjectId ? 1 : null
       }
 
+      console.log('[DEBUG_LOG] Creating room with data:', roomData)
       await createRoom(roomData)
       setCreateRoomOpen(false)
+      showSnackbar('방이 성공적으로 생성되었습니다.', 'success')
       
       // Reset form
       setRoomForm({
         title: '',
-        maxPlayers: 8,
+        maxPlayers: 6,
+        gTotalRounds: 3,
         password: '',
         subjectId: 1,
         hasPassword: false,
@@ -150,20 +210,38 @@ function LobbyPage() {
       })
     } catch (error) {
       console.error('Failed to create room:', error)
+      
+      // 에러 메시지 파싱 및 사용자 친화적 메시지 표시
+      let errorMessage = '방 생성에 실패했습니다.'
+      
+      if (error.response?.data?.message) {
+        const backendError = error.response.data.message
+        if (backendError.includes('참가자는')) {
+          errorMessage = '참가자 수는 3명에서 15명 사이로 설정해주세요.'
+        } else if (backendError.includes('라운드')) {
+          errorMessage = '라운드 수를 확인해주세요.'
+        }
+      }
+      
+      showSnackbar(errorMessage, 'error')
     }
   }
 
-  // Handle room join
   const handleJoinRoom = async () => {
     try {
       await joinRoom(selectedRoom.gameNumber, joinPassword)
       setJoinRoomOpen(false)
       setJoinPassword('')
       setSelectedRoom(null)
+
+      setTimeout(() => {
+        fetchRooms()
+      }, 1000)
     } catch (error) {
       console.error('Failed to join room:', error)
     }
   }
+
 
   // Open join room dialog
   const openJoinDialog = (room) => {
@@ -185,8 +263,13 @@ function LobbyPage() {
       return
     }
 
-    // Check if subject already exists
-    const existingSubject = subjects.find(s => s.name.toLowerCase() === contentForm.newSubject.trim().toLowerCase())
+    // Check if subject already exists (safe object access)
+    const existingSubject = subjects.find(s =>
+      s &&
+      s.name &&
+      typeof s.name === 'string' &&
+      s.name.toLowerCase() === contentForm.newSubject.trim().toLowerCase()
+    )
     if (existingSubject) {
       showSnackbar('이미 존재하는 주제입니다.', 'error')
       return
@@ -326,6 +409,35 @@ function LobbyPage() {
                 <TableRow>
                   <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
                     <CircularProgress />
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                      방 목록을 불러오는 중...
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              ) : error.rooms ? (
+                <TableRow>
+                  <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                    <Typography variant="body1" color="error" sx={{ mb: 2 }}>
+                      {error.rooms}
+                    </Typography>
+                    <Button variant="outlined" onClick={fetchRooms}>
+                      다시 시도
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ) : !Array.isArray(roomList) ? (
+                <TableRow>
+                  <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                    <Typography variant="body1" color="error" sx={{ mb: 2 }}>
+                      데이터 형식 오류가 발생했습니다. 페이지를 새로고침해주세요.
+                    </Typography>
+                    <Button 
+                      variant="outlined" 
+                      onClick={() => window.location.reload()} 
+                      sx={{ mt: 1 }}
+                    >
+                      새로고침
+                    </Button>
                   </TableCell>
                 </TableRow>
               ) : roomList.length === 0 ? (
@@ -348,7 +460,7 @@ function LobbyPage() {
                     <TableCell align="center">
                       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
                         <PeopleIcon fontSize="small" />
-                        {room.playerCount}/{room.maxPlayers}
+                        {room.playerCount || room.currentPlayers || 0}/{room.maxPlayers}
                       </Box>
                     </TableCell>
                     <TableCell align="center">
@@ -374,7 +486,11 @@ function LobbyPage() {
                         size="small"
                         startIcon={room.state === 'WAITING' ? <LoginIcon /> : <PlayIcon />}
                         onClick={() => openJoinDialog(room)}
-                        disabled={room.state === 'FINISHED' || room.playerCount >= room.maxPlayers}
+                        disabled={
+                            room.state === 'FINISHED' ||
+                            room.state === 'ENDED' ||
+                            (parseInt(room.currentPlayers || room.playerCount || 0) >= parseInt(room.maxPlayers || 0))
+                      }
                       >
                         {room.state === 'WAITING' ? '입장' : '관전'}
                       </Button>
@@ -400,14 +516,49 @@ function LobbyPage() {
               required
             />
             
-            <TextField
-              label="최대 인원"
-              type="number"
-              value={roomForm.maxPlayers}
-              onChange={(e) => handleRoomFormChange('maxPlayers', parseInt(e.target.value))}
-              inputProps={{ min: 3, max: 12 }}
-              fullWidth
-            />
+            <Box sx={{ px: 2, py: 1 }}>
+              <Typography gutterBottom>
+                참가자 수: {roomForm.maxPlayers}명
+              </Typography>
+              <Slider
+                value={roomForm.maxPlayers}
+                onChange={(e, value) => handleRoomFormChange('maxPlayers', value)}
+                min={config.game.minPlayers}
+                max={config.game.maxPlayers}
+                step={1}
+                marks={[
+                  { value: config.game.minPlayers, label: `${config.game.minPlayers}명` },
+                  { value: Math.floor((config.game.minPlayers + config.game.maxPlayers) / 2), label: `${Math.floor((config.game.minPlayers + config.game.maxPlayers) / 2)}명` },
+                  { value: config.game.maxPlayers, label: `${config.game.maxPlayers}명` }
+                ]}
+                valueLabelDisplay="auto"
+                sx={{ mt: 2, mb: 1 }}
+              />
+              <Typography variant="caption" color="text.secondary">
+                최소 {config.game.minPlayers}명, 최대 {config.game.maxPlayers}명까지 설정 가능합니다.
+              </Typography>
+            </Box>
+
+            <Box sx={{ px: 2, py: 1 }}>
+              <Typography gutterBottom>
+                라운드 수: {roomForm.gTotalRounds}라운드
+              </Typography>
+              <Slider
+                value={roomForm.gTotalRounds}
+                onChange={(e, value) => handleRoomFormChange('gTotalRounds', value)}
+                min={config.game.minRounds}
+                max={config.game.maxRounds}
+                step={1}
+                marks={[
+                  { value: config.game.minRounds, label: `${config.game.minRounds}` },
+                  { value: config.game.defaultRounds, label: `${config.game.defaultRounds}` },
+                  { value: Math.floor((config.game.minRounds + config.game.maxRounds) / 2), label: `${Math.floor((config.game.minRounds + config.game.maxRounds) / 2)}` },
+                  { value: config.game.maxRounds, label: `${config.game.maxRounds}` }
+                ]}
+                valueLabelDisplay="auto"
+                sx={{ mt: 2, mb: 1 }}
+              />
+            </Box>
 
             <FormControl fullWidth>
               <InputLabel>주제</InputLabel>
