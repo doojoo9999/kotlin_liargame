@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query
 interface GameRepository : JpaRepository<GameEntity, Long> {
 
     fun findBygOwner(gOwner: String) : GameEntity?
+    @Query("SELECT g FROM GameEntity g WHERE g.gNumber = :gNumber")
     fun findBygNumber(gNumber: Int) : GameEntity?
 
     @Query("SELECT g FROM GameEntity g WHERE g.gState != :gState")

@@ -942,54 +942,61 @@ export const GameProvider = ({ children }) => {
   }
 
   useEffect(() => {
+    let isSubscribed = false;
+
     const subscribeToGlobalSubjects = async () => {
-      try {
-        if (!gameStompClient.isClientConnected()) {
-          console.log('[DEBUG] Connecting to STOMP for global subject updates')
-          await gameStompClient.connect()
-        }
-
-        gameStompClient.subscribe('/topic/subjects', (message) => {
-          console.log('[DEBUG] Global subject update received:', message)
-
-          if (message.type === 'SUBJECT_ADDED') {
-            const existingSubject = state.subjects.find(s =>
-                s.id === message.subject.id ||
-                s.name === message.subject.name
-            )
-
-            if (!existingSubject) {
-              dispatch({
-                type: ActionTypes.ADD_SUBJECT,
-                payload: {
-                  id: message.subject.id,
-                  name: message.subject.name
-                }
-              })
-              console.log('[DEBUG] New subject added via WebSocket:', message.subject)
-            } else {
-              console.log('[DEBUG] Subject already exists, skipping:', message.subject)
-            }
+      if (state.isAuthenticated && !isSubscribed) {
+        try {
+          if (!gameStompClient.isClientConnected()) {
+            console.log('[DEBUG] Connecting to STOMP for global subject updates')
+            await gameStompClient.connect()
           }
-        })
 
-        dispatch({ type: ActionTypes.SET_SOCKET_CONNECTION, payload: true })
+          // 중복 구독 방지
+          if (!isSubscribed) {
+            gameStompClient.subscribe('/topic/subjects', (message) => {
+              console.log('[DEBUG] Global subject update received:', message)
 
-      } catch (error) {
-        console.error('[DEBUG] Failed to set up global subject subscription:', error)
+              if (message.type === 'SUBJECT_ADDED') {
+                const existingSubject = state.subjects.find(s =>
+                    s.id === message.subject.id ||
+                    s.name === message.subject.name
+                )
+
+                if (!existingSubject) {
+                  dispatch({
+                    type: ActionTypes.ADD_SUBJECT,
+                    payload: {
+                      id: message.subject.id,
+                      name: message.subject.name
+                    }
+                  })
+                  console.log('[DEBUG] New subject added via WebSocket:', message.subject)
+                } else {
+                  console.log('[DEBUG] Subject already exists, skipping:', message.subject)
+                }
+              }
+            })
+
+            isSubscribed = true;
+            dispatch({ type: ActionTypes.SET_SOCKET_CONNECTION, payload: true })
+          }
+
+        } catch (error) {
+          console.error('[DEBUG] Failed to set up global subject subscription:', error)
+        }
       }
     }
 
-    if (state.isAuthenticated) {
-      subscribeToGlobalSubjects()
-    }
+    subscribeToGlobalSubjects()
 
     return () => {
-      if (gameStompClient.isClientConnected()) {
+      if (isSubscribed) {
         gameStompClient.unsubscribe('/topic/subjects')
+        isSubscribed = false;
       }
     }
-  }, [state.isAuthenticated, state.subjects])
+  }, [state.isAuthenticated])
 
   return (
     <GameContext.Provider value={contextValue}>

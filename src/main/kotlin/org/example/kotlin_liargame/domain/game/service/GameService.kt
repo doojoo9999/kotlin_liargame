@@ -260,8 +260,8 @@ class GameService(
 
     @Transactional
     fun leaveGame(req: LeaveGameRequest): Boolean {
-        val game = gameRepository.findByGNumber(req.gNumber)
-            ?: throw GameNotFoundException("게임방을 찾을 수 없습니다: ${req.gNumber}")
+        val game = gameRepository.findBygNumber(req.gNumber)
+            ?: throw RuntimeException("게임방을 찾을 수 없습니다: ${req.gNumber}")
 
         val userId = getCurrentUserId()
         val nickname = getCurrentUserNickname()
