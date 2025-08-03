@@ -8,6 +8,7 @@ import org.example.kotlin_liargame.domain.chat.service.ChatService
 import org.springframework.http.ResponseEntity
 import org.springframework.messaging.handler.annotation.MessageMapping
 import org.springframework.messaging.handler.annotation.Payload
+import org.springframework.messaging.simp.SimpMessageHeaderAccessor
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.web.bind.annotation.*
 
@@ -25,10 +26,18 @@ class ChatController(
     }
     
         @MessageMapping("/chat.send")
-    fun handleChatMessage(@Payload request: SendChatMessageRequest) {
-        val response = chatService.sendMessage(request)
-        
-        messagingTemplate.convertAndSend("/topic/chat.${request.gNumber}", response)
+    fun handleChatMessage(@Payload request: SendChatMessageRequest,
+    headerAccessor: SimpMessageHeaderAccessor
+    ) {
+        try {
+            val sessionAttributes = headerAccessor.sessionAttributes
+            val userId = sessionAttributes?.get("userId") as? Long
+
+            val response = chatService.sendMessage(request, userId)
+            messagingTemplate.convertAndSend("/topic/chat.${request.gNumber}", response)
+        } catch (e: Exception) {
+            println("[ERROR] Failed to handle WebSocket chatting message: ${e.message}")
+        }
     }
 
     @GetMapping("/history")
