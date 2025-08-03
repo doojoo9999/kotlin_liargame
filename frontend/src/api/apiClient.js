@@ -18,7 +18,7 @@ if (config.enableDebugLogs) {
 }
 
 apiClient.interceptors.request.use(
-  (config) => {
+  (requestConfig) => {
     // Get token from localStorage (will be set after login)
     // Check for admin token first, then regular user token
     const adminToken = localStorage.getItem('adminAccessToken')
@@ -26,11 +26,23 @@ apiClient.interceptors.request.use(
     
     const token = adminToken || userToken
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`
+      requestConfig.headers.Authorization = `Bearer ${token}`
+      
+      // Enhanced debugging for JWT authentication issues
+      if (config.enableDebugLogs) {
+        console.log('[API_CLIENT] Adding Authorization header:', `Bearer ${token.substring(0, 20)}...`)
+        console.log('[API_CLIENT] Request URL:', requestConfig.url)
+        console.log('[API_CLIENT] Request method:', requestConfig.method?.toUpperCase())
+      }
+    } else {
+      if (config.enableDebugLogs) {
+        console.warn('[API_CLIENT] No token found in localStorage for request:', requestConfig.url)
+      }
     }
-    return config
+    return requestConfig
   },
   (error) => {
+    console.error('[API_CLIENT] Request interceptor error:', error)
     return Promise.reject(error)
   }
 )
