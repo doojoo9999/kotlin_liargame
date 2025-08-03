@@ -1,5 +1,6 @@
 package org.example.kotlin_liargame.domain.game.service
 
+import org.example.kotlin_liargame.domain.chat.service.ChatService
 import org.example.kotlin_liargame.domain.game.dto.request.*
 import org.example.kotlin_liargame.domain.game.dto.response.GameResultResponse
 import org.example.kotlin_liargame.domain.game.dto.response.GameRoomListResponse
@@ -14,6 +15,7 @@ import org.example.kotlin_liargame.domain.subject.repository.SubjectRepository
 import org.example.kotlin_liargame.domain.user.repository.UserRepository
 import org.example.kotlin_liargame.domain.word.repository.WordRepository
 import org.example.kotlin_liargame.tools.security.UserPrincipal
+import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -25,7 +27,8 @@ class GameService(
     private val userRepository: UserRepository,
     private val subjectRepository: SubjectRepository,
     private val wordRepository: WordRepository,
-    private val chatService: org.example.kotlin_liargame.domain.chat.service.ChatService
+    private val chatService: ChatService,
+    private val messagingTemplate: SimpMessagingTemplate
 ) {
 
     private fun validateExistingOwner() {
@@ -171,22 +174,16 @@ class GameService(
 
     @Transactional
     fun joinGame(req: JoinGameRequest): GameStateResponse {
-        req.validate()
-
         val game = gameRepository.findBygNumber(req.gNumber)
-            ?: throw RuntimeException("Game not found")
+            ?: throw RuntimeException("게임방을 찾을 수 없습니다: ${req.gNumber}")
 
         if (game.gState != GameState.WAITING) {
-            throw RuntimeException("Game is already in progress or ended")
+            throw RuntimeException("게임이 이미 시작되었습니다.")
         }
 
-        if (game.gPassword != null && game.gPassword != req.gPassword) {
-            throw RuntimeException("Invalid password")
-        }
-
-        val playerCount = playerRepository.countByGame(game)
-        if (game.isFull(playerCount)) {
-            throw RuntimeException("Game is full")
+        val currentPlayers = playerRepository.findByGame(game)
+        if (currentPlayers.size >= game.gParticipants) {
+            throw RuntimeException("게임방이 가득 찼습니다.")
         }
 
         val userId = getCurrentUserId()
@@ -194,17 +191,54 @@ class GameService(
 
         val existingPlayer = playerRepository.findByGameAndUserId(game, userId)
         if (existingPlayer != null) {
-            if (existingPlayer.nickname == game.gOwner) {
-                return getGameState(game)
-            } else {
-                throw RuntimeException("You are already in this game")
-            }
+            return getGameState(game)
         }
 
         joinGame(game, userId, nickname)
 
+        val newPlayerCount = currentPlayers.size + 1
+
+        val roomUpdateMessage = mapOf(
+            "type" to "PLAYER_JOINED",
+            "gameNumber" to game.gNumber,
+            "playerName" to nickname,
+            "userId" to userId,
+            "currentPlayers" to newPlayerCount,
+            "maxPlayers" to game.gParticipants,
+            "roomData" to mapOf(
+                "gameNumber" to game.gNumber,
+                "title" to game.gName,
+                "host" to game.gOwner,
+                "currentPlayers" to newPlayerCount,
+                "maxPlayers" to game.gParticipants,
+                "subject" to (game.citizenSubject?.content ?: "주제 설정 중"),
+                "state" to game.gState.name,
+                "players" to playerRepository.findByGame(game).map { player ->
+                    mapOf(
+                        "id" to player.id,
+                        "userId" to player.userId,
+                        "nickname" to player.nickname,
+                        "isHost" to (player.nickname == game.gOwner),
+                        "isAlive" to player.isAlive
+                    )
+                }
+            )
+        )
+
+        println("[DEBUG] Broadcasting room update: $roomUpdateMessage")
+
+        messagingTemplate.convertAndSend("/topic/room.${game.gNumber}", roomUpdateMessage)
+
+        messagingTemplate.convertAndSend("/topic/lobby", mapOf(
+            "type" to "ROOM_UPDATED",
+            "gameNumber" to game.gNumber,
+            "currentPlayers" to newPlayerCount,
+            "maxPlayers" to game.gParticipants
+        ))
+
         return getGameState(game)
     }
+
 
     private fun joinGame(game: GameEntity, userId: Long, nickname: String) {
         val player = PlayerEntity(
@@ -224,48 +258,61 @@ class GameService(
         playerRepository.save(player)
     }
 
-    @Transactional  
+    @Transactional
     fun leaveGame(req: LeaveGameRequest): Boolean {
-        println("[DEBUG] LeaveGame request: gNumber = ${req.gNumber}")
-
-        val game = gameRepository.findBygNumber(req.gNumber)
-            ?: throw RuntimeException("게임을 찾을 수 없습니다: ${req.gNumber}")
+        val game = gameRepository.findByGNumber(req.gNumber)
+            ?: throw GameNotFoundException("게임방을 찾을 수 없습니다: ${req.gNumber}")
 
         val userId = getCurrentUserId()
-        val leavingPlayer = playerRepository.findByGameAndUserId(game, userId)
-            ?: throw RuntimeException("해당 게임에 참여하고 있지 않습니다")
+        val nickname = getCurrentUserNickname()
 
-        println("[DEBUG] Player leaving: ${leavingPlayer.nickname}, isOwner: ${leavingPlayer.nickname == game.gOwner}")
+        val deletedCount = playerRepository.deleteByGameIdAndUserId(game.id, userId)
 
-        playerRepository.delete(leavingPlayer)
-        playerRepository.flush()
-
-        if (leavingPlayer.nickname == game.gOwner) {
+        if (deletedCount > 0) {
             val remainingPlayers = playerRepository.findByGame(game)
-                .sortedBy { it.id }
 
-            if (remainingPlayers.isNotEmpty()) {
-                val newOwner = remainingPlayers.first()
-                game.gOwner = newOwner.nickname
-                println("[DEBUG] Owner delegated to: ${newOwner.nickname}")
-            } else {
-                game.gState = GameState.ENDED
-                println("[DEBUG] Game ended - no remaining players")
-            }
+            val roomUpdateMessage = mapOf(
+                "type" to "PLAYER_LEFT",
+                "gameNumber" to game.gNumber,
+                "playerName" to nickname,
+                "userId" to userId,
+                "currentPlayers" to remainingPlayers.size,
+                "maxPlayers" to game.gParticipants,
+                "roomData" to mapOf(
+                    "gameNumber" to game.gNumber,
+                    "title" to game.gName,
+                    "host" to game.gOwner,
+                    "currentPlayers" to remainingPlayers.size,
+                    "maxPlayers" to game.gParticipants,
+                    "subject" to (game.citizenSubject?.content ?: "주제 설정 중"),
+                    "state" to game.gState.name,
+                    "players" to remainingPlayers.map { player ->
+                        mapOf(
+                            "id" to player.id,
+                            "userId" to player.userId,
+                            "nickname" to player.nickname,
+                            "isHost" to (player.nickname == game.gOwner),
+                            "isAlive" to player.isAlive
+                        )
+                    }
+                )
+            )
+
+            println("[DEBUG] Broadcasting player leave: $roomUpdateMessage")
+
+            messagingTemplate.convertAndSend("/topic/room.${game.gNumber}", roomUpdateMessage)
+
+            messagingTemplate.convertAndSend("/topic/lobby", mapOf(
+                "type" to "ROOM_UPDATED",
+                "gameNumber" to game.gNumber,
+                "currentPlayers" to remainingPlayers.size,
+                "maxPlayers" to game.gParticipants
+            ))
+
+            return true
         }
 
-    val remainingCount = playerRepository.countByGame(game)
-        if (remainingCount == 0) {
-            game.gState = GameState.ENDED
-        } else if (remainingCount < 3 && game.gState == GameState.IN_PROGRESS) {
-            game.gState = GameState.WAITING
-            game.gCurrentRound = 1
-        }
-
-        gameRepository.save(game)
-        gameRepository.flush()
-        println("[DEBUG] LeaveGame completed successfully")
-        return true
+        return false
     }
 
     @Transactional
@@ -811,15 +858,24 @@ class GameService(
 
         val playerCounts = mutableMapOf<Long, Int>()
         val playersMap = mutableMapOf<Long, List<PlayerEntity>>()
-        
+
         activeGames.forEach { game ->
             val players = playerRepository.findByGame(game)
+
+            println("[DEBUG] Game ${game.gNumber} (ID: ${game.id}): found ${players.size} players")
+            players.forEach { player ->
+                println("[DEBUG]   - Player: ${player.nickname} (ID: ${player.id}, User: ${player.userId})")
+            }
+
             playerCounts[game.id] = players.size
             playersMap[game.id] = players
         }
 
+        println("[DEBUG] Player counts: $playerCounts")
+
         return GameRoomListResponse.from(activeGames, playerCounts, playersMap)
     }
+
 
     @Transactional
     fun endOfRound(req: EndOfRoundRequest): GameStateResponse {
