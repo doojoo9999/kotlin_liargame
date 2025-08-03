@@ -178,19 +178,17 @@ export const addSubject = async (name) => {
     console.log('[DEBUG] Adding subject via API:', name)
     const response = await apiClient.post('/subjects/applysubj', { name })
     console.log('[DEBUG] Add subject API response:', response.data)
-    
-    // ✅ 응답 구조 검증 및 정규화
+
     if (response.data) {
       const result = {
-        id: response.data.id || response.data.subjectId || Date.now(),
-        name: response.data.name || response.data.subjectName || name,
-        success: response.data.success !== false // 기본값 true
+        id: response.data.id,
+        name: response.data.name,
+        success: response.data.success !== false
       }
       console.log('[DEBUG] Normalized add subject response:', result)
       return result
     }
-    
-    // 응답이 없는 경우 기본 구조 반환
+
     return { id: Date.now(), name: name, success: true }
   } catch (error) {
     console.error('Add subject API failed:', error)
