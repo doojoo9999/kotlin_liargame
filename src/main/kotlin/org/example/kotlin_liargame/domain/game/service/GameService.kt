@@ -810,12 +810,15 @@ class GameService(
         val activeGames = gameRepository.findAllActiveGames()
 
         val playerCounts = mutableMapOf<Long, Int>()
+        val playersMap = mutableMapOf<Long, List<PlayerEntity>>()
+        
         activeGames.forEach { game ->
-            val count = playerRepository.countByGame(game)
-            playerCounts[game.id] = count
+            val players = playerRepository.findByGame(game)
+            playerCounts[game.id] = players.size
+            playersMap[game.id] = players
         }
 
-        return GameRoomListResponse.from(activeGames, playerCounts)
+        return GameRoomListResponse.from(activeGames, playerCounts, playersMap)
     }
 
     @Transactional
