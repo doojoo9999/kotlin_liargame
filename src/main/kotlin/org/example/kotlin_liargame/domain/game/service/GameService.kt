@@ -64,13 +64,51 @@ class GameService(
 
     private fun getCurrentUserNickname(): String {
         val authentication = SecurityContextHolder.getContext().authentication
-        return (authentication.principal as UserPrincipal).nickname
+            ?: throw IllegalStateException("No authentication found")
+
+        return when (val principal = authentication.principal) {
+            is UserPrincipal -> {
+                println("[DEBUG] UserPrincipal found: ${principal.nickname}")
+                principal.nickname
+            }
+            is String -> {
+                println("[DEBUG] String principal found: $principal")
+                if (principal == "anonymousUser") {
+                    throw IllegalStateException("Anonymous user cannot create game room. Please login first.")
+                }
+                principal
+            }
+            else -> {
+                println("[DEBUG] Unknown principal type: ${principal::class.java.simpleName}")
+                throw IllegalStateException("Unknown principal type: ${principal::class.java.simpleName}. Expected UserPrincipal but got ${principal::class.java.simpleName}")
+            }
+        }
     }
+
 
     private fun getCurrentUserId(): Long {
         val authentication = SecurityContextHolder.getContext().authentication
-        return (authentication.principal as UserPrincipal).userId
+            ?: throw IllegalStateException("No authentication found")
+
+        return when (val principal = authentication.principal) {
+            is UserPrincipal -> {
+                println("[DEBUG] UserPrincipal found with userId: ${principal.userId}")
+                principal.userId
+            }
+            is String -> {
+                println("[DEBUG] String principal found: $principal")
+                if (principal == "anonymousUser") {
+                    throw IllegalStateException("Anonymous user cannot create game room. Please login first.")
+                }
+                1L
+            }
+            else -> {
+                println("[DEBUG] Unknown principal type: ${principal::class.java.simpleName}")
+                throw IllegalStateException("Unknown principal type: ${principal::class.java.simpleName}. Expected UserPrincipal but got ${principal::class.java.simpleName}")
+            }
+        }
     }
+
 
     @Transactional
     fun createGameRoom(req: CreateGameRoomRequest): Int {
