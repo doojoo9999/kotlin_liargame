@@ -650,7 +650,7 @@ export const GameProvider = ({ children }) => {
       await gameStompClient.connect()
       
       // 채팅 메시지 구독 (백엔드 형식에 맞춤)
-      gameStompClient.subscribe(`/topic/chat.${gameNumber}`, (message) => {
+      gameStompClient.subscribeToGameChat(gameNumber, (message) => {
         console.log('[DEBUG_LOG] Received chat message:', message)
         
         // 메시지 형식 정규화
@@ -734,17 +734,10 @@ export const GameProvider = ({ children }) => {
 
       console.log('[DEBUG_LOG] Sending chat message via STOMP:', message)
 
-      // 백엔드가 기대하는 형식으로 전송
-      const chatData = {
-        gNumber: parseInt(gameNumber),
-        content: message.trim(),
-        timestamp: new Date().toISOString()
-      }
+      console.log('[DEBUG_LOG] Chat data being sent: {gNumber:', parseInt(gameNumber), ', content:', message.trim(), '}')
 
-      console.log('[DEBUG_LOG] Chat data being sent:', chatData)
-
-      // 올바른 destination 사용
-      gameStompClient.send('/app/chat.send', chatData)
+      // Use proper sendChatMessage method
+      gameStompClient.sendChatMessage(gameNumber, message.trim())
       return true
 
     } catch (error) {
@@ -758,8 +751,8 @@ export const GameProvider = ({ children }) => {
     try {
       console.log('[DEBUG_LOG] Loading chat history for game:', gameNumber)
 
-      // gameApi.getChatHistory 함수 호출
-      const response = await fetch(`/api/v1/chat/history?gNumber=${gameNumber}&limit=50`, {
+      // Use absolute URL to backend server
+      const response = await fetch(`http://localhost:20021/api/v1/chat/history?gNumber=${gameNumber}&limit=50`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
@@ -768,6 +761,11 @@ export const GameProvider = ({ children }) => {
       })
 
       if (!response.ok) {
+        if (response.status === 404) {
+          console.log('[DEBUG_LOG] No chat history found, initializing with empty array')
+          dispatch({ type: ActionTypes.SET_CHAT_MESSAGES, payload: [] })
+          return
+        }
         throw new Error(`HTTP error! status: ${response.status}`)
       }
 
@@ -784,9 +782,14 @@ export const GameProvider = ({ children }) => {
 
         dispatch({ type: ActionTypes.SET_CHAT_MESSAGES, payload: formattedMessages })
         console.log('[DEBUG_LOG] Loaded chat history:', formattedMessages.length, 'messages')
+      } else {
+        console.log('[DEBUG_LOG] Invalid chat history format, initializing with empty array')
+        dispatch({ type: ActionTypes.SET_CHAT_MESSAGES, payload: [] })
       }
     } catch (error) {
       console.error('[DEBUG_LOG] Failed to load chat history:', error)
+      // Initialize with empty array on any error
+      dispatch({ type: ActionTypes.SET_CHAT_MESSAGES, payload: [] })
     }
   }, [])
 
