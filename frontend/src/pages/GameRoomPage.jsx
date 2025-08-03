@@ -34,7 +34,6 @@ function GameRoomPage() {
     loading,
     error,
     socketConnected,
-    chatMessages,  // 추가
     roomPlayers,
     currentTurnPlayerId,
     gameStatus,
@@ -45,10 +44,8 @@ function GameRoomPage() {
     votingResults,
     gameResults,
     // ... 기타 상태들
-    connectSocket,
     disconnectSocket,
-    loadChatHistory,  // 추가
-    sendChatMessage,  // 추가
+    connectToRoom,
     leaveRoom,
     navigateToLobby,
     startGame,
@@ -60,19 +57,26 @@ function GameRoomPage() {
   const [selectedVoteTarget, setSelectedVoteTarget] = useState(null)
 
     useEffect(() => {
-        console.log('[DEBUG_LOG] Connecting to room:', currentRoom?.gameNumber)
+        if (!currentRoom) {
+            console.log('[DEBUG_LOG] No currentRoom available')
+            return
+        }
 
-        if (currentRoom?.gameNumber) {
+        const gameNumber = currentRoom.gameNumber
+        console.log('[DEBUG_LOG] Connecting to room:', gameNumber)
+
+        if (gameNumber) {
             const init = async () => {
                 try {
-                    await connectToRoom(currentRoom.gameNumber)
-
+                    await connectToRoom(gameNumber)
                 } catch (error) {
                     console.error('[DEBUG_LOG] Failed to initialize room:', error)
                 }
             }
 
             init()
+        } else {
+            console.error('[DEBUG_LOG] gameNumber is undefined:', currentRoom)
         }
 
         return () => {
@@ -83,7 +87,7 @@ function GameRoomPage() {
                 console.error('[DEBUG_LOG] Failed to disconnect WebSocket on unmount:', error)
             }
         }
-    }, [currentRoom?.gameNumber, connectToRoom, disconnectSocket])
+    }, [currentRoom, connectToRoom, disconnectSocket])
 
 
   // Handle connection status changes

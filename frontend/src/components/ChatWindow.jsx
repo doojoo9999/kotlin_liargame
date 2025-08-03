@@ -10,9 +10,36 @@ function ChatWindow() {
     socketConnected,
     sendChatMessage,
     currentUser,
-    currentRoom,  // GameProvider에서 정상적으로 가져옴
+    currentRoom,
     error
   } = useGame()
+
+  const gameNumber = currentRoom?.gameNumber
+
+  console.log('[DEBUG_LOG] ChatWindow - currentRoom from useGame:', currentRoom)
+  console.log('[DEBUG_LOG] ChatWindow - gameNumber:', gameNumber)
+  console.log('[DEBUG_LOG] ChatWindow - socketConnected:', socketConnected)
+
+  if (!gameNumber) {
+    return (
+        <Paper sx={{ p: 2, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Typography color="error" variant="body2">
+            채팅을 사용할 수 없습니다. 방 정보를 확인해주세요.
+          </Typography>
+        </Paper>
+    )
+  }
+
+  if (!socketConnected) {
+    return (
+        <Paper sx={{ p: 2, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Typography color="info" variant="body2">
+            채팅 연결 중...
+          </Typography>
+        </Paper>
+    )
+
+  }
 
   const messagesEndRef = useRef(null)
 

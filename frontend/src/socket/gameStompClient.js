@@ -145,9 +145,9 @@ class GameStompClient {
     // 채팅 메시지 전송
     sendChatMessage(gameNumber, message) {
         const destination = `/app/chat.send`
-        this.send(destination, { 
+        this.send(destination, {
             gNumber: parseInt(gameNumber),
-            content: message 
+            content: message
         })
     }
 
@@ -164,7 +164,7 @@ class GameStompClient {
         }
 
         console.log('[DEBUG_LOG] Game STOMP sending to', destination, ':', body)
-        
+
         try {
             this.client.publish({
                 destination,

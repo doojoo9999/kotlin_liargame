@@ -354,12 +354,12 @@ export const GameProvider = ({ children }) => {
 
   const logout = () => {
     try {
-      // Disconnect socket if connected
-      if (socketRef.current) {
-        socketRef.current.disconnect()
-        socketRef.current = null
+      if (gameStompClient.isClientConnected()) {
+        gameStompClient.disconnect()
       }
-      
+
+      socketRef.current = null
+
       dispatch({ type: ActionTypes.LOGOUT })
       dispatch({ type: ActionTypes.CLEAR_CURRENT_ROOM })
       dispatch({ type: ActionTypes.CLEAR_CHAT_MESSAGES })
@@ -368,6 +368,7 @@ export const GameProvider = ({ children }) => {
       console.error('Logout error:', error)
     }
   }
+
 
   // Room functions
   const fetchRooms = async () => {
@@ -654,11 +655,24 @@ export const GameProvider = ({ children }) => {
   }, [])
 
 
-  const disconnectSocket = useCallback(() => {
-    console.log('[DEBUG_LOG] Disconnecting STOMP client')
-    gameStompClient.disconnect()
-    dispatch({ type: ActionTypes.SET_SOCKET_CONNECTION, payload: false })
-  }, [])
+  const disconnectSocket = () => {
+    try {
+      console.log('[DEBUG_LOG] Disconnecting STOMP client')
+
+      if (gameStompClient.isClientConnected()) {
+        gameStompClient.disconnect()
+      }
+
+      socketRef.current = null
+
+      dispatch({ type: ActionTypes.SET_SOCKET_CONNECTION, payload: false })
+      dispatch({ type: ActionTypes.CLEAR_CHAT_MESSAGES })
+
+    } catch (error) {
+      console.error('[ERROR] Failed to disconnect socket:', error)
+    }
+  }
+
 
   const startGame = () => {
     if (gameStompClient.isClientConnected() && state.currentRoom) {
@@ -674,35 +688,26 @@ export const GameProvider = ({ children }) => {
     }
   }
 
-  const sendChatMessage = useCallback((gameNumber, message) => {
+  const sendChatMessage = (message) => {
     try {
+      if (!state.currentRoom?.gameNumber) {
+        console.warn('[DEBUG_LOG] No current room, cannot send message')
+        return false
+      }
+
       if (!gameStompClient.isClientConnected()) {
-        console.warn('[DEBUG_LOG] Cannot send message: STOMP not connected')
+        console.warn('[DEBUG_LOG] WebSocket not connected, cannot send message')
         return false
       }
 
-      if (!gameNumber || !message) {
-        console.warn('[DEBUG_LOG] Cannot send message: missing gameNumber or message')
-        return false
-      }
-
-      console.log('[DEBUG_LOG] Sending chat message via STOMP:', {
-        gameNumber: parseInt(gameNumber),
-        content: message.trim(),
-        sender: state.currentUser?.nickname
-      })
-
-      gameStompClient.sendChatMessage(gameNumber, message.trim())
-
-      return true
+      console.log('[DEBUG_LOG] Sending chat message:', message)
+      return gameStompClient.sendChatMessage(state.currentRoom.gameNumber, message)
 
     } catch (error) {
-      console.error('[DEBUG_LOG] Failed to send chat message:', error)
+      console.error('[ERROR] Failed to send chat message:', error)
       return false
     }
-  }, [state.currentUser])
-
-
+  }
 
   const loadChatHistory = useCallback(async (gameNumber) => {
     try {
@@ -742,77 +747,68 @@ export const GameProvider = ({ children }) => {
   }, [])
 
 
-  const connectToRoom = async (gameNumber) => {
+  const connectToRoom = async (gameNumber, retryCount = 0) => {
+    const MAX_RETRIES = 3
+
+    if (retryCount >= MAX_RETRIES) {
+      console.error('[ERROR] Max connection retries reached')
+      setError('socket', 'WebSocket 연결에 실패했습니다.')
+      return
+    }
+
     try {
       console.log('[DEBUG_LOG] ========== connectToRoom Start ==========')
       console.log('[DEBUG_LOG] Connecting to game room:', gameNumber)
-      setLoading('socket', true)
-      setError('socket', null)
 
-      // 1. 기존 연결 정리
-      if (socketRef.current) {
-        console.log('[DEBUG_LOG] Cleaning up existing socket connection')
-        socketRef.current.disconnect()
-        socketRef.current = null
+      console.log('[DEBUG_LOG] Cleaning up existing socket connection')
+      if (gameStompClient.isClientConnected()) {
+        gameStompClient.disconnect()
       }
 
-      // 2. 채팅 히스토리 먼저 로드
       console.log('[DEBUG_LOG] Loading chat history before WebSocket connection')
       await loadChatHistory(gameNumber)
 
-      // 3. WebSocket 연결
       console.log('[DEBUG_LOG] Establishing WebSocket connection')
-      socketRef.current = gameStompClient
-      await gameStompClient.connect()
+      const client = await gameStompClient.connect('http://localhost:20021')
+      socketRef.current = gameStompClient // ✅ gameStompClient 객체 자체를 저장
 
-      // 4. 연결 상태 확인
-      if (!gameStompClient.isClientConnected()) {
-        throw new Error('WebSocket connection failed')
-      }
-
-      // 5. 채팅 구독 설정 (실시간 메시지)
-      console.log('[DEBUG_LOG] Setting up chat subscription for game:', gameNumber)
-      const chatSubscription = gameStompClient.subscribeToGameChat(gameNumber, (message) => {
-        console.log('[DEBUG_LOG] ========== Real-time Chat Message Received ==========')
-        console.log('[DEBUG_LOG] Message data:', message)
-        
-        // 메시지 검증
-        if (message && message.id) {
-          dispatch({ type: ActionTypes.ADD_CHAT_MESSAGE, payload: message })
-          console.log('[SUCCESS] Chat message added to state')
-        } else {
-          console.error('[ERROR] Invalid message format:', message)
-        }
+      gameStompClient.subscribeToGameChat(gameNumber, (message) => {
+        console.log('[DEBUG_LOG] Received chat message:', message)
+        dispatch({ type: ActionTypes.ADD_CHAT_MESSAGE, payload: message })
       })
 
-      if (!chatSubscription) {
-        throw new Error('Failed to subscribe to chat topic')
-      }
-
-      // 6. 게임방 업데이트 구독
-      console.log('[DEBUG_LOG] Setting up game room subscription')
       gameStompClient.subscribeToGameRoom(gameNumber, (update) => {
-        console.log('[DEBUG_LOG] Game room update received:', update)
-        
+        console.log('[DEBUG_LOG] Received room update:', update)
         if (update.type === 'PLAYER_JOINED' || update.type === 'PLAYER_LEFT') {
-          // 플레이어 목록 업데이트가 필요한 경우
-          console.log('[DEBUG_LOG] Player list update needed')
-          fetchRoomDetails(gameNumber)
+          dispatch({ type: ActionTypes.SET_ROOM_PLAYERS, payload: update.players || [] })
         }
       })
 
-      // 7. 연결 완료
+      gameStompClient.subscribeToPlayerUpdates(gameNumber, (playerUpdate) => {
+        console.log('[DEBUG_LOG] Received player update:', playerUpdate)
+        dispatch({ type: ActionTypes.SET_ROOM_PLAYERS, payload: playerUpdate.players || [] })
+      })
+
       dispatch({ type: ActionTypes.SET_SOCKET_CONNECTION, payload: true })
-      setLoading('socket', false)
-      console.log('[SUCCESS] ========== connectToRoom Complete ==========')
+      console.log('[SUCCESS] Connected to game room:', gameNumber)
+      console.log('[DEBUG_LOG] ========== connectToRoom End ==========')
 
     } catch (error) {
       console.error('[ERROR] connectToRoom failed:', error)
-      setError('socket', `WebSocket 연결 실패: ${error.message}`)
-      dispatch({ type: ActionTypes.SET_SOCKET_CONNECTION, payload: false })
-      setLoading('socket', false)
+
+      if (retryCount < MAX_RETRIES) {
+        console.log(`[DEBUG_LOG] Retrying connection... (${retryCount + 1}/${MAX_RETRIES})`)
+        setTimeout(() => {
+          connectToRoom(gameNumber, retryCount + 1)
+        }, 2000 * (retryCount + 1))
+      } else {
+        setError('socket', 'WebSocket 연결에 실패했습니다.')
+        dispatch({ type: ActionTypes.SET_SOCKET_CONNECTION, payload: false })
+      }
     }
   }
+
+
 
 
 
