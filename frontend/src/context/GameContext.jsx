@@ -726,47 +726,70 @@ export const GameProvider = ({ children }) => {
         console.warn('[DEBUG_LOG] Cannot send message: STOMP not connected')
         return false
       }
-      
+
+      if (!gameNumber || !message) {
+        console.warn('[DEBUG_LOG] Cannot send message: missing gameNumber or message')
+        return false
+      }
+
       console.log('[DEBUG_LOG] Sending chat message via STOMP:', message)
-      
+
       // 백엔드가 기대하는 형식으로 전송
       const chatData = {
         gNumber: parseInt(gameNumber),
-        content: message,  // message → content
+        content: message.trim(),
         timestamp: new Date().toISOString()
       }
-      
+
+      console.log('[DEBUG_LOG] Chat data being sent:', chatData)
+
       // 올바른 destination 사용
       gameStompClient.send('/app/chat.send', chatData)
       return true
-      
+
     } catch (error) {
       console.error('[DEBUG_LOG] Failed to send chat message:', error)
       return false
     }
   }, [])
 
-  // 채팅 히스토리 로드
+
   const loadChatHistory = useCallback(async (gameNumber) => {
     try {
       console.log('[DEBUG_LOG] Loading chat history for game:', gameNumber)
-      const history = await gameApi.getChatHistory(gameNumber)
-      
+
+      // gameApi.getChatHistory 함수 호출
+      const response = await fetch(`/api/v1/chat/history?gNumber=${gameNumber}&limit=50`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const history = await response.json()
+
       if (Array.isArray(history)) {
         const formattedMessages = history.map(msg => ({
           id: msg.id || Date.now(),
-          content: msg.content || msg.message || '',
-          playerName: msg.playerName || msg.nickname || 'Unknown',
+          content: msg.content || '',
+          playerName: msg.playerName || 'Unknown',
           timestamp: msg.timestamp || new Date().toISOString(),
           type: msg.type || 'LOBBY'
         }))
-        
+
         dispatch({ type: ActionTypes.SET_CHAT_MESSAGES, payload: formattedMessages })
+        console.log('[DEBUG_LOG] Loaded chat history:', formattedMessages.length, 'messages')
       }
     } catch (error) {
       console.error('[DEBUG_LOG] Failed to load chat history:', error)
     }
   }, [])
+
 
   // Auto-authenticate on mount
   useEffect(() => {
