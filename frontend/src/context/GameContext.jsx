@@ -617,68 +617,42 @@ export const GameProvider = ({ children }) => {
   }
 
   const connectSocket = useCallback(async (gameNumber) => {
-    if (gameStompClient.isClientConnected()) {
-      console.log('[DEBUG_LOG] STOMP already connected')
-      return gameStompClient
-    }
-
     try {
+      console.log('[DEBUG_LOG] Connecting to WebSocket for game:', gameNumber)
       setLoading('socket', true)
-      setError('socket', null)
-      
-      console.log('[DEBUG_LOG] Connecting to STOMP server for game:', gameNumber)
-      
+
       await gameStompClient.connect()
-      
-      gameStompClient.subscribeToGameChat(gameNumber, (message) => {
-        console.log('[DEBUG_LOG] Received chat message:', message)
-
-        const chatMessage = {
-          id: message.id || Date.now(),
-          sender: message.playerNickname || '익명',
-          content: message.content,
-          timestamp: message.timestamp,
-          playerId: message.playerId,
-          playerNickname: message.playerNickname,
-          type: message.type,
-          isSystem: false
-        }
-        console.log('[DEBUG_LOG] Converted chat message for frontend:', chatMessage)
-
-        dispatch({ type: ActionTypes.ADD_CHAT_MESSAGE, payload: chatMessage })
-
-      })
-      
-      gameStompClient.subscribe(`/topic/game.${gameNumber}`, (data) => {
-        console.log('[DEBUG_LOG] Game state update:', data)
-        if (data.status) {
-          dispatch({ type: ActionTypes.SET_GAME_STATUS, payload: data.status })
-        }
-        if (data.players) {
-          dispatch({ type: ActionTypes.SET_ROOM_PLAYERS, payload: data.players })
-        }
-      })
-      
-      gameStompClient.subscribe(`/topic/players.${gameNumber}`, (data) => {
-        console.log('[DEBUG_LOG] Players update:', data)
-        if (data.players) {
-          dispatch({ type: ActionTypes.SET_ROOM_PLAYERS, payload: data.players })
-        }
-      })
-      
       dispatch({ type: ActionTypes.SET_SOCKET_CONNECTION, payload: true })
+
+      const handleChatMessage = (message) => {
+        console.log('[DEBUG_LOG] Received chat message via WebSocket:', message)
+        dispatch({ type: ActionTypes.ADD_CHAT_MESSAGE, payload: message })
+      }
+
+      const handleGameUpdate = (update) => {
+        console.log('[DEBUG_LOG] Received game update:', update)
+        // 게임 상태 업데이트 처리
+      }
+
+      const handlePlayerUpdate = (players) => {
+        console.log('[DEBUG_LOG] Received player update:', players)
+        dispatch({ type: ActionTypes.SET_ROOM_PLAYERS, payload: players })
+      }
+
+      gameStompClient.subscribeToGameChat(gameNumber, handleChatMessage)
+      gameStompClient.subscribeToGameRoom(gameNumber, handleGameUpdate)
+      gameStompClient.subscribeToPlayerUpdates(gameNumber, handlePlayerUpdate)
+
+      console.log('[DEBUG_LOG] WebSocket subscriptions set up for game:', gameNumber)
       setLoading('socket', false)
-      
-      console.log('[DEBUG_LOG] STOMP connection established successfully')
-      return gameStompClient
-      
+
     } catch (error) {
-      console.error('[DEBUG_LOG] STOMP connection failed:', error)
-      setError('socket', 'WebSocket 연결에 실패했습니다.')
+      console.error('Failed to connect socket:', error)
+      setError('socket', error.message)
       setLoading('socket', false)
-      throw error
     }
   }, [])
+
 
   const disconnectSocket = useCallback(() => {
     console.log('[DEBUG_LOG] Disconnecting STOMP client')

@@ -59,36 +59,32 @@ function GameRoomPage() {
   const [speechBubbles, setSpeechBubbles] = useState({})
   const [selectedVoteTarget, setSelectedVoteTarget] = useState(null)
 
-  useEffect(() => {
-    console.log('[DEBUG_LOG] Connecting to WebSocket for room:', currentRoom?.gameNumber)
-    
-    if (currentRoom?.gameNumber) {
-      const init = async () => {
-        try {
-          // WebSocket 연결
-          await connectSocket(currentRoom.gameNumber)
-          
-          // 채팅 히스토리 로드
-          await loadChatHistory(currentRoom.gameNumber)
-          
-        } catch (error) {
-          console.error('[DEBUG_LOG] Failed to initialize room:', error)
-        }
-      }
-      
-      init()
-    }
+    useEffect(() => {
+        console.log('[DEBUG_LOG] Connecting to room:', currentRoom?.gameNumber)
 
-    // Cleanup on unmount
-    return () => {
-      console.log('[DEBUG_LOG] GameRoomPage unmounting, disconnecting WebSocket')
-      try {
-        disconnectSocket()
-      } catch (error) {
-        console.error('[DEBUG_LOG] Failed to disconnect WebSocket on unmount:', error)
-      }
-    }
-  }, [currentRoom?.gameNumber, connectSocket, disconnectSocket, loadChatHistory])
+        if (currentRoom?.gameNumber) {
+            const init = async () => {
+                try {
+                    await connectToRoom(currentRoom.gameNumber)
+
+                } catch (error) {
+                    console.error('[DEBUG_LOG] Failed to initialize room:', error)
+                }
+            }
+
+            init()
+        }
+
+        return () => {
+            console.log('[DEBUG_LOG] GameRoomPage unmounting, disconnecting WebSocket')
+            try {
+                disconnectSocket()
+            } catch (error) {
+                console.error('[DEBUG_LOG] Failed to disconnect WebSocket on unmount:', error)
+            }
+        }
+    }, [currentRoom?.gameNumber, connectToRoom, disconnectSocket])
+
 
   // Handle connection status changes
   useEffect(() => {
