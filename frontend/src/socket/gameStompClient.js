@@ -16,11 +16,23 @@ class GameStompClient {
             try {
                 console.log('[DEBUG_LOG] Game STOMP connecting to:', serverUrl)
 
+                // ✅ 일반 사용자 토큰 우선 사용
+                const accessToken = localStorage.getItem('accessToken')
+                const adminToken = localStorage.getItem('adminAccessToken')
+                const token = accessToken || adminToken
+
+                if (!token) {
+                    console.error('[DEBUG_LOG] No authentication token found')
+                    reject(new Error('No authentication token available'))
+                    return
+                }
+
+                console.log('[DEBUG_LOG] Using token for WebSocket:', token.substring(0, 20) + '...')
+
                 this.client = new Client({
                     webSocketFactory: () => new SockJS(`${serverUrl}/ws`),
                     connectHeaders: {
-                        // 일반 사용자 토큰 사용
-                        'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+                        'Authorization': `Bearer ${token}`,
                         ...options.headers
                     },
                     debug: (str) => {
