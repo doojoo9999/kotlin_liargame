@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react'
+import React, {useEffect, useRef, useState} from 'react'
 import {
   Alert,
   Box,
@@ -57,6 +57,8 @@ function LobbyPage() {
     logout
   } = useGame()
 
+  const subjectsInitialized = useRef(false)
+
   // Modal states
   const [createRoomOpen, setCreateRoomOpen] = useState(false)
   const [joinRoomOpen, setJoinRoomOpen] = useState(false)
@@ -92,12 +94,12 @@ function LobbyPage() {
     newWord: ''
   })
 
-  // Load subjects on component mount
   useEffect(() => {
-    if (subjects.length === 0) {
+    if (!subjectsInitialized.current && subjects.length === 0 && !loading.subjects) {
+      subjectsInitialized.current = true
       fetchSubjects()
     }
-  }, [subjects.length, fetchSubjects])
+  }, [subjects.length, loading.subjects, fetchSubjects])
 
   // Handle room creation form changes
   const handleRoomFormChange = (field, value) => {
@@ -239,10 +241,10 @@ function LobbyPage() {
     }
 
     // Check if subject already exists (safe object access)
-    const existingSubject = subjects.find(s => 
-      s && 
-      s.name && 
-      typeof s.name === 'string' && 
+    const existingSubject = subjects.find(s =>
+      s &&
+      s.name &&
+      typeof s.name === 'string' &&
       s.name.toLowerCase() === contentForm.newSubject.trim().toLowerCase()
     )
     if (existingSubject) {
