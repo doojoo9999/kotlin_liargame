@@ -1,4 +1,5 @@
 import {io} from 'socket.io-client'
+import config from '../config/environment'
 
 /**
  * WebSocket client for Liar Game real-time communication
@@ -12,8 +13,8 @@ class SocketClient {
     this.currentRoom = null
     this.eventListeners = new Map()
     this.reconnectAttempts = 0
-    this.maxReconnectAttempts = 5
-    this.reconnectDelay = 1000
+    this.maxReconnectAttempts = config.websocket.maxReconnectAttempts
+    this.reconnectDelay = config.websocket.reconnectDelay
   }
 
   /**
@@ -27,7 +28,7 @@ class SocketClient {
       
       this.socket = io(serverUrl, {
         transports: ['websocket', 'polling'],
-        timeout: 10000,
+        timeout: config.timeouts.websocketConnect,
         ...options
       })
 
@@ -512,12 +513,8 @@ class DummySocketClient {
 
 // Export functions to get appropriate client
 export const getSocketClient = () => {
-  // Use dummy client if no WebSocket URL is configured or in development mode
-  const wsUrl = import.meta.env.VITE_WEBSOCKET_URL
-  const useDummy = !wsUrl || import.meta.env.VITE_USE_DUMMY_WEBSOCKET === 'true'
-  
-  if (useDummy) {
-    console.log('[DEBUG_LOG] Using dummy WebSocket client')
+  if (config.useDummyWebSocket) {
+    console.log('[DEBUG] Using dummy WebSocket (environment setting)')
     return new DummySocketClient()
   }
   
@@ -526,9 +523,8 @@ export const getSocketClient = () => {
 
 export const connectToServer = (options = {}) => {
   const client = getSocketClient()
-  const serverUrl = import.meta.env.VITE_WEBSOCKET_URL || 'http://localhost:8080'
   
-  return client.connect(serverUrl, options)
+  return client.connect(config.websocketUrl, options)
 }
 
 export default socketClient

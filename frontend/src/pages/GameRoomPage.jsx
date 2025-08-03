@@ -1,4 +1,4 @@
-import React, {useState} from 'react'
+import React, {useEffect, useState} from 'react'
 import {
     Alert,
     AppBar,
@@ -43,10 +43,11 @@ function GameRoomPage() {
     gameTimer,
     votingResults,
     gameResults,
+    // ... 기타 상태들
+    disconnectSocket,
+    connectToRoom,
     leaveRoom,
     navigateToLobby,
-    connectSocket,
-    disconnectSocket,
     startGame,
     castVote
   } = useGame()
@@ -55,26 +56,39 @@ function GameRoomPage() {
   const [speechBubbles, setSpeechBubbles] = useState({})
   const [selectedVoteTarget, setSelectedVoteTarget] = useState(null)
 
-  useEffect(() => {
-    console.log('[DEBUG_LOG] GameRoomPage mounted, connecting to WebSocket')
-    
-    // Connect to WebSocket when component mounts
-    try {
-      connectSocket()
-    } catch (error) {
-      console.error('[DEBUG_LOG] Failed to connect WebSocket on mount:', error)
-    }
+    useEffect(() => {
+        if (!currentRoom) {
+            console.log('[DEBUG_LOG] No currentRoom available')
+            return
+        }
 
-    // Cleanup on unmount
-    return () => {
-      console.log('[DEBUG_LOG] GameRoomPage unmounting, disconnecting WebSocket')
-      try {
-        disconnectSocket()
-      } catch (error) {
-        console.error('[DEBUG_LOG] Failed to disconnect WebSocket on unmount:', error)
-      }
-    }
-  }, [connectSocket, disconnectSocket])
+        const gameNumber = currentRoom.gameNumber
+        console.log('[DEBUG_LOG] Connecting to room:', gameNumber)
+
+        if (gameNumber) {
+            const init = async () => {
+                try {
+                    await connectToRoom(gameNumber)
+                } catch (error) {
+                    console.error('[DEBUG_LOG] Failed to initialize room:', error)
+                }
+            }
+
+            init()
+        } else {
+            console.error('[DEBUG_LOG] gameNumber is undefined:', currentRoom)
+        }
+
+        return () => {
+            console.log('[DEBUG_LOG] GameRoomPage unmounting, disconnecting WebSocket')
+            try {
+                disconnectSocket()
+            } catch (error) {
+                console.error('[DEBUG_LOG] Failed to disconnect WebSocket on unmount:', error)
+            }
+        }
+    }, [currentRoom, connectToRoom, disconnectSocket])
+
 
   // Handle connection status changes
   useEffect(() => {
@@ -225,8 +239,8 @@ function GameRoomPage() {
       <AppBar position="static" color="primary">
         <Toolbar>
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            {currentRoom.subject?.name && `[${currentRoom.subject.name}] `}
-            게임 방 #{currentRoom.gameNumber}
+            {currentRoom.title || '제목 없음'} #{currentRoom.gameNumber}
+            {currentRoom.subject?.name && ` - [${currentRoom.subject.name}]`}
           </Typography>
           
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -241,7 +255,7 @@ function GameRoomPage() {
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'white' }}>
               <PeopleIcon />
               <Typography variant="body2">
-                {players.length}/{currentRoom.maxPlayers || 8}
+                {players.length}/{currentRoom.maxPlayers || parseInt(localStorage.getItem('lastCreatedRoomMaxPlayers')) || 8}
               </Typography>
             </Box>
             
@@ -445,7 +459,15 @@ function GameRoomPage() {
             timeRemaining={gameTimer}
             word={assignedWord}
             subject={currentRoom.subject}
-            gameInfo={currentRoom.gameInfo}/>
+            gameInfo={{
+              round: currentRound || 1,
+              topic: currentRoom.subject?.name || '주제 없음',
+              status: gameStatus === 'WAITING' ? '대기 중' : 
+                      gameStatus === 'SPEAKING' ? '발언 단계' :
+                      gameStatus === 'VOTING' ? '투표 단계' :
+                      gameStatus === 'RESULTS' ? '결과 발표' :
+                      gameStatus === 'FINISHED' ? '게임 종료' : '게임 진행 중'
+            }}/>
 
           {/* Game Start Button - Only visible for host when game is waiting */}
           {gameStatus === 'WAITING' && isHost() && (

@@ -49,7 +49,7 @@ function GameMonitoringPage() {
     const [wsConnected, setWsConnected] = useState(false)
 
     // API base URL
-    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:20021'
 
     // Fetch statistics data
     const fetchStats = useCallback(async () => {

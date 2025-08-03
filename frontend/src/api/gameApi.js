@@ -17,8 +17,23 @@ export const addUser = async (nickname, profileImgUrl) => {
 }
 
 export const getAllRooms = async () => {
-  const response = await apiClient.get('/game/rooms')
-  return response.data
+  try {
+    const response = await apiClient.get('/game/rooms')
+    
+    console.log('[DEBUG] Raw API response:', response.data)
+
+    if (response.data && response.data.gameRooms && Array.isArray(response.data.gameRooms)) {
+      console.log('[DEBUG] Found gameRooms:', response.data.gameRooms.length, 'rooms')
+      return response.data.gameRooms
+    } else {
+      console.warn('[DEBUG] Unexpected API response structure:', response.data)
+      console.warn('[DEBUG] Available keys:', Object.keys(response.data || {}))
+      return []
+    }
+  } catch (error) {
+    console.error('Failed to fetch rooms:', error)
+    throw error
+  }
 }
 
 export const createRoom = async (roomData) => {
@@ -31,13 +46,19 @@ export const joinRoom = async (gNumber, password = '') => {
   return response.data
 }
 
-export const leaveRoom = async (gNumber) => {
-  const response = await apiClient.post('/game/leave', { gNumber })
+export const leaveRoom = async (data) => {
+  console.log('[DEBUG_LOG] LeaveRoom API call with data:', data)
+  if (!data.gNumber || data.gNumber <= 0) {
+    throw new Error('Invalid game number')
+  }
+  const response = await apiClient.post('/game/leave', {
+    gNumber: parseInt(data.gNumber)
+  })
   return response.data
 }
 
-export const getRoomInfo = async (roomId) => {
-  const response = await apiClient.get(`/game/rooms/${roomId}`)
+export const getRoomInfo = async (gNumber) => {
+  const response = await apiClient.get(`/game/${gNumber}`)
   return response.data
 }
 
@@ -47,25 +68,82 @@ export const startGame = async (gNumber) => {
 }
 
 export const getGameState = async (gNumber) => {
-  const response = await apiClient.get(`/game/state/${gNumber}`)
+  const response = await apiClient.get(`/game/${gNumber}`)
   return response.data
+}
+
+export const getRoomDetails = async (gameNumber) => {
+  try {
+    if (!gameNumber) {
+      throw new Error('Game number is required')
+    }
+    
+    const response = await apiClient.get(`/game/${gameNumber}`)
+    return response.data
+  } catch (error) {
+    console.error('Failed to get room details:', error)
+    throw error
+  }
+}
+
+// 플레이어 목록 조회 API 추가
+export const getRoomPlayers = async (gameNumber) => {
+  try {
+    const response = await apiClient.get(`/game/${gameNumber}`)
+    // Extract players from game state response
+    return response.data?.players || []
+  } catch (error) {
+    console.error('Failed to get room players:', error)
+    return []
+  }
 }
 
 // ==================== Subject Operations ====================
 
 export const getAllSubjects = async () => {
-  const response = await apiClient.get('/subjects/listsubj')
-  return response.data
+  try {
+    const response = await apiClient.get('/subjects/listsubj')
+    
+    console.log('[DEBUG] Raw subjects API response:', response.data)
+
+    if (Array.isArray(response.data)) {
+      console.log('[DEBUG] Found subjects:', response.data.length, 'subjects')
+      return response.data
+    } else {
+      console.warn('[DEBUG] Unexpected subjects API response structure:', response.data)
+      console.warn('[DEBUG] Available keys:', Object.keys(response.data || {}))
+      return []
+    }
+  } catch (error) {
+    console.error('Failed to fetch subjects:', error)
+    throw error
+  }
 }
 
 export const addSubject = async (name) => {
-  const response = await apiClient.post('/subjects/applysubj', { name })
-  return response.data
+  try {
+    console.log('[DEBUG] Adding subject via API:', name)
+    const response = await apiClient.post('/subjects/applysubj', { name })
+    console.log('[DEBUG] Add subject API response:', response.data)
+
+    return response.data
+  } catch (error) {
+    console.error('Add subject API failed:', error)
+    throw error
+  }
 }
 
 export const addWord = async (subject, word) => {
-  const response = await apiClient.post('/words/applyw', { subject, word })
-  return response.data
+  try {
+    console.log('[DEBUG] Adding word via API:', { subject, word })
+    const response = await apiClient.post('/words/applyw', { subject, word })
+    console.log('[DEBUG] Add word API response:', response.data)
+
+    return response.data
+  } catch (error) {
+    console.error('Add word API failed:', error)
+    throw error
+  }
 }
 
 // ==================== Chat Operations ====================
@@ -75,83 +153,24 @@ export const sendMessage = async (gNumber, message) => {
   return response.data
 }
 
-export const getChatHistory = async (gNumber) => {
-  const response = await apiClient.get(`/chat/history/${gNumber}`)
-  return response.data
-}
+export const getChatHistory = async (gNumber, limit = 50) => {
+  try {
+    console.log('[DEBUG] Loading chat history for game:', gNumber)
 
-// ==================== Dummy Data for Testing ====================
-
-export const dummyData = {
-  rooms: [
-    {
-      gameNumber: 1,
-      title: "초보자 방",
-      host: "Player1",
-      playerCount: 4,
-      maxPlayers: 8,
-      hasPassword: false,
-      subject: "동물",
-      state: "WAITING"
-    },
-    {
-      gameNumber: 2,
-      title: "고수들만",
-      host: "ProGamer",
-      playerCount: 6,
-      maxPlayers: 10,
-      hasPassword: true,
-      subject: "음식",
-      state: "WAITING"
-    },
-    {
-      gameNumber: 3,
-      title: "빠른 게임",
-      host: "SpeedRunner",
-      playerCount: 8,
-      maxPlayers: 8,
-      hasPassword: false,
-      subject: "영화",
-      state: "IN_PROGRESS"
-    }
-  ],
-  subjects: [
-    { id: 1, name: "동물" },
-    { id: 2, name: "음식" },
-    { id: 3, name: "영화" },
-    { id: 4, name: "스포츠" },
-    { id: 5, name: "직업" }
-  ],
-  gameState: {
-    gameNumber: 1,
-    gameState: "WAITING",
-    gamePhase: "NONE",
-    round: 0,
-    players: [
-      {
-        id: 1,
-        nickname: "Player1",
-        avatarUrl: "https://via.placeholder.com/60/FF5733/FFFFFF?text=P1",
-        isHost: true,
-        isLiar: false,
-        isAlive: true,
-        hintGiven: false
-      },
-      {
-        id: 2,
-        nickname: "Player2",
-        avatarUrl: "https://via.placeholder.com/60/33FF57/FFFFFF?text=P2",
-        isHost: false,
-        isLiar: false,
-        isAlive: true,
-        hintGiven: false
+    const response = await apiClient.get(`/chat/history`, {
+      params: {
+        gNumber: parseInt(gNumber),
+        limit: limit
       }
-    ],
-    subject: { id: 1, name: "동물" },
-    currentTurnPlayerId: null,
-    accusedPlayerId: null,
-    defendingPlayerId: null,
-    timeRemaining: 0,
-    word: null
+    })
+
+    console.log('[DEBUG] Chat history response:', response.data)
+    return response.data || []
+  } catch (error) {
+    console.error('Failed to get chat history:', error)
+    if (error.response?.status === 404) {
+      return [] // 채팅 기록이 없으면 빈 배열 반환
+    }
+    throw error
   }
 }

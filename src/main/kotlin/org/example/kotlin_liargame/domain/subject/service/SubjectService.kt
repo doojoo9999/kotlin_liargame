@@ -2,6 +2,7 @@ package org.example.kotlin_liargame.domain.subject.service
 
 import org.example.kotlin_liargame.domain.subject.dto.request.SubjectRequest
 import org.example.kotlin_liargame.domain.subject.dto.response.SubjectResponse
+import org.example.kotlin_liargame.domain.subject.model.SubjectEntity
 import org.example.kotlin_liargame.domain.subject.repository.SubjectRepository
 import org.example.kotlin_liargame.domain.word.repository.WordRepository
 import org.springframework.stereotype.Service
@@ -14,19 +15,19 @@ class SubjectService (
 ){
 
     @Transactional
-    fun applySubject(subjectRequest: SubjectRequest) {
-        val subject = subjectRepository.findByContent(subjectRequest.content)
-
-        if (subject == null) {
-            subjectRepository.save(subjectRequest.to())
+    fun applySubject(subjectRequest: SubjectRequest): SubjectEntity {
+        val existingSubject = subjectRepository.findByContent(subjectRequest.name)
+        if (existingSubject == null) {
+            return subjectRepository.save(subjectRequest.to())  // ✅ 저장된 엔티티 반환
         } else {
             throw RuntimeException("주제가 이미 존재합니다")
         }
     }
 
+
     @Transactional
     fun deleteSubject(subjectRequest: SubjectRequest) {
-        val subject = subjectRepository.findByContent(subjectRequest.content)
+        val subject = subjectRepository.findByContent(subjectRequest.name)
             ?: throw RuntimeException("주제를 찾을 수 없습니다")
 
         val words = subject.word

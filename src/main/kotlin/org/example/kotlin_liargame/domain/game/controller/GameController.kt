@@ -6,12 +6,14 @@ import org.example.kotlin_liargame.domain.game.dto.response.GameRoomListResponse
 import org.example.kotlin_liargame.domain.game.dto.response.GameStateResponse
 import org.example.kotlin_liargame.domain.game.service.GameService
 import org.springframework.http.ResponseEntity
+import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.web.bind.annotation.*
 
 @RestController
 @RequestMapping("/api/v1/game")
 class GameController(
-    private val gameService: GameService
+    private val gameService: GameService,
+    private val messagingTemplate: SimpMessagingTemplate
 ) {
     
     @PostMapping("/create")
@@ -19,18 +21,53 @@ class GameController(
         val gameNumber = gameService.createGameRoom(request)
         return ResponseEntity.ok(gameNumber)
     }
-    
+
     @PostMapping("/join")
     fun joinGame(@RequestBody request: JoinGameRequest): ResponseEntity<GameStateResponse> {
-        val response = gameService.joinGame(request)
-        return ResponseEntity.ok(response)
+        try {
+            val response = gameService.joinGame(request)
+
+            messagingTemplate.convertAndSend("/topic/room.${request.gNumber}", mapOf(
+                "type" to "PLAYER_JOINED",
+                "gameState" to response,
+                "gNumber" to request.gNumber
+            ))
+
+            messagingTemplate.convertAndSend("/topic/lobby", mapOf(
+                "type" to "ROOM_UPDATED",
+                "gNumber" to request.gNumber
+            ))
+
+            return ResponseEntity.ok(response)
+        } catch (e: Exception) {
+            println("[ERROR] Failed to join game: ${e.message}")
+            return ResponseEntity.badRequest().body(null)
+        }
     }
-    
+
+
     @PostMapping("/leave")
     fun leaveGame(@RequestBody request: LeaveGameRequest): ResponseEntity<Boolean> {
-        val response = gameService.leaveGame(request)
-        return ResponseEntity.ok(response)
+        try {
+            val response = gameService.leaveGame(request)
+
+            messagingTemplate.convertAndSend("/topic/room.${request.gNumber}", mapOf(
+                "type" to "PLAYER_LEFT",
+                "gNumber" to request.gNumber
+            ))
+
+            messagingTemplate.convertAndSend("/topic/lobby", mapOf(
+                "type" to "ROOM_UPDATED",
+                "gNumber" to request.gNumber
+            ))
+
+            return ResponseEntity.ok(response)
+        } catch (e: Exception) {
+            println("[ERROR] Failed to leave game: ${e.message}")
+            return ResponseEntity.badRequest().body(null)
+        }
     }
+
     
     @PostMapping("/start")
     fun startGame(@RequestBody request: StartGameRequest): ResponseEntity<GameStateResponse> {

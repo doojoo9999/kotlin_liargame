@@ -5,6 +5,7 @@ import org.example.kotlin_liargame.domain.game.model.enum.GameMode
 import org.example.kotlin_liargame.domain.game.model.enum.GameState
 import org.example.kotlin_liargame.domain.subject.model.SubjectEntity
 import org.example.kotlin_liargame.global.base.BaseEntity
+import java.time.Instant
 
 @Entity
 @Table(name = "game")
@@ -16,9 +17,14 @@ class GameEntity(
     val gTotalRounds: Int,
     var gCurrentRound: Int = 0,
     val gLiarCount: Int = 1,
+    @Column(name = "g_game_mode")
+    @Enumerated(EnumType.STRING)
     val gGameMode: GameMode = GameMode.LIARS_KNOW,
+    @Column(name = "g_state")
+    @Enumerated(EnumType.STRING)
     var gState: GameState = GameState.WAITING,
-    val gOwner: String,
+    var gOwner: String,
+    var gEndTime: Instant? = null,
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "citizen_subject_id")
@@ -50,6 +56,7 @@ class GameEntity(
     
     fun endGame() {
         gState = GameState.ENDED
+        gEndTime = Instant.now()
     }
     
     fun isFull(currentPlayerCount: Int): Boolean {

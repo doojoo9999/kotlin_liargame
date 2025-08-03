@@ -1,30 +1,21 @@
-import React, {createContext, useContext, useEffect, useReducer, useRef} from 'react'
+import React, {createContext, useCallback, useContext, useEffect, useReducer, useRef} from 'react'
 import * as gameApi from '../api/gameApi'
-import {getSocketClient} from '../socket/socketClient'
+import gameStompClient from '../socket/gameStompClient'
 
-/**
- * Game Context for managing global application state
- * Handles currentUser, currentRoom, roomList, and related operations
- */
 
-// Initial state
 const initialState = {
-  // User state
   currentUser: null,
   isAuthenticated: false,
-  
-  // Room state
+
   currentRoom: null,
   roomList: [],
   subjects: [],
-  
-  // WebSocket state
+
   socketConnected: false,
   chatMessages: [],
   roomPlayers: [],
   currentTurnPlayerId: null,
-  
-  // Game logic state
+
   gameStatus: 'WAITING', // 'WAITING' | 'SPEAKING' | 'VOTING' | 'RESULTS' | 'FINISHED'
   currentRound: 0,
   playerRole: null, // 'LIAR' | 'CITIZEN' | null
@@ -73,6 +64,7 @@ const ActionTypes = {
   
   // Subject actions
   SET_SUBJECTS: 'SET_SUBJECTS',
+  ADD_SUBJECT: 'ADD_SUBJECT',
   
   // WebSocket actions
   SET_SOCKET_CONNECTION: 'SET_SOCKET_CONNECTION',
@@ -129,6 +121,7 @@ const gameReducer = (state, action) => {
       
     case ActionTypes.LOGOUT:
       localStorage.removeItem('accessToken')
+      localStorage.removeItem('refreshToken')
       return {
         ...state,
         currentUser: null,
@@ -171,6 +164,12 @@ const gameReducer = (state, action) => {
       return {
         ...state,
         subjects: action.payload
+      }
+
+    case ActionTypes.ADD_SUBJECT:
+      return {
+        ...state,
+        subjects: [...state.subjects, action.payload]
       }
       
     case ActionTypes.SET_CURRENT_PAGE:
@@ -318,501 +317,259 @@ export const GameProvider = ({ children }) => {
     dispatch({ type: ActionTypes.SET_ERROR, payload: { type, value } })
   }
 
-  // WebSocket functions
-  const connectSocket = () => {
-    if (socketRef.current) {
-      console.log('[DEBUG_LOG] Socket already connected')
-      return socketRef.current
-    }
-
-    try {
-      setLoading('socket', true)
-      setError('socket', null)
-      
-      const socket = getSocketClient()
-      socketRef.current = socket
-      
-      // Setup event listeners
-      socket.on('connection_status', (data) => {
-        console.log('[DEBUG_LOG] Socket connection status:', data)
-        dispatch({ type: ActionTypes.SET_SOCKET_CONNECTION, payload: data.connected })
-        if (data.connected) {
-          setLoading('socket', false)
-        }
-      })
-
-      socket.on('connection_error', (error) => {
-        console.error('[DEBUG_LOG] Socket connection error:', error)
-        setError('socket', 'WebSocket 연결에 실패했습니다.')
-        setLoading('socket', false)
-      })
-
-      socket.on('receiveMessage', (messageData) => {
-        console.log('[DEBUG_LOG] Received chat message:', messageData)
-        const message = {
-          id: messageData.id || Date.now(),
-          sender: messageData.sender,
-          content: messageData.message,
-          isSystem: messageData.isSystem || false,
-          timestamp: messageData.timestamp || new Date().toISOString()
-        }
-        dispatch({ type: ActionTypes.ADD_CHAT_MESSAGE, payload: message })
-      })
-
-      socket.on('updatePlayers', (players) => {
-        console.log('[DEBUG_LOG] Players updated:', players)
-        dispatch({ type: ActionTypes.SET_ROOM_PLAYERS, payload: players })
-        
-        // Also update current room players if we have a current room
-        if (state.currentRoom) {
-          dispatch({ 
-            type: ActionTypes.SET_CURRENT_ROOM, 
-            payload: { ...state.currentRoom, players } 
-          })
-        }
-      })
-
-      socket.on('currentTurn', (playerId) => {
-        console.log('[DEBUG_LOG] Current turn player:', playerId)
-        dispatch({ type: ActionTypes.SET_CURRENT_TURN_PLAYER, payload: playerId })
-      })
-
-      socket.on('roomUpdate', (roomData) => {
-        console.log('[DEBUG_LOG] Room updated:', roomData)
-        if (state.currentRoom && roomData.gameNumber === state.currentRoom.gameNumber) {
-          dispatch({ type: ActionTypes.SET_CURRENT_ROOM, payload: roomData })
-        }
-      })
-
-      socket.on('gameStateUpdate', (gameState) => {
-        console.log('[DEBUG_LOG] Game state updated:', gameState)
-        if (state.currentRoom) {
-          dispatch({ 
-            type: ActionTypes.SET_CURRENT_ROOM, 
-            payload: { ...state.currentRoom, ...gameState } 
-          })
-        }
-      })
-
-      // Game logic events
-      socket.on('gameStarted', (data) => {
-        console.log('[DEBUG_LOG] Game started:', data)
-        dispatch({ type: ActionTypes.SET_GAME_STATUS, payload: 'SPEAKING' })
-        dispatch({ type: ActionTypes.SET_CURRENT_ROUND, payload: data.round || 1 })
-        
-        // Add system message
-        dispatch({ 
-          type: ActionTypes.ADD_CHAT_MESSAGE, 
-          payload: {
-            id: Date.now(),
-            sender: 'System',
-            content: '게임이 시작되었습니다!',
-            isSystem: true,
-            timestamp: new Date().toISOString()
-          }
-        })
-      })
-
-      socket.on('assignRole', (data) => {
-        console.log('[DEBUG_LOG] Role assigned:', data)
-        dispatch({ type: ActionTypes.SET_PLAYER_ROLE, payload: data.role })
-        dispatch({ type: ActionTypes.SET_ASSIGNED_WORD, payload: data.keyword })
-        
-        // Add system message with role info
-        const roleText = data.role === 'LIAR' ? '라이어' : '시민'
-        dispatch({ 
-          type: ActionTypes.ADD_CHAT_MESSAGE, 
-          payload: {
-            id: Date.now(),
-            sender: 'System',
-            content: `당신의 역할: ${roleText} | 키워드: ${data.keyword}`,
-            isSystem: true,
-            timestamp: new Date().toISOString()
-          }
-        })
-      })
-
-      socket.on('turnStart', (data) => {
-        console.log('[DEBUG_LOG] Turn started:', data)
-        dispatch({ type: ActionTypes.SET_CURRENT_TURN_PLAYER, payload: data.playerId })
-        dispatch({ type: ActionTypes.SET_GAME_TIMER, payload: data.timeLimit || 30 })
-        dispatch({ type: ActionTypes.SET_GAME_STATUS, payload: 'SPEAKING' })
-        
-        // Add system message
-        const playerName = state.roomPlayers.find(p => p.id === data.playerId)?.nickname || 'Unknown'
-        dispatch({ 
-          type: ActionTypes.ADD_CHAT_MESSAGE, 
-          payload: {
-            id: Date.now(),
-            sender: 'System',
-            content: `${playerName}님의 발언 시간입니다. (${data.timeLimit || 30}초)`,
-            isSystem: true,
-            timestamp: new Date().toISOString()
-          }
-        })
-      })
-
-      socket.on('startVote', (data) => {
-        console.log('[DEBUG_LOG] Voting started:', data)
-        dispatch({ type: ActionTypes.SET_GAME_STATUS, payload: 'VOTING' })
-        dispatch({ type: ActionTypes.SET_GAME_TIMER, payload: data.timeLimit || 30 })
-        dispatch({ type: ActionTypes.SET_CURRENT_TURN_PLAYER, payload: null })
-        
-        // Add system message
-        dispatch({ 
-          type: ActionTypes.ADD_CHAT_MESSAGE, 
-          payload: {
-            id: Date.now(),
-            sender: 'System',
-            content: `투표를 시작합니다! (${data.timeLimit || 30}초)`,
-            isSystem: true,
-            timestamp: new Date().toISOString()
-          }
-        })
-      })
-
-      socket.on('roundResult', (data) => {
-        console.log('[DEBUG_LOG] Round result:', data)
-        dispatch({ type: ActionTypes.SET_GAME_STATUS, payload: 'RESULTS' })
-        dispatch({ type: ActionTypes.SET_VOTING_RESULTS, payload: data })
-        dispatch({ type: ActionTypes.SET_GAME_TIMER, payload: 0 })
-        
-        // Add result messages
-        const liarName = state.roomPlayers.find(p => p.id === data.liarId)?.nickname || 'Unknown'
-        const votedName = state.roomPlayers.find(p => p.id === data.votedPlayerId)?.nickname || 'Unknown'
-        
-        dispatch({ 
-          type: ActionTypes.ADD_CHAT_MESSAGE, 
-          payload: {
-            id: Date.now(),
-            sender: 'System',
-            content: `라이어는 ${liarName}님이었습니다!`,
-            isSystem: true,
-            timestamp: new Date().toISOString()
-          }
-        })
-        
-        dispatch({ 
-          type: ActionTypes.ADD_CHAT_MESSAGE, 
-          payload: {
-            id: Date.now() + 1,
-            sender: 'System',
-            content: `가장 많이 투표받은 플레이어: ${votedName}님`,
-            isSystem: true,
-            timestamp: new Date().toISOString()
-          }
-        })
-        
-        dispatch({ 
-          type: ActionTypes.ADD_CHAT_MESSAGE, 
-          payload: {
-            id: Date.now() + 2,
-            sender: 'System',
-            content: `${data.winner === 'LIAR' ? '라이어' : '시민'}이 승리했습니다!`,
-            isSystem: true,
-            timestamp: new Date().toISOString()
-          }
-        })
-      })
-
-      socket.on('gameEnded', (data) => {
-        console.log('[DEBUG_LOG] Game ended:', data)
-        dispatch({ type: ActionTypes.SET_GAME_STATUS, payload: 'FINISHED' })
-        dispatch({ type: ActionTypes.SET_GAME_RESULTS, payload: data })
-        
-        // Add system message
-        dispatch({ 
-          type: ActionTypes.ADD_CHAT_MESSAGE, 
-          payload: {
-            id: Date.now(),
-            sender: 'System',
-            content: '게임이 종료되었습니다.',
-            isSystem: true,
-            timestamp: new Date().toISOString()
-          }
-        })
-      })
-
-      // Connect to server
-      socket.connect()
-      
-      return socket
-    } catch (error) {
-      console.error('[DEBUG_LOG] Failed to setup socket:', error)
-      setError('socket', 'WebSocket 설정에 실패했습니다.')
-      setLoading('socket', false)
-      throw error
-    }
-  }
-
-  const disconnectSocket = () => {
-    if (socketRef.current) {
-      console.log('[DEBUG_LOG] Disconnecting socket')
-      socketRef.current.disconnect()
-      socketRef.current = null
-      dispatch({ type: ActionTypes.SET_SOCKET_CONNECTION, payload: false })
-      dispatch({ type: ActionTypes.CLEAR_CHAT_MESSAGES })
-      dispatch({ type: ActionTypes.SET_ROOM_PLAYERS, payload: [] })
-      dispatch({ type: ActionTypes.SET_CURRENT_TURN_PLAYER, payload: null })
-    }
-  }
-
-  const joinSocketRoom = (roomId) => {
-    if (!socketRef.current) {
-      console.warn('[DEBUG_LOG] Cannot join socket room: not connected')
-      return
-    }
-
-    const userId = state.currentUser?.nickname || 'Anonymous'
-    console.log('[DEBUG_LOG] Joining socket room:', roomId, 'as', userId)
-    
-    // Clear previous chat messages when joining new room
-    dispatch({ type: ActionTypes.CLEAR_CHAT_MESSAGES })
-    
-    socketRef.current.joinRoom(roomId, userId)
-  }
-
-  const leaveSocketRoom = () => {
-    if (!socketRef.current) {
-      console.warn('[DEBUG_LOG] Cannot leave socket room: not connected')
-      return
-    }
-
-    console.log('[DEBUG_LOG] Leaving socket room')
-    socketRef.current.leaveRoom()
-    
-    // Clear room-specific data
-    dispatch({ type: ActionTypes.CLEAR_CHAT_MESSAGES })
-    dispatch({ type: ActionTypes.SET_ROOM_PLAYERS, payload: [] })
-    dispatch({ type: ActionTypes.SET_CURRENT_TURN_PLAYER, payload: null })
-  }
-
-  const sendChatMessage = (message) => {
-    if (!socketRef.current) {
-      console.warn('[DEBUG_LOG] Cannot send message: socket not connected')
-      return
-    }
-
-    if (!state.currentRoom) {
-      console.warn('[DEBUG_LOG] Cannot send message: not in a room')
-      return
-    }
-
-    const sender = state.currentUser?.nickname || 'Anonymous'
-    console.log('[DEBUG_LOG] Sending chat message:', message, 'from', sender)
-    
-    socketRef.current.sendMessage(message, sender)
-  }
-
-  // Game action functions
-  const startGame = () => {
-    if (!socketRef.current || !state.currentRoom) {
-      console.warn('[DEBUG_LOG] Cannot start game: not connected or not in room')
-      return
-    }
-
-    console.log('[DEBUG_LOG] Starting game for room:', state.currentRoom.gameNumber)
-    socketRef.current.socket?.emit('startGame', { roomId: state.currentRoom.gameNumber })
-  }
-
-  const castVote = (targetPlayerId) => {
-    if (!socketRef.current || !state.currentRoom) {
-      console.warn('[DEBUG_LOG] Cannot cast vote: not connected or not in room')
-      return
-    }
-
-    console.log('[DEBUG_LOG] Casting vote for player:', targetPlayerId)
-    socketRef.current.socket?.emit('castVote', { 
-      roomId: state.currentRoom.gameNumber, 
-      targetPlayerId 
-    })
-  }
-
-  const resetGameState = () => {
-    dispatch({ type: ActionTypes.RESET_GAME_STATE })
-  }
-  
-  // Authentication functions
+  // Auth functions
   const login = async (nickname) => {
     try {
       setLoading('auth', true)
       setError('auth', null)
-      
-      console.log('[DEBUG_LOG] Attempting login for:', nickname)
-      const response = await gameApi.login(nickname)
-      
-      localStorage.setItem('accessToken', response.accessToken)
-      localStorage.setItem('refreshToken', response.refreshToken)
-      const userData = { nickname }
-      localStorage.setItem('userData', JSON.stringify(userData))
-      
-      const user = { nickname, accessToken: response.accessToken, refreshToken: response.refreshToken }
-      dispatch({ type: ActionTypes.SET_USER, payload: user })
-      
-      console.log('[DEBUG_LOG] Login successful, token stored')
-      
-      try {
-        await fetchRooms()
-        await fetchSubjects()
-      } catch (dataError) {
-        console.warn('[DEBUG_LOG] Failed to load initial data after login:', dataError)
+
+      localStorage.removeItem('accessToken')
+      localStorage.removeItem('refreshToken')
+      localStorage.removeItem('adminAccessToken')
+      localStorage.removeItem('adminRefreshToken')
+
+
+      const result = await gameApi.login(nickname)
+      const userData = {
+        id: result.userId,
+        nickname: nickname,
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken
       }
       
-      return user
-    } catch (error) {
-      console.error('[DEBUG_LOG] Login failed:', error)
-      setError('auth', error.response?.data?.message || '로그인에 실패했습니다.')
-      throw error
-    } finally {
+      localStorage.setItem('accessToken', result.accessToken)
+      localStorage.setItem('refreshToken', result.refreshToken)
+      
+      dispatch({ type: ActionTypes.SET_USER, payload: userData })
       setLoading('auth', false)
-    }
-  }
-  
-  const logout = () => {
-    console.log('[DEBUG_LOG] User logging out, clearing session data')
-    
-    // Clear all stored authentication data
-    localStorage.removeItem('accessToken')
-    localStorage.removeItem('refreshToken')
-    localStorage.removeItem('userData')
-    
-    // Disconnect WebSocket if connected
-    try {
-      if (socketRef.current) {
-        disconnectSocket()
-      }
+      
+      return userData
     } catch (error) {
-      console.warn('[DEBUG_LOG] Error disconnecting WebSocket during logout:', error)
+      console.error('Login failed:', error)
+      setError('auth', '로그인에 실패했습니다.')
+      setLoading('auth', false)
+      throw error
     }
-    
-    dispatch({ type: ActionTypes.LOGOUT })
   }
-  
+
+  const logout = () => {
+    try {
+      if (gameStompClient.isClientConnected()) {
+        gameStompClient.disconnect()
+      }
+
+      socketRef.current = null
+
+      dispatch({ type: ActionTypes.LOGOUT })
+      dispatch({ type: ActionTypes.CLEAR_CURRENT_ROOM })
+      dispatch({ type: ActionTypes.CLEAR_CHAT_MESSAGES })
+      dispatch({ type: ActionTypes.RESET_GAME_STATE })
+    } catch (error) {
+      console.error('Logout error:', error)
+    }
+  }
+
+
+  // Room functions
   const fetchRooms = async () => {
     try {
       setLoading('rooms', true)
       setError('rooms', null)
-      
-      const response = await gameApi.getAllRooms()
-      dispatch({ type: ActionTypes.SET_ROOM_LIST, payload: response.rooms })
-      
-      return response.rooms
+
+      const rooms = await gameApi.getAllRooms()
+
+      if (!Array.isArray(rooms)) {
+        console.error('[ERROR] API response is not array:', rooms)
+        dispatch({ type: ActionTypes.SET_ROOM_LIST, payload: [] })
+        setError('rooms', 'API 응답 오류가 발생했습니다.')
+        setLoading('rooms', false)
+        return
+      }
+
+      const mappedRooms = rooms.map(room => ({
+        gameNumber: room.gameNumber,
+        title: room.title || room.gName,
+        host: room.host || room.gOwner,
+        playerCount: room.playerCount || room.currentPlayers || 0,
+        currentPlayers: room.playerCount || room.currentPlayers || 0,
+        maxPlayers: room.maxPlayers || room.gParticipants,
+        hasPassword: room.hasPassword || (room.gPassword != null),
+        subject: room.subject || room.citizenSubject?.content,
+        state: room.state || room.gState,
+        players: room.players || []
+
+      }))
+
+      console.log('[DEBUG] Mapped rooms:', mappedRooms.length)
+      dispatch({ type: ActionTypes.SET_ROOM_LIST, payload: mappedRooms })
+      setLoading('rooms', false)
+
     } catch (error) {
-      // Use dummy data if API fails
-      console.warn('API failed, using dummy data:', error.message)
-      dispatch({ type: ActionTypes.SET_ROOM_LIST, payload: gameApi.dummyData.rooms })
-      return gameApi.dummyData.rooms
-    } finally {
+      console.error('Failed to fetch rooms:', error)
+      setError('rooms', '방 목록을 불러오는데 실패했습니다.')
+      dispatch({ type: ActionTypes.SET_ROOM_LIST, payload: [] })
       setLoading('rooms', false)
     }
   }
-  
+
   const createRoom = async (roomData) => {
     try {
       setLoading('room', true)
       setError('room', null)
       
-      const gameNumber = await gameApi.createRoom(roomData)
+      const result = await gameApi.createRoom(roomData)
       
+      // 실제 생성된 방 정보를 사용하도록 수정
+      const createdRoom = {
+        gameNumber: result.gameNumber || result,
+        title: roomData.gName,
+        maxPlayers: roomData.gParticipants,
+        currentPlayers: 1,
+        gameState: 'WAITING',
+        subject: roomData.subjectIds?.length > 0 ? await getSubjectById(roomData.subjectIds[0]) : null,
+        players: [{
+          id: state.currentUser.id,
+          nickname: state.currentUser.nickname,
+          isHost: true,
+          isAlive: true,
+          avatarUrl: null
+        }],
+        password: roomData.gPassword,
+        rounds: roomData.gTotalRounds
+      }
+      
+      dispatch({ type: ActionTypes.SET_CURRENT_ROOM, payload: createdRoom })
+      
+      // Refresh room list
       await fetchRooms()
       
-      return gameNumber
-    } catch (error) {
-      setError('room', error.response?.data?.message || 'Failed to create room')
-      throw error
-    } finally {
       setLoading('room', false)
+      return createdRoom
+    } catch (error) {
+      console.error('Failed to create room:', error)
+      setError('room', '방 생성에 실패했습니다.')
+      setLoading('room', false)
+      throw error
     }
   }
-  
+
   const joinRoom = async (gameNumber, password = '') => {
     try {
       setLoading('room', true)
       setError('room', null)
-      
-      const roomData = await gameApi.joinRoom(gameNumber, password)
-      dispatch({ type: ActionTypes.SET_CURRENT_ROOM, payload: roomData })
-      
-      try {
-        if (!socketRef.current) {
-          connectSocket()
-        }
-        setTimeout(() => {
-          joinSocketRoom(gameNumber)
-        }, 1000)
-      } catch (socketError) {
-        console.warn('[DEBUG_LOG] Failed to connect to WebSocket:', socketError)
-      }
-      
-      return roomData
-    } catch (error) {
-      console.warn('API failed, using dummy data:', error.message)
-      const dummyRoom = gameApi.dummyData.gameState
-      dispatch({ type: ActionTypes.SET_CURRENT_ROOM, payload: dummyRoom })
-      
-      try {
-        if (!socketRef.current) {
-          connectSocket()
-        }
-        setTimeout(() => {
-          joinSocketRoom(gameNumber)
-        }, 1000)
-      } catch (socketError) {
-        console.warn('[DEBUG_LOG] Failed to connect to WebSocket in dummy mode:', socketError)
-      }
-      
-      return dummyRoom
-    } finally {
+
+      const response = await gameApi.joinRoom(gameNumber, password)
+
+      dispatch({ type: ActionTypes.SET_CURRENT_ROOM, payload: response })
+
+      await connectToRoom(gameNumber)
+
       setLoading('room', false)
+      return response
+    } catch (error) {
+      console.error('Failed to join room:', error)
+      setError('room', '방 입장에 실패했습니다.')
+      setLoading('room', false)
+      throw error
     }
   }
-  
-  const leaveRoom = async (gameNumber) => {
+
+  const getCurrentRoom = async (gameNumber) => {
     try {
       setLoading('room', true)
       setError('room', null)
       
-      try {
-        leaveSocketRoom()
-      } catch (socketError) {
-        console.warn('[DEBUG_LOG] Failed to leave WebSocket room:', socketError)
+      // ✅ 실제 API만 사용
+      const roomData = await gameApi.getRoomDetails(gameNumber)
+      
+      if (!roomData) {
+        throw new Error('방 정보를 찾을 수 없습니다.')
       }
       
-      await gameApi.leaveRoom(gameNumber)
-      dispatch({ type: ActionTypes.CLEAR_CURRENT_ROOM })
-      
-      await fetchRooms()
-      
-      return true
-    } catch (error) {
-      setError('room', error.response?.data?.message || 'Failed to leave room')
-      try {
-        leaveSocketRoom()
-      } catch (socketError) {
-        console.warn('[DEBUG_LOG] Failed to leave WebSocket room on error:', socketError)
+      // 플레이어 데이터 구조 검증
+      if (roomData.players && Array.isArray(roomData.players)) {
+        roomData.players = roomData.players.map((player, index) => ({
+          id: player.id || index + 1, // id가 없으면 인덱스 사용
+          nickname: player.nickname || `Player${index + 1}`,
+          isHost: player.isHost || false,
+          isAlive: player.isAlive !== false, // 기본값 true
+          avatar: player.avatar || null
+        }))
+      } else {
+        roomData.players = []
       }
-      dispatch({ type: ActionTypes.CLEAR_CURRENT_ROOM })
-      throw error
-    } finally {
+      
+      dispatch({ type: ActionTypes.SET_CURRENT_ROOM, payload: roomData })
       setLoading('room', false)
+      return roomData
+      
+    } catch (error) {
+      console.error('Failed to get room details:', error)
+      setError('room', '방 정보를 불러오는데 실패했습니다.')
+      setLoading('room', false)
+      throw error
     }
   }
-  
-  const fetchSubjects = async () => {
+
+  const leaveRoom = async (gameNumber) => {
+    try {
+      console.log('[DEBUG_LOG] Leaving room with gameNumber:', gameNumber)
+      const response = await gameApi.leaveRoom({
+        gNumber: parseInt(gameNumber)
+      })
+      console.log('[DEBBUG_LOG] Leave room response:', response)
+
+      setCurrentRoom(null)
+      setRoomPlayers([])
+      setGameStatus('WAITING')
+      return response
+
+      } catch (error) {
+      console.error('Failed to leave room:', error)
+      throw error
+    }
+  }
+
+  const fetchSubjects = useCallback(async () => {
+    if (state.loading.subjects || state.subjects.length > 0) {
+      console.log('[DEBUG_LOG] Skipping subjects fetch - already loading or has data')
+      return
+    }
+
     try {
       setLoading('subjects', true)
       setError('subjects', null)
-      
+
+      console.log('[DEBUG_LOG] Fetching subjects from API')
       const subjects = await gameApi.getAllSubjects()
-      dispatch({ type: ActionTypes.SET_SUBJECTS, payload: subjects })
-      
-      return subjects
+
+      if (Array.isArray(subjects)) {
+        dispatch({ type: ActionTypes.SET_SUBJECTS, payload: subjects })
+        console.log('[DEBUG_LOG] Subjects loaded successfully:', subjects.length)
+      } else {
+        setError('subjects', '주제 목록을 불러오는데 실패했습니다.')
+      }
+
     } catch (error) {
-      console.warn('API failed, using dummy data:', error.message)
-      dispatch({ type: ActionTypes.SET_SUBJECTS, payload: gameApi.dummyData.subjects })
-      return gameApi.dummyData.subjects
+      console.error('Failed to fetch subjects:', error)
+      setError('subjects', '주제 목록을 불러오는데 실패했습니다.')
     } finally {
       setLoading('subjects', false)
+    }
+  }, [state.loading.subjects, state.subjects.length])
+
+
+  const getSubjectById = async (subjectId) => {
+    try {
+      const subject = state.subjects.find(s => s.id === subjectId)
+      if (subject) return subject
+      
+      const allSubjects = await gameApi.getAllSubjects()
+      const foundSubject = allSubjects.find(s => s.id === subjectId)
+      return foundSubject || { id: subjectId, name: '알 수 없는 주제' }
+    } catch (error) {
+      console.error('Failed to get subject:', error)
+      return { id: subjectId, name: '주제 오류' }
     }
   }
 
@@ -820,19 +577,17 @@ export const GameProvider = ({ children }) => {
     try {
       setLoading('subjects', true)
       setError('subjects', null)
-      
-      await gameApi.addSubject(name)
-      
-      // Refresh subjects list after adding
-      await fetchSubjects()
-      
-      return true
-    } catch (error) {
-      console.error('[DEBUG_LOG] Failed to add subject:', error)
-      setError('subjects', error.response?.data?.message || '주제 추가에 실패했습니다.')
-      throw error
-    } finally {
+
+      const newSubject = await gameApi.addSubject(name)
+
+      console.log('[DEBUG_LOG] Subject added successfully - will be updated via WebSocket:', newSubject)
+
       setLoading('subjects', false)
+    } catch (error) {
+      console.error('Failed to add subject:', error)
+      setError('subjects', '주제 추가에 실패했습니다.')
+      setLoading('subjects', false)
+      throw error
     }
   }
 
@@ -841,100 +596,389 @@ export const GameProvider = ({ children }) => {
       setLoading('subjects', true)
       setError('subjects', null)
       
-      await gameApi.addWord(subject, word)
+      const result = await gameApi.addWord(subject, word)
       
-      return true
-    } catch (error) {
-      console.error('[DEBUG_LOG] Failed to add word:', error)
-      setError('subjects', error.response?.data?.message || '답안 추가에 실패했습니다.')
-      throw error
-    } finally {
       setLoading('subjects', false)
+      return result
+    } catch (error) {
+      console.error('Failed to add word:', error)
+      setError('subjects', '답안 추가에 실패했습니다.')
+      setLoading('subjects', false)
+      throw error
     }
   }
-  
+
   const navigateToLobby = () => {
     dispatch({ type: ActionTypes.SET_CURRENT_PAGE, payload: 'lobby' })
+    dispatch({ type: ActionTypes.CLEAR_CURRENT_ROOM })
   }
-  
+
   const navigateToRoom = () => {
     dispatch({ type: ActionTypes.SET_CURRENT_PAGE, payload: 'room' })
   }
-  
-  useEffect(() => {
-    const initializeAuth = async () => {
-      try {
-        setLoading('auth', true)
+
+  const connectSocket = useCallback(async (gameNumber) => {
+    try {
+      console.log('[DEBUG_LOG] Connecting to WebSocket for game:', gameNumber)
+      setLoading('socket', true)
+
+      await gameStompClient.connect()
+      dispatch({ type: ActionTypes.SET_SOCKET_CONNECTION, payload: true })
+
+      const handleChatMessage = (message) => {
+        console.log('[DEBUG_LOG] Received chat message via WebSocket:', message)
+        dispatch({ type: ActionTypes.ADD_CHAT_MESSAGE, payload: message })
+      }
+
+      const handleGameUpdate = (update) => {
+        console.log('[DEBUG_LOG] Received game update:', update)
+        // 게임 상태 업데이트 처리
+      }
+
+      const handlePlayerUpdate = (players) => {
+        console.log('[DEBUG_LOG] Received player update:', players)
+        dispatch({ type: ActionTypes.SET_ROOM_PLAYERS, payload: players })
+      }
+
+      gameStompClient.subscribeToGameChat(gameNumber, handleChatMessage)
+      gameStompClient.subscribeToGameRoom(gameNumber, handleGameUpdate)
+      gameStompClient.subscribeToPlayerUpdates(gameNumber, handlePlayerUpdate)
+
+      console.log('[DEBUG_LOG] WebSocket subscriptions set up for game:', gameNumber)
+      setLoading('socket', false)
+
+    } catch (error) {
+      console.error('Failed to connect socket:', error)
+      setError('socket', error.message)
+      setLoading('socket', false)
+    }
+  }, [])
+
+
+  const disconnectSocket = () => {
+    try {
+      console.log('[DEBUG_LOG] Disconnecting STOMP client')
+
+      if (gameStompClient.isClientConnected()) {
+        gameStompClient.disconnect()
+      }
+
+      socketRef.current = null
+
+      dispatch({ type: ActionTypes.SET_SOCKET_CONNECTION, payload: false })
+      dispatch({ type: ActionTypes.CLEAR_CHAT_MESSAGES })
+
+    } catch (error) {
+      console.error('[ERROR] Failed to disconnect socket:', error)
+    }
+  }
+
+
+  const startGame = () => {
+    if (gameStompClient.isClientConnected() && state.currentRoom) {
+      console.log('[DEBUG_LOG] Starting game for room:', state.currentRoom.gameNumber)
+      gameStompClient.sendGameAction(state.currentRoom.gameNumber, 'start')
+    }
+  }
+
+  const castVote = (playerId) => {
+    if (gameStompClient.isClientConnected() && state.currentRoom) {
+      console.log('[DEBUG_LOG] Casting vote for player:', playerId)
+      gameStompClient.sendGameAction(state.currentRoom.gameNumber, 'vote', { targetPlayerId: playerId })
+    }
+  }
+
+  const sendChatMessage = (message) => {
+    try {
+      if (!state.currentRoom?.gameNumber) {
+        console.warn('[DEBUG_LOG] No current room, cannot send message')
+        return false
+      }
+
+      if (!gameStompClient.isClientConnected()) {
+        console.warn('[DEBUG_LOG] WebSocket not connected, cannot send message')
+        return false
+      }
+
+      console.log('[DEBUG_LOG] Sending chat message:', message)
+      return gameStompClient.sendChatMessage(state.currentRoom.gameNumber, message)
+
+    } catch (error) {
+      console.error('[ERROR] Failed to send chat message:', error)
+      return false
+    }
+  }
+
+  const loadChatHistory = useCallback(async (gameNumber) => {
+    try {
+      console.log('[DEBUG_LOG] ========== loadChatHistory Start ==========')
+      console.log('[DEBUG_LOG] Loading chat history for game:', gameNumber)
+      
+      const messages = await gameApi.getChatHistory(gameNumber)
+      console.log('[DEBUG_LOG] API returned messages:', messages)
+      console.log('[DEBUG_LOG] Number of messages:', Array.isArray(messages) ? messages.length : 'Not an array')
+      
+      if (Array.isArray(messages)) {
+        // 시간순 정렬
+        const sortedMessages = messages.sort((a, b) => 
+          new Date(a.timestamp) - new Date(b.timestamp)
+        )
         
-        const token = localStorage.getItem('accessToken')
-        const userData = localStorage.getItem('userData')
+        console.log('[DEBUG_LOG] Sorted messages for display:')
+        sortedMessages.forEach((msg, index) => {
+          console.log(`[DEBUG_LOG]   ${index + 1}. ${msg.playerNickname}: ${msg.content}`)
+        })
         
-        if (token && userData) {
-          try {
-            const user = JSON.parse(userData)
-            console.log('[DEBUG_LOG] Restoring user session:', user.nickname)
-            dispatch({ type: ActionTypes.SET_USER, payload: { ...user, accessToken: token } })
-            
-            await fetchRooms()
-            await fetchSubjects()
-          } catch (parseError) {
-            console.warn('[DEBUG_LOG] Failed to parse stored user data, clearing storage')
-            localStorage.removeItem('accessToken')
-            localStorage.removeItem('userData')
-          }
-        } else if (token && !userData) {
-          console.warn('[DEBUG_LOG] Token exists but no user data, clearing storage')
-          localStorage.removeItem('accessToken')
+        dispatch({ type: ActionTypes.SET_CHAT_MESSAGES, payload: sortedMessages })
+        console.log('[SUCCESS] Chat history loaded successfully')
+      } else {
+        console.warn('[WARN] Invalid chat history format')
+        dispatch({ type: ActionTypes.SET_CHAT_MESSAGES, payload: [] })
+      }
+      
+      console.log('[DEBUG_LOG] ========== loadChatHistory End ==========')
+      return messages
+    } catch (error) {
+      console.error('[ERROR] Failed to load chat history:', error)
+      dispatch({ type: ActionTypes.SET_CHAT_MESSAGES, payload: [] })
+      setError('socket', '채팅 기록 로드 실패')
+      return []
+    }
+  }, [])
+
+
+  const connectToRoom = async (gameNumber, retryCount = 0) => {
+    const MAX_RETRIES = 3
+
+    if (retryCount >= MAX_RETRIES) {
+      console.error('[ERROR] Max connection retries reached')
+      setError('socket', 'WebSocket 연결에 실패했습니다.')
+      return
+    }
+
+    try {
+      console.log('[DEBUG_LOG] ========== connectToRoom Start ==========')
+      console.log('[DEBUG_LOG] Connecting to game room:', gameNumber)
+
+      console.log('[DEBUG_LOG] Cleaning up existing socket connection')
+      if (gameStompClient.isClientConnected()) {
+        gameStompClient.disconnect()
+      }
+
+      console.log('[DEBUG_LOG] Loading chat history before WebSocket connection')
+      await loadChatHistory(gameNumber)
+
+      console.log('[DEBUG_LOG] Establishing WebSocket connection')
+      const client = await gameStompClient.connect('http://localhost:20021')
+      socketRef.current = gameStompClient // ✅ gameStompClient 객체 자체를 저장
+
+      gameStompClient.subscribeToGameChat(gameNumber, (message) => {
+        console.log('[DEBUG_LOG] Received chat message:', message)
+        dispatch({ type: ActionTypes.ADD_CHAT_MESSAGE, payload: message })
+      })
+
+      gameStompClient.subscribeToGameRoom(gameNumber, (update) => {
+        console.log('[DEBUG_LOG] Received room update:', update)
+        if (update.type === 'PLAYER_JOINED' || update.type === 'PLAYER_LEFT') {
+          dispatch({ type: ActionTypes.SET_ROOM_PLAYERS, payload: update.players || [] })
         }
-      } catch (error) {
-        console.error('[DEBUG_LOG] Error during auth initialization:', error)
-        setError('auth', 'Authentication initialization failed')
-      } finally {
-        setLoading('auth', false)
+      })
+
+      gameStompClient.subscribeToPlayerUpdates(gameNumber, (playerUpdate) => {
+        console.log('[DEBUG_LOG] Received player update:', playerUpdate)
+        dispatch({ type: ActionTypes.SET_ROOM_PLAYERS, payload: playerUpdate.players || [] })
+      })
+
+      dispatch({ type: ActionTypes.SET_SOCKET_CONNECTION, payload: true })
+      console.log('[SUCCESS] Connected to game room:', gameNumber)
+      console.log('[DEBUG_LOG] ========== connectToRoom End ==========')
+
+    } catch (error) {
+      console.error('[ERROR] connectToRoom failed:', error)
+
+      if (retryCount < MAX_RETRIES) {
+        console.log(`[DEBUG_LOG] Retrying connection... (${retryCount + 1}/${MAX_RETRIES})`)
+        setTimeout(() => {
+          connectToRoom(gameNumber, retryCount + 1)
+        }, 2000 * (retryCount + 1))
+      } else {
+        setError('socket', 'WebSocket 연결에 실패했습니다.')
+        dispatch({ type: ActionTypes.SET_SOCKET_CONNECTION, payload: false })
       }
     }
-    
-    initializeAuth()
+  }
+
+
+
+
+
+  const fetchRoomDetails = async (gameNumber) => {
+    try {
+      console.log('[DEBUG_LOG] Fetching room details for game:', gameNumber)
+
+      const roomDetails = await gameApi.getRoomDetails(gameNumber)
+
+      if (!roomDetails) {
+        console.error('[DEBUG_LOG] No room details received')
+        return null
+      }
+
+      const normalizedRoom = {
+        gameNumber: roomDetails.gameNumber || gameNumber,
+        title: roomDetails.title || roomDetails.gName || `게임방 #${gameNumber}`,
+        host: roomDetails.host || roomDetails.gOwner || roomDetails.hostNickname || '알 수 없음',
+        currentPlayers: parseInt(roomDetails.currentPlayers || roomDetails.playerCount || 0),
+        maxPlayers: parseInt(roomDetails.maxPlayers || roomDetails.gParticipants || 8),
+        subject: roomDetails.subject || roomDetails.citizenSubject?.content || roomDetails.subjectName || '주제 없음',
+        state: roomDetails.state || roomDetails.gState || 'WAITING',
+        round: parseInt(roomDetails.currentRound || roomDetails.gCurrentRound || 1),
+        players: Array.isArray(roomDetails.players) ? roomDetails.players : [],
+        hasPassword: roomDetails.hasPassword || false,
+        createdAt: roomDetails.createdAt,
+        updatedAt: new Date().toISOString()
+      }
+
+      console.log('[DEBUG_LOG] Normalized room details:', normalizedRoom)
+
+      dispatch({ type: ActionTypes.SET_CURRENT_ROOM, payload: normalizedRoom })
+
+      if (normalizedRoom.players && normalizedRoom.players.length > 0) {
+        dispatch({ type: ActionTypes.SET_ROOM_PLAYERS, payload: normalizedRoom.players })
+      }
+
+      return normalizedRoom
+    } catch (error) {
+      console.error('[DEBUG_LOG] Failed to fetch room details:', error)
+      throw error
+    }
+  }
+
+
+  useEffect(() => {
+    const token = localStorage.getItem('accessToken')
+    if (token) {
+      const nickname = localStorage.getItem('nickname')
+      if (nickname) {
+        dispatch({ 
+          type: ActionTypes.SET_USER, 
+          payload: { 
+            nickname, 
+            accessToken: token 
+          } 
+        })
+      }
+    }
   }, [])
-  
-  const value = {
+
+  useEffect(() => {
+    if (state.isAuthenticated && state.currentPage === 'lobby') {
+      fetchRooms()
+    }
+  }, [state.isAuthenticated, state.currentPage])
+
+  const contextValue = {
+    // State
     ...state,
     
+    // Auth functions
     login,
     logout,
+    
+    // Room functions
     fetchRooms,
     createRoom,
     joinRoom,
     leaveRoom,
+    getCurrentRoom,
+    
+    // Subject functions
     fetchSubjects,
     addSubject,
     addWord,
+    
+    // Navigation functions
     navigateToLobby,
     navigateToRoom,
-    setLoading,
-    setError,
     
-    // WebSocket actions
+    // WebSocket functions
     connectSocket,
     disconnectSocket,
-    joinSocketRoom,
-    leaveSocketRoom,
     sendChatMessage,
+    loadChatHistory,
     
-    // Game actions
+    // Game functions
     startGame,
     castVote,
-    resetGameState
+
+    // Game Connection
+    connectToRoom,
+    fetchRoomDetails
   }
-  
+
+  useEffect(() => {
+    let isSubscribed = false;
+
+    const subscribeToGlobalSubjects = async () => {
+      if (state.isAuthenticated && !isSubscribed) {
+        try {
+          if (!gameStompClient.isClientConnected()) {
+            console.log('[DEBUG] Connecting to STOMP for global subject updates')
+            await gameStompClient.connect()
+          }
+
+          // 중복 구독 방지
+          if (!isSubscribed) {
+            gameStompClient.subscribe('/topic/subjects', (message) => {
+              console.log('[DEBUG] Global subject update received:', message)
+
+              if (message.type === 'SUBJECT_ADDED') {
+                const existingSubject = state.subjects.find(s =>
+                    s.id === message.subject.id ||
+                    s.name === message.subject.name
+                )
+
+                if (!existingSubject) {
+                  dispatch({
+                    type: ActionTypes.ADD_SUBJECT,
+                    payload: {
+                      id: message.subject.id,
+                      name: message.subject.name
+                    }
+                  })
+                  console.log('[DEBUG] New subject added via WebSocket:', message.subject)
+                } else {
+                  console.log('[DEBUG] Subject already exists, skipping:', message.subject)
+                }
+              }
+            })
+
+            isSubscribed = true;
+            dispatch({ type: ActionTypes.SET_SOCKET_CONNECTION, payload: true })
+          }
+
+        } catch (error) {
+          console.error('[DEBUG] Failed to set up global subject subscription:', error)
+        }
+      }
+    }
+
+    subscribeToGlobalSubjects()
+
+    return () => {
+      if (isSubscribed) {
+        gameStompClient.unsubscribe('/topic/subjects')
+        isSubscribed = false;
+      }
+    }
+  }, [state.isAuthenticated])
+
   return (
-    <GameContext.Provider value={value}>
+    <GameContext.Provider value={contextValue}>
       {children}
     </GameContext.Provider>
   )
 }
 
-// Custom hook to use the game context
 export const useGame = () => {
   const context = useContext(GameContext)
   if (!context) {
