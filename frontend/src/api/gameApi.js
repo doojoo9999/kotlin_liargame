@@ -152,7 +152,24 @@ export const sendMessage = async (gNumber, message) => {
   return response.data
 }
 
-export const getChatHistory = async (gNumber) => {
-  const response = await apiClient.get(`/chat/history/${gNumber}`)
-  return response.data
+export const getChatHistory = async (gNumber, limit = 50) => {
+  try {
+    console.log('[DEBUG] Loading chat history for game:', gNumber)
+
+    const response = await apiClient.get(`/chat/history`, {
+      params: {
+        gNumber: parseInt(gNumber),
+        limit: limit
+      }
+    })
+
+    console.log('[DEBUG] Chat history response:', response.data)
+    return response.data || []
+  } catch (error) {
+    console.error('Failed to get chat history:', error)
+    if (error.response?.status === 404) {
+      return [] // 채팅 기록이 없으면 빈 배열 반환
+    }
+    throw error
+  }
 }
