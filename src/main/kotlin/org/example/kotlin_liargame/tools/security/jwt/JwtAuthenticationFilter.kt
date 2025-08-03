@@ -54,6 +54,10 @@ class JwtAuthenticationFilter(
                             val userId = claims.subject.toLong()
                             val nickname = claims.get("nickname", String::class.java)
 
+                            // 관리자 토큰 처리 (-1 subject는 관리자)
+                            val actualUserId = if (userId == -1L) 999999991L else userId
+                            val actualNickname = if (nickname == "admin") "Admin" else nickname
+
                             val userPrincipal = org.example.kotlin_liargame.tools.security.UserPrincipal(
                                 userId = userId,
                                 nickname = nickname,
