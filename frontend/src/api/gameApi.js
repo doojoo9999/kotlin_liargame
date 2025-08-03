@@ -150,13 +150,12 @@ export const getAllSubjects = async () => {
       console.warn('[DEBUG] Unexpected subjects API response structure:', response.data)
       return []
     }
-    
-    // ✅ 각 주제 객체의 필드 검증 및 정규화
+
     const validSubjects = subjects
       .filter(subject => subject && typeof subject === 'object')
       .map(subject => ({
         id: subject.id || subject.subjectId || Date.now() + Math.random(),
-        name: subject.name || subject.subjectName || subject.title || '이름 없음'
+        name: subject.name || subject.subjectName || subject.content || subject.title || '이름 없음'
       }))
       .filter(subject => subject.name && subject.name !== '이름 없음')
     
