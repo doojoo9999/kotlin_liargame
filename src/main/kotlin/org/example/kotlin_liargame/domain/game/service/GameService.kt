@@ -1,5 +1,6 @@
 package org.example.kotlin_liargame.domain.game.service
 
+import jakarta.servlet.http.HttpSession
 import org.example.kotlin_liargame.domain.chat.service.ChatService
 import org.example.kotlin_liargame.domain.game.dto.request.*
 import org.example.kotlin_liargame.domain.game.dto.response.GameResultResponse
@@ -14,9 +15,7 @@ import org.example.kotlin_liargame.domain.subject.model.SubjectEntity
 import org.example.kotlin_liargame.domain.subject.repository.SubjectRepository
 import org.example.kotlin_liargame.domain.user.repository.UserRepository
 import org.example.kotlin_liargame.domain.word.repository.WordRepository
-import org.example.kotlin_liargame.tools.security.UserPrincipal
 import org.springframework.messaging.simp.SimpMessagingTemplate
-import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -31,8 +30,8 @@ class GameService(
     private val messagingTemplate: SimpMessagingTemplate
 ) {
 
-    private fun validateExistingOwner() {
-        val userId = getCurrentUserId()
+    private fun validateExistingOwner(session: HttpSession) {
+        val userId = getCurrentUserId(session)
 
         val activeGames = gameRepository.findAll()
             .filter { it.gState == GameState.WAITING ||
@@ -65,60 +64,23 @@ class GameService(
         throw RuntimeException("모든 방 번호(1-999)가 모두 사용중입니다. 나중에 다시 시도해주세요.")
     }
 
-    private fun getCurrentUserNickname(): String {
-        val authentication = SecurityContextHolder.getContext().authentication
-            ?: throw IllegalStateException("No authentication found")
-
-        return when (val principal = authentication.principal) {
-            is UserPrincipal -> {
-                println("[DEBUG] UserPrincipal found: ${principal.nickname}")
-                principal.nickname
-            }
-            is String -> {
-                println("[DEBUG] String principal found: $principal")
-                if (principal == "anonymousUser") {
-                    throw IllegalStateException("Anonymous user cannot create game room. Please login first.")
-                }
-                principal
-            }
-            else -> {
-                println("[DEBUG] Unknown principal type: ${principal::class.java.simpleName}")
-                throw IllegalStateException("Unknown principal type: ${principal::class.java.simpleName}. Expected UserPrincipal but got ${principal::class.java.simpleName}")
-            }
-        }
+    private fun getCurrentUserId(session: HttpSession): Long {
+        return session.getAttribute("userId") as? Long
+            ?: throw RuntimeException("Not authenticated")
     }
 
-
-    private fun getCurrentUserId(): Long {
-        val authentication = SecurityContextHolder.getContext().authentication
-            ?: throw IllegalStateException("No authentication found")
-
-        return when (val principal = authentication.principal) {
-            is UserPrincipal -> {
-                println("[DEBUG] UserPrincipal found with userId: ${principal.userId}")
-                principal.userId
-            }
-            is String -> {
-                println("[DEBUG] String principal found: $principal")
-                if (principal == "anonymousUser") {
-                    throw IllegalStateException("Anonymous user cannot create game room. Please login first.")
-                }
-                1L
-            }
-            else -> {
-                println("[DEBUG] Unknown principal type: ${principal::class.java.simpleName}")
-                throw IllegalStateException("Unknown principal type: ${principal::class.java.simpleName}. Expected UserPrincipal but got ${principal::class.java.simpleName}")
-            }
-        }
+    private fun getCurrentUserNickname(session: HttpSession): String {
+        return session.getAttribute("nickname") as? String
+            ?: throw RuntimeException("Not authenticated")
     }
 
 
     @Transactional
-    fun createGameRoom(req: CreateGameRoomRequest): Int {
+    fun createGameRoom(req: CreateGameRoomRequest, session: HttpSession): Int {
         req.validate()
 
-        val nickname = getCurrentUserNickname()
-        validateExistingOwner()
+        val nickname = getCurrentUserNickname(session)
+        validateExistingOwner(session)
 
         val nextRoomNumber = findNextAvailableRoomNumber()
         val newGame = req.to(nextRoomNumber, nickname)
@@ -134,7 +96,7 @@ class GameService(
 
         val savedGame = gameRepository.save(newGame)
 
-        joinGame(savedGame, getCurrentUserId(), nickname)
+        joinGame(savedGame, getCurrentUserId(session), nickname)
 
         return savedGame.gNumber
     }
@@ -173,7 +135,7 @@ class GameService(
     }
 
     @Transactional
-    fun joinGame(req: JoinGameRequest): GameStateResponse {
+    fun joinGame(req: JoinGameRequest, session: HttpSession): GameStateResponse {
         val game = gameRepository.findBygNumber(req.gNumber)
             ?: throw RuntimeException("게임방을 찾을 수 없습니다: ${req.gNumber}")
 
@@ -186,8 +148,8 @@ class GameService(
             throw RuntimeException("게임방이 가득 찼습니다.")
         }
 
-        val userId = getCurrentUserId()
-        val nickname = getCurrentUserNickname()
+        val userId = getCurrentUserId(session)
+        val nickname = getCurrentUserNickname(session)
 
         val existingPlayer = playerRepository.findByGameAndUserId(game, userId)
         if (existingPlayer != null) {
