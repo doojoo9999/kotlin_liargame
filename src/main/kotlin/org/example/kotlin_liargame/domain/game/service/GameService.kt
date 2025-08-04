@@ -153,7 +153,7 @@ class GameService(
 
         val existingPlayer = playerRepository.findByGameAndUserId(game, userId)
         if (existingPlayer != null) {
-            return getGameState(game)
+            return getGameState(game, session)
         }
 
         joinGame(game, userId, nickname)
@@ -198,7 +198,7 @@ class GameService(
             "maxPlayers" to game.gParticipants
         ))
 
-        return getGameState(game)
+        return getGameState(game, session)
     }
 
 
@@ -221,12 +221,12 @@ class GameService(
     }
 
     @Transactional
-    fun leaveGame(req: LeaveGameRequest): Boolean {
+    fun leaveGame(req: LeaveGameRequest, session: HttpSession): Boolean {
         val game = gameRepository.findBygNumber(req.gNumber)
             ?: throw RuntimeException("게임방을 찾을 수 없습니다: ${req.gNumber}")
 
-        val userId = getCurrentUserId()
-        val nickname = getCurrentUserNickname()
+        val userId = getCurrentUserId(session)
+        val nickname = getCurrentUserNickname(session)
 
         val deletedCount = playerRepository.deleteByGameIdAndUserId(game.id, userId)
 
@@ -278,10 +278,10 @@ class GameService(
     }
 
     @Transactional
-    fun startGame(req: StartGameRequest): GameStateResponse {
+    fun startGame(req: StartGameRequest, session: HttpSession): GameStateResponse {
         req.validate()
 
-        val nickname = getCurrentUserNickname()
+        val nickname = getCurrentUserNickname(session)
         val game = gameRepository.findBygOwner(nickname)
             ?: throw RuntimeException("게임??찾을 ???�습?�다. 먼�? 게임방을 ?�성?�주?�요.")
 
@@ -314,7 +314,7 @@ class GameService(
         game.startGame()
         gameRepository.save(game)
 
-        return getGameState(game)
+        return getGameState(game, session)
     }
 
     private fun selectSubjects(req: StartGameRequest): List<SubjectEntity> {
@@ -443,7 +443,7 @@ class GameService(
     }
 
     @Transactional
-    fun giveHint(req: GiveHintRequest): GameStateResponse {
+    fun giveHint(req: GiveHintRequest, session: HttpSession): GameStateResponse {
         req.validate()
 
         val game = gameRepository.findBygNumber(req.gNumber)
@@ -453,7 +453,7 @@ class GameService(
             throw RuntimeException("Game is not in progress")
         }
 
-        val userId = getCurrentUserId()
+        val userId = getCurrentUserId(session)
         val player = playerRepository.findByGameAndUserId(game, userId)
             ?: throw RuntimeException("You are not in this game")
 
@@ -480,11 +480,11 @@ class GameService(
             }
         }
 
-        return getGameState(game)
+        return getGameState(game, session)
     }
 
     @Transactional
-    fun vote(req: VoteRequest): GameStateResponse {
+    fun vote(req: VoteRequest, session: HttpSession): GameStateResponse {
         req.validate()
 
         val game = gameRepository.findBygNumber(req.gNumber)
@@ -494,7 +494,7 @@ class GameService(
             throw RuntimeException("Game is not in progress")
         }
 
-        val userId = getCurrentUserId()
+        val userId = getCurrentUserId(session)
         val player = playerRepository.findByGameAndUserId(game, userId)
             ?: throw RuntimeException("You are not in this game")
 
@@ -586,11 +586,11 @@ class GameService(
             }
         }
 
-        return getGameState(game)
+        return getGameState(game, session)
     }
 
     @Transactional
-    fun defend(req: DefendRequest): GameStateResponse {
+    fun defend(req: DefendRequest, session: HttpSession): GameStateResponse {
         req.validate()
 
         val game = gameRepository.findBygNumber(req.gNumber)
@@ -600,7 +600,7 @@ class GameService(
             throw RuntimeException("Game is not in progress")
         }
 
-        val userId = getCurrentUserId()
+        val userId = getCurrentUserId(session)
         val player = playerRepository.findByGameAndUserId(game, userId)
             ?: throw RuntimeException("You are not in this game")
 
@@ -624,12 +624,12 @@ class GameService(
             }
         }
 
-        return getGameState(game)
+        return getGameState(game, session)
     }
 
 
     @Transactional
-    fun survivalVote(req: SurvivalVoteRequest): GameStateResponse {
+    fun survivalVote(req: SurvivalVoteRequest, session: HttpSession): GameStateResponse {
         req.validate()
 
         val game = gameRepository.findBygNumber(req.gNumber)
@@ -639,7 +639,7 @@ class GameService(
             throw RuntimeException("Game is not in progress")
         }
 
-        val userId = getCurrentUserId()
+        val userId = getCurrentUserId(session)
         val player = playerRepository.findByGameAndUserId(game, userId)
             ?: throw RuntimeException("You are not in this game")
 
@@ -744,12 +744,12 @@ class GameService(
             }
         }
 
-        return getGameState(game)
+        return getGameState(game, session)
     }
 
 
     @Transactional
-    fun guessWord(req: GuessWordRequest): GameResultResponse {
+    fun guessWord(req: GuessWordRequest, session: HttpSession): GameResultResponse {
         req.validate()
 
         val game = gameRepository.findBygNumber(req.gNumber)
@@ -759,7 +759,7 @@ class GameService(
             throw RuntimeException("Game is not in progress")
         }
 
-        val userId = getCurrentUserId()
+        val userId = getCurrentUserId(session)
         val player = playerRepository.findByGameAndUserId(game, userId)
             ?: throw RuntimeException("You are not in this game")
 
@@ -788,14 +788,14 @@ class GameService(
         )
     }
 
-    fun getGameState(req: Int): GameStateResponse {
+    fun getGameState(req: Int, session: HttpSession): GameStateResponse {
         val game = gameRepository.findBygNumber(req)
             ?: throw RuntimeException("Game not found")
 
-        return getGameState(game)
+        return getGameState(game, session)
     }
 
-    fun getGameResult(req: Int): GameResultResponse {
+    fun getGameResult(req: Int, session: HttpSession): GameResultResponse {
         val game = gameRepository.findBygNumber(req)
             ?: throw RuntimeException("Game not found")
 
@@ -815,7 +815,7 @@ class GameService(
         )
     }
 
-    fun getAllGameRooms(): GameRoomListResponse {
+    fun getAllGameRooms(session: HttpSession): GameRoomListResponse {
         val activeGames = gameRepository.findAllActiveGames()
 
         val playerCounts = mutableMapOf<Long, Int>()
@@ -840,7 +840,7 @@ class GameService(
 
 
     @Transactional
-    fun endOfRound(req: EndOfRoundRequest): GameStateResponse {
+    fun endOfRound(req: EndOfRoundRequest, session: HttpSession): GameStateResponse {
         val game = gameRepository.findBygNumber(req.gNumber)
             ?: throw RuntimeException("Game not found")
 
@@ -863,12 +863,12 @@ class GameService(
 
         chatService.startPostRoundChat(req.gNumber)
 
-        return getGameState(game)
+        return getGameState(game, session)
     }
 
-    private fun getGameState(game: GameEntity): GameStateResponse {
+    private fun getGameState(game: GameEntity, session: HttpSession): GameStateResponse {
         val players = playerRepository.findByGame(game)
-        val currentUserId = getCurrentUserId()
+        val currentUserId = getCurrentUserId(session)
         val currentPhase = determineGamePhase(game, players)
         val accusedPlayer = findAccusedPlayer(players)
 
