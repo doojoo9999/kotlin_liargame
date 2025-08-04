@@ -5,10 +5,6 @@ export const login = async (nickname) => {
   return response.data
 }
 
-export const refreshToken = async (refreshToken) => {
-  const response = await apiClient.post('/auth/refresh', { refreshToken })
-  return response.data
-}
 
 
 export const addUser = async (nickname, profileImgUrl) => {

@@ -39,25 +39,10 @@ class GameStompClient {
                     this.client = null
                 }
 
-                // ✅ 일반 사용자 토큰 우선 사용
-                const accessToken = localStorage.getItem('accessToken')
-                const adminToken = localStorage.getItem('adminAccessToken')
-                const token = accessToken || adminToken
-
-                if (!token) {
-                    console.error('[DEBUG_LOG] No authentication token found')
-                    this.isConnecting = false
-                    this.connectionPromise = null
-                    reject(new Error('No authentication token available'))
-                    return
-                }
-
-                console.log('[DEBUG_LOG] Using token for WebSocket:', token.substring(0, 20) + '...')
-
+                // 세션 기반 인증 사용 (JWT 토큰 제거)
                 this.client = new Client({
                     webSocketFactory: () => new SockJS(`${serverUrl}/ws`),
                     connectHeaders: {
-                        'Authorization': `Bearer ${token}`,
                         ...options.headers
                     },
                     debug: (str) => {
