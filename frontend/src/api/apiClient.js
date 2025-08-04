@@ -9,27 +9,7 @@ const apiClient = axios.create({
   },
 })
 
-// 환경별 로깅 설정
-apiClient.interceptors.request.use(
-    (config) => {
-      // 일반 사용자 토큰 우선 사용
-      const accessToken = localStorage.getItem('accessToken')
-      const adminToken = localStorage.getItem('adminAccessToken')
-
-      const token = accessToken || adminToken
-
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`
-        console.log('[API_CLIENT] Using token:', token.substring(0, 20) + '...')
-      } else {
-        console.warn('[API_CLIENT] No token found in localStorage')
-      }
-
-      return config
-    },
-    (error) => Promise.reject(error)
-)
-
+// Request interceptor for authentication
 apiClient.interceptors.request.use(
   (requestConfig) => {
     // Get token from localStorage (will be set after login)

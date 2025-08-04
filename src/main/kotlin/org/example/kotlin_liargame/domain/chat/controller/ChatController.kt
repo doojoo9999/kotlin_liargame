@@ -36,15 +36,13 @@ class ChatController(
         try {
             println("[DEBUG] Received WebSocket chat message: $request")
             
-            // ✅ 세션에서 userId 추출 시도 (실패해도 서비스에서 처리)
             val sessionAttributes = headerAccessor.sessionAttributes
             val sessionUserId = sessionAttributes?.get("userId") as? Long
-            println("[DEBUG] Session userId: $sessionUserId")
+            val sessionToken = sessionAttributes?.get("token") as? String
+            println("[DEBUG] Session userId: $sessionUserId, token present: ${sessionToken != null}")
             
-            // ✅ 서비스에서 모든 인증 로직 처리 - 수정된 sendMessage 메서드 사용
-            val response = chatService.sendMessage(request, sessionUserId)
+            val response = chatService.sendMessageWithJwtAuth(request, sessionUserId, sessionToken)
             
-            // ✅ 브로드캐스트 실행
             val topic = "/topic/chat.${request.gNumber}"
             messagingTemplate.convertAndSend(topic, response)
             
