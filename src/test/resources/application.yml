@@ -44,12 +44,16 @@ spring:
   websocket:
     allowed-origins: "*"
 
-  security:
-    jwt:
-      test-mode: true
+  session:
+    store-type: memory # 테스트용 메모리 세션
+
+  # JWT 관련 설정 모두 제거
 
 server:
   port: 20022
+  servlet:
+    session:
+      timeout: 30m # 세션 타임아웃 설정
 
 logging:
   level:
@@ -61,5 +65,4 @@ logging:
     org.hibernate.SQL: DEBUG
     org.hibernate.type.descriptor.sql: TRACE
 
-jwt:
-  secret: test_jwt_secret_key_for_testing_purposes_only
+# JWT 관련 설정 모두 제거
