@@ -18,7 +18,7 @@ spring:
             matching-strategy: ant_path_matcher
 
     session:
-        store-type: memory # 또는 redis
+        store-type: memory
 
 
 server:
