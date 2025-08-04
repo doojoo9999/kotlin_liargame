@@ -14,7 +14,7 @@ function ChatWindow() {
     error
   } = useGame()
 
-  const gameNumber = currentRoom?.gameNumber
+  const gameNumber = currentRoom?.gameNumber || currentRoom?.gNumber
 
   console.log('[DEBUG_LOG] ChatWindow - currentRoom from useGame:', currentRoom)
   console.log('[DEBUG_LOG] ChatWindow - gameNumber:', gameNumber)
@@ -54,7 +54,7 @@ function ChatWindow() {
   // 디버그 로그로 ChatWindow에서 currentRoom 확인
   useEffect(() => {
     console.log('[DEBUG_LOG] ChatWindow - currentRoom from useGame:', currentRoom)
-    console.log('[DEBUG_LOG] ChatWindow - gameNumber:', currentRoom?.gameNumber)
+    console.log('[DEBUG_LOG] ChatWindow - gameNumber:', currentRoom?.gameNumber || currentRoom?.gNumber)
     console.log('[DEBUG_LOG] ChatWindow - socketConnected:', socketConnected)
   }, [currentRoom, socketConnected])
 
@@ -65,7 +65,7 @@ function ChatWindow() {
       return
     }
 
-    const gameNumber = currentRoom.gameNumber
+    const gameNumber = currentRoom.gameNumber || currentRoom.gNumber
     if (!gameNumber) {
       console.error('[DEBUG_LOG] Cannot send message: gameNumber is null/undefined')
       return
@@ -102,7 +102,7 @@ function ChatWindow() {
         }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h6" color="white">
-              Game Chat {currentRoom?.gameNumber ? `#${currentRoom.gameNumber}` : ''}
+              Game Chat {gameNumber ? `#${gameNumber}` : ''}
             </Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               {/* 디버그 버튼들 */}
@@ -111,7 +111,7 @@ function ChatWindow() {
                 variant="outlined" 
                 sx={{ color: 'white', borderColor: 'white', fontSize: '10px' }}
                 onClick={() => {
-                  if (currentRoom?.gameNumber) {
+                  if (currentRoom?.gNumber) {
                     console.log('[DEBUG] Manual chat history reload triggered')
                     // GameContext에서 loadChatHistory 함수를 export하여 사용
                     window.location.reload() // 임시 해결책

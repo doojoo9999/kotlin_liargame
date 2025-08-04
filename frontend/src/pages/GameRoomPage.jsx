@@ -87,7 +87,7 @@ function GameRoomPage() {
                 console.error('[DEBUG_LOG] Failed to disconnect WebSocket on unmount:', error)
             }
         }
-    }, [currentRoom, connectToRoom, disconnectSocket])
+    }, [currentRoom?.gameNumber])
 
 
   // Handle connection status changes

@@ -13,6 +13,7 @@ import org.example.kotlin_liargame.domain.game.model.enum.GameState
 import org.example.kotlin_liargame.domain.game.repository.GameRepository
 import org.example.kotlin_liargame.domain.game.repository.PlayerRepository
 import org.example.kotlin_liargame.tools.security.UserPrincipal
+import org.example.kotlin_liargame.tools.security.jwt.JwtProvider
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.stereotype.Service
@@ -28,8 +29,9 @@ class ChatService(
     private val chatMessageRepository: ChatMessageRepository,
     private val gameRepository: GameRepository,
     private val playerRepository: PlayerRepository,
-    private val messagingTemplate: SimpMessagingTemplate
-) {
+    private val messagingTemplate: SimpMessagingTemplate,
+    private val jwtProvider: JwtProvider
+    ) {
     private val postRoundChatWindows = ConcurrentHashMap<Int, Instant>()
 
     private val scheduler: ScheduledExecutorService = Executors.newScheduledThreadPool(1)
@@ -55,6 +57,87 @@ class ChatService(
             return (authentication.principal as UserPrincipal).userId
         }
         println("[WARN] No authentication found for WebSocket, using default user ID")
+        return 1L
+    }
+
+    /**
+     * JWT 토큰에서 사용자 ID를 추출합니다.
+     * WebSocket 연결 시 Authorization 헤더에서 JWT 토큰을 파싱하여 사용자 ID를 반환합니다.
+     */
+    fun extractUserIdFromJwtToken(jwtToken: String?): Long? {
+        if (jwtToken.isNullOrBlank()) {
+            println("[DEBUG] JWT token is null or blank")
+            return null
+        }
+
+        return try {
+            // Bearer 접두사 제거
+            val token = if (jwtToken.startsWith("Bearer ")) {
+                jwtToken.substring(7)
+            } else {
+                jwtToken
+            }
+
+            // 토큰 유효성 검증
+            if (!jwtProvider.validateToken(token)) {
+                println("[WARN] Invalid JWT token")
+                return null
+            }
+
+            // 토큰이 데이터베이스에 존재하는지 확인
+            if (!jwtProvider.isTokenInDatabase(token)) {
+                println("[WARN] JWT token not found in database")
+                return null
+            }
+
+            // 토큰에서 사용자 ID 추출
+            val claims = jwtProvider.getClaims(token)
+            val userId = claims.subject.toLongOrNull()
+            
+            if (userId != null) {
+                println("[DEBUG] Successfully extracted userId from JWT: $userId")
+            } else {
+                println("[WARN] Failed to parse userId from JWT token subject: ${claims.subject}")
+            }
+            
+            userId
+        } catch (e: Exception) {
+            println("[ERROR] Failed to extract userId from JWT token: ${e.message}")
+            null
+        }
+    }
+
+    /**
+     * WebSocket 연결에서 사용자 ID를 가져옵니다.
+     * 1. 세션에서 userId 확인
+     * 2. 세션에서 JWT 토큰을 파싱하여 userId 추출
+     * 3. SecurityContext에서 userId 확인
+     * 4. 기본값 반환
+     */
+    fun getUserIdForWebSocket(sessionUserId: Long?, sessionToken: String?): Long {
+        // 1. 세션에서 직접 userId가 제공된 경우
+        if (sessionUserId != null) {
+            println("[DEBUG] Using session userId: $sessionUserId")
+            return sessionUserId
+        }
+
+        // 2. 세션에서 JWT 토큰을 파싱하여 userId 추출
+        val jwtUserId = extractUserIdFromJwtToken(sessionToken)
+        if (jwtUserId != null) {
+            println("[DEBUG] Using JWT-extracted userId: $jwtUserId")
+            return jwtUserId
+        }
+
+        // 3. SecurityContext에서 userId 확인
+        val authentication = SecurityContextHolder.getContext().authentication
+        if (authentication?.principal is UserPrincipal) {
+            val userId = (authentication.principal as UserPrincipal).userId
+            println("[DEBUG] Using SecurityContext userId: $userId")
+            return userId
+        }
+
+        // 4. 기본값 반환 (개발/테스트용)
+        println("[WARN] No valid authentication found for WebSocket, using default user ID")
         return 1L
     }
 
@@ -88,6 +171,77 @@ class ChatService(
         println("[DEBUG] Chat message saved to database: ${savedMessage.id}")
         
         return ChatMessageResponse.from(savedMessage)
+    }
+
+    /**
+     * WebSocket 연결에서 JWT 토큰 인증을 사용하여 메시지를 전송합니다.
+     */
+    @Transactional
+    fun sendMessageWithJwtAuth(req: SendChatMessageRequest, sessionUserId: Long?, sessionToken: String?): ChatMessageResponse {
+        req.validate()
+        
+        val game = gameRepository.findBygNumber(req.gNumber)
+            ?: throw RuntimeException("Game not found")
+        
+        // JWT 토큰 인증을 통한 사용자 ID 추출
+        val userId = getUserIdForWebSocket(sessionUserId, sessionToken)
+        println("[DEBUG] Final userId for WebSocket message: $userId, gameNumber: ${req.gNumber}")
+        
+        val player = playerRepository.findByGameAndUserId(game, userId)
+        
+        if (player == null) {
+            val allPlayers = playerRepository.findByGame(game)
+            println("[DEBUG] Player not found! All players in game ${req.gNumber}:")
+            allPlayers.forEach { p ->
+                println("[DEBUG]   - Player: ${p.nickname} (ID: ${p.id}, UserId: ${p.userId})")
+            }
+            println("[DEBUG] Searched for UserId: $userId")
+            throw RuntimeException("You are not in this game. UserId: $userId, GameNumber: ${req.gNumber}")
+        }
+
+        println("[DEBUG] Found player: ${player.nickname} (ID: ${player.id}, UserId: ${player.userId})")
+
+        if (game.gState == GameState.IN_PROGRESS) {
+            if (!player.isAlive) {
+                throw RuntimeException("You are eliminated from the game")
+            }
+
+            val messageType = determineMessageType(game, player)
+            if (messageType == null) {
+                throw RuntimeException("Chat is not available at this time")
+            }
+
+            val chatMessage = ChatMessageEntity(
+                game = game,
+                player = player,
+                content = req.content,
+                type = messageType
+            )
+
+            val savedMessage = chatMessageRepository.save(chatMessage)
+            println("[SUCCESS] Chat message saved to database: ${savedMessage.id}")
+            
+            return ChatMessageResponse.from(savedMessage)
+        }
+        else {
+            val messageType = if (game.gState == GameState.WAITING) {
+                ChatMessageType.LOBBY
+            } else {
+                ChatMessageType.POST_ROUND
+            }
+
+            val chatMessage = ChatMessageEntity(
+                game = game,
+                player = player,
+                content = req.content,
+                type = messageType
+            )
+
+            val savedMessage = chatMessageRepository.save(chatMessage)
+            println("[SUCCESS] Chat message saved to database: ${savedMessage.id}")
+            
+            return ChatMessageResponse.from(savedMessage)
+        }
     }
 
     @Transactional

@@ -32,7 +32,8 @@ const initialState = {
     room: false,
     auth: false,
     subjects: false,
-    socket: false
+    socket: false,
+    chatHistory: false
   },
   error: {
     rooms: null,
@@ -710,9 +711,17 @@ export const GameProvider = ({ children }) => {
   }
 
   const loadChatHistory = useCallback(async (gameNumber) => {
+    // Prevent multiple simultaneous calls
+    if (state.loading.chatHistory) {
+      console.log('[DEBUG_LOG] Chat history already loading, skipping duplicate request')
+      return []
+    }
+
     try {
       console.log('[DEBUG_LOG] ========== loadChatHistory Start ==========')
       console.log('[DEBUG_LOG] Loading chat history for game:', gameNumber)
+      
+      setLoading('chatHistory', true)
       
       const messages = await gameApi.getChatHistory(gameNumber)
       console.log('[DEBUG_LOG] API returned messages:', messages)
@@ -743,8 +752,10 @@ export const GameProvider = ({ children }) => {
       dispatch({ type: ActionTypes.SET_CHAT_MESSAGES, payload: [] })
       setError('socket', '채팅 기록 로드 실패')
       return []
+    } finally {
+      setLoading('chatHistory', false)
     }
-  }, [])
+  }, [state.loading.chatHistory])
 
 
   const connectToRoom = async (gameNumber, retryCount = 0) => {
