@@ -52,9 +52,8 @@ function ProtectedRoute({ children }) {
 
 function AdminProtectedRoute({ children }) {
   const isUserAdmin = localStorage.getItem('isUserAdmin') === 'true'
-  const adminAccessToken = localStorage.getItem('adminAccessToken')
 
-  if (!isUserAdmin || !adminAccessToken) {
+  if (!isUserAdmin) {
     return <Navigate to="/admin/login" replace />
   }
 
