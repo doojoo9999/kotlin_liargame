@@ -29,9 +29,14 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-websocket")
     runtimeOnly("com.h2database:h2")
-    implementation("io.jsonwebtoken:jjwt-api:0.11.5")
-    runtimeOnly("io.jsonwebtoken:jjwt-impl:0.11.5")
-    runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.11.5")
+    // JWT 관련 의존성 모두 제거
+    // implementation("io.jsonwebtoken:jjwt-api:0.11.5")
+    // runtimeOnly("io.jsonwebtoken:jjwt-impl:0.11.5")
+    // runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.11.5")
+    
+    // 세션 관리를 위한 의존성 추가
+    implementation("org.springframework.session:spring-session-core")
+    implementation("org.springframework.boot:spring-boot-starter-data-redis") // 선택사항
     implementation("io.github.cdimascio:dotenv-java:2.3.2")
 
 
