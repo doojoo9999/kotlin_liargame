@@ -1,18 +1,16 @@
 package org.example.kotlin_liargame.domain.auth.service
 
+import jakarta.servlet.http.HttpServletRequest
 import org.example.kotlin_liargame.domain.auth.dto.request.AdminLoginRequest
-import org.example.kotlin_liargame.domain.auth.dto.response.TokenResponse
 import org.example.kotlin_liargame.domain.game.repository.GameRepository
 import org.example.kotlin_liargame.domain.game.repository.PlayerRepository
 import org.example.kotlin_liargame.domain.user.repository.UserRepository
-import org.example.kotlin_liargame.tools.security.jwt.JwtProvider
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 
 @Service
 class AdminService(
-    private val jwtProvider: JwtProvider,
     private val gameRepository: GameRepository,
     private val playerRepository: PlayerRepository,
     private val userRepository: UserRepository,
@@ -26,7 +24,7 @@ class AdminService(
         private const val ADMIN_NICKNAME = "admin"
     }
 
-    fun login(request: AdminLoginRequest): TokenResponse {
+    fun login(request: AdminLoginRequest, httpRequest: HttpServletRequest): AdminLoginResponse {
         logger.debug("관리자 로그인 시도")
         
         if (request.password != adminPassword) {
@@ -34,13 +32,15 @@ class AdminService(
             throw IllegalArgumentException("잘못된 관리자 비밀번호입니다.")
         }
         
-        // Generate admin tokens
-        val accessToken = jwtProvider.generateAccessToken(ADMIN_USER_ID, ADMIN_NICKNAME)
-        val refreshToken = jwtProvider.generateRefreshToken(ADMIN_USER_ID, ADMIN_NICKNAME)
+        // 세션에 관리자 정보 저장
+        val session = httpRequest.getSession(true)
+        session.setAttribute("userId", ADMIN_USER_ID)
+        session.setAttribute("nickname", ADMIN_NICKNAME)
+        session.setAttribute("isAdmin", true)
         
         logger.debug("관리자 로그인 성공")
         
-        return TokenResponse(accessToken = accessToken, refreshToken = refreshToken)
+        return AdminLoginResponse(success = true, message = "관리자 로그인 성공")
     }
 
     fun getStatistics(): AdminStatsResponse {
@@ -118,4 +118,9 @@ data class AdminPlayerInfo(
     val id: Long,
     val nickname: String,
     val status: String
+)
+
+data class AdminLoginResponse(
+    val success: Boolean,
+    val message: String
 )
