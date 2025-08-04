@@ -1,5 +1,6 @@
 package org.example.kotlin_liargame.domain.chat.controller
 
+import jakarta.servlet.http.HttpSession
 import org.example.kotlin_liargame.domain.chat.dto.request.GetChatHistoryRequest
 import org.example.kotlin_liargame.domain.chat.dto.request.SendChatMessageRequest
 import org.example.kotlin_liargame.domain.chat.dto.response.ChatMessageResponse
@@ -20,11 +21,12 @@ class ChatController(
 ) {
 
     @PostMapping("/send")
-    fun sendMessage(@RequestBody request: SendChatMessageRequest): ResponseEntity<ChatMessageResponse> {
-        val response = chatService.sendMessage(request)
-        
+    fun sendMessage(
+        @RequestBody request: SendChatMessageRequest,
+        session: HttpSession
+    ): ResponseEntity<ChatMessageResponse> {
+        val response = chatService.sendMessage(request, session)
         messagingTemplate.convertAndSend("/topic/chat.${request.gNumber}", response)
-        
         return ResponseEntity.ok(response)
     }
     
@@ -34,24 +36,14 @@ class ChatController(
         headerAccessor: SimpMessageHeaderAccessor
     ) {
         try {
-            println("[DEBUG] Received WebSocket chat message: $request")
-            
             val sessionAttributes = headerAccessor.sessionAttributes
-            val sessionUserId = sessionAttributes?.get("userId") as? Long
-            val sessionToken = sessionAttributes?.get("token") as? String
-            println("[DEBUG] Session userId: $sessionUserId, token present: ${sessionToken != null}")
+                ?: throw RuntimeException("No session found")
             
-            val response = chatService.sendMessageWithJwtAuth(request, sessionUserId, sessionToken)
-            
-            val topic = "/topic/chat.${request.gNumber}"
-            messagingTemplate.convertAndSend(topic, response)
-            
-            println("[DEBUG] Broadcasting chat message to $topic: $response")
-            println("[SUCCESS] WebSocket chat message processed successfully")
+            val response = chatService.sendMessageViaWebSocket(request, sessionAttributes)
+            messagingTemplate.convertAndSend("/topic/chat.${request.gNumber}", response)
             
         } catch (e: Exception) {
-            println("[ERROR] Failed to handle WebSocket chat message: ${e.message}")
-            e.printStackTrace()
+            println("[ERROR] WebSocket chat error: ${e.message}")
         }
     }
 
