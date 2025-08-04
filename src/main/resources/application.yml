@@ -17,9 +17,15 @@ spring:
         pathmatch:
             matching-strategy: ant_path_matcher
 
+    session:
+        store-type: memory # 또는 redis
+
 
 server:
     port: 20021
+    servlet:
+        session:
+            timeout: 30m # 세션 타임아웃 설정
 
 logging:
     level:
@@ -27,9 +33,4 @@ logging:
         org.example.kotlin_liargame: DEBUG
         org.springframework.security: DEBUG
 
-jwt:
-    secret: ${JWT_SECRET_KEY:mySecretKeyForTestingChatHistoryIssue1234567890}
-
-security:
-    jwt:
-        isTestUser : false # 기본값 false
+# JWT 관련 설정 모두 제거
