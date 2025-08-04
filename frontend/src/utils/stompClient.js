@@ -21,7 +21,6 @@ class AdminStompClient {
                 this.client = new Client({
                     webSocketFactory: () => new SockJS(`${serverUrl}/ws`),
                     connectHeaders: {
-                        'Authorization': `Bearer ${localStorage.getItem('adminAccessToken')}`,
                         ...options.headers
                     },
                     debug: (str) => {
