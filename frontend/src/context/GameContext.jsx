@@ -121,8 +121,7 @@ const gameReducer = (state, action) => {
       }
       
     case ActionTypes.LOGOUT:
-      localStorage.removeItem('accessToken')
-      localStorage.removeItem('refreshToken')
+      localStorage.removeItem('userData')
       return {
         ...state,
         currentUser: null,
@@ -324,22 +323,13 @@ export const GameProvider = ({ children }) => {
       setLoading('auth', true)
       setError('auth', null)
 
-      localStorage.removeItem('accessToken')
-      localStorage.removeItem('refreshToken')
-      localStorage.removeItem('adminAccessToken')
-      localStorage.removeItem('adminRefreshToken')
-
-
       const result = await gameApi.login(nickname)
       const userData = {
         id: result.userId,
-        nickname: nickname,
-        accessToken: result.accessToken,
-        refreshToken: result.refreshToken
+        nickname: nickname
       }
       
-      localStorage.setItem('accessToken', result.accessToken)
-      localStorage.setItem('refreshToken', result.refreshToken)
+      localStorage.setItem('userData', JSON.stringify(userData))
       
       dispatch({ type: ActionTypes.SET_USER, payload: userData })
       setLoading('auth', false)
@@ -866,17 +856,17 @@ export const GameProvider = ({ children }) => {
 
 
   useEffect(() => {
-    const token = localStorage.getItem('accessToken')
-    if (token) {
-      const nickname = localStorage.getItem('nickname')
-      if (nickname) {
+    const userData = localStorage.getItem('userData')
+    if (userData) {
+      try {
+        const parsedUserData = JSON.parse(userData)
         dispatch({ 
           type: ActionTypes.SET_USER, 
-          payload: { 
-            nickname, 
-            accessToken: token 
-          } 
+          payload: parsedUserData
         })
+      } catch (error) {
+        console.error('Failed to parse userData from localStorage:', error)
+        localStorage.removeItem('userData')
       }
     }
   }, [])

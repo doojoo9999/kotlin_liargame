@@ -54,11 +54,8 @@ function GameMonitoringPage() {
     // Fetch statistics data
     const fetchStats = useCallback(async () => {
         try {
-            const response = await axios.get(`${API_BASE_URL}/api/v1/admin/stats`, {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('adminAccessToken')}`
-                }
-            })
+            // Authorization 헤더 제거, withCredentials가 세션 처리
+            const response = await axios.get(`${API_BASE_URL}/api/v1/admin/stats`)
             setStats(response.data)
         } catch (error) {
             console.error('[DEBUG_LOG] Failed to fetch stats:', error)
@@ -69,11 +66,7 @@ function GameMonitoringPage() {
     // Fetch game rooms data
     const fetchGameRooms = useCallback(async () => {
         try {
-            const response = await axios.get(`${API_BASE_URL}/api/v1/game/rooms`, {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('adminAccessToken')}`
-                }
-            })
+            const response = await axios.get(`${API_BASE_URL}/api/v1/game/rooms`)
             setGameRooms(response.data.gameRooms || [])
         } catch (error) {
             console.error('[DEBUG_LOG] Failed to fetch game rooms:', error)
@@ -84,11 +77,7 @@ function GameMonitoringPage() {
     // Fetch all players data
     const fetchAllPlayers = useCallback(async () => {
         try {
-            const response = await axios.get(`${API_BASE_URL}/api/v1/admin/players`, {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('adminAccessToken')}`
-                }
-            })
+            const response = await axios.get(`${API_BASE_URL}/api/v1/admin/players`)
             setAllPlayers(response.data.players || [])
         } catch (error) {
             console.error('[DEBUG_LOG] Failed to fetch players:', error)
@@ -100,12 +89,7 @@ function GameMonitoringPage() {
     const forceTerminateRoom = async (gameNumber) => {
         try {
             await axios.post(`${API_BASE_URL}/api/v1/admin/terminate-room`, 
-                { gameNumber },
-                {
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('adminAccessToken')}`
-                    }
-                }
+                { gameNumber }
             )
             // Refresh data after termination
             await fetchGameRooms()
