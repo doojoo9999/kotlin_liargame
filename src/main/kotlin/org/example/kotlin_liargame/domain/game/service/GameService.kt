@@ -51,7 +51,7 @@ class GameService(
 
     private fun findNextAvailableRoomNumber(): Int {
         val activeGames = gameRepository.findAllActiveGames()
-        val usedNumbers = activeGames.map { it.gNumber }.toSet()
+        val usedNumbers = activeGames.map { it.gameNumber }.toSet()
 
 
         for (number in 1..999) {
@@ -98,7 +98,7 @@ class GameService(
 
         joinGame(savedGame, getCurrentUserId(session), nickname)
 
-        return savedGame.gNumber
+        return savedGame.gameNumber
     }
 
     private fun selectSubjectsForGameRoom(req: CreateGameRoomRequest): List<SubjectEntity> {
@@ -136,15 +136,15 @@ class GameService(
 
     @Transactional
     fun joinGame(req: JoinGameRequest, session: HttpSession): GameStateResponse {
-        val game = gameRepository.findBygNumber(req.gNumber)
-            ?: throw RuntimeException("게임방을 찾을 수 없습니다: ${req.gNumber}")
+        val game = gameRepository.findByGameNumber(req.gameNumber)
+            ?: throw RuntimeException("게임방을 찾을 수 없습니다: ${req.gameNumber}")
 
-        if (game.gState != GameState.WAITING) {
+        if (game.gameState != GameState.WAITING) {
             throw RuntimeException("게임이 이미 시작되었습니다.")
         }
 
         val currentPlayers = playerRepository.findByGame(game)
-        if (currentPlayers.size >= game.gParticipants) {
+        if (currentPlayers.size >= game.gameParticipants) {
             throw RuntimeException("게임방이 가득 찼습니다.")
         }
 
@@ -162,25 +162,25 @@ class GameService(
 
         val roomUpdateMessage = mapOf(
             "type" to "PLAYER_JOINED",
-            "gameNumber" to game.gNumber,
+            "gameNumber" to game.gameNumber,
             "playerName" to nickname,
             "userId" to userId,
             "currentPlayers" to newPlayerCount,
-            "maxPlayers" to game.gParticipants,
+            "maxPlayers" to game.gameParticipants,
             "roomData" to mapOf(
-                "gameNumber" to game.gNumber,
-                "title" to game.gName,
-                "host" to game.gOwner,
+                "gameNumber" to game.gameNumber,
+                "title" to game.gameName,
+                "host" to game.gameOwner,
                 "currentPlayers" to newPlayerCount,
-                "maxPlayers" to game.gParticipants,
+                "maxPlayers" to game.gameParticipants,
                 "subject" to (game.citizenSubject?.content ?: "주제 설정 중"),
-                "state" to game.gState.name,
+                "state" to game.gameState.name,
                 "players" to playerRepository.findByGame(game).map { player ->
                     mapOf(
                         "id" to player.id,
                         "userId" to player.userId,
                         "nickname" to player.nickname,
-                        "isHost" to (player.nickname == game.gOwner),
+                        "isHost" to (player.nickname == game.gameOwner),
                         "isAlive" to player.isAlive
                     )
                 }
@@ -189,13 +189,13 @@ class GameService(
 
         println("[DEBUG] Broadcasting room update: $roomUpdateMessage")
 
-        messagingTemplate.convertAndSend("/topic/room.${game.gNumber}", roomUpdateMessage)
+        messagingTemplate.convertAndSend("/topic/room.${game.gameNumber}", roomUpdateMessage)
 
         messagingTemplate.convertAndSend("/topic/lobby", mapOf(
             "type" to "ROOM_UPDATED",
-            "gameNumber" to game.gNumber,
+            "gameNumber" to game.gameNumber,
             "currentPlayers" to newPlayerCount,
-            "maxPlayers" to game.gParticipants
+            "maxPlayers" to game.gameParticipants
         ))
 
         return getGameState(game, session)
@@ -222,8 +222,8 @@ class GameService(
 
     @Transactional
     fun leaveGame(req: LeaveGameRequest, session: HttpSession): Boolean {
-        val game = gameRepository.findBygNumber(req.gNumber)
-            ?: throw RuntimeException("게임방을 찾을 수 없습니다: ${req.gNumber}")
+                    val game = gameRepository.findByGameNumber(req.gameNumber)
+            ?: throw RuntimeException("게임방을 찾을 수 없습니다: ${req.gameNumber}")
 
         val userId = getCurrentUserId(session)
         val nickname = getCurrentUserNickname(session)
@@ -235,25 +235,25 @@ class GameService(
 
             val roomUpdateMessage = mapOf(
                 "type" to "PLAYER_LEFT",
-                "gameNumber" to game.gNumber,
+                "gameNumber" to game.gameNumber,
                 "playerName" to nickname,
                 "userId" to userId,
                 "currentPlayers" to remainingPlayers.size,
-                "maxPlayers" to game.gParticipants,
+                "maxPlayers" to game.gameParticipants,
                 "roomData" to mapOf(
-                    "gameNumber" to game.gNumber,
-                    "title" to game.gName,
-                    "host" to game.gOwner,
+                    "gameNumber" to game.gameNumber,
+                    "title" to game.gameName,
+                    "host" to game.gameOwner,
                     "currentPlayers" to remainingPlayers.size,
-                    "maxPlayers" to game.gParticipants,
+                    "maxPlayers" to game.gameParticipants,
                     "subject" to (game.citizenSubject?.content ?: "주제 설정 중"),
-                    "state" to game.gState.name,
+                    "state" to game.gameState.name,
                     "players" to remainingPlayers.map { player ->
                         mapOf(
                             "id" to player.id,
                             "userId" to player.userId,
                             "nickname" to player.nickname,
-                            "isHost" to (player.nickname == game.gOwner),
+                            "isHost" to (player.nickname == game.gameOwner),
                             "isAlive" to player.isAlive
                         )
                     }
@@ -262,13 +262,13 @@ class GameService(
 
             println("[DEBUG] Broadcasting player leave: $roomUpdateMessage")
 
-            messagingTemplate.convertAndSend("/topic/room.${game.gNumber}", roomUpdateMessage)
+            messagingTemplate.convertAndSend("/topic/room.${game.gameNumber}", roomUpdateMessage)
 
             messagingTemplate.convertAndSend("/topic/lobby", mapOf(
                 "type" to "ROOM_UPDATED",
-                "gameNumber" to game.gNumber,
+                "gameNumber" to game.gameNumber,
                 "currentPlayers" to remainingPlayers.size,
-                "maxPlayers" to game.gParticipants
+                "maxPlayers" to game.gameParticipants
             ))
 
             return true
@@ -282,10 +282,10 @@ class GameService(
         req.validate()
 
         val nickname = getCurrentUserNickname(session)
-        val game = gameRepository.findBygOwner(nickname)
+        val game = gameRepository.findByGameOwner(nickname)
             ?: throw RuntimeException("게임??찾을 ???�습?�다. 먼�? 게임방을 ?�성?�주?�요.")
 
-        if (game.gState != GameState.WAITING) {
+        if (game.gameState != GameState.WAITING) {
             throw RuntimeException("게임???��? 진행 중이거나 종료?�었?�니??")
         }
 
@@ -409,7 +409,7 @@ class GameService(
         val liarSubject = if (subjects.size > 1) subjects[1] else citizenSubject
         game.liarSubject = liarSubject
 
-        val liarCount = game.gLiarCount.coerceAtMost(players.size - 1)
+        val liarCount = game.gameLiarCount.coerceAtMost(players.size - 1)
         val liarIndices = players.indices.shuffled().take(liarCount)
 
         players.forEachIndexed { index, player ->
@@ -419,7 +419,7 @@ class GameService(
             val subject = when {
                 !isLiar -> subjects.random()
 
-                game.gGameMode == GameMode.LIARS_DIFFERENT_WORD -> liarSubject
+                game.gameMode == GameMode.LIARS_DIFFERENT_WORD -> liarSubject
 
                 else -> citizenSubject
             }
@@ -446,10 +446,10 @@ class GameService(
     fun giveHint(req: GiveHintRequest, session: HttpSession): GameStateResponse {
         req.validate()
 
-        val game = gameRepository.findBygNumber(req.gNumber)
+                    val game = gameRepository.findByGameNumber(req.gameNumber)
             ?: throw RuntimeException("Game not found")
 
-        if (game.gState != GameState.IN_PROGRESS) {
+        if (game.gameState != GameState.IN_PROGRESS) {
             throw RuntimeException("Game is not in progress")
         }
 
@@ -487,10 +487,10 @@ class GameService(
     fun vote(req: VoteRequest, session: HttpSession): GameStateResponse {
         req.validate()
 
-        val game = gameRepository.findBygNumber(req.gNumber)
+                    val game = gameRepository.findByGameNumber(req.gameNumber)
             ?: throw RuntimeException("Game not found")
 
-        if (game.gState != GameState.IN_PROGRESS) {
+        if (game.gameState != GameState.IN_PROGRESS) {
             throw RuntimeException("Game is not in progress")
         }
 
@@ -593,10 +593,10 @@ class GameService(
     fun defend(req: DefendRequest, session: HttpSession): GameStateResponse {
         req.validate()
 
-        val game = gameRepository.findBygNumber(req.gNumber)
+                    val game = gameRepository.findByGameNumber(req.gameNumber)
             ?: throw RuntimeException("Game not found")
 
-        if (game.gState != GameState.IN_PROGRESS) {
+        if (game.gameState != GameState.IN_PROGRESS) {
             throw RuntimeException("Game is not in progress")
         }
 
@@ -632,10 +632,10 @@ class GameService(
     fun survivalVote(req: SurvivalVoteRequest, session: HttpSession): GameStateResponse {
         req.validate()
 
-        val game = gameRepository.findBygNumber(req.gNumber)
+                    val game = gameRepository.findByGameNumber(req.gameNumber)
             ?: throw RuntimeException("Game not found")
 
-        if (game.gState != GameState.IN_PROGRESS) {
+        if (game.gameState != GameState.IN_PROGRESS) {
             throw RuntimeException("Game is not in progress")
         }
 
@@ -752,10 +752,10 @@ class GameService(
     fun guessWord(req: GuessWordRequest, session: HttpSession): GameResultResponse {
         req.validate()
 
-        val game = gameRepository.findBygNumber(req.gNumber)
+                    val game = gameRepository.findByGameNumber(req.gameNumber)
             ?: throw RuntimeException("Game not found")
 
-        if (game.gState != GameState.IN_PROGRESS) {
+        if (game.gameState != GameState.IN_PROGRESS) {
             throw RuntimeException("Game is not in progress")
         }
 
@@ -789,17 +789,17 @@ class GameService(
     }
 
     fun getGameState(req: Int, session: HttpSession): GameStateResponse {
-        val game = gameRepository.findBygNumber(req)
+        val game = gameRepository.findByGameNumber(req)
             ?: throw RuntimeException("Game not found")
 
         return getGameState(game, session)
     }
 
     fun getGameResult(req: Int, session: HttpSession): GameResultResponse {
-        val game = gameRepository.findBygNumber(req)
+        val game = gameRepository.findByGameNumber(req)
             ?: throw RuntimeException("Game not found")
 
-        if (game.gState != GameState.ENDED) {
+        if (game.gameState != GameState.ENDED) {
             throw RuntimeException("Game is not ended")
         }
 
@@ -824,7 +824,7 @@ class GameService(
         activeGames.forEach { game ->
             val players = playerRepository.findByGame(game)
 
-            println("[DEBUG] Game ${game.gNumber} (ID: ${game.id}): found ${players.size} players")
+            println("[DEBUG] Game ${game.gameNumber} (ID: ${game.id}): found ${players.size} players")
             players.forEach { player ->
                 println("[DEBUG]   - Player: ${player.nickname} (ID: ${player.id}, User: ${player.userId})")
             }
@@ -841,27 +841,27 @@ class GameService(
 
     @Transactional
     fun endOfRound(req: EndOfRoundRequest, session: HttpSession): GameStateResponse {
-        val game = gameRepository.findBygNumber(req.gNumber)
+        val game = gameRepository.findByGameNumber(req.gameNumber)
             ?: throw RuntimeException("Game not found")
 
-        if (game.gState != GameState.IN_PROGRESS) {
+        if (game.gameState != GameState.IN_PROGRESS) {
             throw RuntimeException("Game is not in progress")
         }
 
-        if (game.gOwner != req.gOwner) {
+        if (game.gameOwner != req.gameOwner) {
             throw RuntimeException("Only the game owner can end the round")
         }
 
-        if (game.gCurrentRound != req.gRound) {
+        if (game.gameCurrentRound != req.gameRound) {
             throw RuntimeException("Round number mismatch")
         }
 
-        if (req.gIsGameOver) {
+        if (req.isGameOver) {
             game.endGame()
             gameRepository.save(game)
         }
 
-        chatService.startPostRoundChat(req.gNumber)
+        chatService.startPostRoundChat(req.gameNumber)
 
         return getGameState(game, session)
     }
@@ -890,7 +890,7 @@ class GameService(
     }
 
     private fun determineGamePhase(game: GameEntity, players: List<PlayerEntity>): GamePhase {
-        return when (game.gState) {
+        return when (game.gameState) {
             GameState.WAITING -> GamePhase.WAITING_FOR_PLAYERS
             GameState.ENDED -> GamePhase.GAME_OVER
             GameState.IN_PROGRESS -> {
