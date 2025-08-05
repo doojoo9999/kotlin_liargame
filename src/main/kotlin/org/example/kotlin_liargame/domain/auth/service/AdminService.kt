@@ -32,7 +32,6 @@ class AdminService(
             throw IllegalArgumentException("잘못된 관리자 비밀번호입니다.")
         }
         
-        // 세션에 관리자 정보 저장
         val session = httpRequest.getSession(true)
         session.setAttribute("userId", ADMIN_USER_ID)
         session.setAttribute("nickname", ADMIN_NICKNAME)
@@ -90,11 +89,9 @@ class AdminService(
         val game = allGames.find { it.gNumber == gameNumber }
             ?: throw IllegalArgumentException("존재하지 않는 게임방입니다.")
         
-        // Update game state to ended
         game.gState = org.example.kotlin_liargame.domain.game.model.enum.GameState.ENDED
         gameRepository.save(game)
         
-        // Remove all players from the game
         val playersToRemove = playerRepository.findByGame(game)
         playerRepository.deleteAll(playersToRemove)
         
