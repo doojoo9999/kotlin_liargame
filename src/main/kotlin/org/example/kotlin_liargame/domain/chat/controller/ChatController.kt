@@ -43,36 +43,54 @@ class ChatController(
             println("[DEBUG] SessionId: ${headerAccessor.sessionId}")
             println("[DEBUG] SessionAttributes: ${headerAccessor.sessionAttributes?.keys}")
 
-            // HttpSession 가져오기 시도
-            val httpSession = headerAccessor.sessionAttributes?.get("HTTP.SESSION") as? jakarta.servlet.http.HttpSession
-            println("[DEBUG] HttpSession present: ${httpSession != null}")
+            // 다양한 방법으로 사용자 인증 정보 추출 시도
+            var userId: Long? = null
+            var sessionAttributes = headerAccessor.sessionAttributes
 
-            // WebSocket 세션에서 직접 userId 가져오기 시도
-            val sessionAttributes = headerAccessor.sessionAttributes
-
-            // 모든 세션 속성 정보 로깅
-            sessionAttributes?.forEach { (key, value) ->
-                println("[DEBUG] Session attribute: $key = $value")
+            // 1. WebSocket 세션 속성에서 직접 userId 추출 시도
+            userId = sessionAttributes?.get("userId") as? Long
+            if (userId != null) {
+                println("[DEBUG] Found userId in WebSocket session attributes: $userId")
             }
 
-            // HttpSession을 통한 인증 시도
-            if (httpSession != null) {
-                val userId = httpSession.getAttribute("userId") as? Long
-                if (userId != null) {
-                    println("[DEBUG] Found userId in HTTP session: $userId")
-                    // HTTP 세션에서 발견된 userId를 WebSocket 세션에 저장
-                    if (sessionAttributes != null) {
+            // 2. HttpSession에서 userId 추출 시도
+            if (userId == null) {
+                val httpSession = sessionAttributes?.get("HTTP.SESSION") as? jakarta.servlet.http.HttpSession
+                if (httpSession != null) {
+                    userId = httpSession.getAttribute("userId") as? Long
+                    if (userId != null) {
+                        println("[DEBUG] Found userId in HTTP session: $userId")
+                        // WebSocket 세션에 userId 저장
+                        if (sessionAttributes == null) {
+                            sessionAttributes = mutableMapOf()
+                            headerAccessor.sessionAttributes = sessionAttributes
+                        }
                         sessionAttributes["userId"] = userId
+                        
+                        // nickname도 함께 저장
+                        val nickname = httpSession.getAttribute("nickname") as? String
+                        if (nickname != null) {
+                            sessionAttributes["nickname"] = nickname
+                        }
                     }
+                } else {
+                    println("[DEBUG] No HTTP session found in WebSocket connection")
                 }
             }
 
-            // 세션 없을 경우 예외 발생
+            // 3. 세션 속성이 없는 경우 빈 맵으로 초기화
             if (sessionAttributes == null) {
-                throw RuntimeException("No session found")
+                sessionAttributes = mutableMapOf()
+                headerAccessor.sessionAttributes = sessionAttributes
             }
-            
-            val response = chatService.sendMessageViaWebSocket(request, sessionAttributes)
+
+            // 모든 세션 속성 정보 로깅
+            sessionAttributes.forEach { (key, value) ->
+                println("[DEBUG] Final session attribute: $key = $value")
+            }
+
+            // ChatService 호출 (userId가 null이어도 ChatService에서 처리)
+            val response = chatService.sendMessageViaWebSocket(request, sessionAttributes, headerAccessor.sessionId)
             messagingTemplate.convertAndSend("/topic/chat.${request.gameNumber}", response)
             
             println("[DEBUG] WebSocket chat message sent successfully")
