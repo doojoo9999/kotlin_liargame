@@ -136,12 +136,53 @@ class GameStompClient {
         return this.subscribe(topic, callback)
     }
 
-    subscribe(topic, callback) {
-        if (!this.isConnected || !this.client) {
-            console.warn('[DEBUG_LOG] Game STOMP not connected, cannot subscribe to:', topic)
-            return null
+    subscribe(topic, callback, timeout = 10000) {
+        // If already connected, subscribe immediately
+        if (this.isConnected && this.client && this.client.connected) {
+            return this._doSubscribe(topic, callback)
         }
 
+        // If not connected, wait for connection then subscribe
+        console.log('[DEBUG_LOG] Game STOMP not connected, waiting for connection to subscribe to:', topic)
+        
+        return new Promise((resolve, reject) => {
+            const timeoutId = setTimeout(() => {
+                reject(new Error(`Subscription timeout for topic: ${topic}`))
+            }, timeout)
+
+            const attemptSubscribe = async () => {
+                try {
+                    // Try to connect if not already connecting
+                    if (!this.isConnected && !this.isConnecting) {
+                        console.log('[DEBUG_LOG] Initiating connection for subscription to:', topic)
+                        await this.connect()
+                    }
+                    
+                    // Wait for connection to be established
+                    if (this.connectionPromise) {
+                        await this.connectionPromise
+                    }
+                    
+                    // Double-check connection state
+                    if (this.isConnected && this.client && this.client.connected) {
+                        clearTimeout(timeoutId)
+                        const subscription = this._doSubscribe(topic, callback)
+                        resolve(subscription)
+                    } else {
+                        throw new Error('Failed to establish connection for subscription')
+                    }
+                } catch (error) {
+                    clearTimeout(timeoutId)
+                    console.error('[DEBUG_LOG] Failed to subscribe after connection attempt:', error)
+                    reject(error)
+                }
+            }
+
+            attemptSubscribe()
+        })
+    }
+
+    _doSubscribe(topic, callback) {
         console.log('[DEBUG_LOG] Game STOMP subscribing to:', topic)
 
         const subscription = this.client.subscribe(topic, (message) => {
