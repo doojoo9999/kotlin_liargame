@@ -28,15 +28,15 @@ class GameController(
         try {
             val response = gameService.joinGame(request, session)
 
-            messagingTemplate.convertAndSend("/topic/room.${request.gNumber}", mapOf(
+            messagingTemplate.convertAndSend("/topic/room.${request.gameNumber}", mapOf(
                 "type" to "PLAYER_JOINED",
                 "gameState" to response,
-                "gNumber" to request.gNumber
+                "gameNumber" to request.gameNumber
             ))
 
             messagingTemplate.convertAndSend("/topic/lobby", mapOf(
                 "type" to "ROOM_UPDATED",
-                "gNumber" to request.gNumber
+                "gameNumber" to request.gameNumber
             ))
 
             return ResponseEntity.ok(response)
@@ -52,14 +52,14 @@ class GameController(
         try {
             val response = gameService.leaveGame(request, session)
 
-            messagingTemplate.convertAndSend("/topic/room.${request.gNumber}", mapOf(
+            messagingTemplate.convertAndSend("/topic/room.${request.gameNumber}", mapOf(
                 "type" to "PLAYER_LEFT",
-                "gNumber" to request.gNumber
+                "gameNumber" to request.gameNumber
             ))
 
             messagingTemplate.convertAndSend("/topic/lobby", mapOf(
                 "type" to "ROOM_UPDATED",
-                "gNumber" to request.gNumber
+                "gameNumber" to request.gameNumber
             ))
 
             return ResponseEntity.ok(response)
@@ -106,15 +106,15 @@ class GameController(
         return ResponseEntity.ok(response)
     }
     
-    @GetMapping("/{gNumber}")
-    fun getGameState(@PathVariable gNumber: Int, session: HttpSession): ResponseEntity<GameStateResponse> {
-        val response = gameService.getGameState(gNumber, session)
+    @GetMapping("/{gameNumber}")
+    fun getGameState(@PathVariable gameNumber: Int, session: HttpSession): ResponseEntity<GameStateResponse> {
+        val response = gameService.getGameState(gameNumber, session)
         return ResponseEntity.ok(response)
     }
     
-    @GetMapping("/result/{gNumber}")
-    fun getGameResult(@PathVariable gNumber: Int, session: HttpSession): ResponseEntity<GameResultResponse> {
-        val response = gameService.getGameResult(gNumber, session)
+    @GetMapping("/result/{gameNumber}")
+    fun getGameResult(@PathVariable gameNumber: Int, session: HttpSession): ResponseEntity<GameResultResponse> {
+        val response = gameService.getGameResult(gameNumber, session)
         return ResponseEntity.ok(response)
     }
     
