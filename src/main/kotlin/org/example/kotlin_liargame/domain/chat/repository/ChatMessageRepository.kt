@@ -19,6 +19,6 @@ interface ChatMessageRepository : JpaRepository<ChatMessageEntity, Long> {
 
     fun findByGameAndTypeAndTimestampAfter(game: GameEntity, type: ChatMessageType, timestamp: Instant): List<ChatMessageEntity>
 
-    @Query("SELECT c FROM ChatMessageEntity c WHERE c.game = :game AND c.game.gCurrentRound = :round")
-    fun findByGameAndgCurrentRound(@Param("game") game: GameEntity, @Param("round") round: Int): List<ChatMessageEntity>
+    @Query("SELECT c FROM ChatMessageEntity c WHERE c.game = :game AND c.game.gameCurrentRound = :round")
+    fun findByGameAndGameCurrentRound(@Param("game") game: GameEntity, @Param("round") round: Int): List<ChatMessageEntity>
 }
