@@ -1,7 +1,7 @@
 package org.example.kotlin_liargame.domain.chat.dto.response
 
 import org.example.kotlin_liargame.domain.chat.model.ChatMessageEntity
-import org.example.kotlin_liargame.domain.chat.model.ChatMessageType
+import org.example.kotlin_liargame.domain.chat.model.enum.ChatMessageType
 import java.time.Instant
 
 data class ChatMessageResponse(
