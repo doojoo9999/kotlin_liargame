@@ -918,60 +918,70 @@ export const GameProvider = ({ children }) => {
 
   useEffect(() => {
     let isSubscribed = false;
+    let subscriptionPromise = null;
 
-    const subscribeToGlobalSubjects = async () => {
+    const connectToGlobalUpdates = async () => {
       if (state.isAuthenticated && !isSubscribed) {
         try {
-          if (!gameStompClient.isClientConnected()) {
-            console.log('[DEBUG] Connecting to STOMP for global subject updates')
-            await gameStompClient.connect()
-          }
+          console.log('[DEBUG_LOG] Setting up global subject updates subscription')
+          
+          // Use the improved subscribe method that waits for connection
+          subscriptionPromise = gameStompClient.subscribe('/topic/subjects', (message) => {
+            console.log('[DEBUG_LOG] Global subject update received:', message)
 
-          // 중복 구독 방지
-          if (!isSubscribed) {
-            gameStompClient.subscribe('/topic/subjects', (message) => {
-              console.log('[DEBUG] Global subject update received:', message)
+            if (message.type === 'SUBJECT_ADDED') {
+              const existingSubject = state.subjects.find(s =>
+                  s.id === message.subject.id ||
+                  s.name === message.subject.name
+              )
 
-              if (message.type === 'SUBJECT_ADDED') {
-                const existingSubject = state.subjects.find(s =>
-                    s.id === message.subject.id ||
-                    s.name === message.subject.name
-                )
-
-                if (!existingSubject) {
-                  dispatch({
-                    type: ActionTypes.ADD_SUBJECT,
-                    payload: {
-                      id: message.subject.id,
-                      name: message.subject.name
-                    }
-                  })
-                  console.log('[DEBUG] New subject added via WebSocket:', message.subject)
-                } else {
-                  console.log('[DEBUG] Subject already exists, skipping:', message.subject)
-                }
+              if (!existingSubject) {
+                dispatch({
+                  type: ActionTypes.ADD_SUBJECT,
+                  payload: {
+                    id: message.subject.id,
+                    name: message.subject.name
+                  }
+                })
+                console.log('[DEBUG_LOG] New subject added via WebSocket:', message.subject)
+              } else {
+                console.log('[DEBUG_LOG] Subject already exists, skipping:', message.subject)
               }
-            })
+            }
+          })
 
-            isSubscribed = true;
-            dispatch({ type: ActionTypes.SET_SOCKET_CONNECTION, payload: true })
-          }
+          // Wait for subscription to complete
+          await subscriptionPromise
+          isSubscribed = true
+          console.log('[DEBUG_LOG] Global subject subscription established successfully')
+          dispatch({ type: ActionTypes.SET_SOCKET_CONNECTION, payload: true })
 
         } catch (error) {
-          console.error('[DEBUG] Failed to set up global subject subscription:', error)
+          console.error('[DEBUG_LOG] Failed to set up global subject subscription:', error)
+          // Retry after a delay
+          setTimeout(() => {
+            if (state.isAuthenticated && !isSubscribed) {
+              console.log('[DEBUG_LOG] Retrying global subject subscription...')
+              connectToGlobalUpdates()
+            }
+          }, 5000)
         }
       }
     }
 
-    subscribeToGlobalSubjects()
+    connectToGlobalUpdates()
 
     return () => {
       if (isSubscribed) {
+        console.log('[DEBUG_LOG] Cleaning up global subject subscription')
         gameStompClient.unsubscribe('/topic/subjects')
-        isSubscribed = false;
+        isSubscribed = false
+      }
+      if (subscriptionPromise) {
+        subscriptionPromise = null
       }
     }
-  }, [state.isAuthenticated])
+  }, [state.isAuthenticated, state.subjects])
 
   return (
     <GameContext.Provider value={contextValue}>
