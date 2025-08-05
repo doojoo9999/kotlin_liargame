@@ -16,11 +16,33 @@ class ErrorBoundary extends React.Component {
   componentDidCatch(error, errorInfo) {
     console.error('ErrorBoundary caught an error:', error, errorInfo)
     
-    this.setState({
-      error: error,
-      errorInfo: errorInfo
-    })
-
+    // Check for WebSocket-related errors and handle them specifically
+    if (error.message.includes('WebSocket') || error.message.includes('STOMP') || 
+        error.message.includes('Socket.IO') || error.message.includes('websocket')) {
+      console.error('WebSocket-related error detected:', error)
+      
+      // Dispatch custom event for WebSocket errors
+      window.dispatchEvent(new CustomEvent('websocket:error', {
+        detail: {
+          error: error.message,
+          type: 'boundary_caught',
+          timestamp: new Date().toISOString()
+        }
+      }))
+      
+      // Set specific error state for WebSocket errors
+      this.setState({
+        error: error,
+        errorInfo: errorInfo,
+        isWebSocketError: true
+      })
+    } else {
+      this.setState({
+        error: error,
+        errorInfo: errorInfo,
+        isWebSocketError: false
+      })
+    }
   }
 
   handleReload = () => {
@@ -63,11 +85,14 @@ class ErrorBoundary extends React.Component {
             />
             
             <Typography variant="h4" component="h1" gutterBottom color="error">
-              앗! 문제가 발생했습니다
+              {this.state.isWebSocketError ? '연결 문제가 발생했습니다' : '앗! 문제가 발생했습니다'}
             </Typography>
             
             <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-              예상치 못한 오류가 발생했습니다. 페이지를 새로고침하거나 잠시 후 다시 시도해 주세요.
+              {this.state.isWebSocketError 
+                ? '실시간 연결에 문제가 발생했습니다. 네트워크 연결을 확인하고 페이지를 새로고침해 주세요.'
+                : '예상치 못한 오류가 발생했습니다. 페이지를 새로고침하거나 잠시 후 다시 시도해 주세요.'
+              }
             </Typography>
 
             <Alert severity="error" sx={{ mb: 3, textAlign: 'left' }}>
