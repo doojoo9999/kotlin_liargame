@@ -1,6 +1,6 @@
 package org.example.kotlin_liargame.domain.chat.dto.request
 
-import org.example.kotlin_liargame.domain.chat.model.ChatMessageType
+import org.example.kotlin_liargame.domain.chat.model.enum.ChatMessageType
 
 class GetChatHistoryRequest(
     val gNumber: Int,
