@@ -1,6 +1,9 @@
 package org.example.kotlin_liargame.tools.websocket
 
 import org.springframework.context.annotation.Configuration
+import org.springframework.http.server.ServerHttpRequest
+import org.springframework.http.server.ServerHttpResponse
+import org.springframework.http.server.ServletServerHttpRequest
 import org.springframework.messaging.Message
 import org.springframework.messaging.MessageChannel
 import org.springframework.messaging.simp.config.ChannelRegistration
@@ -8,9 +11,11 @@ import org.springframework.messaging.simp.config.MessageBrokerRegistry
 import org.springframework.messaging.simp.stomp.StompCommand
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor
 import org.springframework.messaging.support.ChannelInterceptor
+import org.springframework.web.socket.WebSocketHandler
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer
+import org.springframework.web.socket.server.HandshakeInterceptor
 
 @Configuration
 @EnableWebSocketMessageBroker
@@ -26,6 +31,48 @@ class WebSocketConfig(
     override fun registerStompEndpoints(registry: StompEndpointRegistry) {
         registry.addEndpoint("/ws")
             .setAllowedOriginPatterns("*")
+            .addInterceptors(object : HandshakeInterceptor {
+                override fun beforeHandshake(
+                    request: ServerHttpRequest,
+                    response: ServerHttpResponse,
+                    wsHandler: WebSocketHandler,
+                    attributes: MutableMap<String, Any>
+                ): Boolean {
+                    // HTTP 세션을 WebSocket 세션 속성에 추가
+                    if (request is ServletServerHttpRequest) {
+                        val httpSession = request.servletRequest.session
+                        if (httpSession != null) {
+                            attributes["HTTP.SESSION"] = httpSession
+                            println("[DEBUG] HTTP session added to WebSocket attributes: ${httpSession.id}")
+                            
+                            // 세션 속성 로깅
+                            try {
+                                httpSession.attributeNames.asIterator().forEach { attrName ->
+                                    println("[DEBUG] HTTP Session attribute: $attrName = ${httpSession.getAttribute(attrName)}")
+                                }
+                            } catch (e: Exception) {
+                                println("[WARN] Error reading HTTP session attributes: ${e.message}")
+                            }
+                        } else {
+                            println("[WARN] No HTTP session found during WebSocket handshake")
+                        }
+                    }
+                    return true
+                }
+
+                override fun afterHandshake(
+                    request: ServerHttpRequest,
+                    response: ServerHttpResponse,
+                    wsHandler: WebSocketHandler,
+                    exception: Exception?
+                ) {
+                    if (exception != null) {
+                        println("[ERROR] WebSocket handshake failed: ${exception.message}")
+                    } else {
+                        println("[DEBUG] WebSocket handshake completed successfully")
+                    }
+                }
+            })
             .withSockJS()
     }
     
