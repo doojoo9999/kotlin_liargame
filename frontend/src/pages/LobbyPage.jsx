@@ -184,10 +184,10 @@ function LobbyPage() {
 
     try {
       const roomData = {
-        gName: roomForm.title,
-        gParticipants: roomForm.maxPlayers,
-        gTotalRounds: roomForm.gTotalRounds,
-        gPassword: roomForm.hasPassword ? roomForm.password : null,
+        gameName: roomForm.title,
+        gameParticipants: roomForm.maxPlayers,
+        gameTotalRounds: roomForm.gameTotalRounds,
+        gamePassword: roomForm.hasPassword ? roomForm.password : null,
         subjectIds: roomForm.subjectId ? [roomForm.subjectId] : null,
         useRandomSubjects: !roomForm.subjectId,
         randomSubjectCount: !roomForm.subjectId ? 1 : null
@@ -202,7 +202,7 @@ function LobbyPage() {
       setRoomForm({
         title: '',
         maxPlayers: 6,
-        gTotalRounds: 3,
+        gameTotalRounds: 3,
         password: '',
         subjectId: 1,
         hasPassword: false,
@@ -568,11 +568,15 @@ function LobbyPage() {
                 label="주제"
                 variant="outlined"
               >
-                {subjects.map((subject) => (
-                  <MenuItem key={subject.id} value={subject.id}>
-                    {subject.name}
-                  </MenuItem>
+                {subjects.map((subject, index) => (
+                    <MenuItem
+                        key={subject.id || `subject-${index}-${subject.name}`}
+                        value={subject.id || subject.name}
+                    >
+                      {subject.name}
+                    </MenuItem>
                 ))}
+
               </Select>
             </FormControl>
 
@@ -731,7 +735,7 @@ function LobbyPage() {
                     variant="outlined"
                   >
                     {subjects.map((subject) => (
-                      <MenuItem key={subject.id} value={subject.id}>
+                      <MenuItem key={`room-${subject.id}-${subject.name}`} value={subject.id}>
                         {subject.name}
                       </MenuItem>
                     ))}
