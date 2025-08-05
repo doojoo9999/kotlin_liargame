@@ -629,7 +629,46 @@ export const GameProvider = ({ children }) => {
 
       const handleGameUpdate = (update) => {
         console.log('[DEBUG_LOG] Received game update:', update)
-        // 게임 상태 업데이트 처리
+        
+        // Handle PLAYER_JOINED and PLAYER_LEFT events
+        if (update.type === 'PLAYER_JOINED' || update.type === 'PLAYER_LEFT') {
+          // Update room players if available
+          if (update.roomData && update.roomData.players) {
+            dispatch({ type: ActionTypes.SET_ROOM_PLAYERS, payload: update.roomData.players })
+          }
+          
+          // Update current room information with roomData
+          if (update.roomData) {
+            const updatedRoom = {
+              gameNumber: update.roomData.gameNumber,
+              title: update.roomData.title,
+              host: update.roomData.host,
+              currentPlayers: update.roomData.currentPlayers,
+              maxPlayers: update.roomData.maxPlayers,
+              subject: update.roomData.subject,
+              state: update.roomData.state,
+              players: update.roomData.players || []
+            }
+            
+            console.log('[DEBUG_LOG] Updating currentRoom with roomData:', updatedRoom)
+            dispatch({ type: ActionTypes.SET_CURRENT_ROOM, payload: updatedRoom })
+          }
+          
+          // Update room in the room list as well
+          if (update.roomData) {
+            dispatch({ 
+              type: ActionTypes.UPDATE_ROOM_IN_LIST, 
+              payload: {
+                gameNumber: update.roomData.gameNumber,
+                currentPlayers: update.roomData.currentPlayers,
+                maxPlayers: update.roomData.maxPlayers,
+                title: update.roomData.title,
+                subject: update.roomData.subject,
+                state: update.roomData.state
+              }
+            })
+          }
+        }
       }
 
       const handlePlayerUpdate = (players) => {
@@ -789,8 +828,45 @@ export const GameProvider = ({ children }) => {
 
       gameStompClient.subscribeToGameRoom(gameNumber, (update) => {
         console.log('[DEBUG_LOG] Received room update:', update)
+        
+        // Handle PLAYER_JOINED and PLAYER_LEFT events
         if (update.type === 'PLAYER_JOINED' || update.type === 'PLAYER_LEFT') {
-          dispatch({ type: ActionTypes.SET_ROOM_PLAYERS, payload: update.players || [] })
+          // Update room players if available
+          if (update.roomData && update.roomData.players) {
+            dispatch({ type: ActionTypes.SET_ROOM_PLAYERS, payload: update.roomData.players })
+          }
+          
+          // Update current room information with roomData
+          if (update.roomData) {
+            const updatedRoom = {
+              gameNumber: update.roomData.gameNumber,
+              title: update.roomData.title,
+              host: update.roomData.host,
+              currentPlayers: update.roomData.currentPlayers,
+              maxPlayers: update.roomData.maxPlayers,
+              subject: update.roomData.subject,
+              state: update.roomData.state,
+              players: update.roomData.players || []
+            }
+            
+            console.log('[DEBUG_LOG] Updating currentRoom with roomData:', updatedRoom)
+            dispatch({ type: ActionTypes.SET_CURRENT_ROOM, payload: updatedRoom })
+          }
+          
+          // Update room in the room list as well
+          if (update.roomData) {
+            dispatch({ 
+              type: ActionTypes.UPDATE_ROOM_IN_LIST, 
+              payload: {
+                gameNumber: update.roomData.gameNumber,
+                currentPlayers: update.roomData.currentPlayers,
+                maxPlayers: update.roomData.maxPlayers,
+                title: update.roomData.title,
+                subject: update.roomData.subject,
+                state: update.roomData.state
+              }
+            })
+          }
         }
       })
 

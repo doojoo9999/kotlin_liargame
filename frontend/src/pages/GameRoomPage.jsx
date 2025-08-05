@@ -453,15 +453,15 @@ function GameRoomPage() {
         >
           {/* Game Info Display */}
           <GameInfoDisplay
-            gameState={currentRoom.gameState}
-            gamePhase={currentRoom.gamePhase}
+            gameState={currentRoom?.gameState}
+            gamePhase={currentRoom?.gamePhase}
             round={currentRound}
             timeRemaining={gameTimer}
             word={assignedWord}
-            subject={currentRoom.subject}
+            subject={currentRoom?.subject}
             gameInfo={{
               round: currentRound || 1,
-              topic: currentRoom.subject?.name || '주제 없음',
+              topic: currentRoom?.subject?.name || currentRoom?.subject?.content || '주제 없음',
               status: gameStatus === 'WAITING' ? '대기 중' : 
                       gameStatus === 'SPEAKING' ? '발언 단계' :
                       gameStatus === 'VOTING' ? '투표 단계' :

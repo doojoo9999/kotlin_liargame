@@ -152,7 +152,7 @@ class GameStompClient {
 
     // 게임방 구독
     subscribeToGameRoom(gameNumber, callback) {
-        const topic = `/topic/game.${gameNumber}`
+        const topic = `/topic/room.${gameNumber}`
         return this.subscribe(topic, callback)
     }
 
