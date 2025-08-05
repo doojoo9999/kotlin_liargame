@@ -31,14 +31,14 @@ data class GameRoomInfo(
     companion object {
         fun from(game: GameEntity, playerCount: Int = 0, players: List<PlayerEntity> = emptyList()): GameRoomInfo {
             return GameRoomInfo(
-                gameNumber = game.gNumber,
-                title = game.gName,
-                host = game.gOwner,
+                gameNumber = game.gameNumber,
+                title = game.gameName,
+                host = game.gameOwner,
                 currentPlayers = playerCount,
-                maxPlayers = game.gParticipants,
-                hasPassword = game.gPassword != null,
+                maxPlayers = game.gameParticipants,
+                hasPassword = game.gamePassword != null,
                 subject = game.citizenSubject?.content,
-                state = game.gState.name,
+                state = game.gameState.name,
                 players = players.map { PlayerResponse.from(it) }
             )
         }
