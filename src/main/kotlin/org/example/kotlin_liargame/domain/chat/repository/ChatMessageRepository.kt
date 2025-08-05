@@ -1,7 +1,7 @@
 package org.example.kotlin_liargame.domain.chat.repository
 
 import org.example.kotlin_liargame.domain.chat.model.ChatMessageEntity
-import org.example.kotlin_liargame.domain.chat.model.ChatMessageType
+import org.example.kotlin_liargame.domain.chat.model.enum.ChatMessageType
 import org.example.kotlin_liargame.domain.game.model.GameEntity
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
