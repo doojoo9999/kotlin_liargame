@@ -44,11 +44,25 @@ class ChatService(
     @Transactional
     fun sendMessageViaWebSocket(
         req: SendChatMessageRequest, 
-        sessionAttributes: Map<String, Any>
+        sessionAttributes: Map<String, Any>?
     ): ChatMessageResponse {
-        val userId = sessionAttributes["userId"] as? Long
-            ?: throw RuntimeException("Not authenticated via WebSocket")
-        
+        println("[DEBUG] WebSocket message: sessionAttributes = ${sessionAttributes?.keys}")
+
+        // 디버깅을 위해 세션 속성 출력
+        sessionAttributes?.forEach { (key, value) ->
+            println("[DEBUG] Session attribute: $key = $value")
+        }
+
+        // 세션에서 직접 userId 추출 시도
+        val userId = sessionAttributes?.get("userId") as? Long
+
+        if (userId == null) {
+            // 인증 실패 시 더 자세한 오류 정보
+            println("[ERROR] WebSocket authentication failed. Session attributes available: ${sessionAttributes?.keys}")
+            throw RuntimeException("Not authenticated via WebSocket")
+        }
+
+        println("[DEBUG] WebSocket message authenticated for userId: $userId")
         // 동일한 로직이지만 세션에서 직접 추출
         return sendMessageWithUserId(req, userId)
     }
@@ -56,7 +70,7 @@ class ChatService(
     private fun sendMessageWithUserId(req: SendChatMessageRequest, userId: Long): ChatMessageResponse {
         req.validate()
         
-        val game = gameRepository.findBygNumber(req.gNumber)
+        val game = gameRepository.findByGameNumber(req.gameNumber)
             ?: throw RuntimeException("Game not found")
         
         val player = playerRepository.findByGameAndUserId(game, userId)
@@ -83,7 +97,7 @@ class ChatService(
         req.validate()
         
         val userId = getCurrentUserId(session)
-        val game = gameRepository.findBygNumber(req.gNumber)
+        val game = gameRepository.findByGameNumber(req.gameNumber)
             ?: throw RuntimeException("Game not found")
         
         val player = playerRepository.findByGameAndUserId(game, userId)
@@ -108,26 +122,26 @@ class ChatService(
         req.validate()
         
         println("[DEBUG] ========== getChatHistory Debug Start ==========")
-        println("[DEBUG] Request: gNumber=${req.gNumber}, type=${req.type}, limit=${req.limit}")
+        println("[DEBUG] Request: gameNumber=${req.gameNumber}, type=${req.type}, limit=${req.limit}")
         
-        val game = gameRepository.findBygNumber(req.gNumber)
+        val game = gameRepository.findByGameNumber(req.gameNumber)
         if (game == null) {
-            println("[ERROR] Game not found for gNumber: ${req.gNumber}")
+            println("[ERROR] Game not found for gameNumber: ${req.gameNumber}")
             throw RuntimeException("Game not found")
         }
         
-        println("[DEBUG] Found game: '${game.gName}' (ID: ${game.id}, State: ${game.gState})")
+        println("[DEBUG] Found game: '${game.gameName}' (ID: ${game.id}, State: ${game.gameState})")
         
         // 해당 게임의 모든 플레이어 조회
         val allPlayers = playerRepository.findByGame(game)
-        println("[DEBUG] Players in game ${req.gNumber}:")
+        println("[DEBUG] Players in game ${req.gameNumber}:")
         allPlayers.forEach { player ->
             println("[DEBUG]   - Player: ${player.nickname} (ID: ${player.id}, UserId: ${player.userId})")
         }
         
         // 해당 게임의 모든 채팅 메시지 조회 (필터 없이)
         val allMessages = chatMessageRepository.findByGame(game)
-        println("[DEBUG] All messages in database for game ${req.gNumber}: ${allMessages.size}")
+        println("[DEBUG] All messages in database for game ${req.gameNumber}: ${allMessages.size}")
         allMessages.forEach { msg ->
             println("[DEBUG]   - Message ID: ${msg.id}, Player: ${msg.player.nickname}, Content: '${msg.content}', Type: ${msg.type}, Time: ${msg.timestamp}")
         }
@@ -172,7 +186,7 @@ class ChatService(
         val players = playerRepository.findByGame(game)
         val currentPhase = determineGamePhase(game, players)
 
-        if (game.gState == GameState.IN_PROGRESS) {
+        if (game.gameState == GameState.IN_PROGRESS) {
             return when (currentPhase) {
                 GamePhase.GIVING_HINTS -> ChatMessageType.HINT
                 GamePhase.VOTING_FOR_LIAR -> ChatMessageType.DISCUSSION
@@ -185,13 +199,13 @@ class ChatService(
     }
 
     fun isPostRoundChatAvailable(game: GameEntity): Boolean {
-        val endTime = postRoundChatWindows[game.gNumber] ?: return false
+        val endTime = postRoundChatWindows[game.gameNumber] ?: return false
         return Instant.now().isBefore(endTime)
     }
     
 
     fun startPostRoundChat(gameNumber: Int) {
-        val game = gameRepository.findBygNumber(gameNumber)
+        val game = gameRepository.findByGameNumber(gameNumber)
             ?: throw RuntimeException("Game not found")
 
         val endTime = Instant.now().plusSeconds(POST_ROUND_CHAT_DURATION)
@@ -218,7 +232,7 @@ class ChatService(
     }
     
     private fun determineGamePhase(game: GameEntity, players: List<PlayerEntity>): GamePhase {
-        return when (game.gState) {
+        return when (game.gameState) {
             GameState.WAITING -> GamePhase.WAITING_FOR_PLAYERS
             GameState.ENDED -> GamePhase.GAME_OVER
             GameState.IN_PROGRESS -> {
