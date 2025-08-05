@@ -14,11 +14,9 @@ class UserService (
 ){
     private val logger = LoggerFactory.getLogger(this::class.java)
 
-    fun authenticate(nickname: String, password: String): UserEntity {
+    fun authenticate(nickname: String, password: String?): UserEntity {
         logger.debug("Authentication attempt for nickname: {}", nickname)
-        
-        // For now, we'll implement simple nickname-based authentication
-        // Password validation can be added later if needed
+
         val authenticatedUser = userRepository.findByNicknameAndIsAuthenticatedTrueAndIsActiveTrue(nickname)
         if (authenticatedUser != null) {
             logger.debug("Authentication failed: Already authenticated nickname - {}", nickname)
