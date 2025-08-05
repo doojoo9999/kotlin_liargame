@@ -34,13 +34,13 @@ class GameService(
         val userId = getCurrentUserId(session)
 
         val activeGames = gameRepository.findAll()
-            .filter { it.gState == GameState.WAITING ||
-            it.gState == GameState.IN_PROGRESS }
+            .filter { it.gameState == GameState.WAITING ||
+            it.gameState == GameState.IN_PROGRESS }
 
         for (game in activeGames) {
             val playerInGame = playerRepository.findByGameAndUserId(game, userId)
             if (playerInGame != null) {
-                println("[DEBUG] User already in game: gameId = ${game.gNumber}, state = ${game.gState}")
+                println("[DEBUG] User already in game: gameId = ${game.gameNumber}, state = ${game.gameState}")
                 throw RuntimeException("이미 진행중인 게임에 참여하고 있습니다.")
             }
         }

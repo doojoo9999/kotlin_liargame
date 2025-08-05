@@ -10,21 +10,21 @@ import java.time.Instant
 @Entity
 @Table(name = "game")
 class GameEntity(
-    val gNumber: Int,
-    val gName: String,
-    val gPassword: String?,
-    val gParticipants: Int,
-    val gTotalRounds: Int,
-    var gCurrentRound: Int = 0,
-    val gLiarCount: Int = 1,
+    val gameNumber: Int,
+    val gameName: String,
+    val gamePassword: String?,
+    val gameParticipants: Int,
+    val gameTotalRounds: Int,
+    var gameCurrentRound: Int = 0,
+    val gameLiarCount: Int = 1,
     @Column(name = "g_game_mode")
     @Enumerated(EnumType.STRING)
-    val gGameMode: GameMode = GameMode.LIARS_KNOW,
+    val gameMode: GameMode = GameMode.LIARS_KNOW,
     @Column(name = "g_state")
     @Enumerated(EnumType.STRING)
-    var gState: GameState = GameState.WAITING,
-    var gOwner: String,
-    var gEndTime: Instant? = null,
+    var gameState: GameState = GameState.WAITING,
+    var gameOwner: String,
+    var gameEndTime: Instant? = null,
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "citizen_subject_id")
@@ -40,27 +40,27 @@ class GameEntity(
     val id: Long = 0
     
     fun startGame() {
-        if (gState == GameState.WAITING) {
-            gState = GameState.IN_PROGRESS
-            gCurrentRound = 1
+        if (gameState == GameState.WAITING) {
+            gameState = GameState.IN_PROGRESS
+            gameCurrentRound = 1
         }
     }
-    
+
     fun nextRound(): Boolean {
-        if (gState == GameState.IN_PROGRESS && gCurrentRound < gTotalRounds) {
-            gCurrentRound++
+        if (gameState == GameState.IN_PROGRESS && gameCurrentRound < gameTotalRounds) {
+            gameCurrentRound++
             return true
         }
         return false
     }
-    
+
     fun endGame() {
-        gState = GameState.ENDED
-        gEndTime = Instant.now()
+        gameState = GameState.ENDED
+        gameEndTime = Instant.now()
     }
-    
+
     fun isFull(currentPlayerCount: Int): Boolean {
-        return currentPlayerCount >= gParticipants
+        return currentPlayerCount >= gameParticipants
     }
     
     fun canStart(currentPlayerCount: Int): Boolean {

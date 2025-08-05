@@ -40,14 +40,14 @@ const useRoomStore = create(
 
         const mappedRooms = rooms.map(room => ({
           gameNumber: room.gameNumber,
-          title: room.title || room.gName,
-          host: room.host || room.gOwner,
+          title: room.title || room.gameName,
+          host: room.host || room.gameOwner,
           playerCount: room.playerCount || room.currentPlayers || 0,
           currentPlayers: room.playerCount || room.currentPlayers || 0,
-          maxPlayers: room.maxPlayers || room.gParticipants,
-          hasPassword: room.hasPassword || (room.gPassword != null),
+          maxPlayers: room.maxPlayers || room.gameParticipants,
+          hasPassword: room.hasPassword || (room.gamePassword != null),
           subject: room.subject || room.citizenSubject?.content,
-          state: room.state || room.gState,
+          state: room.state || room.gameState,
           players: room.players || []
         }))
 
@@ -236,13 +236,13 @@ const useRoomStore = create(
 
         const normalizedRoom = {
           gameNumber: roomDetails.gameNumber || gameNumber,
-          title: roomDetails.title || roomDetails.gName || `게임방 #${gameNumber}`,
-          host: roomDetails.host || roomDetails.gOwner || roomDetails.hostNickname || '알 수 없음',
+          title: roomDetails.title || roomDetails.gameName || `게임방 #${gameNumber}`,
+          host: roomDetails.host || roomDetails.gameOwner || roomDetails.hostNickname || '알 수 없음',
           currentPlayers: parseInt(roomDetails.currentPlayers || roomDetails.playerCount || 0),
-          maxPlayers: parseInt(roomDetails.maxPlayers || roomDetails.gParticipants || 8),
+          maxPlayers: parseInt(roomDetails.maxPlayers || roomDetails.gameParticipants || 8),
           subject: roomDetails.subject || roomDetails.citizenSubject?.content || roomDetails.subjectName || '주제 없음',
-          state: roomDetails.state || roomDetails.gState || 'WAITING',
-          round: parseInt(roomDetails.currentRound || roomDetails.gCurrentRound || 1),
+          state: roomDetails.state || roomDetails.gameState || 'WAITING',
+          round: parseInt(roomDetails.currentRound || roomDetails.gameCurrentRound || 1),
           players: Array.isArray(roomDetails.players) ? roomDetails.players : [],
           hasPassword: roomDetails.hasPassword || false,
           createdAt: roomDetails.createdAt,
