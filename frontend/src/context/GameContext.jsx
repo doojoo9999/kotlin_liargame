@@ -1,4 +1,4 @@
-import React, {createContext, useCallback, useContext, useEffect, useReducer, useRef} from 'react'
+import React, {createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef} from 'react'
 import * as gameApi from '../api/gameApi'
 import gameStompClient from '../socket/gameStompClient'
 
@@ -877,7 +877,8 @@ export const GameProvider = ({ children }) => {
     }
   }, [state.isAuthenticated, state.currentPage])
 
-  const contextValue = {
+  // Memoized context value to prevent unnecessary re-renders
+  const contextValue = useMemo(() => ({
     // State
     ...state,
     
@@ -914,7 +915,29 @@ export const GameProvider = ({ children }) => {
     // Game Connection
     connectToRoom,
     fetchRoomDetails
-  }
+  }), [
+    state,
+    login,
+    logout,
+    fetchRooms,
+    createRoom,
+    joinRoom,
+    leaveRoom,
+    getCurrentRoom,
+    fetchSubjects,
+    addSubject,
+    addWord,
+    navigateToLobby,
+    navigateToRoom,
+    connectSocket,
+    disconnectSocket,
+    sendChatMessage,
+    loadChatHistory,
+    startGame,
+    castVote,
+    connectToRoom,
+    fetchRoomDetails
+  ])
 
   useEffect(() => {
     let isSubscribed = false;
