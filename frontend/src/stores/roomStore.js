@@ -205,7 +205,7 @@ const useRoomStore = create(
       try {
         console.log('[DEBUG_LOG] Leaving room with gameNumber:', gameNumber)
         const response = await gameApi.leaveRoom({
-          gNumber: parseInt(gameNumber)
+          gameNumber: parseInt(gameNumber)
         })
         console.log('[DEBUG_LOG] Leave room response:', response)
 
