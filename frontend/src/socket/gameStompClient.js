@@ -97,6 +97,14 @@ class GameStompClient {
     handleReconnect() {
         if (this.reconnectAttempts >= this.maxReconnectAttempts) {
             console.error('[DEBUG_LOG] Max Game STOMP reconnection attempts reached')
+            // Dispatch custom event to notify UI components
+            window.dispatchEvent(new CustomEvent('websocket:maxRetriesReached', {
+                detail: {
+                    client: 'gameStompClient',
+                    attempts: this.reconnectAttempts,
+                    maxAttempts: this.maxReconnectAttempts
+                }
+            }))
             return
         }
 
@@ -213,7 +221,7 @@ class GameStompClient {
     sendChatMessage(gameNumber, message) {
         const destination = `/app/chat.send`
         this.send(destination, {
-            gNumber: parseInt(gameNumber),
+            gameNumber: parseInt(gameNumber),
             content: message
         })
     }
