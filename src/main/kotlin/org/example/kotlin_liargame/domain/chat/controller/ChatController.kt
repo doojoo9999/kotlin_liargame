@@ -4,7 +4,7 @@ import jakarta.servlet.http.HttpSession
 import org.example.kotlin_liargame.domain.chat.dto.request.GetChatHistoryRequest
 import org.example.kotlin_liargame.domain.chat.dto.request.SendChatMessageRequest
 import org.example.kotlin_liargame.domain.chat.dto.response.ChatMessageResponse
-import org.example.kotlin_liargame.domain.chat.model.ChatMessageType
+import org.example.kotlin_liargame.domain.chat.model.enum.ChatMessageType
 import org.example.kotlin_liargame.domain.chat.service.ChatService
 import org.springframework.http.ResponseEntity
 import org.springframework.messaging.handler.annotation.MessageMapping
