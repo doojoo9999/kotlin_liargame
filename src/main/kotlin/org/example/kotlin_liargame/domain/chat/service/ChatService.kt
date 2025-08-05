@@ -13,6 +13,7 @@ import org.example.kotlin_liargame.domain.game.model.enum.GamePhase
 import org.example.kotlin_liargame.domain.game.model.enum.GameState
 import org.example.kotlin_liargame.domain.game.repository.GameRepository
 import org.example.kotlin_liargame.domain.game.repository.PlayerRepository
+import org.example.kotlin_liargame.tools.websocket.WebSocketSessionManager
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -27,7 +28,8 @@ class ChatService(
     private val chatMessageRepository: ChatMessageRepository,
     private val gameRepository: GameRepository,
     private val playerRepository: PlayerRepository,
-    private val messagingTemplate: SimpMessagingTemplate
+    private val messagingTemplate: SimpMessagingTemplate,
+    private val webSocketSessionManager: WebSocketSessionManager
 ) {
     private val postRoundChatWindows = ConcurrentHashMap<Int, Instant>()
 
@@ -44,26 +46,54 @@ class ChatService(
     @Transactional
     fun sendMessageViaWebSocket(
         req: SendChatMessageRequest, 
-        sessionAttributes: Map<String, Any>?
+        sessionAttributes: Map<String, Any>?,
+        webSocketSessionId: String?
     ): ChatMessageResponse {
-        println("[DEBUG] WebSocket message: sessionAttributes = ${sessionAttributes?.keys}")
+        println("[DEBUG] WebSocket message: sessionAttributes = ${sessionAttributes?.keys}, sessionId = $webSocketSessionId")
 
         // 디버깅을 위해 세션 속성 출력
         sessionAttributes?.forEach { (key, value) ->
             println("[DEBUG] Session attribute: $key = $value")
         }
 
-        // 세션에서 직접 userId 추출 시도
-        val userId = sessionAttributes?.get("userId") as? Long
+        // 1차: 세션 속성에서 직접 userId 추출 시도
+        var userId = sessionAttributes?.get("userId") as? Long
+
+        // 2차: WebSocketSessionManager를 통한 fallback 인증 시도
+        if (userId == null && webSocketSessionId != null) {
+            println("[DEBUG] Attempting fallback authentication via WebSocketSessionManager for sessionId: $webSocketSessionId")
+            userId = webSocketSessionManager.getUserId(webSocketSessionId)
+            if (userId != null) {
+                println("[DEBUG] Found userId via WebSocketSessionManager: $userId")
+            }
+        }
+
+        // 3차: 최후의 수단으로 게임 참가자 중에서 추정 (임시 해결책)
+        if (userId == null) {
+            println("[WARN] No userId found through normal channels, attempting game-based fallback")
+            val game = gameRepository.findByGameNumber(req.gameNumber)
+            if (game != null) {
+                val players = playerRepository.findByGame(game)
+                if (players.size == 1) {
+                    // 게임에 플레이어가 1명만 있는 경우, 해당 플레이어로 추정
+                    userId = players.first().userId
+                    println("[DEBUG] Single player game detected, using userId: $userId")
+                } else {
+                    println("[DEBUG] Multiple players in game, cannot determine user without authentication")
+                }
+            }
+        }
 
         if (userId == null) {
             // 인증 실패 시 더 자세한 오류 정보
             println("[ERROR] WebSocket authentication failed. Session attributes available: ${sessionAttributes?.keys}")
+            println("[ERROR] WebSocketSessionId: $webSocketSessionId")
+            println("[ERROR] WebSocketSessionManager state:")
+            webSocketSessionManager.printSessionInfo()
             throw RuntimeException("Not authenticated via WebSocket")
         }
 
         println("[DEBUG] WebSocket message authenticated for userId: $userId")
-        // 동일한 로직이지만 세션에서 직접 추출
         return sendMessageWithUserId(req, userId)
     }
     
