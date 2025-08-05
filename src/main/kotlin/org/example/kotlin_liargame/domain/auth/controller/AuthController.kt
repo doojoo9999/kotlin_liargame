@@ -20,7 +20,6 @@ class AuthController(
     ): ResponseEntity<LoginResponse> {
         val user = userService.authenticate(request.nickname, request.password)
         
-        // 세션에 사용자 정보 저장
         session.setAttribute("userId", user.id)
         session.setAttribute("nickname", user.nickname)
         
