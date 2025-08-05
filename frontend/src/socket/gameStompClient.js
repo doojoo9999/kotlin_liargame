@@ -13,7 +13,7 @@ class GameStompClient {
         this.connectionPromise = null
     }
 
-    connect(serverUrl = 'http://localhost:20021', options = {}) {
+            async connect(serverUrl = 'http://localhost:20021', options = {}) {
         // If already connected, return immediately
         if (this.isConnected && this.client && this.client.connected) {
             console.log('[DEBUG_LOG] Game STOMP already connected')
@@ -25,6 +25,9 @@ class GameStompClient {
             console.log('[DEBUG_LOG] Game STOMP connection already in progress')
             return this.connectionPromise
         }
+
+        // 세션 상태 로깅
+        console.log('[DEBUG_LOG] Starting WebSocket connection, cookies should be sent automatically')
 
         // Set connecting state and create new connection promise
         this.isConnecting = true
@@ -40,8 +43,12 @@ class GameStompClient {
                 }
 
                 // 세션 기반 인증 사용 (JWT 토큰 제거)
+                console.log('[DEBUG_LOG] Creating SockJS with withCredentials=true to ensure cookies are sent')
+
                 this.client = new Client({
-                    webSocketFactory: () => new SockJS(`${serverUrl}/ws`),
+                    webSocketFactory: () => new SockJS(`${serverUrl}/ws`, null, {
+                        withCredentials: true // 세션 쿠키 포함
+                    }),
                     connectHeaders: {
                         ...options.headers
                     },
@@ -55,10 +62,27 @@ class GameStompClient {
 
                 this.client.onConnect = (frame) => {
                     console.log('[DEBUG_LOG] Game STOMP connected:', frame)
+
+                    // 연결 성공 시 세션 정보 확인
+                    console.log('[DEBUG_LOG] Connection headers:', frame.headers)
+                    console.log('[DEBUG_LOG] Connection body:', frame.body)
+
+                    // 상태 업데이트
                     this.isConnected = true
                     this.isConnecting = false
                     this.connectionPromise = null
                     this.reconnectAttempts = 0
+
+                    // 사용자 정보 확인
+                    fetch('/api/v1/auth/me', { credentials: 'include' })
+                        .then(response => response.json())
+                        .then(user => {
+                            console.log('[DEBUG_LOG] Current user for WebSocket:', user)
+                        })
+                        .catch(error => {
+                            console.error('[DEBUG_LOG] Failed to get user info:', error)
+                        })
+
                     resolve(this.client)
                 }
 
