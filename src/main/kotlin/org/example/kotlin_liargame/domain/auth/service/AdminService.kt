@@ -48,8 +48,8 @@ class AdminService(
         val allGames = gameRepository.findAll()
         val totalGames = allGames.size
         val activeGames = allGames.count { game ->
-            game.gState == org.example.kotlin_liargame.domain.game.model.enum.GameState.WAITING ||
-            game.gState == org.example.kotlin_liargame.domain.game.model.enum.GameState.IN_PROGRESS
+            game.gameState == org.example.kotlin_liargame.domain.game.model.enum.GameState.WAITING ||
+            game.gameState == org.example.kotlin_liargame.domain.game.model.enum.GameState.IN_PROGRESS
         }
         val totalPlayers = playerRepository.count().toInt()
         val totalUsers = userRepository.count().toInt()
@@ -86,10 +86,10 @@ class AdminService(
         logger.debug("게임방 강제 종료: {}", gameNumber)
         
         val allGames = gameRepository.findAll()
-        val game = allGames.find { it.gNumber == gameNumber }
+        val game = allGames.find { it.gameNumber == gameNumber }
             ?: throw IllegalArgumentException("존재하지 않는 게임방입니다.")
         
-        game.gState = org.example.kotlin_liargame.domain.game.model.enum.GameState.ENDED
+        game.gameState = org.example.kotlin_liargame.domain.game.model.enum.GameState.ENDED
         gameRepository.save(game)
         
         val playersToRemove = playerRepository.findByGame(game)
