@@ -215,6 +215,12 @@ class GameStompClient {
     }
 
     _doSubscribe(topic, callback) {
+        // Check if already subscribed to this topic
+        if (this.subscriptions.has(topic)) {
+            console.log('[DEBUG_LOG] Already subscribed to topic:', topic, '- skipping duplicate subscription')
+            return this.subscriptions.get(topic)
+        }
+
         console.log('[DEBUG_LOG] Game STOMP subscribing to:', topic)
 
         const subscription = this.client.subscribe(topic, (message) => {
