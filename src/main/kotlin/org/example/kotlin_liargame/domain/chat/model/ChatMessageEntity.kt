@@ -1,6 +1,7 @@
 package org.example.kotlin_liargame.domain.chat.model
 
 import jakarta.persistence.*
+import org.example.kotlin_liargame.domain.chat.model.enum.ChatMessageType
 import org.example.kotlin_liargame.domain.game.model.GameEntity
 import org.example.kotlin_liargame.domain.game.model.PlayerEntity
 import org.example.kotlin_liargame.global.base.BaseEntity
