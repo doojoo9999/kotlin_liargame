@@ -11,7 +11,8 @@ class UserEntity (
     val profileImgUrl : String,
     var isActive : Boolean = true,
     var isAuthenticated : Boolean = false,
-    var hasTokenIssued : Boolean = false
+    var hasTokenIssued : Boolean = false,
+    var password : String? = null
 
 ) : BaseEntity() {
     @Id

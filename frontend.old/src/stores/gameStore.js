@@ -7,7 +7,7 @@ export const useGameStore = defineStore('game', {
     gameState: null,
     players: [],
     currentRound: 0,
-    gCurrentRound: 0,
+    gameCurrentRound: 0,
     subject: '',
     word: '',
     yourWord: '',
@@ -30,11 +30,11 @@ export const useGameStore = defineStore('game', {
       
       try {
         const request = {
-          gName: gameName,
-          gParticipants: playerCount,
-          gTotalRounds: roundCount,
-          gPassword: password,
-          gTimeLimit: timeLimit,
+          gameName: gameName,
+          gameParticipants: playerCount,
+          gameTotalRounds: roundCount,
+          gamePassword: password,
+          gameTimeLimit: timeLimit,
           liarAwarenessMode: liarAwarenessMode,
           differentWordMode: differentWordMode
         }
@@ -315,7 +315,7 @@ export const useGameStore = defineStore('game', {
       this.gameState = null
       this.players = []
       this.currentRound = 0
-      this.gCurrentRound = 0
+      this.gameCurrentRound = 0
       this.subject = ''
       this.word = ''
       this.yourWord = ''
@@ -346,8 +346,8 @@ export const useGameStore = defineStore('game', {
       if (data.currentRound !== undefined) {
         this.currentRound = data.currentRound
       }
-      if (data.gCurrentRound !== undefined) {
-        this.gCurrentRound = data.gCurrentRound
+      if (data.gameCurrentRound !== undefined) {
+        this.gameCurrentRound = data.gameCurrentRound
       }
       
       // Update game mode information if available

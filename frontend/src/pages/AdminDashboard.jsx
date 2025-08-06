@@ -46,10 +46,9 @@ function AdminDashboard() {
   const handleLogout = () => {
     console.log('[DEBUG_LOG] Admin logout')
     
-    // Clear admin tokens
-    localStorage.removeItem('adminAccessToken')
-    localStorage.removeItem('adminRefreshToken')
+    // Clear admin session data
     localStorage.removeItem('isUserAdmin')
+    localStorage.removeItem('userData')
     
     // Redirect to admin login
     navigate('/admin/login')

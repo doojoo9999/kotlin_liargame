@@ -1,9 +1,10 @@
 package org.example.kotlin_liargame.domain.chat.controller
 
+import jakarta.servlet.http.HttpSession
 import org.example.kotlin_liargame.domain.chat.dto.request.GetChatHistoryRequest
 import org.example.kotlin_liargame.domain.chat.dto.request.SendChatMessageRequest
 import org.example.kotlin_liargame.domain.chat.dto.response.ChatMessageResponse
-import org.example.kotlin_liargame.domain.chat.model.ChatMessageType
+import org.example.kotlin_liargame.domain.chat.model.enum.ChatMessageType
 import org.example.kotlin_liargame.domain.chat.service.ChatService
 import org.springframework.http.ResponseEntity
 import org.springframework.messaging.handler.annotation.MessageMapping
@@ -20,11 +21,12 @@ class ChatController(
 ) {
 
     @PostMapping("/send")
-    fun sendMessage(@RequestBody request: SendChatMessageRequest): ResponseEntity<ChatMessageResponse> {
-        val response = chatService.sendMessage(request)
-        
-        messagingTemplate.convertAndSend("/topic/chat.${request.gNumber}", response)
-        
+    fun sendMessage(
+        @RequestBody request: SendChatMessageRequest,
+        session: HttpSession
+    ): ResponseEntity<ChatMessageResponse> {
+        val response = chatService.sendMessage(request, session)
+        messagingTemplate.convertAndSend("/topic/chat.${request.gameNumber}", response)
         return ResponseEntity.ok(response)
     }
     
@@ -34,32 +36,82 @@ class ChatController(
         headerAccessor: SimpMessageHeaderAccessor
     ) {
         try {
-            println("[DEBUG] Received WebSocket chat message: $request")
+            println("[DEBUG] WebSocket chat message received: gameNumber=${request.gameNumber}, content='${request.content}'")
+
+            // 세션 액세서의 모든 정보 로깅
+            println("[DEBUG] MessageHeaders: ${headerAccessor.messageHeaders.keys}")
+            println("[DEBUG] SessionId: ${headerAccessor.sessionId}")
+            println("[DEBUG] SessionAttributes: ${headerAccessor.sessionAttributes?.keys}")
+
+            // 다양한 방법으로 사용자 인증 정보 추출 시도
+            var userId: Long? = null
+            var sessionAttributes = headerAccessor.sessionAttributes
+
+            // 1. WebSocket 세션 속성에서 직접 userId 추출 시도
+            userId = sessionAttributes?.get("userId") as? Long
+            if (userId != null) {
+                println("[DEBUG] Found userId in WebSocket session attributes: $userId")
+            }
+
+            // 2. HttpSession에서 userId 추출 시도
+            if (userId == null) {
+                val httpSession = sessionAttributes?.get("HTTP.SESSION") as? jakarta.servlet.http.HttpSession
+                if (httpSession != null) {
+                    userId = httpSession.getAttribute("userId") as? Long
+                    if (userId != null) {
+                        println("[DEBUG] Found userId in HTTP session: $userId")
+                        // WebSocket 세션에 userId 저장
+                        if (sessionAttributes == null) {
+                            sessionAttributes = mutableMapOf()
+                            headerAccessor.sessionAttributes = sessionAttributes
+                        }
+                        sessionAttributes["userId"] = userId
+                        
+                        // nickname도 함께 저장
+                        val nickname = httpSession.getAttribute("nickname") as? String
+                        if (nickname != null) {
+                            sessionAttributes["nickname"] = nickname
+                        }
+                    }
+                } else {
+                    println("[DEBUG] No HTTP session found in WebSocket connection")
+                }
+            }
+
+            // 3. 세션 속성이 없는 경우 빈 맵으로 초기화
+            if (sessionAttributes == null) {
+                sessionAttributes = mutableMapOf()
+                headerAccessor.sessionAttributes = sessionAttributes
+            }
+
+            // 모든 세션 속성 정보 로깅
+            sessionAttributes.forEach { (key, value) ->
+                println("[DEBUG] Final session attribute: $key = $value")
+            }
+
+            // ChatService 호출 (userId가 null이어도 ChatService에서 처리)
+            val response = chatService.sendMessageViaWebSocket(request, sessionAttributes, headerAccessor.sessionId)
+            messagingTemplate.convertAndSend("/topic/chat.${request.gameNumber}", response)
             
-            // ✅ 세션에서 userId 추출 시도 (실패해도 서비스에서 처리)
-            val sessionAttributes = headerAccessor.sessionAttributes
-            val sessionUserId = sessionAttributes?.get("userId") as? Long
-            println("[DEBUG] Session userId: $sessionUserId")
-            
-            // ✅ 서비스에서 모든 인증 로직 처리 - 수정된 sendMessage 메서드 사용
-            val response = chatService.sendMessage(request, sessionUserId)
-            
-            // ✅ 브로드캐스트 실행
-            val topic = "/topic/chat.${request.gNumber}"
-            messagingTemplate.convertAndSend(topic, response)
-            
-            println("[DEBUG] Broadcasting chat message to $topic: $response")
-            println("[SUCCESS] WebSocket chat message processed successfully")
+            println("[DEBUG] WebSocket chat message sent successfully")
             
         } catch (e: Exception) {
-            println("[ERROR] Failed to handle WebSocket chat message: ${e.message}")
+            println("[ERROR] WebSocket chat error: ${e.message}")
             e.printStackTrace()
+            
+            // Send error message back to the client
+            val errorMessage = mapOf(
+                "error" to true,
+                "message" to (e.message ?: "Unknown error occurred"),
+                "gameNumber" to request.gameNumber
+            )
+            messagingTemplate.convertAndSend("/topic/chat.error.${request.gameNumber}", errorMessage)
         }
     }
 
     @GetMapping("/history")
     fun getChatHistory(
-        @RequestParam gNumber: Int,
+        @RequestParam gameNumber: Int,
         @RequestParam(required = false) type: String?,
         @RequestParam(required = false) round: Int?,
         @RequestParam(required = false, defaultValue = "50") limit: Int
@@ -69,7 +121,7 @@ class ChatController(
         }
         
         val request = GetChatHistoryRequest(
-            gNumber = gNumber,
+            gameNumber = gameNumber,
             type = messageType,
             round = round,
             limit = limit
@@ -79,13 +131,13 @@ class ChatController(
         return ResponseEntity.ok(response)
     }
 
-    @GetMapping("/post-round/{gNumber}")
+    @GetMapping("/post-round/{gameNumber}")
     fun getPostRoundMessages(
-        @PathVariable gNumber: Int,
+        @PathVariable gameNumber: Int,
         @RequestParam(required = false, defaultValue = "10") limit: Int
     ): ResponseEntity<List<ChatMessageResponse>> {
         val request = GetChatHistoryRequest(
-            gNumber = gNumber,
+            gameNumber = gameNumber,
             type = ChatMessageType.POST_ROUND,
             limit = limit
         )

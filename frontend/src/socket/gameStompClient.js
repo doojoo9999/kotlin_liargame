@@ -9,30 +9,47 @@ class GameStompClient {
         this.reconnectAttempts = 0
         this.maxReconnectAttempts = 5
         this.reconnectDelay = 3000
+        this.isConnecting = false
+        this.connectionPromise = null
     }
 
-    connect(serverUrl = 'http://localhost:20021', options = {}) {
-        return new Promise((resolve, reject) => {
+            async connect(serverUrl = 'http://localhost:20021', options = {}) {
+        // If already connected, return immediately
+        if (this.isConnected && this.client && this.client.connected) {
+            console.log('[DEBUG_LOG] Game STOMP already connected')
+            return Promise.resolve(this.client)
+        }
+
+        // If already connecting, return the existing promise
+        if (this.isConnecting && this.connectionPromise) {
+            console.log('[DEBUG_LOG] Game STOMP connection already in progress')
+            return this.connectionPromise
+        }
+
+        // 세션 상태 로깅
+        console.log('[DEBUG_LOG] Starting WebSocket connection, cookies should be sent automatically')
+
+        // Set connecting state and create new connection promise
+        this.isConnecting = true
+        this.connectionPromise = new Promise((resolve, reject) => {
             try {
                 console.log('[DEBUG_LOG] Game STOMP connecting to:', serverUrl)
 
-                // ✅ 일반 사용자 토큰 우선 사용
-                const accessToken = localStorage.getItem('accessToken')
-                const adminToken = localStorage.getItem('adminAccessToken')
-                const token = accessToken || adminToken
-
-                if (!token) {
-                    console.error('[DEBUG_LOG] No authentication token found')
-                    reject(new Error('No authentication token available'))
-                    return
+                // Clean up any existing client
+                if (this.client) {
+                    console.log('[DEBUG_LOG] Cleaning up existing client before new connection')
+                    this.client.deactivate()
+                    this.client = null
                 }
 
-                console.log('[DEBUG_LOG] Using token for WebSocket:', token.substring(0, 20) + '...')
+                // 세션 기반 인증 사용 (JWT 토큰 제거)
+                console.log('[DEBUG_LOG] Creating SockJS with withCredentials=true to ensure cookies are sent')
 
                 this.client = new Client({
-                    webSocketFactory: () => new SockJS(`${serverUrl}/ws`),
+                    webSocketFactory: () => new SockJS(`${serverUrl}/ws`, null, {
+                        withCredentials: true // 세션 쿠키 포함
+                    }),
                     connectHeaders: {
-                        'Authorization': `Bearer ${token}`,
                         ...options.headers
                     },
                     debug: (str) => {
@@ -45,26 +62,51 @@ class GameStompClient {
 
                 this.client.onConnect = (frame) => {
                     console.log('[DEBUG_LOG] Game STOMP connected:', frame)
+
+                    // 연결 성공 시 세션 정보 확인
+                    console.log('[DEBUG_LOG] Connection headers:', frame.headers)
+                    console.log('[DEBUG_LOG] Connection body:', frame.body)
+
+                    // 상태 업데이트
                     this.isConnected = true
+                    this.isConnecting = false
+                    this.connectionPromise = null
                     this.reconnectAttempts = 0
+
+                    // 사용자 정보 확인
+                    fetch('/api/v1/auth/me', { credentials: 'include' })
+                        .then(response => response.json())
+                        .then(user => {
+                            console.log('[DEBUG_LOG] Current user for WebSocket:', user)
+                        })
+                        .catch(error => {
+                            console.error('[DEBUG_LOG] Failed to get user info:', error)
+                        })
+
                     resolve(this.client)
                 }
 
                 this.client.onStompError = (frame) => {
                     console.error('[DEBUG_LOG] Game STOMP error:', frame)
                     this.isConnected = false
+                    this.isConnecting = false
+                    this.connectionPromise = null
                     reject(new Error(`STOMP error: ${frame.headers['message']}`))
                 }
 
                 this.client.onWebSocketError = (error) => {
                     console.error('[DEBUG_LOG] Game WebSocket error:', error)
                     this.isConnected = false
+                    this.isConnecting = false
+                    this.connectionPromise = null
                     reject(error)
                 }
 
                 this.client.onDisconnect = (frame) => {
                     console.log('[DEBUG_LOG] Game STOMP disconnected:', frame)
                     this.isConnected = false
+                    this.isConnecting = false
+                    this.connectionPromise = null
                     this.handleReconnect()
                 }
 
@@ -79,6 +121,20 @@ class GameStompClient {
     handleReconnect() {
         if (this.reconnectAttempts >= this.maxReconnectAttempts) {
             console.error('[DEBUG_LOG] Max Game STOMP reconnection attempts reached')
+            // Dispatch custom event to notify UI components
+            window.dispatchEvent(new CustomEvent('websocket:maxRetriesReached', {
+                detail: {
+                    client: 'gameStompClient',
+                    attempts: this.reconnectAttempts,
+                    maxAttempts: this.maxReconnectAttempts
+                }
+            }))
+            return
+        }
+
+        // Don't reconnect if already connected or connecting
+        if (this.isConnected || this.isConnecting) {
+            console.log('[DEBUG_LOG] Skipping reconnect - already connected or connecting')
             return
         }
 
@@ -86,7 +142,9 @@ class GameStompClient {
         console.log(`[DEBUG_LOG] Game STOMP reconnection attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts}`)
 
         setTimeout(() => {
-            if (!this.isConnected && this.client) {
+            // Double-check connection state before attempting reconnect
+            if (!this.isConnected && !this.isConnecting && this.client) {
+                console.log('[DEBUG_LOG] Attempting to reactivate STOMP client')
                 this.client.activate()
             }
         }, this.reconnectDelay * this.reconnectAttempts)
@@ -94,7 +152,7 @@ class GameStompClient {
 
     // 게임방 구독
     subscribeToGameRoom(gameNumber, callback) {
-        const topic = `/topic/game.${gameNumber}`
+        const topic = `/topic/room.${gameNumber}`
         return this.subscribe(topic, callback)
     }
 
@@ -110,10 +168,57 @@ class GameStompClient {
         return this.subscribe(topic, callback)
     }
 
-    subscribe(topic, callback) {
-        if (!this.isConnected || !this.client) {
-            console.warn('[DEBUG_LOG] Game STOMP not connected, cannot subscribe to:', topic)
-            return null
+    subscribe(topic, callback, timeout = 10000) {
+        // If already connected, subscribe immediately
+        if (this.isConnected && this.client && this.client.connected) {
+            return this._doSubscribe(topic, callback)
+        }
+
+        // If not connected, wait for connection then subscribe
+        console.log('[DEBUG_LOG] Game STOMP not connected, waiting for connection to subscribe to:', topic)
+        
+        return new Promise((resolve, reject) => {
+            const timeoutId = setTimeout(() => {
+                reject(new Error(`Subscription timeout for topic: ${topic}`))
+            }, timeout)
+
+            const attemptSubscribe = async () => {
+                try {
+                    // Try to connect if not already connecting
+                    if (!this.isConnected && !this.isConnecting) {
+                        console.log('[DEBUG_LOG] Initiating connection for subscription to:', topic)
+                        await this.connect()
+                    }
+                    
+                    // Wait for connection to be established
+                    if (this.connectionPromise) {
+                        await this.connectionPromise
+                    }
+                    
+                    // Double-check connection state
+                    if (this.isConnected && this.client && this.client.connected) {
+                        clearTimeout(timeoutId)
+                        const subscription = this._doSubscribe(topic, callback)
+                        resolve(subscription)
+                    } else {
+                        throw new Error('Failed to establish connection for subscription')
+                    }
+                } catch (error) {
+                    clearTimeout(timeoutId)
+                    console.error('[DEBUG_LOG] Failed to subscribe after connection attempt:', error)
+                    reject(error)
+                }
+            }
+
+            attemptSubscribe()
+        })
+    }
+
+    _doSubscribe(topic, callback) {
+        // Check if already subscribed to this topic
+        if (this.subscriptions.has(topic)) {
+            console.log('[DEBUG_LOG] Already subscribed to topic:', topic, '- skipping duplicate subscription')
+            return this.subscriptions.get(topic)
         }
 
         console.log('[DEBUG_LOG] Game STOMP subscribing to:', topic)
@@ -146,7 +251,7 @@ class GameStompClient {
     sendChatMessage(gameNumber, message) {
         const destination = `/app/chat.send`
         this.send(destination, {
-            gNumber: parseInt(gameNumber),
+            gameNumber: parseInt(gameNumber),
             content: message
         })
     }
@@ -195,6 +300,8 @@ class GameStompClient {
         }
 
         this.isConnected = false
+        this.isConnecting = false
+        this.connectionPromise = null
         this.reconnectAttempts = 0
     }
 

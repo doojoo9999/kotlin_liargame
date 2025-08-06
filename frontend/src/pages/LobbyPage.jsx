@@ -39,23 +39,30 @@ import {
   Refresh as RefreshIcon
 } from '@mui/icons-material'
 import {useGame} from '../context/GameContext'
+import useSubjectStore from '../stores/subjectStore'
 import config from '../config/environment'
 
 function LobbyPage() {
   const {
     roomList,
-    subjects,
     currentUser,
     loading,
     error,
     fetchRooms,
     createRoom,
     joinRoom,
-    fetchSubjects,
-    addSubject,
-    addWord,
     logout
   } = useGame()
+
+  // Use subjectStore for subjects data to get real-time word count updates
+  const {
+    subjects,
+    loading: subjectLoading,
+    error: subjectError,
+    fetchSubjects,
+    addSubject,
+    addWord
+  } = useSubjectStore()
 
   const subjectsInitialized = useRef(false)
   const prevSubjectCount = useRef(0)
@@ -80,7 +87,7 @@ function LobbyPage() {
     maxPlayers: config.game.minPlayers,
     gTotalRounds: config.game.defaultRounds,
     password: '',
-    subjectId: 1,
+    selectedSubjectIds: [],
     hasPassword: false,
     gameMode: 'LIAR_KNOWS' // 'LIAR_KNOWS' | 'LIAR_DIFFERENT_ANSWER'
   })
@@ -96,20 +103,21 @@ function LobbyPage() {
   })
 
   useEffect(() => {
-    if (!subjectsInitialized.current && subjects.length === 0 && !loading.subjects) {
+    if (!subjectsInitialized.current && subjects.length === 0 && !subjectLoading) {
       subjectsInitialized.current = true
       fetchSubjects()
     }
-  }, [subjects.length, loading.subjects, fetchSubjects])
+  }, [subjects.length, subjectLoading, fetchSubjects])
 
   useEffect(() => {
-    if (subjects.length > 0 && roomForm.subjectId === 1 && !subjects.find(s => s.id === 1)) {
+    // Initialize with first subject if no subjects are selected and subjects are available
+    if (subjects.length > 0 && roomForm.selectedSubjectIds.length === 0) {
       setRoomForm(prev => ({
         ...prev,
-        subjectId: subjects[0]?.id || ''
+        selectedSubjectIds: [subjects[0]?.id].filter(Boolean)
       }))
     }
-  }, [subjects, roomForm.subjectId])
+  }, [subjects, roomForm.selectedSubjectIds.length])
 
   useEffect(() => {
     if (subjects.length > prevSubjectCount.current && prevSubjectCount.current > 0) {
@@ -154,9 +162,7 @@ function LobbyPage() {
   const validateFormData = (data) => {
     const errors = []
     
-    if (!data.title || data.title.trim().length === 0) {
-      errors.push('방 제목을 입력해주세요.')
-    }
+    // Title is now optional - removed validation
     
     if (data.maxPlayers < 3 || data.maxPlayers > 15) {
       errors.push('참가자는 3명에서 15명 사이로 설정해주세요.')
@@ -166,7 +172,7 @@ function LobbyPage() {
       errors.push('라운드는 1라운드에서 10라운드 사이로 설정해주세요.')
     }
     
-    if (!data.subjectId) {
+    if (!data.selectedSubjectIds || data.selectedSubjectIds.length === 0) {
       errors.push('주제를 하나 이상 선택해주세요.')
     }
     
@@ -183,14 +189,18 @@ function LobbyPage() {
     }
 
     try {
+      // Use default title if none provided
+      const defaultTitle = currentUser ? `${currentUser.nickname}님의 방` : '새로운 방'
+      const finalTitle = roomForm.title.trim() || defaultTitle
+      
       const roomData = {
-        gName: roomForm.title,
-        gParticipants: roomForm.maxPlayers,
-        gTotalRounds: roomForm.gTotalRounds,
-        gPassword: roomForm.hasPassword ? roomForm.password : null,
-        subjectIds: roomForm.subjectId ? [roomForm.subjectId] : null,
-        useRandomSubjects: !roomForm.subjectId,
-        randomSubjectCount: !roomForm.subjectId ? 1 : null
+        gameName: finalTitle,
+        gameParticipants: roomForm.maxPlayers,
+        gameTotalRounds: roomForm.gameTotalRounds,
+        gamePassword: roomForm.hasPassword ? roomForm.password : null,
+        subjectIds: roomForm.selectedSubjectIds.length > 0 ? roomForm.selectedSubjectIds : null,
+        useRandomSubjects: roomForm.selectedSubjectIds.length === 0,
+        randomSubjectCount: roomForm.selectedSubjectIds.length === 0 ? 1 : null
       }
 
       console.log('[DEBUG_LOG] Creating room with data:', roomData)
@@ -201,10 +211,10 @@ function LobbyPage() {
       // Reset form
       setRoomForm({
         title: '',
-        maxPlayers: 6,
-        gTotalRounds: 3,
+        maxPlayers: config.game.minPlayers,
+        gameTotalRounds: config.game.defaultRounds,
         password: '',
-        subjectId: 1,
+        selectedSubjectIds: [],
         hasPassword: false,
         gameMode: 'LIAR_KNOWS'
       })
@@ -247,6 +257,16 @@ function LobbyPage() {
   const openJoinDialog = (room) => {
     setSelectedRoom(room)
     setJoinRoomOpen(true)
+  }
+
+  // Handle opening create room dialog with default title
+  const handleOpenCreateRoom = () => {
+    const defaultTitle = currentUser ? `${currentUser.nickname}님의 방` : '새로운 방'
+    setRoomForm(prev => ({
+      ...prev,
+      title: defaultTitle
+    }))
+    setCreateRoomOpen(true)
   }
 
   // Handle logout
@@ -360,7 +380,7 @@ function LobbyPage() {
           <Button
             variant="contained"
             startIcon={<AddIcon />}
-            onClick={() => setCreateRoomOpen(true)}
+            onClick={handleOpenCreateRoom}
           >
             방 만들기
           </Button>
@@ -464,7 +484,19 @@ function LobbyPage() {
                       </Box>
                     </TableCell>
                     <TableCell align="center">
-                      <Chip label={room.subject} size="small" variant="outlined" />
+                      {room.subjects && room.subjects.length > 1 ? (
+                        <Chip 
+                          label={`${room.subjects[0]} 외 ${room.subjects.length - 1}개 주제`} 
+                          size="small" 
+                          variant="outlined" 
+                        />
+                      ) : (
+                        <Chip 
+                          label={room.subjects && room.subjects.length > 0 ? room.subjects[0] : room.subject} 
+                          size="small" 
+                          variant="outlined" 
+                        />
+                      )}
                     </TableCell>
                     <TableCell align="center">
                       <Chip
@@ -512,8 +544,14 @@ function LobbyPage() {
               label="방 제목"
               value={roomForm.title}
               onChange={(e) => handleRoomFormChange('title', e.target.value)}
+              placeholder={currentUser ? `${currentUser.nickname}님의 방` : '방 제목을 입력하세요'}
               fullWidth
-              required
+              sx={{
+                '& .MuiInputBase-input::placeholder': {
+                  color: '#9e9e9e',
+                  opacity: 1
+                }
+              }}
             />
             
             <Box sx={{ px: 2, py: 1 }}>
@@ -560,21 +598,76 @@ function LobbyPage() {
               />
             </Box>
 
-            <FormControl fullWidth>
-              <InputLabel>주제</InputLabel>
-              <Select
-                value={roomForm.subjectId}
-                onChange={(e) => handleRoomFormChange('subjectId', e.target.value)}
-                label="주제"
-                variant="outlined"
-              >
-                {subjects.map((subject) => (
-                  <MenuItem key={subject.id} value={subject.id}>
-                    {subject.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <Box>
+              <Typography variant="subtitle1" gutterBottom>
+                주제 선택 (여러 개 선택 가능)
+              </Typography>
+              <Box sx={{ maxHeight: 200, overflowY: 'auto', border: '1px solid #e0e0e0', borderRadius: 1, p: 1 }}>
+                {subjects.map((subject, index) => {
+                  const wordCount = subject.wordIds ? subject.wordIds.length : (subject.word ? subject.word.length : 0)
+                  const isDisabled = wordCount < 5
+                  const isChecked = roomForm.selectedSubjectIds.includes(subject.id)
+                  
+                  const checkboxElement = (
+                    <FormControlLabel
+                      key={subject.id || `subject-${index}-${subject.name}`}
+                      control={
+                        <Checkbox
+                          checked={isChecked}
+                          onChange={(e) => {
+                            const subjectId = subject.id
+                            if (e.target.checked) {
+                              setRoomForm(prev => ({
+                                ...prev,
+                                selectedSubjectIds: [...prev.selectedSubjectIds, subjectId]
+                              }))
+                            } else {
+                              setRoomForm(prev => ({
+                                ...prev,
+                                selectedSubjectIds: prev.selectedSubjectIds.filter(id => id !== subjectId)
+                              }))
+                            }
+                          }}
+                          disabled={isDisabled}
+                        />
+                      }
+                      label={`${subject.name} (${wordCount}개 단어)`}
+                      sx={{ 
+                        width: '100%', 
+                        opacity: isDisabled ? 0.5 : 1,
+                        '& .MuiFormControlLabel-label': {
+                          fontSize: '0.875rem'
+                        }
+                      }}
+                    />
+                  )
+                  
+                  if (isDisabled) {
+                    return (
+                      <Tooltip 
+                        key={subject.id || `subject-${index}-${subject.name}`}
+                        title={`이 주제는 단어가 ${wordCount}개뿐입니다. 최소 5개의 단어가 필요합니다.`}
+                        placement="right"
+                      >
+                        <Box>{checkboxElement}</Box>
+                      </Tooltip>
+                    )
+                  }
+                  
+                  return checkboxElement
+                })}
+                {subjects.length === 0 && (
+                  <Typography variant="body2" color="text.secondary" sx={{ p: 2, textAlign: 'center' }}>
+                    사용 가능한 주제가 없습니다.
+                  </Typography>
+                )}
+              </Box>
+              {roomForm.selectedSubjectIds.length > 0 && (
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                  {roomForm.selectedSubjectIds.length}개 주제 선택됨 - 게임 시작 시 랜덤으로 단어가 선택됩니다.
+                </Typography>
+              )}
+            </Box>
 
             <FormControl fullWidth>
               <InputLabel>게임 모드</InputLabel>
@@ -708,10 +801,10 @@ function LobbyPage() {
                 <Button
                   variant="contained"
                   onClick={handleAddSubject}
-                  disabled={loading.subjects || !contentForm.newSubject.trim()}
+                  disabled={subjectLoading || !contentForm.newSubject.trim()}
                   sx={{ minWidth: '100px' }}
                 >
-                  {loading.subjects ? <CircularProgress size={20} /> : '추가'}
+                  {subjectLoading ? <CircularProgress size={20} /> : '추가'}
                 </Button>
               </Box>
             </Box>
@@ -731,7 +824,7 @@ function LobbyPage() {
                     variant="outlined"
                   >
                     {subjects.map((subject) => (
-                      <MenuItem key={subject.id} value={subject.id}>
+                      <MenuItem key={`room-${subject.id}-${subject.name}`} value={subject.id}>
                         {subject.name}
                       </MenuItem>
                     ))}
@@ -750,10 +843,10 @@ function LobbyPage() {
                   <Button
                     variant="contained"
                     onClick={handleAddWord}
-                    disabled={loading.subjects || !contentForm.selectedSubject || !contentForm.newWord.trim()}
+                    disabled={subjectLoading || !contentForm.selectedSubject || !contentForm.newWord.trim()}
                     sx={{ minWidth: '100px' }}
                   >
-                    {loading.subjects ? <CircularProgress size={20} /> : '추가'}
+                    {subjectLoading ? <CircularProgress size={20} /> : '추가'}
                   </Button>
                 </Box>
               </Box>

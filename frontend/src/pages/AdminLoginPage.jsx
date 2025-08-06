@@ -48,10 +48,9 @@ function AdminLoginPage() {
       console.log('[DEBUG_LOG] Attempting admin login')
       const response = await apiClient.post('/admin/login', { password: trimmedPassword })
       
-      // Store admin tokens
-      localStorage.setItem('adminAccessToken', response.data.accessToken)
-      localStorage.setItem('adminRefreshToken', response.data.refreshToken)
+      // Store admin session data (JWT 토큰 제거)
       localStorage.setItem('isUserAdmin', 'true')
+      localStorage.setItem('userData', JSON.stringify({ isAdmin: true }))
       
       setSnackbarMessage('관리자 로그인 성공!')
       setSnackbarSeverity('success')

@@ -102,7 +102,7 @@ function ChatWindow() {
         }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h6" color="white">
-              Game Chat {currentRoom?.gameNumber ? `#${currentRoom.gameNumber}` : ''}
+              Game Chat {gameNumber ? `#${gameNumber}` : ''}
             </Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               {/* 디버그 버튼들 */}

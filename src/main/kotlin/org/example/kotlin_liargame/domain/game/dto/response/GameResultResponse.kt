@@ -6,8 +6,8 @@ import org.example.kotlin_liargame.domain.game.model.enum.PlayerRole
 import org.example.kotlin_liargame.domain.game.model.enum.WinningTeam
 
 data class GameResultResponse(
-    val gNumber: Int,
-    val gName: String,
+    val gameNumber: Int,
+    val gameName: String,
     val winningTeam: WinningTeam,
     val citizenWord: String,
     val liarWord: String?,
@@ -27,14 +27,14 @@ data class GameResultResponse(
             val liars = players.filter { it.role == PlayerRole.LIAR }
             
             return GameResultResponse(
-                gNumber = game.gNumber,
-                gName = game.gName,
+                gameNumber = game.gameNumber,
+                gameName = game.gameName,
                 winningTeam = winningTeam,
                 citizenWord = game.citizenSubject?.content ?: "Unknown",
                 liarWord = game.liarSubject?.content,
                 citizens = citizens.map { PlayerResponse.from(it) },
                 liars = liars.map { PlayerResponse.from(it) },
-                rounds = game.gCurrentRound,
+                rounds = game.gameCurrentRound,
                 correctGuess = correctGuess
             )
         }
