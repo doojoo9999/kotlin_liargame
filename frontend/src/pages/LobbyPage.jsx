@@ -39,23 +39,30 @@ import {
   Refresh as RefreshIcon
 } from '@mui/icons-material'
 import {useGame} from '../context/GameContext'
+import useSubjectStore from '../stores/subjectStore'
 import config from '../config/environment'
 
 function LobbyPage() {
   const {
     roomList,
-    subjects,
     currentUser,
     loading,
     error,
     fetchRooms,
     createRoom,
     joinRoom,
-    fetchSubjects,
-    addSubject,
-    addWord,
     logout
   } = useGame()
+
+  // Use subjectStore for subjects data to get real-time word count updates
+  const {
+    subjects,
+    loading: subjectLoading,
+    error: subjectError,
+    fetchSubjects,
+    addSubject,
+    addWord
+  } = useSubjectStore()
 
   const subjectsInitialized = useRef(false)
   const prevSubjectCount = useRef(0)
@@ -96,11 +103,11 @@ function LobbyPage() {
   })
 
   useEffect(() => {
-    if (!subjectsInitialized.current && subjects.length === 0 && !loading.subjects) {
+    if (!subjectsInitialized.current && subjects.length === 0 && !subjectLoading) {
       subjectsInitialized.current = true
       fetchSubjects()
     }
-  }, [subjects.length, loading.subjects, fetchSubjects])
+  }, [subjects.length, subjectLoading, fetchSubjects])
 
   useEffect(() => {
     // Initialize with first subject if no subjects are selected and subjects are available
@@ -155,9 +162,7 @@ function LobbyPage() {
   const validateFormData = (data) => {
     const errors = []
     
-    if (!data.title || data.title.trim().length === 0) {
-      errors.push('방 제목을 입력해주세요.')
-    }
+    // Title is now optional - removed validation
     
     if (data.maxPlayers < 3 || data.maxPlayers > 15) {
       errors.push('참가자는 3명에서 15명 사이로 설정해주세요.')
@@ -184,8 +189,12 @@ function LobbyPage() {
     }
 
     try {
+      // Use default title if none provided
+      const defaultTitle = currentUser ? `${currentUser.nickname}님의 방` : '새로운 방'
+      const finalTitle = roomForm.title.trim() || defaultTitle
+      
       const roomData = {
-        gameName: roomForm.title,
+        gameName: finalTitle,
         gameParticipants: roomForm.maxPlayers,
         gameTotalRounds: roomForm.gameTotalRounds,
         gamePassword: roomForm.hasPassword ? roomForm.password : null,
@@ -248,6 +257,16 @@ function LobbyPage() {
   const openJoinDialog = (room) => {
     setSelectedRoom(room)
     setJoinRoomOpen(true)
+  }
+
+  // Handle opening create room dialog with default title
+  const handleOpenCreateRoom = () => {
+    const defaultTitle = currentUser ? `${currentUser.nickname}님의 방` : '새로운 방'
+    setRoomForm(prev => ({
+      ...prev,
+      title: defaultTitle
+    }))
+    setCreateRoomOpen(true)
   }
 
   // Handle logout
@@ -361,7 +380,7 @@ function LobbyPage() {
           <Button
             variant="contained"
             startIcon={<AddIcon />}
-            onClick={() => setCreateRoomOpen(true)}
+            onClick={handleOpenCreateRoom}
           >
             방 만들기
           </Button>
@@ -465,7 +484,19 @@ function LobbyPage() {
                       </Box>
                     </TableCell>
                     <TableCell align="center">
-                      <Chip label={room.subject} size="small" variant="outlined" />
+                      {room.subjects && room.subjects.length > 1 ? (
+                        <Chip 
+                          label={`${room.subjects[0]} 외 ${room.subjects.length - 1}개 주제`} 
+                          size="small" 
+                          variant="outlined" 
+                        />
+                      ) : (
+                        <Chip 
+                          label={room.subjects && room.subjects.length > 0 ? room.subjects[0] : room.subject} 
+                          size="small" 
+                          variant="outlined" 
+                        />
+                      )}
                     </TableCell>
                     <TableCell align="center">
                       <Chip
@@ -513,8 +544,14 @@ function LobbyPage() {
               label="방 제목"
               value={roomForm.title}
               onChange={(e) => handleRoomFormChange('title', e.target.value)}
+              placeholder={currentUser ? `${currentUser.nickname}님의 방` : '방 제목을 입력하세요'}
               fullWidth
-              required
+              sx={{
+                '& .MuiInputBase-input::placeholder': {
+                  color: '#9e9e9e',
+                  opacity: 1
+                }
+              }}
             />
             
             <Box sx={{ px: 2, py: 1 }}>
@@ -764,10 +801,10 @@ function LobbyPage() {
                 <Button
                   variant="contained"
                   onClick={handleAddSubject}
-                  disabled={loading.subjects || !contentForm.newSubject.trim()}
+                  disabled={subjectLoading || !contentForm.newSubject.trim()}
                   sx={{ minWidth: '100px' }}
                 >
-                  {loading.subjects ? <CircularProgress size={20} /> : '추가'}
+                  {subjectLoading ? <CircularProgress size={20} /> : '추가'}
                 </Button>
               </Box>
             </Box>
@@ -806,10 +843,10 @@ function LobbyPage() {
                   <Button
                     variant="contained"
                     onClick={handleAddWord}
-                    disabled={loading.subjects || !contentForm.selectedSubject || !contentForm.newWord.trim()}
+                    disabled={subjectLoading || !contentForm.selectedSubject || !contentForm.newWord.trim()}
                     sx={{ minWidth: '100px' }}
                   >
-                    {loading.subjects ? <CircularProgress size={20} /> : '추가'}
+                    {subjectLoading ? <CircularProgress size={20} /> : '추가'}
                   </Button>
                 </Box>
               </Box>

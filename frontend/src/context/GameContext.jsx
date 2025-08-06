@@ -911,11 +911,12 @@ export const GameProvider = ({ children }) => {
 
       const normalizedRoom = {
         gameNumber: roomDetails.gameNumber || gameNumber,
-        title: roomDetails.title || roomDetails.gameName || `게임방 #${gameNumber}`,
+        title: roomDetails.title || (roomDetails.gameName ? `${roomDetails.gameName} #${gameNumber}` : `게임방 #${gameNumber}`),
         host: roomDetails.host || roomDetails.gameOwner || roomDetails.hostNickname || '알 수 없음',
         currentPlayers: parseInt(roomDetails.currentPlayers || roomDetails.playerCount || 0),
         maxPlayers: parseInt(roomDetails.maxPlayers || roomDetails.gameParticipants || 8),
         subject: roomDetails.subject || roomDetails.citizenSubject?.content || roomDetails.subjectName || '주제 없음',
+        subjects: Array.isArray(roomDetails.subjects) ? roomDetails.subjects : [],
         state: roomDetails.state || roomDetails.gameState || 'WAITING',
         round: parseInt(roomDetails.currentRound || roomDetails.gameCurrentRound || 1),
         players: Array.isArray(roomDetails.players) ? roomDetails.players : [],
@@ -1024,72 +1025,8 @@ export const GameProvider = ({ children }) => {
     fetchRoomDetails
   ])
 
-  useEffect(() => {
-    let isSubscribed = false;
-    let subscriptionPromise = null;
-
-    const connectToGlobalUpdates = async () => {
-      if (state.isAuthenticated && !isSubscribed) {
-        try {
-          console.log('[DEBUG_LOG] Setting up global subject updates subscription')
-          
-          // Use the improved subscribe method that waits for connection
-          subscriptionPromise = gameStompClient.subscribe('/topic/subjects', (message) => {
-            console.log('[DEBUG_LOG] Global subject update received:', message)
-
-            if (message.type === 'SUBJECT_ADDED') {
-              const existingSubject = state.subjects.find(s =>
-                  s.id === message.subject.id ||
-                  s.name === message.subject.name
-              )
-
-              if (!existingSubject) {
-                dispatch({
-                  type: ActionTypes.ADD_SUBJECT,
-                  payload: {
-                    id: message.subject.id,
-                    name: message.subject.name
-                  }
-                })
-                console.log('[DEBUG_LOG] New subject added via WebSocket:', message.subject)
-              } else {
-                console.log('[DEBUG_LOG] Subject already exists, skipping:', message.subject)
-              }
-            }
-          })
-
-          // Wait for subscription to complete
-          await subscriptionPromise
-          isSubscribed = true
-          console.log('[DEBUG_LOG] Global subject subscription established successfully')
-          dispatch({ type: ActionTypes.SET_SOCKET_CONNECTION, payload: true })
-
-        } catch (error) {
-          console.error('[DEBUG_LOG] Failed to set up global subject subscription:', error)
-          // Retry after a delay
-          setTimeout(() => {
-            if (state.isAuthenticated && !isSubscribed) {
-              console.log('[DEBUG_LOG] Retrying global subject subscription...')
-              connectToGlobalUpdates()
-            }
-          }, 5000)
-        }
-      }
-    }
-
-    connectToGlobalUpdates()
-
-    return () => {
-      if (isSubscribed) {
-        console.log('[DEBUG_LOG] Cleaning up global subject subscription')
-        gameStompClient.unsubscribe('/topic/subjects')
-        isSubscribed = false
-      }
-      if (subscriptionPromise) {
-        subscriptionPromise = null
-      }
-    }
-  }, [state.isAuthenticated, state.subjects])
+  // Note: Removed duplicate STOMP subscription to '/topic/subjects' 
+  // Subject updates are now handled by subjectStore which properly handles both SUBJECT_ADDED and WORD_ADDED events
 
   return (
     <GameContext.Provider value={contextValue}>

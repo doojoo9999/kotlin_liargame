@@ -6,7 +6,7 @@ import org.example.kotlin_liargame.domain.game.model.enum.GameState
 
 data class CreateGameRoomRequest(
     val nickname: String? = null,
-    val gameName: String,
+    val gameName: String? = null,
     val gamePassword: String? = null,
     val gameParticipants: Int = 5,
     val gameTotalRounds: Int = 3,
@@ -33,7 +33,7 @@ data class CreateGameRoomRequest(
     fun to(gameNumber: Int, gameOwner: String): GameEntity {
         return GameEntity(
             gameNumber = gameNumber,
-            gameName = this.gameName,
+            gameName = this.gameName?.takeIf { it.isNotBlank() } ?: "${gameOwner}님의 방",
             gamePassword = this.gamePassword,
             gameParticipants = this.gameParticipants,
             gameTotalRounds = this.gameTotalRounds,
