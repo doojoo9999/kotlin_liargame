@@ -255,6 +255,31 @@ class GameService(
         if (deletedCount > 0) {
             val remainingPlayers = playerRepository.findByGame(game)
 
+            // Check if the leaving player was the room owner
+            val wasOwner = game.gameOwner == nickname
+
+            if (remainingPlayers.isEmpty()) {
+                // No players left, delete the room
+                println("[DEBUG] No players remaining, deleting room ${game.gameNumber}")
+                gameRepository.delete(game)
+                
+                // Notify lobby that room was deleted
+                messagingTemplate.convertAndSend("/topic/lobby", mapOf(
+                    "type" to "ROOM_DELETED",
+                    "gameNumber" to game.gameNumber
+                ))
+                
+                return true
+            } else if (wasOwner) {
+                // Transfer ownership to the oldest remaining player (earliest joinedAt timestamp)
+                val newOwner = remainingPlayers.minByOrNull { it.joinedAt }
+                if (newOwner != null) {
+                    game.gameOwner = newOwner.nickname
+                    gameRepository.save(game)
+                    println("[DEBUG] Transferred ownership from $nickname to ${newOwner.nickname} in room ${game.gameNumber} (joined at: ${newOwner.joinedAt})")
+                }
+            }
+
             // Get all subjects for this game
             val gameSubjects = gameSubjectRepository.findByGameWithSubject(game)
             val subjectNames = gameSubjects.map { it.subject.content ?: "Unknown" }
@@ -271,6 +296,8 @@ class GameService(
                 "userId" to userId,
                 "currentPlayers" to remainingPlayers.size,
                 "maxPlayers" to game.gameParticipants,
+                "ownershipTransferred" to wasOwner,
+                "newOwner" to if (wasOwner && remainingPlayers.isNotEmpty()) game.gameOwner else null,
                 "roomData" to mapOf(
                     "gameNumber" to game.gameNumber,
                     "title" to "${game.gameName} #${game.gameNumber}",
