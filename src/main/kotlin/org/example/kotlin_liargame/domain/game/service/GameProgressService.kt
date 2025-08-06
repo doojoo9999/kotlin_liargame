@@ -3,6 +3,7 @@ package org.example.kotlin_liargame.domain.game.service
 import org.example.kotlin_liargame.domain.game.dto.response.*
 import org.example.kotlin_liargame.domain.game.repository.GameRepository
 import org.example.kotlin_liargame.domain.game.repository.PlayerRepository
+import org.springframework.context.annotation.Lazy
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.scheduling.TaskScheduler
 import org.springframework.stereotype.Service
@@ -15,7 +16,8 @@ class GameProgressService(
     private val gameRepository: GameRepository,
     private val playerRepository: PlayerRepository,
     private val messagingTemplate: SimpMessagingTemplate,
-    private val taskScheduler: TaskScheduler
+    private val taskScheduler: TaskScheduler,
+    @Lazy private val votingService: VotingService
 ) {
     
     // 플레이어 순서 및 상태 관리
@@ -159,6 +161,9 @@ class GameProgressService(
                     timestamp = Instant.now()
                 )
             )
+            
+            // 실제 투표 시작
+            votingService.startVoting(gameNumber)
         }, Instant.now().plusSeconds(2))
         
         return NextPlayerResponse(
