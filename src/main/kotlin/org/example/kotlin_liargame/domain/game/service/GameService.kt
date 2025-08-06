@@ -103,7 +103,7 @@ class GameService(
 
     private fun selectSubjectsForGameRoom(req: CreateGameRoomRequest): List<SubjectEntity> {
         val allSubjects = subjectRepository.findAll().toList()
-        val validSubjects = allSubjects.filter { it.word.size >= 2 }
+        val validSubjects = allSubjects.filter { it.word.size >= 5 }
 
         if (validSubjects.isEmpty()) {
             return createTestSubjects()
@@ -113,7 +113,7 @@ class GameService(
             req.subjectIds != null -> {
                 req.subjectIds.mapNotNull { subjectId ->
                     subjectRepository.findById(subjectId).orElse(null)
-                }.filter { it.word.size >= 2 }
+                }.filter { it.word.size >= 5 }
             }
 
             req.useRandomSubjects -> {
