@@ -47,7 +47,10 @@ class PlayerEntity (
     var votedFor: Long? = null,
 
     @Column(nullable = true)
-    var voteStartTime: Instant? = null
+    var voteStartTime: Instant? = null,
+
+    @Column(nullable = false)
+    val joinedAt: Instant = Instant.now()
 ){
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
