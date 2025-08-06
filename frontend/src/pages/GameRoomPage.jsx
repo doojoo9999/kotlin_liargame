@@ -239,8 +239,9 @@ function GameRoomPage() {
       <AppBar position="static" color="primary">
         <Toolbar>
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            {currentRoom.title || '제목 없음'} #{currentRoom.gameNumber}
-            {currentRoom.subject?.name && ` - [${currentRoom.subject.name}]`}
+            {currentRoom.title || `${currentRoom.gameName || '제목 없음'} #${currentRoom.gameNumber}`}
+            {currentRoom.subjects && currentRoom.subjects.length > 0 && ` - [${currentRoom.subjects.join(', ')}]`}
+            {!currentRoom.subjects && currentRoom.subject && ` - [${currentRoom.subject}]`}
           </Typography>
           
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -255,7 +256,7 @@ function GameRoomPage() {
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'white' }}>
               <PeopleIcon />
               <Typography variant="body2">
-                {players.length}/{currentRoom.maxPlayers || parseInt(localStorage.getItem('lastCreatedRoomMaxPlayers')) || 8}
+                {players.length}/{currentRoom.maxPlayers || currentRoom.gameParticipants || 8}
               </Typography>
             </Box>
             
@@ -461,7 +462,9 @@ function GameRoomPage() {
             subject={currentRoom?.subject}
             gameInfo={{
               round: currentRound || 1,
-              topic: currentRoom?.subject?.name || currentRoom?.subject?.content || '주제 없음',
+              topic: currentRoom?.subjects && currentRoom.subjects.length > 0 
+                ? currentRoom.subjects.join(', ') 
+                : currentRoom?.subject?.name || currentRoom?.subject?.content || '주제 없음',
               status: gameStatus === 'WAITING' ? '대기 중' : 
                       gameStatus === 'SPEAKING' ? '발언 단계' :
                       gameStatus === 'VOTING' ? '투표 단계' :

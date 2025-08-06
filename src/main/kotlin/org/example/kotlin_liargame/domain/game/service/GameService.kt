@@ -7,9 +7,11 @@ import org.example.kotlin_liargame.domain.game.dto.response.GameResultResponse
 import org.example.kotlin_liargame.domain.game.dto.response.GameRoomListResponse
 import org.example.kotlin_liargame.domain.game.dto.response.GameStateResponse
 import org.example.kotlin_liargame.domain.game.model.GameEntity
+import org.example.kotlin_liargame.domain.game.model.GameSubjectEntity
 import org.example.kotlin_liargame.domain.game.model.PlayerEntity
 import org.example.kotlin_liargame.domain.game.model.enum.*
 import org.example.kotlin_liargame.domain.game.repository.GameRepository
+import org.example.kotlin_liargame.domain.game.repository.GameSubjectRepository
 import org.example.kotlin_liargame.domain.game.repository.PlayerRepository
 import org.example.kotlin_liargame.domain.subject.model.SubjectEntity
 import org.example.kotlin_liargame.domain.subject.repository.SubjectRepository
@@ -26,6 +28,7 @@ class GameService(
     private val userRepository: UserRepository,
     private val subjectRepository: SubjectRepository,
     private val wordRepository: WordRepository,
+    private val gameSubjectRepository: GameSubjectRepository,
     private val chatService: ChatService,
     private val messagingTemplate: SimpMessagingTemplate
 ) {
@@ -95,6 +98,15 @@ class GameService(
         }
 
         val savedGame = gameRepository.save(newGame)
+        
+        // Save all selected subjects to GameSubjectEntity table
+        selectedSubjects.forEach { subject ->
+            val gameSubject = GameSubjectEntity(
+                game = savedGame,
+                subject = subject
+            )
+            gameSubjectRepository.save(gameSubject)
+        }
 
         joinGame(savedGame, getCurrentUserId(session), nickname)
 
@@ -160,6 +172,15 @@ class GameService(
 
         val newPlayerCount = currentPlayers.size + 1
 
+        // Get all subjects for this game
+        val gameSubjects = gameSubjectRepository.findByGameWithSubject(game)
+        val subjectNames = gameSubjects.map { it.subject.content ?: "Unknown" }
+        val subjectDisplay = if (subjectNames.isNotEmpty()) {
+            subjectNames.joinToString(", ")
+        } else {
+            game.citizenSubject?.content ?: "주제 설정 중"
+        }
+
         val roomUpdateMessage = mapOf(
             "type" to "PLAYER_JOINED",
             "gameNumber" to game.gameNumber,
@@ -169,11 +190,12 @@ class GameService(
             "maxPlayers" to game.gameParticipants,
             "roomData" to mapOf(
                 "gameNumber" to game.gameNumber,
-                "title" to game.gameName,
+                "title" to "${game.gameName} #${game.gameNumber}",
                 "host" to game.gameOwner,
                 "currentPlayers" to newPlayerCount,
                 "maxPlayers" to game.gameParticipants,
-                "subject" to (game.citizenSubject?.content ?: "주제 설정 중"),
+                "subject" to subjectDisplay,
+                "subjects" to subjectNames,
                 "state" to game.gameState.name,
                 "players" to playerRepository.findByGame(game).map { player ->
                     mapOf(
@@ -233,6 +255,15 @@ class GameService(
         if (deletedCount > 0) {
             val remainingPlayers = playerRepository.findByGame(game)
 
+            // Get all subjects for this game
+            val gameSubjects = gameSubjectRepository.findByGameWithSubject(game)
+            val subjectNames = gameSubjects.map { it.subject.content ?: "Unknown" }
+            val subjectDisplay = if (subjectNames.isNotEmpty()) {
+                subjectNames.joinToString(", ")
+            } else {
+                game.citizenSubject?.content ?: "주제 설정 중"
+            }
+
             val roomUpdateMessage = mapOf(
                 "type" to "PLAYER_LEFT",
                 "gameNumber" to game.gameNumber,
@@ -242,11 +273,12 @@ class GameService(
                 "maxPlayers" to game.gameParticipants,
                 "roomData" to mapOf(
                     "gameNumber" to game.gameNumber,
-                    "title" to game.gameName,
+                    "title" to "${game.gameName} #${game.gameNumber}",
                     "host" to game.gameOwner,
                     "currentPlayers" to remainingPlayers.size,
                     "maxPlayers" to game.gameParticipants,
-                    "subject" to (game.citizenSubject?.content ?: "주제 설정 중"),
+                    "subject" to subjectDisplay,
+                    "subjects" to subjectNames,
                     "state" to game.gameState.name,
                     "players" to remainingPlayers.map { player ->
                         mapOf(
@@ -820,22 +852,27 @@ class GameService(
 
         val playerCounts = mutableMapOf<Long, Int>()
         val playersMap = mutableMapOf<Long, List<PlayerEntity>>()
+        val gameSubjectsMap = mutableMapOf<Long, List<String>>()
 
         activeGames.forEach { game ->
             val players = playerRepository.findByGame(game)
+            val gameSubjects = gameSubjectRepository.findByGameWithSubject(game)
+            val subjectNames = gameSubjects.map { it.subject.content ?: "Unknown" }
 
             println("[DEBUG] Game ${game.gameNumber} (ID: ${game.id}): found ${players.size} players")
             players.forEach { player ->
                 println("[DEBUG]   - Player: ${player.nickname} (ID: ${player.id}, User: ${player.userId})")
             }
+            println("[DEBUG] Game ${game.gameNumber} subjects: $subjectNames")
 
             playerCounts[game.id] = players.size
             playersMap[game.id] = players
+            gameSubjectsMap[game.id] = subjectNames
         }
 
         println("[DEBUG] Player counts: $playerCounts")
 
-        return GameRoomListResponse.from(activeGames, playerCounts, playersMap)
+        return GameRoomListResponse.from(activeGames, playerCounts, playersMap, gameSubjectsMap)
     }
 
 
