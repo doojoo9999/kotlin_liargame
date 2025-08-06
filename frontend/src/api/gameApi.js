@@ -182,3 +182,10 @@ export const getChatHistory = async (gameNumber, limit = 50) => {
     throw error
   }
 }
+
+export const completeSpeech = async (gameNumber) => {
+  const response = await apiClient.post('/chat/speech/complete', {
+    gameNumber: parseInt(gameNumber)
+  })
+  return response.data
+}
