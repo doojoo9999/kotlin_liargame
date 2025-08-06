@@ -927,10 +927,22 @@ class GameService(
             word = emptyList()
         )
 
+        val foodSubject = SubjectEntity(
+            content = "음식",
+            word = emptyList()
+        )
+
+        val jobSubject = SubjectEntity(
+            content = "직업",
+            word = emptyList()
+        )
+
         val savedAnimalSubject = subjectRepository.save(animalSubject)
         val savedFruitSubject = subjectRepository.save(fruitSubject)
+        val savedFoodSubject = subjectRepository.save(foodSubject)
+        val savedJobSubject = subjectRepository.save(jobSubject)
 
-        val animalWords = listOf("호랑이", "사자", "코끼리", "기린")
+        val animalWords = listOf("호랑이", "사자", "코끼리", "기린", "원숭이", "곰", "늑대")
         animalWords.forEach { wordContent ->
             val word = org.example.kotlin_liargame.domain.word.model.WordEntity(
                 content = wordContent,
@@ -939,7 +951,7 @@ class GameService(
             wordRepository.save(word)
         }
 
-        val fruitWords = listOf("사과", "바나나", "오렌지", "포도")
+        val fruitWords = listOf("사과", "바나나", "오렌지", "포도", "딸기", "수박", "복숭아")
         fruitWords.forEach { wordContent ->
             val word = org.example.kotlin_liargame.domain.word.model.WordEntity(
                 content = wordContent,
@@ -947,6 +959,28 @@ class GameService(
             )
             wordRepository.save(word)
         }
+
+        val foodWords = listOf("김치", "불고기", "비빔밥", "냉면", "떡볶이", "치킨", "피자")
+        foodWords.forEach { wordContent ->
+            val word = org.example.kotlin_liargame.domain.word.model.WordEntity(
+                content = wordContent,
+                subject = savedFoodSubject
+            )
+            wordRepository.save(word)
+        }
+
+        val jobWords = listOf("의사", "교사", "개발자", "간호사", "요리사", "경찰관", "소방관")
+        jobWords.forEach { wordContent ->
+            val word = org.example.kotlin_liargame.domain.word.model.WordEntity(
+                content = wordContent,
+                subject = savedJobSubject
+            )
+            wordRepository.save(word)
+        }
+
+        // Flush to ensure all words are saved to database
+        wordRepository.flush()
+        subjectRepository.flush()
 
         val subjects = subjectRepository.findAll().toList()
         println("[DEBUG] Created test subjects: ${subjects.size}")

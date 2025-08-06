@@ -12,11 +12,11 @@ const useSubjectStore = create(
     error: null,
 
     // Actions
-    fetchSubjects: async () => {
+    fetchSubjects: async (forceRefresh = false) => {
       const { loading, subjects } = get()
       
-      // Prevent duplicate calls and skip if already has data
-      if (loading || subjects.length > 0) {
+      // Prevent duplicate calls and skip if already has data (unless forced refresh)
+      if (!forceRefresh && (loading || subjects.length > 0)) {
         console.log('[DEBUG_LOG] Skipping subjects fetch - already loading or has data')
         return
       }
@@ -31,13 +31,22 @@ const useSubjectStore = create(
           // 가져온 주제 배열에서 중복 제거 (Map 사용하여 이름으로 중복 제거)
           const uniqueSubjectsMap = new Map()
           fetchedSubjects.forEach(subject => {
-            if (subject && subject.name) {
-              uniqueSubjectsMap.set(subject.name.toLowerCase(), subject)
+            if (subject && (subject.name || subject.content)) {
+              const subjectName = subject.name || subject.content
+              const processedSubject = {
+                id: subject.id,
+                name: subjectName,
+                content: subject.content || subjectName,
+                word: subject.word || [],
+                wordIds: subject.wordIds || (subject.word ? subject.word.map(w => w.id) : [])
+              }
+              uniqueSubjectsMap.set(subjectName.toLowerCase(), processedSubject)
             }
           })
 
           const uniqueSubjects = Array.from(uniqueSubjectsMap.values())
           console.log('[DEBUG_LOG] Filtered unique subjects:', uniqueSubjects.length, '/', fetchedSubjects.length)
+          console.log('[DEBUG_LOG] Sample subject with word count:', uniqueSubjects[0])
 
           set({ subjects: uniqueSubjects })
           console.log('[DEBUG_LOG] Subjects loaded successfully:', uniqueSubjects.length)
@@ -93,7 +102,15 @@ const useSubjectStore = create(
           const alreadyAdded = updatedSubjects.some(s => s.id === newSubject.id);
 
           if (!alreadyAdded) {
-            updatedSubjects.push(newSubject);
+            // Ensure new subject has proper word count structure
+            const processedNewSubject = {
+              id: newSubject.id,
+              name: newSubject.name || newSubject.content,
+              content: newSubject.content || newSubject.name,
+              word: newSubject.word || [],
+              wordIds: newSubject.wordIds || []
+            }
+            updatedSubjects.push(processedNewSubject);
             set({ subjects: updatedSubjects, loading: false });
           } else {
             console.log('[DEBUG_LOG] Subject already added to store');
@@ -117,7 +134,48 @@ const useSubjectStore = create(
         
         const result = await gameApi.addWord(subject, word)
         
-        set({ loading: false })
+        // After successfully adding a word, refresh subjects to get updated word counts
+        console.log('[DEBUG_LOG] Word added successfully, refreshing subjects to update counts')
+        
+        // Fetch updated subjects from API
+        const updatedSubjects = await gameApi.getAllSubjects()
+        
+        if (Array.isArray(updatedSubjects)) {
+          // Process subjects with word count information
+          const uniqueSubjectsMap = new Map()
+          updatedSubjects.forEach(subjectItem => {
+            if (subjectItem && (subjectItem.name || subjectItem.content)) {
+              const subjectName = subjectItem.name || subjectItem.content
+              const processedSubject = {
+                id: subjectItem.id,
+                name: subjectName,
+                content: subjectItem.content || subjectName,
+                word: subjectItem.word || [],
+                wordIds: subjectItem.wordIds || (subjectItem.word ? subjectItem.word.map(w => w.id) : [])
+              }
+              uniqueSubjectsMap.set(subjectName.toLowerCase(), processedSubject)
+            }
+          })
+
+          const uniqueSubjects = Array.from(uniqueSubjectsMap.values())
+          
+          // Update subjects in store with new word counts
+          set({ subjects: uniqueSubjects, loading: false })
+          
+          console.log('[DEBUG_LOG] Subjects refreshed after adding word')
+          
+          // Find and log the updated subject
+          const updatedSubject = uniqueSubjects.find(s => 
+            (s.name && s.name.toLowerCase() === subject.toLowerCase()) ||
+            (s.content && s.content.toLowerCase() === subject.toLowerCase())
+          )
+          if (updatedSubject) {
+            console.log('[DEBUG_LOG] Updated subject word count:', updatedSubject.word?.length || 0)
+          }
+        } else {
+          set({ loading: false })
+        }
+        
         return result
       } catch (error) {
         console.error('Failed to add word:', error)
@@ -137,8 +195,9 @@ const useSubjectStore = create(
         const { subjects } = get()
 
         // 주제 이름으로 중복 확인 (ID는 다를 수 있음)
+        const subjectName = message.subject.name || message.subject.content
         const existingSubjectIndex = subjects.findIndex(s => 
-          s.name.toLowerCase() === message.subject.name.toLowerCase()
+          s.name.toLowerCase() === subjectName.toLowerCase()
         )
 
         if (existingSubjectIndex !== -1) {
@@ -149,7 +208,10 @@ const useSubjectStore = create(
           const updatedSubjects = [...subjects]
           updatedSubjects[existingSubjectIndex] = {
             id: message.subject.id,
-            name: message.subject.name
+            name: subjectName,
+            content: message.subject.content || subjectName,
+            word: message.subject.word || updatedSubjects[existingSubjectIndex].word || [],
+            wordIds: message.subject.wordIds || updatedSubjects[existingSubjectIndex].wordIds || []
           }
 
           set({ subjects: updatedSubjects })
@@ -157,7 +219,10 @@ const useSubjectStore = create(
           // 새 주제 추가
           const newSubject = {
             id: message.subject.id,
-            name: message.subject.name
+            name: subjectName,
+            content: message.subject.content || subjectName,
+            word: message.subject.word || [],
+            wordIds: message.subject.wordIds || []
           }
 
           set(state => ({
@@ -166,6 +231,12 @@ const useSubjectStore = create(
 
           console.log('[DEBUG_LOG] New subject added via WebSocket:', newSubject)
         }
+      } else if (message.type === 'WORD_ADDED' || message.type === 'SUBJECT_UPDATED') {
+        // Handle word additions or subject updates
+        console.log('[DEBUG_LOG] Word/Subject update received, refreshing subjects')
+        
+        // Refresh subjects to get updated word counts (force refresh)
+        get().fetchSubjects(true)
       }
     },
 
