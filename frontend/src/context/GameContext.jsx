@@ -25,6 +25,7 @@ const initialState = {
   gameResults: null,
   accusedPlayerId: null,
   defendingPlayerId: null,
+  moderatorMessage: null,
   
   // UI state
   loading: {
@@ -89,7 +90,10 @@ const ActionTypes = {
   RESET_GAME_STATE: 'RESET_GAME_STATE',
   
   // Navigation actions
-  SET_CURRENT_PAGE: 'SET_CURRENT_PAGE'
+  SET_CURRENT_PAGE: 'SET_CURRENT_PAGE',
+  
+  // Moderator message actions
+  SET_MODERATOR_MESSAGE: 'SET_MODERATOR_MESSAGE'
 }
 
 // Reducer function
@@ -182,6 +186,12 @@ const gameReducer = (state, action) => {
       return {
         ...state,
         currentPage: action.payload
+      }
+      
+    case ActionTypes.SET_MODERATOR_MESSAGE:
+      return {
+        ...state,
+        moderatorMessage: action.payload
       }
       
     // WebSocket actions
@@ -679,6 +689,37 @@ export const GameProvider = ({ children }) => {
       gameStompClient.subscribeToGameChat(gameNumber, handleChatMessage)
       gameStompClient.subscribeToGameRoom(gameNumber, handleGameUpdate)
       gameStompClient.subscribeToPlayerUpdates(gameNumber, handlePlayerUpdate)
+      
+      // 사회자 메시지 구독
+      gameStompClient.subscribe(`/topic/game/${gameNumber}/moderator`, (message) => {
+        const moderatorMessage = JSON.parse(message.body)
+        console.log('[DEBUG_LOG] Moderator message received:', moderatorMessage)
+        
+        // 사회자 메시지 상태 업데이트
+        dispatch({ 
+          type: ActionTypes.SET_MODERATOR_MESSAGE, 
+          payload: moderatorMessage.content 
+        })
+        
+        // 3초 후 메시지 숨기기
+        setTimeout(() => {
+          dispatch({ 
+            type: ActionTypes.SET_MODERATOR_MESSAGE, 
+            payload: null 
+          })
+        }, 3000)
+      })
+      
+      // 턴 변경 구독
+      gameStompClient.subscribe(`/topic/game/${gameNumber}/turn`, (message) => {
+        const turnMessage = JSON.parse(message.body)
+        console.log('[DEBUG_LOG] Turn change received:', turnMessage)
+        
+        dispatch({ 
+          type: ActionTypes.SET_CURRENT_TURN_PLAYER, 
+          payload: turnMessage.currentSpeakerId 
+        })
+      })
 
       console.log('[DEBUG_LOG] WebSocket subscriptions set up for game:', gameNumber)
       setLoading('socket', false)
@@ -915,8 +956,11 @@ export const GameProvider = ({ children }) => {
         host: roomDetails.host || roomDetails.gameOwner || roomDetails.hostNickname || '알 수 없음',
         currentPlayers: parseInt(roomDetails.currentPlayers || roomDetails.playerCount || 0),
         maxPlayers: parseInt(roomDetails.maxPlayers || roomDetails.gameParticipants || 8),
-        subject: roomDetails.subject || roomDetails.citizenSubject?.content || roomDetails.subjectName || '주제 없음',
-        subjects: Array.isArray(roomDetails.subjects) ? roomDetails.subjects : [],
+        subject: roomDetails.subject || roomDetails.citizenSubject?.content || roomDetails.citizenSubject || roomDetails.subjectName || '주제 없음',
+        // Fix: Properly handle subjects array from GameStateResponse
+        subjects: Array.isArray(roomDetails.subjects) && roomDetails.subjects.length > 0 
+          ? roomDetails.subjects 
+          : (roomDetails.citizenSubject ? [roomDetails.citizenSubject] : []),
         state: roomDetails.state || roomDetails.gameState || 'WAITING',
         round: parseInt(roomDetails.currentRound || roomDetails.gameCurrentRound || 1),
         players: Array.isArray(roomDetails.players) ? roomDetails.players : [],
