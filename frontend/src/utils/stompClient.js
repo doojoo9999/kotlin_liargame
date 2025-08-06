@@ -19,9 +19,10 @@ class AdminStompClient {
                 console.log('[DEBUG_LOG] Connecting to STOMP server:', serverUrl)
 
                 this.client = new Client({
-                    webSocketFactory: () => new SockJS(`${serverUrl}/ws`),
+                    webSocketFactory: () => new SockJS(`${serverUrl}/ws`, null, {
+                        withCredentials: true // 세션 쿠키 포함
+                    }),
                     connectHeaders: {
-                        'Authorization': `Bearer ${localStorage.getItem('adminAccessToken')}`,
                         ...options.headers
                     },
                     debug: (str) => {

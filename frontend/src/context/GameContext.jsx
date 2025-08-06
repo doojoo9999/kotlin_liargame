@@ -1,4 +1,4 @@
-import React, {createContext, useCallback, useContext, useEffect, useReducer, useRef} from 'react'
+import React, {createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef} from 'react'
 import * as gameApi from '../api/gameApi'
 import gameStompClient from '../socket/gameStompClient'
 
@@ -32,7 +32,8 @@ const initialState = {
     room: false,
     auth: false,
     subjects: false,
-    socket: false
+    socket: false,
+    chatHistory: false
   },
   error: {
     rooms: null,
@@ -120,8 +121,7 @@ const gameReducer = (state, action) => {
       }
       
     case ActionTypes.LOGOUT:
-      localStorage.removeItem('accessToken')
-      localStorage.removeItem('refreshToken')
+      localStorage.removeItem('userData')
       return {
         ...state,
         currentUser: null,
@@ -167,6 +167,12 @@ const gameReducer = (state, action) => {
       }
 
     case ActionTypes.ADD_SUBJECT:
+      // 중복 주제 검사: 이미 존재하는 ID를 가진 주제는 추가하지 않음
+      const subjectExists = state.subjects.some(subject => subject.id === action.payload.id);
+      if (subjectExists) {
+        console.log('[DEBUG_LOG] Subject already exists in state, not adding duplicate:', action.payload);
+        return state;
+      }
       return {
         ...state,
         subjects: [...state.subjects, action.payload]
@@ -323,22 +329,13 @@ export const GameProvider = ({ children }) => {
       setLoading('auth', true)
       setError('auth', null)
 
-      localStorage.removeItem('accessToken')
-      localStorage.removeItem('refreshToken')
-      localStorage.removeItem('adminAccessToken')
-      localStorage.removeItem('adminRefreshToken')
-
-
       const result = await gameApi.login(nickname)
       const userData = {
         id: result.userId,
-        nickname: nickname,
-        accessToken: result.accessToken,
-        refreshToken: result.refreshToken
+        nickname: nickname
       }
       
-      localStorage.setItem('accessToken', result.accessToken)
-      localStorage.setItem('refreshToken', result.refreshToken)
+      localStorage.setItem('userData', JSON.stringify(userData))
       
       dispatch({ type: ActionTypes.SET_USER, payload: userData })
       setLoading('auth', false)
@@ -388,14 +385,14 @@ export const GameProvider = ({ children }) => {
 
       const mappedRooms = rooms.map(room => ({
         gameNumber: room.gameNumber,
-        title: room.title || room.gName,
-        host: room.host || room.gOwner,
+        title: room.title || room.gameName,
+        host: room.host || room.gameOwner,
         playerCount: room.playerCount || room.currentPlayers || 0,
         currentPlayers: room.playerCount || room.currentPlayers || 0,
-        maxPlayers: room.maxPlayers || room.gParticipants,
-        hasPassword: room.hasPassword || (room.gPassword != null),
+        maxPlayers: room.maxPlayers || room.gameParticipants,
+        hasPassword: room.hasPassword || (room.gamePassword != null),
         subject: room.subject || room.citizenSubject?.content,
-        state: room.state || room.gState,
+        state: room.state || room.gameState,
         players: room.players || []
 
       }))
@@ -422,8 +419,8 @@ export const GameProvider = ({ children }) => {
       // 실제 생성된 방 정보를 사용하도록 수정
       const createdRoom = {
         gameNumber: result.gameNumber || result,
-        title: roomData.gName,
-        maxPlayers: roomData.gParticipants,
+        title: roomData.gameName,
+        maxPlayers: roomData.gameParticipants,
         currentPlayers: 1,
         gameState: 'WAITING',
         subject: roomData.subjectIds?.length > 0 ? await getSubjectById(roomData.subjectIds[0]) : null,
@@ -434,8 +431,8 @@ export const GameProvider = ({ children }) => {
           isAlive: true,
           avatarUrl: null
         }],
-        password: roomData.gPassword,
-        rounds: roomData.gTotalRounds
+        password: roomData.gamePassword,
+        rounds: roomData.gameTotalRounds
       }
       
       dispatch({ type: ActionTypes.SET_CURRENT_ROOM, payload: createdRoom })
@@ -515,7 +512,7 @@ export const GameProvider = ({ children }) => {
     try {
       console.log('[DEBUG_LOG] Leaving room with gameNumber:', gameNumber)
       const response = await gameApi.leaveRoom({
-        gNumber: parseInt(gameNumber)
+        gameNumber: parseInt(gameNumber)
       })
       console.log('[DEBBUG_LOG] Leave room response:', response)
 
@@ -632,7 +629,46 @@ export const GameProvider = ({ children }) => {
 
       const handleGameUpdate = (update) => {
         console.log('[DEBUG_LOG] Received game update:', update)
-        // 게임 상태 업데이트 처리
+        
+        // Handle PLAYER_JOINED and PLAYER_LEFT events
+        if (update.type === 'PLAYER_JOINED' || update.type === 'PLAYER_LEFT') {
+          // Update room players if available
+          if (update.roomData && update.roomData.players) {
+            dispatch({ type: ActionTypes.SET_ROOM_PLAYERS, payload: update.roomData.players })
+          }
+          
+          // Update current room information with roomData
+          if (update.roomData) {
+            const updatedRoom = {
+              gameNumber: update.roomData.gameNumber,
+              title: update.roomData.title,
+              host: update.roomData.host,
+              currentPlayers: update.roomData.currentPlayers,
+              maxPlayers: update.roomData.maxPlayers,
+              subject: update.roomData.subject,
+              state: update.roomData.state,
+              players: update.roomData.players || []
+            }
+            
+            console.log('[DEBUG_LOG] Updating currentRoom with roomData:', updatedRoom)
+            dispatch({ type: ActionTypes.SET_CURRENT_ROOM, payload: updatedRoom })
+          }
+          
+          // Update room in the room list as well
+          if (update.roomData) {
+            dispatch({ 
+              type: ActionTypes.UPDATE_ROOM_IN_LIST, 
+              payload: {
+                gameNumber: update.roomData.gameNumber,
+                currentPlayers: update.roomData.currentPlayers,
+                maxPlayers: update.roomData.maxPlayers,
+                title: update.roomData.title,
+                subject: update.roomData.subject,
+                state: update.roomData.state
+              }
+            })
+          }
+        }
       }
 
       const handlePlayerUpdate = (players) => {
@@ -688,10 +724,13 @@ export const GameProvider = ({ children }) => {
     }
   }
 
-  const sendChatMessage = (message) => {
+  const sendChatMessage = (gameNumber, message) => {
     try {
-      if (!state.currentRoom?.gameNumber) {
-        console.warn('[DEBUG_LOG] No current room, cannot send message')
+      // gameNumber가 없으면 현재 방 번호 사용
+      const roomNumber = gameNumber || state.currentRoom?.gameNumber
+
+      if (!roomNumber) {
+        console.warn('[DEBUG_LOG] No gameNumber provided and no current room, cannot send message')
         return false
       }
 
@@ -700,8 +739,8 @@ export const GameProvider = ({ children }) => {
         return false
       }
 
-      console.log('[DEBUG_LOG] Sending chat message:', message)
-      return gameStompClient.sendChatMessage(state.currentRoom.gameNumber, message)
+      console.log('[DEBUG_LOG] Sending chat message:', message, 'to game:', roomNumber)
+      return gameStompClient.sendChatMessage(roomNumber, message)
 
     } catch (error) {
       console.error('[ERROR] Failed to send chat message:', error)
@@ -710,9 +749,17 @@ export const GameProvider = ({ children }) => {
   }
 
   const loadChatHistory = useCallback(async (gameNumber) => {
+    // Prevent multiple simultaneous calls
+    if (state.loading.chatHistory) {
+      console.log('[DEBUG_LOG] Chat history already loading, skipping duplicate request')
+      return []
+    }
+
     try {
       console.log('[DEBUG_LOG] ========== loadChatHistory Start ==========')
       console.log('[DEBUG_LOG] Loading chat history for game:', gameNumber)
+      
+      setLoading('chatHistory', true)
       
       const messages = await gameApi.getChatHistory(gameNumber)
       console.log('[DEBUG_LOG] API returned messages:', messages)
@@ -743,8 +790,10 @@ export const GameProvider = ({ children }) => {
       dispatch({ type: ActionTypes.SET_CHAT_MESSAGES, payload: [] })
       setError('socket', '채팅 기록 로드 실패')
       return []
+    } finally {
+      setLoading('chatHistory', false)
     }
-  }, [])
+  }, [state.loading.chatHistory])
 
 
   const connectToRoom = async (gameNumber, retryCount = 0) => {
@@ -779,8 +828,45 @@ export const GameProvider = ({ children }) => {
 
       gameStompClient.subscribeToGameRoom(gameNumber, (update) => {
         console.log('[DEBUG_LOG] Received room update:', update)
+        
+        // Handle PLAYER_JOINED and PLAYER_LEFT events
         if (update.type === 'PLAYER_JOINED' || update.type === 'PLAYER_LEFT') {
-          dispatch({ type: ActionTypes.SET_ROOM_PLAYERS, payload: update.players || [] })
+          // Update room players if available
+          if (update.roomData && update.roomData.players) {
+            dispatch({ type: ActionTypes.SET_ROOM_PLAYERS, payload: update.roomData.players })
+          }
+          
+          // Update current room information with roomData
+          if (update.roomData) {
+            const updatedRoom = {
+              gameNumber: update.roomData.gameNumber,
+              title: update.roomData.title,
+              host: update.roomData.host,
+              currentPlayers: update.roomData.currentPlayers,
+              maxPlayers: update.roomData.maxPlayers,
+              subject: update.roomData.subject,
+              state: update.roomData.state,
+              players: update.roomData.players || []
+            }
+            
+            console.log('[DEBUG_LOG] Updating currentRoom with roomData:', updatedRoom)
+            dispatch({ type: ActionTypes.SET_CURRENT_ROOM, payload: updatedRoom })
+          }
+          
+          // Update room in the room list as well
+          if (update.roomData) {
+            dispatch({ 
+              type: ActionTypes.UPDATE_ROOM_IN_LIST, 
+              payload: {
+                gameNumber: update.roomData.gameNumber,
+                currentPlayers: update.roomData.currentPlayers,
+                maxPlayers: update.roomData.maxPlayers,
+                title: update.roomData.title,
+                subject: update.roomData.subject,
+                state: update.roomData.state
+              }
+            })
+          }
         }
       })
 
@@ -825,13 +911,14 @@ export const GameProvider = ({ children }) => {
 
       const normalizedRoom = {
         gameNumber: roomDetails.gameNumber || gameNumber,
-        title: roomDetails.title || roomDetails.gName || `게임방 #${gameNumber}`,
-        host: roomDetails.host || roomDetails.gOwner || roomDetails.hostNickname || '알 수 없음',
+        title: roomDetails.title || (roomDetails.gameName ? `${roomDetails.gameName} #${gameNumber}` : `게임방 #${gameNumber}`),
+        host: roomDetails.host || roomDetails.gameOwner || roomDetails.hostNickname || '알 수 없음',
         currentPlayers: parseInt(roomDetails.currentPlayers || roomDetails.playerCount || 0),
-        maxPlayers: parseInt(roomDetails.maxPlayers || roomDetails.gParticipants || 8),
+        maxPlayers: parseInt(roomDetails.maxPlayers || roomDetails.gameParticipants || 8),
         subject: roomDetails.subject || roomDetails.citizenSubject?.content || roomDetails.subjectName || '주제 없음',
-        state: roomDetails.state || roomDetails.gState || 'WAITING',
-        round: parseInt(roomDetails.currentRound || roomDetails.gCurrentRound || 1),
+        subjects: Array.isArray(roomDetails.subjects) ? roomDetails.subjects : [],
+        state: roomDetails.state || roomDetails.gameState || 'WAITING',
+        round: parseInt(roomDetails.currentRound || roomDetails.gameCurrentRound || 1),
         players: Array.isArray(roomDetails.players) ? roomDetails.players : [],
         hasPassword: roomDetails.hasPassword || false,
         createdAt: roomDetails.createdAt,
@@ -855,17 +942,17 @@ export const GameProvider = ({ children }) => {
 
 
   useEffect(() => {
-    const token = localStorage.getItem('accessToken')
-    if (token) {
-      const nickname = localStorage.getItem('nickname')
-      if (nickname) {
+    const userData = localStorage.getItem('userData')
+    if (userData) {
+      try {
+        const parsedUserData = JSON.parse(userData)
         dispatch({ 
           type: ActionTypes.SET_USER, 
-          payload: { 
-            nickname, 
-            accessToken: token 
-          } 
+          payload: parsedUserData
         })
+      } catch (error) {
+        console.error('Failed to parse userData from localStorage:', error)
+        localStorage.removeItem('userData')
       }
     }
   }, [])
@@ -876,7 +963,8 @@ export const GameProvider = ({ children }) => {
     }
   }, [state.isAuthenticated, state.currentPage])
 
-  const contextValue = {
+  // Memoized context value to prevent unnecessary re-renders
+  const contextValue = useMemo(() => ({
     // State
     ...state,
     
@@ -913,64 +1001,32 @@ export const GameProvider = ({ children }) => {
     // Game Connection
     connectToRoom,
     fetchRoomDetails
-  }
+  }), [
+    state,
+    login,
+    logout,
+    fetchRooms,
+    createRoom,
+    joinRoom,
+    leaveRoom,
+    getCurrentRoom,
+    fetchSubjects,
+    addSubject,
+    addWord,
+    navigateToLobby,
+    navigateToRoom,
+    connectSocket,
+    disconnectSocket,
+    sendChatMessage,
+    loadChatHistory,
+    startGame,
+    castVote,
+    connectToRoom,
+    fetchRoomDetails
+  ])
 
-  useEffect(() => {
-    let isSubscribed = false;
-
-    const subscribeToGlobalSubjects = async () => {
-      if (state.isAuthenticated && !isSubscribed) {
-        try {
-          if (!gameStompClient.isClientConnected()) {
-            console.log('[DEBUG] Connecting to STOMP for global subject updates')
-            await gameStompClient.connect()
-          }
-
-          // 중복 구독 방지
-          if (!isSubscribed) {
-            gameStompClient.subscribe('/topic/subjects', (message) => {
-              console.log('[DEBUG] Global subject update received:', message)
-
-              if (message.type === 'SUBJECT_ADDED') {
-                const existingSubject = state.subjects.find(s =>
-                    s.id === message.subject.id ||
-                    s.name === message.subject.name
-                )
-
-                if (!existingSubject) {
-                  dispatch({
-                    type: ActionTypes.ADD_SUBJECT,
-                    payload: {
-                      id: message.subject.id,
-                      name: message.subject.name
-                    }
-                  })
-                  console.log('[DEBUG] New subject added via WebSocket:', message.subject)
-                } else {
-                  console.log('[DEBUG] Subject already exists, skipping:', message.subject)
-                }
-              }
-            })
-
-            isSubscribed = true;
-            dispatch({ type: ActionTypes.SET_SOCKET_CONNECTION, payload: true })
-          }
-
-        } catch (error) {
-          console.error('[DEBUG] Failed to set up global subject subscription:', error)
-        }
-      }
-    }
-
-    subscribeToGlobalSubjects()
-
-    return () => {
-      if (isSubscribed) {
-        gameStompClient.unsubscribe('/topic/subjects')
-        isSubscribed = false;
-      }
-    }
-  }, [state.isAuthenticated])
+  // Note: Removed duplicate STOMP subscription to '/topic/subjects' 
+  // Subject updates are now handled by subjectStore which properly handles both SUBJECT_ADDED and WORD_ADDED events
 
   return (
     <GameContext.Provider value={contextValue}>

@@ -1,3 +1,4 @@
+import React from 'react'
 import {ListItem, ListItemText, Typography} from '@mui/material'
 import PropTypes from 'prop-types'
 
@@ -66,4 +67,7 @@ ChatMessage.propTypes = {
     }).isRequired
 }
 
-export default ChatMessage
+// Memoized component to prevent unnecessary re-renders
+const MemoizedChatMessage = React.memo(ChatMessage)
+
+export default MemoizedChatMessage

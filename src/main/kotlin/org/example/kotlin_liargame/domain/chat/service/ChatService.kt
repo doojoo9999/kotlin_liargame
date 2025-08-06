@@ -1,10 +1,11 @@
 package org.example.kotlin_liargame.domain.chat.service
 
+import jakarta.servlet.http.HttpSession
 import org.example.kotlin_liargame.domain.chat.dto.request.GetChatHistoryRequest
 import org.example.kotlin_liargame.domain.chat.dto.request.SendChatMessageRequest
 import org.example.kotlin_liargame.domain.chat.dto.response.ChatMessageResponse
 import org.example.kotlin_liargame.domain.chat.model.ChatMessageEntity
-import org.example.kotlin_liargame.domain.chat.model.ChatMessageType
+import org.example.kotlin_liargame.domain.chat.model.enum.ChatMessageType
 import org.example.kotlin_liargame.domain.chat.repository.ChatMessageRepository
 import org.example.kotlin_liargame.domain.game.model.GameEntity
 import org.example.kotlin_liargame.domain.game.model.PlayerEntity
@@ -12,9 +13,8 @@ import org.example.kotlin_liargame.domain.game.model.enum.GamePhase
 import org.example.kotlin_liargame.domain.game.model.enum.GameState
 import org.example.kotlin_liargame.domain.game.repository.GameRepository
 import org.example.kotlin_liargame.domain.game.repository.PlayerRepository
-import org.example.kotlin_liargame.tools.security.UserPrincipal
+import org.example.kotlin_liargame.tools.websocket.WebSocketSessionManager
 import org.springframework.messaging.simp.SimpMessagingTemplate
-import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
@@ -28,7 +28,8 @@ class ChatService(
     private val chatMessageRepository: ChatMessageRepository,
     private val gameRepository: GameRepository,
     private val playerRepository: PlayerRepository,
-    private val messagingTemplate: SimpMessagingTemplate
+    private val messagingTemplate: SimpMessagingTemplate,
+    private val webSocketSessionManager: WebSocketSessionManager
 ) {
     private val postRoundChatWindows = ConcurrentHashMap<Int, Instant>()
 
@@ -36,46 +37,78 @@ class ChatService(
 
     private val POST_ROUND_CHAT_DURATION = 7L
 
-    fun getCurrentUserId(): Long {
-        val authentication = SecurityContextHolder.getContext().authentication
-        if (authentication != null && authentication.principal is UserPrincipal) {
-            val principal = authentication.principal as UserPrincipal
-            return principal.userId
-        }
-
-        println("[WARN] No authentication found in SecurityContext, using default user ID")
-        return 1L
+    fun getCurrentUserId(session: HttpSession): Long {
+        return session.getAttribute("userId") as? Long
+            ?: throw RuntimeException("Not authenticated")
     }
 
-    fun getCurrentUserIdForWebSocket(overrideUserId: Long?): Long {
-        if (overrideUserId != null) return overrideUserId
-        
-        val authentication = SecurityContextHolder.getContext().authentication
-        if (authentication?.principal is UserPrincipal) {
-            return (authentication.principal as UserPrincipal).userId
-        }
-        println("[WARN] No authentication found for WebSocket, using default user ID")
-        return 1L
-    }
-
+    // WebSocket용 별도 메서드
     @Transactional
-    fun sendMessageViaWebSocket(req: SendChatMessageRequest, sessionUserId: Long? = null): ChatMessageResponse {
+    fun sendMessageViaWebSocket(
+        req: SendChatMessageRequest, 
+        sessionAttributes: Map<String, Any>?,
+        webSocketSessionId: String?
+    ): ChatMessageResponse {
+        println("[DEBUG] WebSocket message: sessionAttributes = ${sessionAttributes?.keys}, sessionId = $webSocketSessionId")
+
+        // 디버깅을 위해 세션 속성 출력
+        sessionAttributes?.forEach { (key, value) ->
+            println("[DEBUG] Session attribute: $key = $value")
+        }
+
+        // 1차: 세션 속성에서 직접 userId 추출 시도
+        var userId = sessionAttributes?.get("userId") as? Long
+
+        // 2차: WebSocketSessionManager를 통한 fallback 인증 시도
+        if (userId == null && webSocketSessionId != null) {
+            println("[DEBUG] Attempting fallback authentication via WebSocketSessionManager for sessionId: $webSocketSessionId")
+            userId = webSocketSessionManager.getUserId(webSocketSessionId)
+            if (userId != null) {
+                println("[DEBUG] Found userId via WebSocketSessionManager: $userId")
+            }
+        }
+
+        // 3차: 최후의 수단으로 게임 참가자 중에서 추정 (임시 해결책)
+        if (userId == null) {
+            println("[WARN] No userId found through normal channels, attempting game-based fallback")
+            val game = gameRepository.findByGameNumber(req.gameNumber)
+            if (game != null) {
+                val players = playerRepository.findByGame(game)
+                if (players.size == 1) {
+                    // 게임에 플레이어가 1명만 있는 경우, 해당 플레이어로 추정
+                    userId = players.first().userId
+                    println("[DEBUG] Single player game detected, using userId: $userId")
+                } else {
+                    println("[DEBUG] Multiple players in game, cannot determine user without authentication")
+                }
+            }
+        }
+
+        if (userId == null) {
+            // 인증 실패 시 더 자세한 오류 정보
+            println("[ERROR] WebSocket authentication failed. Session attributes available: ${sessionAttributes?.keys}")
+            println("[ERROR] WebSocketSessionId: $webSocketSessionId")
+            println("[ERROR] WebSocketSessionManager state:")
+            webSocketSessionManager.printSessionInfo()
+            throw RuntimeException("Not authenticated via WebSocket")
+        }
+
+        println("[DEBUG] WebSocket message authenticated for userId: $userId")
+        return sendMessageWithUserId(req, userId)
+    }
+    
+    private fun sendMessageWithUserId(req: SendChatMessageRequest, userId: Long): ChatMessageResponse {
         req.validate()
         
-        val game = gameRepository.findBygNumber(req.gNumber)
+        val game = gameRepository.findByGameNumber(req.gameNumber)
             ?: throw RuntimeException("Game not found")
-        
-        val userId = getCurrentUserIdForWebSocket(sessionUserId)
-        println("[DEBUG] WebSocket message from userId: $userId")
         
         val player = playerRepository.findByGameAndUserId(game, userId)
             ?: throw RuntimeException("You are not in this game")
         
-        val messageType = if (game.gState == GameState.WAITING) {
-            ChatMessageType.LOBBY
-        } else {
-            determineMessageType(game, player) ?: ChatMessageType.POST_ROUND
-        }
+        // 기존 로직 유지, 복잡한 JWT 파싱 로직 모두 제거
+        val messageType = determineMessageType(game, player)
+            ?: throw RuntimeException("Chat not available")
         
         val chatMessage = ChatMessageEntity(
             game = game,
@@ -84,100 +117,34 @@ class ChatService(
             type = messageType
         )
         
-        val savedMessage = chatMessageRepository.save(chatMessage)
-        println("[DEBUG] Chat message saved to database: ${savedMessage.id}")
-        
-        return ChatMessageResponse.from(savedMessage)
+        return ChatMessageResponse.from(chatMessageRepository.save(chatMessage))
     }
 
+
+
     @Transactional
-    fun sendMessage(req: SendChatMessageRequest, overrideUserId: Long? = null): ChatMessageResponse {
+    fun sendMessage(req: SendChatMessageRequest, session: HttpSession): ChatMessageResponse {
         req.validate()
         
-        val game = gameRepository.findBygNumber(req.gNumber)
+        val userId = getCurrentUserId(session)
+        val game = gameRepository.findByGameNumber(req.gameNumber)
             ?: throw RuntimeException("Game not found")
-        val userId = when {
-            overrideUserId != null -> {
-                println("[DEBUG] Using provided userId: $overrideUserId")
-                overrideUserId
-            }
-            else -> {
-                try {
-                    val authentication = SecurityContextHolder.getContext().authentication
-                    if (authentication != null && authentication.principal is UserPrincipal) {
-                        val principal = authentication.principal as UserPrincipal
-                        println("[DEBUG] Using SecurityContext userId: ${principal.userId}")
-                        principal.userId
-                    } else {
-                        println("[WARN] No authentication found, using fallback logic")
-                        val firstPlayer = playerRepository.findByGame(game).firstOrNull()
-                        firstPlayer?.userId ?: throw RuntimeException("No players found in game")
-                    }
-                } catch (e: Exception) {
-                    println("[WARN] Failed to get user from SecurityContext: ${e.message}")
-                    val firstPlayer = playerRepository.findByGame(game).firstOrNull()
-                    firstPlayer?.userId ?: throw RuntimeException("No players found in game")
-                }
-            }
-        }
-        
-        println("[DEBUG] Final userId for WebSocket message: $userId, gameNumber: ${req.gNumber}")
         
         val player = playerRepository.findByGameAndUserId(game, userId)
+            ?: throw RuntimeException("You are not in this game")
         
-        if (player == null) {
-            val allPlayers = playerRepository.findByGame(game)
-            println("[DEBUG] Player not found! All players in game ${req.gNumber}:")
-            allPlayers.forEach { p ->
-                println("[DEBUG]   - Player: ${p.nickname} (ID: ${p.id}, UserId: ${p.userId})")
-            }
-            println("[DEBUG] Searched for UserId: $userId")
-            throw RuntimeException("You are not in this game. UserId: $userId, GameNumber: ${req.gNumber}")
-        }
-
-        println("[DEBUG] Found player: ${player.nickname} (ID: ${player.id}, UserId: ${player.userId})")
-
-        if (game.gState == GameState.IN_PROGRESS) {
-            if (!player.isAlive) {
-                throw RuntimeException("You are eliminated from the game")
-            }
-
-            val messageType = determineMessageType(game, player)
-            if (messageType == null) {
-                throw RuntimeException("Chat is not available at this time")
-            }
-
-            val chatMessage = ChatMessageEntity(
-                game = game,
-                player = player,
-                content = req.content,
-                type = messageType
-            )
-
-            val savedMessage = chatMessageRepository.save(chatMessage)
-            println("[SUCCESS] Chat message saved to database: ${savedMessage.id}")
-            
-            return ChatMessageResponse.from(savedMessage)
-        }
-        else {
-            val messageType = if (game.gState == GameState.WAITING) {
-                ChatMessageType.LOBBY
-            } else {
-                ChatMessageType.POST_ROUND
-            }
-
-            val chatMessage = ChatMessageEntity(
-                game = game,
-                player = player,
-                content = req.content,
-                type = messageType
-            )
-
-            val savedMessage = chatMessageRepository.save(chatMessage)
-            println("[SUCCESS] Chat message saved to database: ${savedMessage.id}")
-            
-            return ChatMessageResponse.from(savedMessage)
-        }
+        // 기존 로직 유지, 복잡한 JWT 파싱 로직 모두 제거
+        val messageType = determineMessageType(game, player)
+            ?: throw RuntimeException("Chat not available")
+        
+        val chatMessage = ChatMessageEntity(
+            game = game,
+            player = player,
+            content = req.content,
+            type = messageType
+        )
+        
+        return ChatMessageResponse.from(chatMessageRepository.save(chatMessage))
     }
 
     @Transactional(readOnly = true)
@@ -185,26 +152,26 @@ class ChatService(
         req.validate()
         
         println("[DEBUG] ========== getChatHistory Debug Start ==========")
-        println("[DEBUG] Request: gNumber=${req.gNumber}, type=${req.type}, limit=${req.limit}")
+        println("[DEBUG] Request: gameNumber=${req.gameNumber}, type=${req.type}, limit=${req.limit}")
         
-        val game = gameRepository.findBygNumber(req.gNumber)
+        val game = gameRepository.findByGameNumber(req.gameNumber)
         if (game == null) {
-            println("[ERROR] Game not found for gNumber: ${req.gNumber}")
+            println("[ERROR] Game not found for gameNumber: ${req.gameNumber}")
             throw RuntimeException("Game not found")
         }
         
-        println("[DEBUG] Found game: '${game.gName}' (ID: ${game.id}, State: ${game.gState})")
+        println("[DEBUG] Found game: '${game.gameName}' (ID: ${game.id}, State: ${game.gameState})")
         
         // 해당 게임의 모든 플레이어 조회
         val allPlayers = playerRepository.findByGame(game)
-        println("[DEBUG] Players in game ${req.gNumber}:")
+        println("[DEBUG] Players in game ${req.gameNumber}:")
         allPlayers.forEach { player ->
             println("[DEBUG]   - Player: ${player.nickname} (ID: ${player.id}, UserId: ${player.userId})")
         }
         
         // 해당 게임의 모든 채팅 메시지 조회 (필터 없이)
         val allMessages = chatMessageRepository.findByGame(game)
-        println("[DEBUG] All messages in database for game ${req.gNumber}: ${allMessages.size}")
+        println("[DEBUG] All messages in database for game ${req.gameNumber}: ${allMessages.size}")
         allMessages.forEach { msg ->
             println("[DEBUG]   - Message ID: ${msg.id}, Player: ${msg.player.nickname}, Content: '${msg.content}', Type: ${msg.type}, Time: ${msg.timestamp}")
         }
@@ -249,7 +216,7 @@ class ChatService(
         val players = playerRepository.findByGame(game)
         val currentPhase = determineGamePhase(game, players)
 
-        if (game.gState == GameState.IN_PROGRESS) {
+        if (game.gameState == GameState.IN_PROGRESS) {
             return when (currentPhase) {
                 GamePhase.GIVING_HINTS -> ChatMessageType.HINT
                 GamePhase.VOTING_FOR_LIAR -> ChatMessageType.DISCUSSION
@@ -262,13 +229,13 @@ class ChatService(
     }
 
     fun isPostRoundChatAvailable(game: GameEntity): Boolean {
-        val endTime = postRoundChatWindows[game.gNumber] ?: return false
+        val endTime = postRoundChatWindows[game.gameNumber] ?: return false
         return Instant.now().isBefore(endTime)
     }
     
 
     fun startPostRoundChat(gameNumber: Int) {
-        val game = gameRepository.findBygNumber(gameNumber)
+        val game = gameRepository.findByGameNumber(gameNumber)
             ?: throw RuntimeException("Game not found")
 
         val endTime = Instant.now().plusSeconds(POST_ROUND_CHAT_DURATION)
@@ -295,7 +262,7 @@ class ChatService(
     }
     
     private fun determineGamePhase(game: GameEntity, players: List<PlayerEntity>): GamePhase {
-        return when (game.gState) {
+        return when (game.gameState) {
             GameState.WAITING -> GamePhase.WAITING_FOR_PLAYERS
             GameState.ENDED -> GamePhase.GAME_OVER
             GameState.IN_PROGRESS -> {

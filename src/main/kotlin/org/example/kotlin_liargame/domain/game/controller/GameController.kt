@@ -1,5 +1,6 @@
 package org.example.kotlin_liargame.domain.game.controller
 
+import jakarta.servlet.http.HttpSession
 import org.example.kotlin_liargame.domain.game.dto.request.*
 import org.example.kotlin_liargame.domain.game.dto.response.GameResultResponse
 import org.example.kotlin_liargame.domain.game.dto.response.GameRoomListResponse
@@ -17,25 +18,25 @@ class GameController(
 ) {
     
     @PostMapping("/create")
-    fun createGameRoom(@RequestBody request: CreateGameRoomRequest): ResponseEntity<Int> {
-        val gameNumber = gameService.createGameRoom(request)
+    fun createGameRoom(@RequestBody request: CreateGameRoomRequest, session: HttpSession): ResponseEntity<Int> {
+        val gameNumber = gameService.createGameRoom(request, session)
         return ResponseEntity.ok(gameNumber)
     }
 
     @PostMapping("/join")
-    fun joinGame(@RequestBody request: JoinGameRequest): ResponseEntity<GameStateResponse> {
+    fun joinGame(@RequestBody request: JoinGameRequest, session: HttpSession): ResponseEntity<GameStateResponse> {
         try {
-            val response = gameService.joinGame(request)
+            val response = gameService.joinGame(request, session)
 
-            messagingTemplate.convertAndSend("/topic/room.${request.gNumber}", mapOf(
+            messagingTemplate.convertAndSend("/topic/room.${request.gameNumber}", mapOf(
                 "type" to "PLAYER_JOINED",
                 "gameState" to response,
-                "gNumber" to request.gNumber
+                "gameNumber" to request.gameNumber
             ))
 
             messagingTemplate.convertAndSend("/topic/lobby", mapOf(
                 "type" to "ROOM_UPDATED",
-                "gNumber" to request.gNumber
+                "gameNumber" to request.gameNumber
             ))
 
             return ResponseEntity.ok(response)
@@ -47,18 +48,18 @@ class GameController(
 
 
     @PostMapping("/leave")
-    fun leaveGame(@RequestBody request: LeaveGameRequest): ResponseEntity<Boolean> {
+    fun leaveGame(@RequestBody request: LeaveGameRequest, session: HttpSession): ResponseEntity<Boolean> {
         try {
-            val response = gameService.leaveGame(request)
+            val response = gameService.leaveGame(request, session)
 
-            messagingTemplate.convertAndSend("/topic/room.${request.gNumber}", mapOf(
+            messagingTemplate.convertAndSend("/topic/room.${request.gameNumber}", mapOf(
                 "type" to "PLAYER_LEFT",
-                "gNumber" to request.gNumber
+                "gameNumber" to request.gameNumber
             ))
 
             messagingTemplate.convertAndSend("/topic/lobby", mapOf(
                 "type" to "ROOM_UPDATED",
-                "gNumber" to request.gNumber
+                "gameNumber" to request.gameNumber
             ))
 
             return ResponseEntity.ok(response)
@@ -70,62 +71,62 @@ class GameController(
 
     
     @PostMapping("/start")
-    fun startGame(@RequestBody request: StartGameRequest): ResponseEntity<GameStateResponse> {
-        val response = gameService.startGame(request)
+    fun startGame(@RequestBody request: StartGameRequest, session: HttpSession): ResponseEntity<GameStateResponse> {
+        val response = gameService.startGame(request, session)
         return ResponseEntity.ok(response)
     }
     
     @PostMapping("/hint")
-    fun giveHint(@RequestBody request: GiveHintRequest): ResponseEntity<GameStateResponse> {
-        val response = gameService.giveHint(request)
+    fun giveHint(@RequestBody request: GiveHintRequest, session: HttpSession): ResponseEntity<GameStateResponse> {
+        val response = gameService.giveHint(request, session)
         return ResponseEntity.ok(response)
     }
     
     @PostMapping("/vote")
-    fun vote(@RequestBody request: VoteRequest): ResponseEntity<GameStateResponse> {
-        val response = gameService.vote(request)
+    fun vote(@RequestBody request: VoteRequest, session: HttpSession): ResponseEntity<GameStateResponse> {
+        val response = gameService.vote(request, session)
         return ResponseEntity.ok(response)
     }
     
     @PostMapping("/defend")
-    fun defend(@RequestBody request: DefendRequest): ResponseEntity<GameStateResponse> {
-        val response = gameService.defend(request)
+    fun defend(@RequestBody request: DefendRequest, session: HttpSession): ResponseEntity<GameStateResponse> {
+        val response = gameService.defend(request, session)
         return ResponseEntity.ok(response)
     }
     
     @PostMapping("/survival-vote")
-    fun survivalVote(@RequestBody request: SurvivalVoteRequest): ResponseEntity<GameStateResponse> {
-        val response = gameService.survivalVote(request)
+    fun survivalVote(@RequestBody request: SurvivalVoteRequest, session: HttpSession): ResponseEntity<GameStateResponse> {
+        val response = gameService.survivalVote(request, session)
         return ResponseEntity.ok(response)
     }
     
     @PostMapping("/guess-word")
-    fun guessWord(@RequestBody request: GuessWordRequest): ResponseEntity<GameResultResponse> {
-        val response = gameService.guessWord(request)
+    fun guessWord(@RequestBody request: GuessWordRequest, session: HttpSession): ResponseEntity<GameResultResponse> {
+        val response = gameService.guessWord(request, session)
         return ResponseEntity.ok(response)
     }
     
-    @GetMapping("/{gNumber}")
-    fun getGameState(@PathVariable gNumber: Int): ResponseEntity<GameStateResponse> {
-        val response = gameService.getGameState(gNumber)
+    @GetMapping("/{gameNumber}")
+    fun getGameState(@PathVariable gameNumber: Int, session: HttpSession): ResponseEntity<GameStateResponse> {
+        val response = gameService.getGameState(gameNumber, session)
         return ResponseEntity.ok(response)
     }
     
-    @GetMapping("/result/{gNumber}")
-    fun getGameResult(@PathVariable gNumber: Int): ResponseEntity<GameResultResponse> {
-        val response = gameService.getGameResult(gNumber)
+    @GetMapping("/result/{gameNumber}")
+    fun getGameResult(@PathVariable gameNumber: Int, session: HttpSession): ResponseEntity<GameResultResponse> {
+        val response = gameService.getGameResult(gameNumber, session)
         return ResponseEntity.ok(response)
     }
     
     @PostMapping("/end-of-round")
-    fun endOfRound(@RequestBody request: EndOfRoundRequest): ResponseEntity<GameStateResponse> {
-        val response = gameService.endOfRound(request)
+    fun endOfRound(@RequestBody request: EndOfRoundRequest, session: HttpSession): ResponseEntity<GameStateResponse> {
+        val response = gameService.endOfRound(request, session)
         return ResponseEntity.ok(response)
     }
     
     @GetMapping("/rooms")
-    fun getAllGameRooms(): ResponseEntity<GameRoomListResponse> {
-        val response = gameService.getAllGameRooms()
+    fun getAllGameRooms(session: HttpSession): ResponseEntity<GameRoomListResponse> {
+        val response = gameService.getAllGameRooms(session)
         return ResponseEntity.ok(response)
     }
 }

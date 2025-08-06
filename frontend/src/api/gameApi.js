@@ -5,10 +5,6 @@ export const login = async (nickname) => {
   return response.data
 }
 
-export const refreshToken = async (refreshToken) => {
-  const response = await apiClient.post('/auth/refresh', { refreshToken })
-  return response.data
-}
 
 
 export const addUser = async (nickname, profileImgUrl) => {
@@ -41,34 +37,34 @@ export const createRoom = async (roomData) => {
   return response.data // Returns game number
 }
 
-export const joinRoom = async (gNumber, password = '') => {
-  const response = await apiClient.post('/game/join', { gNumber, password })
+export const joinRoom = async (gameNumber, password = '') => {
+  const response = await apiClient.post('/game/join', { gameNumber, password })
   return response.data
 }
 
 export const leaveRoom = async (data) => {
   console.log('[DEBUG_LOG] LeaveRoom API call with data:', data)
-  if (!data.gNumber || data.gNumber <= 0) {
+  if (!data.gameNumber || data.gameNumber <= 0) {
     throw new Error('Invalid game number')
   }
   const response = await apiClient.post('/game/leave', {
-    gNumber: parseInt(data.gNumber)
+    gameNumber: parseInt(data.gameNumber)
   })
   return response.data
 }
 
-export const getRoomInfo = async (gNumber) => {
-  const response = await apiClient.get(`/game/${gNumber}`)
+export const getRoomInfo = async (gameNumber) => {
+  const response = await apiClient.get(`/game/${gameNumber}`)
   return response.data
 }
 
-export const startGame = async (gNumber) => {
-  const response = await apiClient.post('/game/start', { gNumber })
+export const startGame = async (gameNumber) => {
+  const response = await apiClient.post('/game/start', { gameNumber })
   return response.data
 }
 
-export const getGameState = async (gNumber) => {
-  const response = await apiClient.get(`/game/${gNumber}`)
+export const getGameState = async (gameNumber) => {
+  const response = await apiClient.get(`/game/${gameNumber}`)
   return response.data
 }
 
@@ -103,12 +99,23 @@ export const getRoomPlayers = async (gameNumber) => {
 export const getAllSubjects = async () => {
   try {
     const response = await apiClient.get('/subjects/listsubj')
-    
+
     console.log('[DEBUG] Raw subjects API response:', response.data)
 
     if (Array.isArray(response.data)) {
-      console.log('[DEBUG] Found subjects:', response.data.length, 'subjects')
-      return response.data
+      const subjectMap = new Map()
+
+      response.data.forEach(subject => {
+        if (subject && subject.name) {
+          const key = subject.name.toLowerCase()
+          subjectMap.set(key, subject)
+        }
+      })
+      const uniqueSubjects = Array.from(subjectMap.values())
+
+      console.log('[DEBUG] Found unique subjects:', uniqueSubjects.length, 'subjects')
+      console.log('[DEBUG] Unique subject names:', uniqueSubjects.map(s => s.name).join(', '))
+      return uniqueSubjects
     } else {
       console.warn('[DEBUG] Unexpected subjects API response structure:', response.data)
       console.warn('[DEBUG] Available keys:', Object.keys(response.data || {}))
@@ -119,6 +126,7 @@ export const getAllSubjects = async () => {
     throw error
   }
 }
+
 
 export const addSubject = async (name) => {
   try {
@@ -148,18 +156,18 @@ export const addWord = async (subject, word) => {
 
 // ==================== Chat Operations ====================
 
-export const sendMessage = async (gNumber, message) => {
-  const response = await apiClient.post('/chat/send', { gNumber, message })
+export const sendMessage = async (gameNumber, message) => {
+  const response = await apiClient.post('/chat/send', { gameNumber, message })
   return response.data
 }
 
-export const getChatHistory = async (gNumber, limit = 50) => {
+export const getChatHistory = async (gameNumber, limit = 50) => {
   try {
-    console.log('[DEBUG] Loading chat history for game:', gNumber)
+    console.log('[DEBUG] Loading chat history for game:', gameNumber)
 
     const response = await apiClient.get(`/chat/history`, {
       params: {
-        gNumber: parseInt(gNumber),
+        gameNumber: parseInt(gameNumber),
         limit: limit
       }
     })

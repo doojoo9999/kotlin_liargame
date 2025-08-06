@@ -1,28 +1,28 @@
 import React, {useEffect, useState} from 'react'
 import {
-    Alert,
-    Box,
-    Button,
-    Chip,
-    Container,
-    Dialog,
-    DialogActions,
-    DialogContent,
-    DialogContentText,
-    DialogTitle,
-    Divider,
-    Grid,
-    IconButton,
-    Paper,
-    Snackbar,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
-    TextField,
-    Typography
+  Alert,
+  Box,
+  Button,
+  Chip,
+  Container,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  Divider,
+  Grid,
+  IconButton,
+  Paper,
+  Snackbar,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TextField,
+  Typography
 } from '@mui/material'
 import {Add as AddIcon, Delete as DeleteIcon, Quiz as QuizIcon, Subject as SubjectIcon} from '@mui/icons-material'
 import apiClient from '../api/apiClient'
@@ -64,8 +64,29 @@ function SubjectWordPage() {
     try {
       console.log('[DEBUG_LOG] Loading subjects...')
       const response = await apiClient.get('/subjects/listsubj')
-      setSubjects(response.data)
-      console.log('[DEBUG_LOG] Subjects loaded:', response.data)
+
+      // 주제 중복 제거 로직 추가
+      if (Array.isArray(response.data)) {
+        const subjectMap = new Map()
+
+        // 주제 이름을 기준으로 중복 제거 (같은 이름은 마지막 항목만 유지)
+        response.data.forEach(subject => {
+          if (subject && subject.content) {
+            const key = subject.content.toLowerCase()
+            subjectMap.set(key, subject)
+          }
+        })
+
+        // 맵에서 고유한 주제만 배열로 변환
+        const uniqueSubjects = Array.from(subjectMap.values())
+        console.log('[DEBUG_LOG] Found unique subjects:', uniqueSubjects.length, '/', response.data.length)
+
+        setSubjects(uniqueSubjects)
+      } else {
+        setSubjects([])
+      }
+
+      console.log('[DEBUG_LOG] Subjects loaded:', response.data?.length || 0)
     } catch (error) {
       console.error('[DEBUG_LOG] Failed to load subjects:', error)
       throw error
@@ -101,10 +122,21 @@ function SubjectWordPage() {
       return
     }
 
+    // 중복 주제 검사
+    const subjectName = subjectForm.content.trim()
+    const existingSubject = subjects.find(
+      s => s.content && s.content.toLowerCase() === subjectName.toLowerCase()
+    )
+
+    if (existingSubject) {
+      showSnackbar('이미 존재하는 주제입니다.', 'error')
+      return
+    }
+
     setSubjectLoading(true)
     try {
-      console.log('[DEBUG_LOG] Adding subject:', subjectForm.content)
-      await apiClient.post('/subjects/applysubj', { content: subjectForm.content.trim() })
+      console.log('[DEBUG_LOG] Adding subject:', subjectName)
+      await apiClient.post('/subjects/applysubj', { content: subjectName })
       
       setSubjectForm({ content: '' })
       await loadSubjects()
@@ -268,26 +300,26 @@ function SubjectWordPage() {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {subjects.map((subject) => (
-                      <TableRow key={subject.id}>
-                        <TableCell>{subject.content}</TableCell>
-                        <TableCell align="center">
-                          <Chip 
-                            label={subject.wordIds.length} 
-                            size="small" 
-                            color="primary" 
-                          />
-                        </TableCell>
-                        <TableCell align="center">
-                          <IconButton
-                            color="error"
-                            onClick={() => openDeleteDialog('subject', subject.id, subject.content)}
-                            size="small"
-                          >
-                            <DeleteIcon />
-                          </IconButton>
-                        </TableCell>
-                      </TableRow>
+                    {subjects.map((subject, index) => (
+                        <TableRow key={subject.id || `subject-row-${index}-${subject.content}`}>
+                          <TableCell>{subject.content}</TableCell>
+                          <TableCell align="center">
+                            <Chip
+                                label={subject.wordIds.length}
+                                size="small"
+                                color="primary"
+                            />
+                          </TableCell>
+                          <TableCell align="center">
+                            <IconButton
+                                color="error"
+                                onClick={() => openDeleteDialog('subject', subject.id, subject.content)}
+                                size="small"
+                            >
+                              <DeleteIcon />
+                            </IconButton>
+                          </TableCell>
+                        </TableRow>
                     ))}
                   </TableBody>
                 </Table>

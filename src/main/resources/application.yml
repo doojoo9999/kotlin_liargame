@@ -2,6 +2,11 @@ spring:
     application:
         name: kotlin_liargame
 
+    jpa:
+        show-sql: true
+        hibernate:
+            ddl-auto: create
+
     h2:
         console:
             enabled: true  # H2 콘솔을 활성화합니다 (H2 콘솔은 H2 데이터베이스의 UI를 제공하는 도구)
@@ -9,7 +14,7 @@ spring:
     # 데이터베이스 설정 정보 (데이터베이스로 H2를 사용하기 위한 H2 관련 설정)
     datasource:
         driver-class-name: org.h2.Driver  # 데이터베이스로 H2를 사용합니다.
-        url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1  # H2 인메모리 데이터베이스 연결 경로
+        url: jdbc:h2:mem:testdb  # H2 인메모리 데이터베이스 연결 경로
         username: sa  # H2 접속 시 사용할 username 설정 (기본값 그대로 사용)
         password:  # H2 접속 시 사용할 password 설정 (기본값 그대로 사용)
 
@@ -17,9 +22,15 @@ spring:
         pathmatch:
             matching-strategy: ant_path_matcher
 
+    session:
+        store-type: memory
+
 
 server:
     port: 20021
+    servlet:
+        session:
+            timeout: 30m # 세션 타임아웃 설정
 
 logging:
     level:
@@ -27,9 +38,4 @@ logging:
         org.example.kotlin_liargame: DEBUG
         org.springframework.security: DEBUG
 
-jwt:
-    secret: ${JWT_SECRET_KEY:mySecretKeyForTestingChatHistoryIssue1234567890}
-
-security:
-    jwt:
-        isTestUser : false # 기본값 false
+# JWT 관련 설정 모두 제거

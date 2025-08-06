@@ -1,5 +1,7 @@
 package org.example.kotlin_liargame.domain.auth.controller
 
+import jakarta.servlet.http.HttpServletRequest
+import jakarta.servlet.http.HttpSession
 import org.example.kotlin_liargame.domain.auth.dto.request.AdminLoginRequest
 import org.example.kotlin_liargame.domain.auth.dto.request.TerminateRoomRequest
 import org.example.kotlin_liargame.domain.auth.service.AdminService
@@ -11,19 +13,22 @@ import org.springframework.web.bind.annotation.*
 
 @RestController
 @RequestMapping("/api/v1/admin")
-class AdminController(private val adminService: AdminService) {
+class AdminController(
+    private val adminService: AdminService
+) {
 
     private val logger = LoggerFactory.getLogger(this::class.java)
 
     @PostMapping("/login")
     fun login(
-        @RequestBody req: AdminLoginRequest
+        @RequestBody req: AdminLoginRequest,
+        request: HttpServletRequest
     ): ResponseEntity<Any> {
         logger.debug("관리자 로그인 요청")
         return try {
-            val tokenResponse = adminService.login(req)
+            val loginResponse = adminService.login(req, request)
             logger.debug("관리자 로그인 성공")
-            ResponseEntity.ok(tokenResponse)
+            ResponseEntity.ok(loginResponse)
         } catch (e: IllegalArgumentException) {
             logger.debug("관리자 로그인 실패: {}", e.message)
             ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -36,22 +41,29 @@ class AdminController(private val adminService: AdminService) {
     }
 
     @GetMapping("/stats")
-    fun getStatistics(): ResponseEntity<Any> {
-        logger.debug("관리자 통계 조회 요청")
-        return try {
-            val stats = adminService.getStatistics()
-            logger.debug("관리자 통계 조회 성공")
-            ResponseEntity.ok(stats)
-        } catch (e: Exception) {
-            logger.error("관리자 통계 조회 중 서버 오류 발생", e)
-            ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ErrorResponse(message = "통계 조회 중 서버 오류가 발생했습니다"))
+    fun getStats(session: HttpSession): ResponseEntity<Any> {
+        // 세션에서 관리자 권한 확인
+        val isAdmin = session.getAttribute("isAdmin") as? Boolean ?: false
+        if (!isAdmin) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ErrorResponse(message = "관리자 권한이 필요합니다"))
         }
+        
+        val stats = adminService.getStatistics()
+        return ResponseEntity.ok(stats)
     }
 
     @GetMapping("/players")
-    fun getAllPlayers(): ResponseEntity<Any> {
+    fun getAllPlayers(session: HttpSession): ResponseEntity<Any> {
         logger.debug("관리자 플레이어 목록 조회 요청")
+        
+        // 세션에서 관리자 권한 확인
+        val isAdmin = session.getAttribute("isAdmin") as? Boolean ?: false
+        if (!isAdmin) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ErrorResponse(message = "관리자 권한이 필요합니다"))
+        }
+        
         return try {
             val players = adminService.getAllPlayers()
             logger.debug("관리자 플레이어 목록 조회 성공")
@@ -65,9 +77,18 @@ class AdminController(private val adminService: AdminService) {
 
     @PostMapping("/terminate-room")
     fun terminateGameRoom(
-        @RequestBody request: TerminateRoomRequest
+        @RequestBody request: TerminateRoomRequest,
+        session: HttpSession
     ): ResponseEntity<Any> {
         logger.debug("게임방 강제 종료 요청: {}", request.gameNumber)
+        
+        // 세션에서 관리자 권한 확인
+        val isAdmin = session.getAttribute("isAdmin") as? Boolean ?: false
+        if (!isAdmin) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ErrorResponse(message = "관리자 권한이 필요합니다"))
+        }
+        
         return try {
             val result = adminService.terminateGameRoom(request.gameNumber)
             logger.debug("게임방 강제 종료 성공: {}", request.gameNumber)

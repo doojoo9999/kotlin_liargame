@@ -7,13 +7,13 @@ import org.springframework.data.jpa.repository.Query
 
 interface GameRepository : JpaRepository<GameEntity, Long> {
 
-    fun findBygOwner(gOwner: String) : GameEntity?
-    @Query("SELECT g FROM GameEntity g WHERE g.gNumber = :gNumber")
-    fun findBygNumber(gNumber: Int) : GameEntity?
+    fun findByGameOwner(gameOwner: String) : GameEntity?
+    @Query("SELECT g FROM GameEntity g WHERE g.gameNumber = :gameNumber")
+    fun findByGameNumber(gameNumber: Int) : GameEntity?
 
-    @Query("SELECT g FROM GameEntity g WHERE g.gState != :gState")
-    fun findByGStateNot(gState: GameState): List<GameEntity>
+    @Query("SELECT g FROM GameEntity g WHERE g.gameState != :gameState")
+    fun findByGameStateNot(gameState: GameState): List<GameEntity>
 
-    @Query("SELECT g FROM GameEntity g WHERE g.gState IN ('WAITING', 'IN_PROGRESS')")
+    @Query("SELECT g FROM GameEntity g WHERE g.gameState IN ('WAITING', 'IN_PROGRESS')")
     fun findAllActiveGames(): List<GameEntity>
 }

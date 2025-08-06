@@ -1,22 +1,23 @@
 package org.example.kotlin_liargame.domain.game.service
 
+import jakarta.servlet.http.HttpSession
 import org.example.kotlin_liargame.domain.chat.service.ChatService
 import org.example.kotlin_liargame.domain.game.dto.request.*
 import org.example.kotlin_liargame.domain.game.dto.response.GameResultResponse
 import org.example.kotlin_liargame.domain.game.dto.response.GameRoomListResponse
 import org.example.kotlin_liargame.domain.game.dto.response.GameStateResponse
 import org.example.kotlin_liargame.domain.game.model.GameEntity
+import org.example.kotlin_liargame.domain.game.model.GameSubjectEntity
 import org.example.kotlin_liargame.domain.game.model.PlayerEntity
 import org.example.kotlin_liargame.domain.game.model.enum.*
 import org.example.kotlin_liargame.domain.game.repository.GameRepository
+import org.example.kotlin_liargame.domain.game.repository.GameSubjectRepository
 import org.example.kotlin_liargame.domain.game.repository.PlayerRepository
 import org.example.kotlin_liargame.domain.subject.model.SubjectEntity
 import org.example.kotlin_liargame.domain.subject.repository.SubjectRepository
 import org.example.kotlin_liargame.domain.user.repository.UserRepository
 import org.example.kotlin_liargame.domain.word.repository.WordRepository
-import org.example.kotlin_liargame.tools.security.UserPrincipal
 import org.springframework.messaging.simp.SimpMessagingTemplate
-import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -27,21 +28,22 @@ class GameService(
     private val userRepository: UserRepository,
     private val subjectRepository: SubjectRepository,
     private val wordRepository: WordRepository,
+    private val gameSubjectRepository: GameSubjectRepository,
     private val chatService: ChatService,
     private val messagingTemplate: SimpMessagingTemplate
 ) {
 
-    private fun validateExistingOwner() {
-        val userId = getCurrentUserId()
+    private fun validateExistingOwner(session: HttpSession) {
+        val userId = getCurrentUserId(session)
 
         val activeGames = gameRepository.findAll()
-            .filter { it.gState == GameState.WAITING ||
-            it.gState == GameState.IN_PROGRESS }
+            .filter { it.gameState == GameState.WAITING ||
+            it.gameState == GameState.IN_PROGRESS }
 
         for (game in activeGames) {
             val playerInGame = playerRepository.findByGameAndUserId(game, userId)
             if (playerInGame != null) {
-                println("[DEBUG] User already in game: gameId = ${game.gNumber}, state = ${game.gState}")
+                println("[DEBUG] User already in game: gameId = ${game.gameNumber}, state = ${game.gameState}")
                 throw RuntimeException("이미 진행중인 게임에 참여하고 있습니다.")
             }
         }
@@ -52,7 +54,7 @@ class GameService(
 
     private fun findNextAvailableRoomNumber(): Int {
         val activeGames = gameRepository.findAllActiveGames()
-        val usedNumbers = activeGames.map { it.gNumber }.toSet()
+        val usedNumbers = activeGames.map { it.gameNumber }.toSet()
 
 
         for (number in 1..999) {
@@ -65,60 +67,23 @@ class GameService(
         throw RuntimeException("모든 방 번호(1-999)가 모두 사용중입니다. 나중에 다시 시도해주세요.")
     }
 
-    private fun getCurrentUserNickname(): String {
-        val authentication = SecurityContextHolder.getContext().authentication
-            ?: throw IllegalStateException("No authentication found")
-
-        return when (val principal = authentication.principal) {
-            is UserPrincipal -> {
-                println("[DEBUG] UserPrincipal found: ${principal.nickname}")
-                principal.nickname
-            }
-            is String -> {
-                println("[DEBUG] String principal found: $principal")
-                if (principal == "anonymousUser") {
-                    throw IllegalStateException("Anonymous user cannot create game room. Please login first.")
-                }
-                principal
-            }
-            else -> {
-                println("[DEBUG] Unknown principal type: ${principal::class.java.simpleName}")
-                throw IllegalStateException("Unknown principal type: ${principal::class.java.simpleName}. Expected UserPrincipal but got ${principal::class.java.simpleName}")
-            }
-        }
+    private fun getCurrentUserId(session: HttpSession): Long {
+        return session.getAttribute("userId") as? Long
+            ?: throw RuntimeException("Not authenticated")
     }
 
-
-    private fun getCurrentUserId(): Long {
-        val authentication = SecurityContextHolder.getContext().authentication
-            ?: throw IllegalStateException("No authentication found")
-
-        return when (val principal = authentication.principal) {
-            is UserPrincipal -> {
-                println("[DEBUG] UserPrincipal found with userId: ${principal.userId}")
-                principal.userId
-            }
-            is String -> {
-                println("[DEBUG] String principal found: $principal")
-                if (principal == "anonymousUser") {
-                    throw IllegalStateException("Anonymous user cannot create game room. Please login first.")
-                }
-                1L
-            }
-            else -> {
-                println("[DEBUG] Unknown principal type: ${principal::class.java.simpleName}")
-                throw IllegalStateException("Unknown principal type: ${principal::class.java.simpleName}. Expected UserPrincipal but got ${principal::class.java.simpleName}")
-            }
-        }
+    private fun getCurrentUserNickname(session: HttpSession): String {
+        return session.getAttribute("nickname") as? String
+            ?: throw RuntimeException("Not authenticated")
     }
 
 
     @Transactional
-    fun createGameRoom(req: CreateGameRoomRequest): Int {
+    fun createGameRoom(req: CreateGameRoomRequest, session: HttpSession): Int {
         req.validate()
 
-        val nickname = getCurrentUserNickname()
-        validateExistingOwner()
+        val nickname = getCurrentUserNickname(session)
+        validateExistingOwner(session)
 
         val nextRoomNumber = findNextAvailableRoomNumber()
         val newGame = req.to(nextRoomNumber, nickname)
@@ -133,15 +98,24 @@ class GameService(
         }
 
         val savedGame = gameRepository.save(newGame)
+        
+        // Save all selected subjects to GameSubjectEntity table
+        selectedSubjects.forEach { subject ->
+            val gameSubject = GameSubjectEntity(
+                game = savedGame,
+                subject = subject
+            )
+            gameSubjectRepository.save(gameSubject)
+        }
 
-        joinGame(savedGame, getCurrentUserId(), nickname)
+        joinGame(savedGame, getCurrentUserId(session), nickname)
 
-        return savedGame.gNumber
+        return savedGame.gameNumber
     }
 
     private fun selectSubjectsForGameRoom(req: CreateGameRoomRequest): List<SubjectEntity> {
         val allSubjects = subjectRepository.findAll().toList()
-        val validSubjects = allSubjects.filter { it.word.size >= 2 }
+        val validSubjects = allSubjects.filter { it.word.size >= 5 }
 
         if (validSubjects.isEmpty()) {
             return createTestSubjects()
@@ -151,7 +125,7 @@ class GameService(
             req.subjectIds != null -> {
                 req.subjectIds.mapNotNull { subjectId ->
                     subjectRepository.findById(subjectId).orElse(null)
-                }.filter { it.word.size >= 2 }
+                }.filter { it.word.size >= 5 }
             }
 
             req.useRandomSubjects -> {
@@ -173,52 +147,62 @@ class GameService(
     }
 
     @Transactional
-    fun joinGame(req: JoinGameRequest): GameStateResponse {
-        val game = gameRepository.findBygNumber(req.gNumber)
-            ?: throw RuntimeException("게임방을 찾을 수 없습니다: ${req.gNumber}")
+    fun joinGame(req: JoinGameRequest, session: HttpSession): GameStateResponse {
+        val game = gameRepository.findByGameNumber(req.gameNumber)
+            ?: throw RuntimeException("게임방을 찾을 수 없습니다: ${req.gameNumber}")
 
-        if (game.gState != GameState.WAITING) {
+        if (game.gameState != GameState.WAITING) {
             throw RuntimeException("게임이 이미 시작되었습니다.")
         }
 
         val currentPlayers = playerRepository.findByGame(game)
-        if (currentPlayers.size >= game.gParticipants) {
+        if (currentPlayers.size >= game.gameParticipants) {
             throw RuntimeException("게임방이 가득 찼습니다.")
         }
 
-        val userId = getCurrentUserId()
-        val nickname = getCurrentUserNickname()
+        val userId = getCurrentUserId(session)
+        val nickname = getCurrentUserNickname(session)
 
         val existingPlayer = playerRepository.findByGameAndUserId(game, userId)
         if (existingPlayer != null) {
-            return getGameState(game)
+            return getGameState(game, session)
         }
 
         joinGame(game, userId, nickname)
 
         val newPlayerCount = currentPlayers.size + 1
 
+        // Get all subjects for this game
+        val gameSubjects = gameSubjectRepository.findByGameWithSubject(game)
+        val subjectNames = gameSubjects.map { it.subject.content ?: "Unknown" }
+        val subjectDisplay = if (subjectNames.isNotEmpty()) {
+            subjectNames.joinToString(", ")
+        } else {
+            game.citizenSubject?.content ?: "주제 설정 중"
+        }
+
         val roomUpdateMessage = mapOf(
             "type" to "PLAYER_JOINED",
-            "gameNumber" to game.gNumber,
+            "gameNumber" to game.gameNumber,
             "playerName" to nickname,
             "userId" to userId,
             "currentPlayers" to newPlayerCount,
-            "maxPlayers" to game.gParticipants,
+            "maxPlayers" to game.gameParticipants,
             "roomData" to mapOf(
-                "gameNumber" to game.gNumber,
-                "title" to game.gName,
-                "host" to game.gOwner,
+                "gameNumber" to game.gameNumber,
+                "title" to "${game.gameName} #${game.gameNumber}",
+                "host" to game.gameOwner,
                 "currentPlayers" to newPlayerCount,
-                "maxPlayers" to game.gParticipants,
-                "subject" to (game.citizenSubject?.content ?: "주제 설정 중"),
-                "state" to game.gState.name,
+                "maxPlayers" to game.gameParticipants,
+                "subject" to subjectDisplay,
+                "subjects" to subjectNames,
+                "state" to game.gameState.name,
                 "players" to playerRepository.findByGame(game).map { player ->
                     mapOf(
                         "id" to player.id,
                         "userId" to player.userId,
                         "nickname" to player.nickname,
-                        "isHost" to (player.nickname == game.gOwner),
+                        "isHost" to (player.nickname == game.gameOwner),
                         "isAlive" to player.isAlive
                     )
                 }
@@ -227,16 +211,16 @@ class GameService(
 
         println("[DEBUG] Broadcasting room update: $roomUpdateMessage")
 
-        messagingTemplate.convertAndSend("/topic/room.${game.gNumber}", roomUpdateMessage)
+        messagingTemplate.convertAndSend("/topic/room.${game.gameNumber}", roomUpdateMessage)
 
         messagingTemplate.convertAndSend("/topic/lobby", mapOf(
             "type" to "ROOM_UPDATED",
-            "gameNumber" to game.gNumber,
+            "gameNumber" to game.gameNumber,
             "currentPlayers" to newPlayerCount,
-            "maxPlayers" to game.gParticipants
+            "maxPlayers" to game.gameParticipants
         ))
 
-        return getGameState(game)
+        return getGameState(game, session)
     }
 
 
@@ -259,39 +243,49 @@ class GameService(
     }
 
     @Transactional
-    fun leaveGame(req: LeaveGameRequest): Boolean {
-        val game = gameRepository.findBygNumber(req.gNumber)
-            ?: throw RuntimeException("게임방을 찾을 수 없습니다: ${req.gNumber}")
+    fun leaveGame(req: LeaveGameRequest, session: HttpSession): Boolean {
+                    val game = gameRepository.findByGameNumber(req.gameNumber)
+            ?: throw RuntimeException("게임방을 찾을 수 없습니다: ${req.gameNumber}")
 
-        val userId = getCurrentUserId()
-        val nickname = getCurrentUserNickname()
+        val userId = getCurrentUserId(session)
+        val nickname = getCurrentUserNickname(session)
 
         val deletedCount = playerRepository.deleteByGameIdAndUserId(game.id, userId)
 
         if (deletedCount > 0) {
             val remainingPlayers = playerRepository.findByGame(game)
 
+            // Get all subjects for this game
+            val gameSubjects = gameSubjectRepository.findByGameWithSubject(game)
+            val subjectNames = gameSubjects.map { it.subject.content ?: "Unknown" }
+            val subjectDisplay = if (subjectNames.isNotEmpty()) {
+                subjectNames.joinToString(", ")
+            } else {
+                game.citizenSubject?.content ?: "주제 설정 중"
+            }
+
             val roomUpdateMessage = mapOf(
                 "type" to "PLAYER_LEFT",
-                "gameNumber" to game.gNumber,
+                "gameNumber" to game.gameNumber,
                 "playerName" to nickname,
                 "userId" to userId,
                 "currentPlayers" to remainingPlayers.size,
-                "maxPlayers" to game.gParticipants,
+                "maxPlayers" to game.gameParticipants,
                 "roomData" to mapOf(
-                    "gameNumber" to game.gNumber,
-                    "title" to game.gName,
-                    "host" to game.gOwner,
+                    "gameNumber" to game.gameNumber,
+                    "title" to "${game.gameName} #${game.gameNumber}",
+                    "host" to game.gameOwner,
                     "currentPlayers" to remainingPlayers.size,
-                    "maxPlayers" to game.gParticipants,
-                    "subject" to (game.citizenSubject?.content ?: "주제 설정 중"),
-                    "state" to game.gState.name,
+                    "maxPlayers" to game.gameParticipants,
+                    "subject" to subjectDisplay,
+                    "subjects" to subjectNames,
+                    "state" to game.gameState.name,
                     "players" to remainingPlayers.map { player ->
                         mapOf(
                             "id" to player.id,
                             "userId" to player.userId,
                             "nickname" to player.nickname,
-                            "isHost" to (player.nickname == game.gOwner),
+                            "isHost" to (player.nickname == game.gameOwner),
                             "isAlive" to player.isAlive
                         )
                     }
@@ -300,13 +294,13 @@ class GameService(
 
             println("[DEBUG] Broadcasting player leave: $roomUpdateMessage")
 
-            messagingTemplate.convertAndSend("/topic/room.${game.gNumber}", roomUpdateMessage)
+            messagingTemplate.convertAndSend("/topic/room.${game.gameNumber}", roomUpdateMessage)
 
             messagingTemplate.convertAndSend("/topic/lobby", mapOf(
                 "type" to "ROOM_UPDATED",
-                "gameNumber" to game.gNumber,
+                "gameNumber" to game.gameNumber,
                 "currentPlayers" to remainingPlayers.size,
-                "maxPlayers" to game.gParticipants
+                "maxPlayers" to game.gameParticipants
             ))
 
             return true
@@ -316,14 +310,14 @@ class GameService(
     }
 
     @Transactional
-    fun startGame(req: StartGameRequest): GameStateResponse {
+    fun startGame(req: StartGameRequest, session: HttpSession): GameStateResponse {
         req.validate()
 
-        val nickname = getCurrentUserNickname()
-        val game = gameRepository.findBygOwner(nickname)
+        val nickname = getCurrentUserNickname(session)
+        val game = gameRepository.findByGameOwner(nickname)
             ?: throw RuntimeException("게임??찾을 ???�습?�다. 먼�? 게임방을 ?�성?�주?�요.")
 
-        if (game.gState != GameState.WAITING) {
+        if (game.gameState != GameState.WAITING) {
             throw RuntimeException("게임???��? 진행 중이거나 종료?�었?�니??")
         }
 
@@ -352,7 +346,7 @@ class GameService(
         game.startGame()
         gameRepository.save(game)
 
-        return getGameState(game)
+        return getGameState(game, session)
     }
 
     private fun selectSubjects(req: StartGameRequest): List<SubjectEntity> {
@@ -447,7 +441,7 @@ class GameService(
         val liarSubject = if (subjects.size > 1) subjects[1] else citizenSubject
         game.liarSubject = liarSubject
 
-        val liarCount = game.gLiarCount.coerceAtMost(players.size - 1)
+        val liarCount = game.gameLiarCount.coerceAtMost(players.size - 1)
         val liarIndices = players.indices.shuffled().take(liarCount)
 
         players.forEachIndexed { index, player ->
@@ -457,7 +451,7 @@ class GameService(
             val subject = when {
                 !isLiar -> subjects.random()
 
-                game.gGameMode == GameMode.LIARS_DIFFERENT_WORD -> liarSubject
+                game.gameMode == GameMode.LIARS_DIFFERENT_WORD -> liarSubject
 
                 else -> citizenSubject
             }
@@ -481,17 +475,17 @@ class GameService(
     }
 
     @Transactional
-    fun giveHint(req: GiveHintRequest): GameStateResponse {
+    fun giveHint(req: GiveHintRequest, session: HttpSession): GameStateResponse {
         req.validate()
 
-        val game = gameRepository.findBygNumber(req.gNumber)
+                    val game = gameRepository.findByGameNumber(req.gameNumber)
             ?: throw RuntimeException("Game not found")
 
-        if (game.gState != GameState.IN_PROGRESS) {
+        if (game.gameState != GameState.IN_PROGRESS) {
             throw RuntimeException("Game is not in progress")
         }
 
-        val userId = getCurrentUserId()
+        val userId = getCurrentUserId(session)
         val player = playerRepository.findByGameAndUserId(game, userId)
             ?: throw RuntimeException("You are not in this game")
 
@@ -518,21 +512,21 @@ class GameService(
             }
         }
 
-        return getGameState(game)
+        return getGameState(game, session)
     }
 
     @Transactional
-    fun vote(req: VoteRequest): GameStateResponse {
+    fun vote(req: VoteRequest, session: HttpSession): GameStateResponse {
         req.validate()
 
-        val game = gameRepository.findBygNumber(req.gNumber)
+                    val game = gameRepository.findByGameNumber(req.gameNumber)
             ?: throw RuntimeException("Game not found")
 
-        if (game.gState != GameState.IN_PROGRESS) {
+        if (game.gameState != GameState.IN_PROGRESS) {
             throw RuntimeException("Game is not in progress")
         }
 
-        val userId = getCurrentUserId()
+        val userId = getCurrentUserId(session)
         val player = playerRepository.findByGameAndUserId(game, userId)
             ?: throw RuntimeException("You are not in this game")
 
@@ -624,21 +618,21 @@ class GameService(
             }
         }
 
-        return getGameState(game)
+        return getGameState(game, session)
     }
 
     @Transactional
-    fun defend(req: DefendRequest): GameStateResponse {
+    fun defend(req: DefendRequest, session: HttpSession): GameStateResponse {
         req.validate()
 
-        val game = gameRepository.findBygNumber(req.gNumber)
+                    val game = gameRepository.findByGameNumber(req.gameNumber)
             ?: throw RuntimeException("Game not found")
 
-        if (game.gState != GameState.IN_PROGRESS) {
+        if (game.gameState != GameState.IN_PROGRESS) {
             throw RuntimeException("Game is not in progress")
         }
 
-        val userId = getCurrentUserId()
+        val userId = getCurrentUserId(session)
         val player = playerRepository.findByGameAndUserId(game, userId)
             ?: throw RuntimeException("You are not in this game")
 
@@ -662,22 +656,22 @@ class GameService(
             }
         }
 
-        return getGameState(game)
+        return getGameState(game, session)
     }
 
 
     @Transactional
-    fun survivalVote(req: SurvivalVoteRequest): GameStateResponse {
+    fun survivalVote(req: SurvivalVoteRequest, session: HttpSession): GameStateResponse {
         req.validate()
 
-        val game = gameRepository.findBygNumber(req.gNumber)
+                    val game = gameRepository.findByGameNumber(req.gameNumber)
             ?: throw RuntimeException("Game not found")
 
-        if (game.gState != GameState.IN_PROGRESS) {
+        if (game.gameState != GameState.IN_PROGRESS) {
             throw RuntimeException("Game is not in progress")
         }
 
-        val userId = getCurrentUserId()
+        val userId = getCurrentUserId(session)
         val player = playerRepository.findByGameAndUserId(game, userId)
             ?: throw RuntimeException("You are not in this game")
 
@@ -782,22 +776,22 @@ class GameService(
             }
         }
 
-        return getGameState(game)
+        return getGameState(game, session)
     }
 
 
     @Transactional
-    fun guessWord(req: GuessWordRequest): GameResultResponse {
+    fun guessWord(req: GuessWordRequest, session: HttpSession): GameResultResponse {
         req.validate()
 
-        val game = gameRepository.findBygNumber(req.gNumber)
+                    val game = gameRepository.findByGameNumber(req.gameNumber)
             ?: throw RuntimeException("Game not found")
 
-        if (game.gState != GameState.IN_PROGRESS) {
+        if (game.gameState != GameState.IN_PROGRESS) {
             throw RuntimeException("Game is not in progress")
         }
 
-        val userId = getCurrentUserId()
+        val userId = getCurrentUserId(session)
         val player = playerRepository.findByGameAndUserId(game, userId)
             ?: throw RuntimeException("You are not in this game")
 
@@ -826,18 +820,18 @@ class GameService(
         )
     }
 
-    fun getGameState(req: Int): GameStateResponse {
-        val game = gameRepository.findBygNumber(req)
+    fun getGameState(req: Int, session: HttpSession): GameStateResponse {
+        val game = gameRepository.findByGameNumber(req)
             ?: throw RuntimeException("Game not found")
 
-        return getGameState(game)
+        return getGameState(game, session)
     }
 
-    fun getGameResult(req: Int): GameResultResponse {
-        val game = gameRepository.findBygNumber(req)
+    fun getGameResult(req: Int, session: HttpSession): GameResultResponse {
+        val game = gameRepository.findByGameNumber(req)
             ?: throw RuntimeException("Game not found")
 
-        if (game.gState != GameState.ENDED) {
+        if (game.gameState != GameState.ENDED) {
             throw RuntimeException("Game is not ended")
         }
 
@@ -853,60 +847,65 @@ class GameService(
         )
     }
 
-    fun getAllGameRooms(): GameRoomListResponse {
+    fun getAllGameRooms(session: HttpSession): GameRoomListResponse {
         val activeGames = gameRepository.findAllActiveGames()
 
         val playerCounts = mutableMapOf<Long, Int>()
         val playersMap = mutableMapOf<Long, List<PlayerEntity>>()
+        val gameSubjectsMap = mutableMapOf<Long, List<String>>()
 
         activeGames.forEach { game ->
             val players = playerRepository.findByGame(game)
+            val gameSubjects = gameSubjectRepository.findByGameWithSubject(game)
+            val subjectNames = gameSubjects.map { it.subject.content ?: "Unknown" }
 
-            println("[DEBUG] Game ${game.gNumber} (ID: ${game.id}): found ${players.size} players")
+            println("[DEBUG] Game ${game.gameNumber} (ID: ${game.id}): found ${players.size} players")
             players.forEach { player ->
                 println("[DEBUG]   - Player: ${player.nickname} (ID: ${player.id}, User: ${player.userId})")
             }
+            println("[DEBUG] Game ${game.gameNumber} subjects: $subjectNames")
 
             playerCounts[game.id] = players.size
             playersMap[game.id] = players
+            gameSubjectsMap[game.id] = subjectNames
         }
 
         println("[DEBUG] Player counts: $playerCounts")
 
-        return GameRoomListResponse.from(activeGames, playerCounts, playersMap)
+        return GameRoomListResponse.from(activeGames, playerCounts, playersMap, gameSubjectsMap)
     }
 
 
     @Transactional
-    fun endOfRound(req: EndOfRoundRequest): GameStateResponse {
-        val game = gameRepository.findBygNumber(req.gNumber)
+    fun endOfRound(req: EndOfRoundRequest, session: HttpSession): GameStateResponse {
+        val game = gameRepository.findByGameNumber(req.gameNumber)
             ?: throw RuntimeException("Game not found")
 
-        if (game.gState != GameState.IN_PROGRESS) {
+        if (game.gameState != GameState.IN_PROGRESS) {
             throw RuntimeException("Game is not in progress")
         }
 
-        if (game.gOwner != req.gOwner) {
+        if (game.gameOwner != req.gameOwner) {
             throw RuntimeException("Only the game owner can end the round")
         }
 
-        if (game.gCurrentRound != req.gRound) {
+        if (game.gameCurrentRound != req.gameRound) {
             throw RuntimeException("Round number mismatch")
         }
 
-        if (req.gIsGameOver) {
+        if (req.isGameOver) {
             game.endGame()
             gameRepository.save(game)
         }
 
-        chatService.startPostRoundChat(req.gNumber)
+        chatService.startPostRoundChat(req.gameNumber)
 
-        return getGameState(game)
+        return getGameState(game, session)
     }
 
-    private fun getGameState(game: GameEntity): GameStateResponse {
+    private fun getGameState(game: GameEntity, session: HttpSession): GameStateResponse {
         val players = playerRepository.findByGame(game)
-        val currentUserId = getCurrentUserId()
+        val currentUserId = getCurrentUserId(session)
         val currentPhase = determineGamePhase(game, players)
         val accusedPlayer = findAccusedPlayer(players)
 
@@ -928,7 +927,7 @@ class GameService(
     }
 
     private fun determineGamePhase(game: GameEntity, players: List<PlayerEntity>): GamePhase {
-        return when (game.gState) {
+        return when (game.gameState) {
             GameState.WAITING -> GamePhase.WAITING_FOR_PLAYERS
             GameState.ENDED -> GamePhase.GAME_OVER
             GameState.IN_PROGRESS -> {
@@ -965,10 +964,22 @@ class GameService(
             word = emptyList()
         )
 
+        val foodSubject = SubjectEntity(
+            content = "음식",
+            word = emptyList()
+        )
+
+        val jobSubject = SubjectEntity(
+            content = "직업",
+            word = emptyList()
+        )
+
         val savedAnimalSubject = subjectRepository.save(animalSubject)
         val savedFruitSubject = subjectRepository.save(fruitSubject)
+        val savedFoodSubject = subjectRepository.save(foodSubject)
+        val savedJobSubject = subjectRepository.save(jobSubject)
 
-        val animalWords = listOf("호랑이", "사자", "코끼리", "기린")
+        val animalWords = listOf("호랑이", "사자", "코끼리", "기린", "원숭이", "곰", "늑대")
         animalWords.forEach { wordContent ->
             val word = org.example.kotlin_liargame.domain.word.model.WordEntity(
                 content = wordContent,
@@ -977,7 +988,7 @@ class GameService(
             wordRepository.save(word)
         }
 
-        val fruitWords = listOf("사과", "바나나", "오렌지", "포도")
+        val fruitWords = listOf("사과", "바나나", "오렌지", "포도", "딸기", "수박", "복숭아")
         fruitWords.forEach { wordContent ->
             val word = org.example.kotlin_liargame.domain.word.model.WordEntity(
                 content = wordContent,
@@ -985,6 +996,28 @@ class GameService(
             )
             wordRepository.save(word)
         }
+
+        val foodWords = listOf("김치", "불고기", "비빔밥", "냉면", "떡볶이", "치킨", "피자")
+        foodWords.forEach { wordContent ->
+            val word = org.example.kotlin_liargame.domain.word.model.WordEntity(
+                content = wordContent,
+                subject = savedFoodSubject
+            )
+            wordRepository.save(word)
+        }
+
+        val jobWords = listOf("의사", "교사", "개발자", "간호사", "요리사", "경찰관", "소방관")
+        jobWords.forEach { wordContent ->
+            val word = org.example.kotlin_liargame.domain.word.model.WordEntity(
+                content = wordContent,
+                subject = savedJobSubject
+            )
+            wordRepository.save(word)
+        }
+
+        // Flush to ensure all words are saved to database
+        wordRepository.flush()
+        subjectRepository.flush()
 
         val subjects = subjectRepository.findAll().toList()
         println("[DEBUG] Created test subjects: ${subjects.size}")
