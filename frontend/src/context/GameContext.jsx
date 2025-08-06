@@ -22,6 +22,8 @@ const initialState = {
   assignedWord: null, // The word/keyword assigned to the player
   gameTimer: 0, // Remaining time for current phase
   votingResults: null,
+  votingData: null,
+  votingProgress: { voted: 0, total: 0 },
   gameResults: null,
   accusedPlayerId: null,
   defendingPlayerId: null,
@@ -84,6 +86,8 @@ const ActionTypes = {
   SET_ASSIGNED_WORD: 'SET_ASSIGNED_WORD',
   SET_GAME_TIMER: 'SET_GAME_TIMER',
   SET_VOTING_RESULTS: 'SET_VOTING_RESULTS',
+  SET_VOTING_DATA: 'SET_VOTING_DATA',
+  SET_VOTING_PROGRESS: 'SET_VOTING_PROGRESS',
   SET_GAME_RESULTS: 'SET_GAME_RESULTS',
   SET_ACCUSED_PLAYER: 'SET_ACCUSED_PLAYER',
   SET_DEFENDING_PLAYER: 'SET_DEFENDING_PLAYER',
