@@ -5,20 +5,33 @@ import org.example.kotlin_liargame.domain.subject.dto.response.SubjectResponse
 import org.example.kotlin_liargame.domain.subject.model.SubjectEntity
 import org.example.kotlin_liargame.domain.subject.repository.SubjectRepository
 import org.example.kotlin_liargame.domain.word.repository.WordRepository
+import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
 @Service
 class SubjectService (
     val subjectRepository: SubjectRepository,
-    val wordRepository: WordRepository
+    val wordRepository: WordRepository,
+    private val messagingTemplate: SimpMessagingTemplate
 ){
 
     @Transactional
     fun applySubject(subjectRequest: SubjectRequest): SubjectEntity {
         val existingSubject = subjectRepository.findByContent(subjectRequest.name)
         if (existingSubject == null) {
-            return subjectRepository.save(subjectRequest.to())  // ✅ 저장된 엔티티 반환
+            val savedSubject = subjectRepository.save(subjectRequest.to())  // ✅ 저장된 엔티티 반환
+            
+            // Send WebSocket notification for subject addition
+            messagingTemplate.convertAndSend("/topic/subjects", mapOf(
+                "type" to "SUBJECT_ADDED",
+                "subject" to mapOf(
+                    "id" to savedSubject.id,
+                    "name" to savedSubject.content
+                )
+            ))
+            
+            return savedSubject
         } else {
             throw RuntimeException("주제가 이미 존재합니다")
         }
@@ -38,6 +51,12 @@ class SubjectService (
 
         subjectRepository.delete(subject)
         subjectRepository.flush()
+        
+        // Send WebSocket notification for subject deletion
+        messagingTemplate.convertAndSend("/topic/subjects", mapOf(
+            "type" to "SUBJECT_DELETED",
+            "subjectId" to subjectRequest.name
+        ))
     }
 
     @Transactional(readOnly = true)
