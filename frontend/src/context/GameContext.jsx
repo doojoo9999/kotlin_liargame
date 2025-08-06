@@ -985,6 +985,16 @@ export const GameProvider = ({ children }) => {
   }
 
 
+  const completeSpeech = useCallback(async (gameNumber) => {
+    try {
+      console.log('[DEBUG_LOG] Speech completed successfully')
+      await gameApi.completeSpeech(gameNumber)
+    } catch (error) {
+      console.error('Failed to complete speech:', error)
+      throw error
+    }
+  }, [])
+
   useEffect(() => {
     const userData = localStorage.getItem('userData')
     if (userData) {
@@ -1041,6 +1051,7 @@ export const GameProvider = ({ children }) => {
     // Game functions
     startGame,
     castVote,
+    completeSpeech,
 
     // Game Connection
     connectToRoom,
@@ -1065,6 +1076,7 @@ export const GameProvider = ({ children }) => {
     loadChatHistory,
     startGame,
     castVote,
+    completeSpeech,
     connectToRoom,
     fetchRoomDetails
   ])
