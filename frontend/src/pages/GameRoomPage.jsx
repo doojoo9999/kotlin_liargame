@@ -241,7 +241,7 @@ function GameRoomPage() {
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
             {currentRoom.title || `${currentRoom.gameName || '제목 없음'} #${currentRoom.gameNumber}`}
             {currentRoom.subjects && currentRoom.subjects.length > 0 && ` - [${currentRoom.subjects.join(', ')}]`}
-            {!currentRoom.subjects && currentRoom.subject && ` - [${currentRoom.subject}]`}
+            {!currentRoom.subjects && currentRoom.subject && ` - [${currentRoom.subject?.name || currentRoom.subject?.content || '주제 없음'}]`}
           </Typography>
           
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
