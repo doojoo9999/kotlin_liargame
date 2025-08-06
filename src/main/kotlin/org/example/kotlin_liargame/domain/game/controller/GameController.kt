@@ -5,6 +5,7 @@ import org.example.kotlin_liargame.domain.game.dto.request.*
 import org.example.kotlin_liargame.domain.game.dto.response.GameResultResponse
 import org.example.kotlin_liargame.domain.game.dto.response.GameRoomListResponse
 import org.example.kotlin_liargame.domain.game.dto.response.GameStateResponse
+import org.example.kotlin_liargame.domain.game.service.GameProgressService
 import org.example.kotlin_liargame.domain.game.service.GameService
 import org.springframework.http.ResponseEntity
 import org.springframework.messaging.simp.SimpMessagingTemplate
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.*
 @RequestMapping("/api/v1/game")
 class GameController(
     private val gameService: GameService,
+    private val gameProgressService: GameProgressService,
     private val messagingTemplate: SimpMessagingTemplate
 ) {
     
@@ -72,8 +74,18 @@ class GameController(
     
     @PostMapping("/start")
     fun startGame(@RequestBody request: StartGameRequest, session: HttpSession): ResponseEntity<GameStateResponse> {
-        val response = gameService.startGame(request, session)
-        return ResponseEntity.ok(response)
+        return try {
+            // 기존 게임 시작 로직
+            val gameState = gameService.startGame(request, session)
+            
+            // 새로운 게임 진행 로직 추가
+            gameProgressService.initializeGameProgress(gameState.gameNumber)
+            
+            ResponseEntity.ok(gameState)
+        } catch (e: Exception) {
+            println("[ERROR] Failed to start game: ${e.message}")
+            ResponseEntity.badRequest().body(null)
+        }
     }
     
     @PostMapping("/hint")
