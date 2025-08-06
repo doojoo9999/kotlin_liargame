@@ -5,8 +5,11 @@ import org.example.kotlin_liargame.domain.game.dto.request.*
 import org.example.kotlin_liargame.domain.game.dto.response.GameResultResponse
 import org.example.kotlin_liargame.domain.game.dto.response.GameRoomListResponse
 import org.example.kotlin_liargame.domain.game.dto.response.GameStateResponse
+import org.example.kotlin_liargame.domain.game.dto.response.VoteResponse
 import org.example.kotlin_liargame.domain.game.service.GameProgressService
 import org.example.kotlin_liargame.domain.game.service.GameService
+import org.example.kotlin_liargame.domain.game.service.VotingService
+import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.web.bind.annotation.*
@@ -16,6 +19,7 @@ import org.springframework.web.bind.annotation.*
 class GameController(
     private val gameService: GameService,
     private val gameProgressService: GameProgressService,
+    private val votingService: VotingService,
     private val messagingTemplate: SimpMessagingTemplate
 ) {
     
@@ -98,6 +102,24 @@ class GameController(
     fun vote(@RequestBody request: VoteRequest, session: HttpSession): ResponseEntity<GameStateResponse> {
         val response = gameService.vote(request, session)
         return ResponseEntity.ok(response)
+    }
+    
+    @PostMapping("/cast-vote")
+    fun castVote(@RequestBody request: CastVoteRequest, session: HttpSession): ResponseEntity<VoteResponse> {
+        return try {
+            val userId = session.getAttribute("userId") as? Long
+                ?: return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
+                    VoteResponse("", "", false, "Not authenticated")
+                )
+                
+            val response = votingService.castVote(request.gameNumber, userId, request.targetPlayerId)
+            ResponseEntity.ok(response)
+            
+        } catch (e: Exception) {
+            ResponseEntity.badRequest().body(
+                VoteResponse("", "", false, "Vote failed: ${e.message}")
+            )
+        }
     }
     
     @PostMapping("/defend")
