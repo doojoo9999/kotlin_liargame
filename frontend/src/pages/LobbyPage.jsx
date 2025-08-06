@@ -80,7 +80,7 @@ function LobbyPage() {
     maxPlayers: config.game.minPlayers,
     gTotalRounds: config.game.defaultRounds,
     password: '',
-    subjectId: 1,
+    selectedSubjectIds: [],
     hasPassword: false,
     gameMode: 'LIAR_KNOWS' // 'LIAR_KNOWS' | 'LIAR_DIFFERENT_ANSWER'
   })
@@ -103,13 +103,14 @@ function LobbyPage() {
   }, [subjects.length, loading.subjects, fetchSubjects])
 
   useEffect(() => {
-    if (subjects.length > 0 && roomForm.subjectId === 1 && !subjects.find(s => s.id === 1)) {
+    // Initialize with first subject if no subjects are selected and subjects are available
+    if (subjects.length > 0 && roomForm.selectedSubjectIds.length === 0) {
       setRoomForm(prev => ({
         ...prev,
-        subjectId: subjects[0]?.id || ''
+        selectedSubjectIds: [subjects[0]?.id].filter(Boolean)
       }))
     }
-  }, [subjects, roomForm.subjectId])
+  }, [subjects, roomForm.selectedSubjectIds.length])
 
   useEffect(() => {
     if (subjects.length > prevSubjectCount.current && prevSubjectCount.current > 0) {
@@ -166,7 +167,7 @@ function LobbyPage() {
       errors.push('라운드는 1라운드에서 10라운드 사이로 설정해주세요.')
     }
     
-    if (!data.subjectId) {
+    if (!data.selectedSubjectIds || data.selectedSubjectIds.length === 0) {
       errors.push('주제를 하나 이상 선택해주세요.')
     }
     
@@ -188,9 +189,9 @@ function LobbyPage() {
         gameParticipants: roomForm.maxPlayers,
         gameTotalRounds: roomForm.gameTotalRounds,
         gamePassword: roomForm.hasPassword ? roomForm.password : null,
-        subjectIds: roomForm.subjectId ? [roomForm.subjectId] : null,
-        useRandomSubjects: !roomForm.subjectId,
-        randomSubjectCount: !roomForm.subjectId ? 1 : null
+        subjectIds: roomForm.selectedSubjectIds.length > 0 ? roomForm.selectedSubjectIds : null,
+        useRandomSubjects: roomForm.selectedSubjectIds.length === 0,
+        randomSubjectCount: roomForm.selectedSubjectIds.length === 0 ? 1 : null
       }
 
       console.log('[DEBUG_LOG] Creating room with data:', roomData)
@@ -201,10 +202,10 @@ function LobbyPage() {
       // Reset form
       setRoomForm({
         title: '',
-        maxPlayers: 6,
-        gameTotalRounds: 3,
+        maxPlayers: config.game.minPlayers,
+        gameTotalRounds: config.game.defaultRounds,
         password: '',
-        subjectId: 1,
+        selectedSubjectIds: [],
         hasPassword: false,
         gameMode: 'LIAR_KNOWS'
       })
@@ -560,25 +561,76 @@ function LobbyPage() {
               />
             </Box>
 
-            <FormControl fullWidth>
-              <InputLabel>주제</InputLabel>
-              <Select
-                value={roomForm.subjectId}
-                onChange={(e) => handleRoomFormChange('subjectId', e.target.value)}
-                label="주제"
-                variant="outlined"
-              >
-                {subjects.map((subject, index) => (
-                    <MenuItem
+            <Box>
+              <Typography variant="subtitle1" gutterBottom>
+                주제 선택 (여러 개 선택 가능)
+              </Typography>
+              <Box sx={{ maxHeight: 200, overflowY: 'auto', border: '1px solid #e0e0e0', borderRadius: 1, p: 1 }}>
+                {subjects.map((subject, index) => {
+                  const wordCount = subject.wordIds ? subject.wordIds.length : (subject.word ? subject.word.length : 0)
+                  const isDisabled = wordCount < 5
+                  const isChecked = roomForm.selectedSubjectIds.includes(subject.id)
+                  
+                  const checkboxElement = (
+                    <FormControlLabel
+                      key={subject.id || `subject-${index}-${subject.name}`}
+                      control={
+                        <Checkbox
+                          checked={isChecked}
+                          onChange={(e) => {
+                            const subjectId = subject.id
+                            if (e.target.checked) {
+                              setRoomForm(prev => ({
+                                ...prev,
+                                selectedSubjectIds: [...prev.selectedSubjectIds, subjectId]
+                              }))
+                            } else {
+                              setRoomForm(prev => ({
+                                ...prev,
+                                selectedSubjectIds: prev.selectedSubjectIds.filter(id => id !== subjectId)
+                              }))
+                            }
+                          }}
+                          disabled={isDisabled}
+                        />
+                      }
+                      label={`${subject.name} (${wordCount}개 단어)`}
+                      sx={{ 
+                        width: '100%', 
+                        opacity: isDisabled ? 0.5 : 1,
+                        '& .MuiFormControlLabel-label': {
+                          fontSize: '0.875rem'
+                        }
+                      }}
+                    />
+                  )
+                  
+                  if (isDisabled) {
+                    return (
+                      <Tooltip 
                         key={subject.id || `subject-${index}-${subject.name}`}
-                        value={subject.id || subject.name}
-                    >
-                      {subject.name}
-                    </MenuItem>
-                ))}
-
-              </Select>
-            </FormControl>
+                        title={`이 주제는 단어가 ${wordCount}개뿐입니다. 최소 5개의 단어가 필요합니다.`}
+                        placement="right"
+                      >
+                        <Box>{checkboxElement}</Box>
+                      </Tooltip>
+                    )
+                  }
+                  
+                  return checkboxElement
+                })}
+                {subjects.length === 0 && (
+                  <Typography variant="body2" color="text.secondary" sx={{ p: 2, textAlign: 'center' }}>
+                    사용 가능한 주제가 없습니다.
+                  </Typography>
+                )}
+              </Box>
+              {roomForm.selectedSubjectIds.length > 0 && (
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                  {roomForm.selectedSubjectIds.length}개 주제 선택됨 - 게임 시작 시 랜덤으로 단어가 선택됩니다.
+                </Typography>
+              )}
+            </Box>
 
             <FormControl fullWidth>
               <InputLabel>게임 모드</InputLabel>
