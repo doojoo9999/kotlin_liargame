@@ -103,18 +103,14 @@ export const getAllSubjects = async () => {
     console.log('[DEBUG] Raw subjects API response:', response.data)
 
     if (Array.isArray(response.data)) {
-      // 주제 이름별로 가장 최신 항목만 유지하는 맵 생성
       const subjectMap = new Map()
 
-      // 주제 이름을 기준으로 중복 제거 (같은 이름은 마지막 항목만 유지)
       response.data.forEach(subject => {
         if (subject && subject.name) {
           const key = subject.name.toLowerCase()
           subjectMap.set(key, subject)
         }
       })
-
-      // 맵에서 고유한 주제만 배열로 변환
       const uniqueSubjects = Array.from(subjectMap.values())
 
       console.log('[DEBUG] Found unique subjects:', uniqueSubjects.length, 'subjects')
