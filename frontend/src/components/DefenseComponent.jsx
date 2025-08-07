@@ -1,283 +1,223 @@
-import React, {useState} from 'react'
-import {Alert, Box, Button, Card, CardContent, Fade, LinearProgress, Paper, TextField, Typography} from '@mui/material'
-import {CheckCircle as CheckIcon, Gavel as GavelIcon, Send as SendIcon} from '@mui/icons-material'
+import React, {useEffect, useState} from 'react'
+import {Alert, Avatar, Box, Button, Chip, LinearProgress, Paper, TextField, Typography} from '@mui/material'
+import {
+    CheckCircle as CompleteIcon,
+    RecordVoiceOver as DefenseIcon,
+    Send as SendIcon,
+    Timer as TimerIcon
+} from '@mui/icons-material'
+import {useGame} from '../stores/useGame'
 
 const DefenseComponent = ({ 
-  gameTimer, 
-  onSubmitDefense, 
-  isSubmitted = false, 
-  isLoading = false,
-  error = null,
-  accusedPlayerId,
-  currentUserId,
-  accusedPlayerName
+  accusedPlayer, 
+  isDefending, 
+  defenseTimeLimit = 60, 
+  gameNumber,
+  defenseText: existingDefenseText = null,
+  isDefenseSubmitted = false 
 }) => {
-  const [defenseText, setDefenseText] = useState('')
+  const { submitDefense, currentUser } = useGame()
+  
+  const [defenseText, setDefenseText] = useState(existingDefenseText || '')
+  const [hasSubmitted, setHasSubmitted] = useState(isDefenseSubmitted)
+  const [timeRemaining, setTimeRemaining] = useState(defenseTimeLimit)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState(null)
 
-  // Check if current user is the accused player
-  const isAccusedPlayer = accusedPlayerId === currentUserId
+  // Timer effect
+  useEffect(() => {
+    if (!isDefending || hasSubmitted) return
 
-  // Handle defense text input change with character limit
-  const handleDefenseChange = (event) => {
-    const value = event.target.value
-    if (value.length <= 100) {
-      setDefenseText(value)
-    }
-  }
+    const timer = setInterval(() => {
+      setTimeRemaining(prev => {
+        if (prev <= 1) {
+          clearInterval(timer)
+          // 시간 초과 시 자동 제출 (빈 텍스트로)
+          if (!hasSubmitted) {
+            handleAutoSubmit()
+          }
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
 
-  // Handle defense submission
-  const handleSubmit = async () => {
-    if (!defenseText.trim() || isSubmitted || isSubmitting || !isAccusedPlayer) return
+    return () => clearInterval(timer)
+  }, [isDefending, hasSubmitted])
 
-    setIsSubmitting(true)
+  const handleAutoSubmit = async () => {
     try {
-      await onSubmitDefense(defenseText.trim())
-      setDefenseText('')
+      setIsSubmitting(true)
+      await submitDefense(gameNumber, defenseText || '시간이 부족했습니다.')
+      setHasSubmitted(true)
     } catch (error) {
-      console.error('Failed to submit defense:', error)
+      console.error('Auto submit failed:', error)
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  // Handle Enter key press
-  const handleKeyPress = (event) => {
-    if (event.key === 'Enter' && !event.shiftKey) {
-      event.preventDefault()
-      handleSubmit()
+  const handleSubmitDefense = async () => {
+    if (hasSubmitted || isSubmitting) return
+
+    try {
+      setIsSubmitting(true)
+      setError(null)
+      
+      await submitDefense(gameNumber, defenseText)
+      setHasSubmitted(true)
+      
+    } catch (error) {
+      console.error('Failed to submit defense:', error)
+      setError(error.message)
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
-  // Determine timer color based on remaining time
-  const getTimerColor = () => {
-    if (gameTimer <= 10) return 'error'
-    if (gameTimer <= 30) return 'warning'
-    return 'primary'
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins}:${secs.toString().padStart(2, '0')}`
   }
 
-  // Calculate progress percentage
-  const getProgressValue = () => {
-    const maxTime = 60 // Assuming 60 seconds for defense phase
-    return ((maxTime - gameTimer) / maxTime) * 100
-  }
+  const progressValue = ((defenseTimeLimit - timeRemaining) / defenseTimeLimit) * 100
 
-  if (isSubmitted) {
+  // 방관자 모드 (변론 중이 아닌 경우)
+  if (!isDefending) {
     return (
-      <Fade in={true}>
-        <Card 
+      <Paper sx={{ p: 3, bgcolor: 'info.light', textAlign: 'center' }}>
+        <Avatar
           sx={{ 
-            minWidth: 400,
-            backgroundColor: 'success.light',
-            color: 'white',
-            border: '2px solid',
-            borderColor: 'success.main'
+            width: 80, 
+            height: 80, 
+            mx: 'auto', 
+            mb: 2,
+            bgcolor: 'error.main'
           }}
         >
-          <CardContent sx={{ textAlign: 'center', py: 3 }}>
-            <CheckIcon sx={{ fontSize: 48, mb: 2 }} />
-            <Typography variant="h6" gutterBottom>
-              변론이 제출되었습니다
-            </Typography>
-            <Typography variant="body2">
-              다른 플레이어들이 변론을 확인하고 있습니다
-            </Typography>
-          </CardContent>
-        </Card>
-      </Fade>
-    )
-  }
+          <DefenseIcon sx={{ fontSize: 40 }} />
+        </Avatar>
+        
+        <Typography variant="h5" fontWeight="bold" sx={{ mb: 1 }}>
+          {accusedPlayer?.nickname || 'Unknown'}님이 변론 중입니다
+        </Typography>
+        
+        <Typography variant="body1" color="text.secondary">
+          변론을 들어보세요...
+        </Typography>
 
-  if (!isAccusedPlayer) {
-    return (
-      <Fade in={true}>
-        <Paper 
-          sx={{ 
-            minWidth: 400,
-            p: 3,
-            textAlign: 'center',
-            backgroundColor: 'error.light',
-            color: 'white',
-            border: '2px solid',
-            borderColor: 'error.main'
-          }}
-        >
-          <GavelIcon sx={{ fontSize: 48, mb: 2 }} />
-          <Typography variant="h6" gutterBottom>
-            🎭 변론 단계
-          </Typography>
-          <Typography variant="body1" sx={{ mb: 2 }}>
-            <strong>{accusedPlayerName || '지목된 플레이어'}</strong>님이 변론 중입니다
-          </Typography>
-          <Typography variant="body2" sx={{ opacity: 0.9 }}>
-            변론을 기다리는 중...
-          </Typography>
-          {gameTimer > 0 && (
-            <Box sx={{ mt: 2 }}>
-              <Typography variant="h4" color="inherit" sx={{ mb: 1 }}>
-                {gameTimer}초
-              </Typography>
-              <LinearProgress 
-                variant="determinate" 
-                value={getProgressValue()}
-                sx={{ 
-                  height: 8, 
-                  borderRadius: 4,
-                  backgroundColor: 'rgba(255,255,255,0.3)',
-                  '& .MuiLinearProgress-bar': {
-                    backgroundColor: 'white'
-                  }
-                }}
-              />
-            </Box>
-          )}
-        </Paper>
-      </Fade>
+        {existingDefenseText && (
+          <Paper sx={{ p: 2, mt: 2, bgcolor: 'grey.100' }}>
+            <Typography variant="body1" fontStyle="italic">
+              "{existingDefenseText}"
+            </Typography>
+          </Paper>
+        )}
+      </Paper>
     )
   }
 
   return (
-    <Fade in={true}>
-      <Card 
+    <Paper sx={{ p: 4, bgcolor: 'error.light', borderRadius: 3 }}>
+      {/* 헤더 */}
+      <Box sx={{ textAlign: 'center', mb: 3 }}>
+        <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'error.dark', mb: 2 }}>
+          ⚖️ 변론의 시간입니다
+        </Typography>
+        
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, mb: 2 }}>
+          <TimerIcon color="error" />
+          <Typography 
+            variant="h5" 
+            color={timeRemaining <= 10 ? 'error.main' : 'text.primary'} 
+            fontWeight="bold"
+          >
+            {formatTime(timeRemaining)}
+          </Typography>
+        </Box>
+
+        <LinearProgress 
+          variant="determinate" 
+          value={progressValue}
+          sx={{ 
+            height: 10, 
+            borderRadius: 5,
+            bgcolor: 'rgba(255,255,255,0.5)',
+            '& .MuiLinearProgress-bar': {
+              bgcolor: timeRemaining > 10 ? 'warning.main' : 'error.main'
+            }
+          }}
+        />
+        
+        <Typography variant="body2" sx={{ mt: 1, color: 'text.secondary' }}>
+          당신을 변호할 마지막 기회입니다!
+        </Typography>
+      </Box>
+
+      {/* 에러 메시지 */}
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
+
+      {/* 변론 입력 필드 */}
+      <Box sx={{ mb: 3 }}>
+        <TextField
+          fullWidth
+          multiline
+          rows={4}
+          variant="outlined"
+          placeholder="당신의 변론을 입력하세요... (예: 저는 라이어가 아닙니다. 왜냐하면...)"
+          value={defenseText}
+          onChange={(e) => setDefenseText(e.target.value)}
+          disabled={hasSubmitted || isSubmitting}
+          inputProps={{ maxLength: 200 }}
+          sx={{ 
+            bgcolor: 'white',
+            '& .MuiOutlinedInput-root': {
+              '&:hover fieldset': {
+                borderColor: 'error.main',
+              },
+            },
+          }}
+        />
+        <Typography variant="caption" color="text.secondary">
+          {defenseText.length}/200자
+        </Typography>
+      </Box>
+
+      {/* 제출 버튼 */}
+      <Button
+        variant="contained"
+        color="error"
+        size="large"
+        fullWidth
+        startIcon={hasSubmitted ? <CompleteIcon /> : <SendIcon />}
+        onClick={handleSubmitDefense}
+        disabled={hasSubmitted || isSubmitting}
         sx={{ 
-          minWidth: 400,
-          backgroundColor: 'error.main',
-          color: 'white',
-          border: '3px solid',
-          borderColor: 'error.dark',
-          boxShadow: '0 0 20px rgba(244, 67, 54, 0.5)',
-          animation: 'pulse 2s infinite'
+          fontWeight: 'bold',
+          py: 2
         }}
       >
-        <CardContent>
-          {/* Header */}
-          <Box sx={{ textAlign: 'center', mb: 3 }}>
-            <GavelIcon sx={{ fontSize: 48, mb: 1 }} />
-            <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold' }}>
-              🎭 변론 기회
-            </Typography>
-            <Typography variant="body1" sx={{ opacity: 0.9 }}>
-              당신이 지목되었습니다. 변론해주세요!
-            </Typography>
-          </Box>
+        {isSubmitting ? '제출 중...' : hasSubmitted ? '변론 완료' : '변론 제출'}
+      </Button>
 
-          {/* Timer Display */}
-          {gameTimer > 0 && (
-            <Box sx={{ textAlign: 'center', mb: 3 }}>
-              <Typography 
-                variant="h3" 
-                color={getTimerColor()}
-                sx={{ 
-                  fontWeight: 'bold',
-                  textShadow: '2px 2px 4px rgba(0,0,0,0.3)',
-                  color: 'white'
-                }}
-              >
-                {gameTimer}초
-              </Typography>
-              <LinearProgress 
-                variant="determinate" 
-                value={getProgressValue()}
-                color={getTimerColor()}
-                sx={{ 
-                  mt: 1, 
-                  height: 8, 
-                  borderRadius: 4,
-                  backgroundColor: 'rgba(255,255,255,0.3)',
-                  '& .MuiLinearProgress-bar': {
-                    backgroundColor: 'white'
-                  }
-                }}
-              />
-            </Box>
-          )}
-
-          {/* Error Display */}
-          {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {error}
-            </Alert>
-          )}
-
-          {/* Defense Input */}
-          <Box sx={{ mb: 2 }}>
-            <TextField
-              fullWidth
-              multiline
-              rows={3}
-              variant="outlined"
-              placeholder="변론을 입력하세요... (최대 100자)"
-              value={defenseText}
-              onChange={handleDefenseChange}
-              onKeyPress={handleKeyPress}
-              disabled={isLoading || isSubmitting}
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  backgroundColor: 'rgba(255,255,255,0.9)',
-                  '& fieldset': {
-                    borderColor: 'rgba(255,255,255,0.5)',
-                    borderWidth: 2
-                  },
-                  '&:hover fieldset': {
-                    borderColor: 'white'
-                  },
-                  '&.Mui-focused fieldset': {
-                    borderColor: 'white',
-                    borderWidth: 3
-                  }
-                },
-                '& .MuiInputBase-input': {
-                  color: 'black',
-                  fontSize: '1.1rem'
-                }
-              }}
-            />
-            
-            {/* Character Counter */}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
-              <Typography variant="body2" sx={{ opacity: 0.8 }}>
-                변론으로 무죄를 증명하세요
-              </Typography>
-              <Typography 
-                variant="body2" 
-                sx={{ 
-                  opacity: 0.8,
-                  color: defenseText.length > 90 ? 'warning.light' : 'inherit'
-                }}
-              >
-                {defenseText.length}/100
-              </Typography>
-            </Box>
-          </Box>
-
-          {/* Submit Button */}
-          <Button
-            fullWidth
-            variant="contained"
-            size="large"
-            startIcon={isSubmitting ? null : <SendIcon />}
-            onClick={handleSubmit}
-            disabled={!defenseText.trim() || isLoading || isSubmitting}
-            sx={{
-              py: 1.5,
-              fontSize: '1.1rem',
-              fontWeight: 'bold',
-              backgroundColor: 'white',
-              color: 'error.main',
-              '&:hover': {
-                backgroundColor: 'grey.100'
-              },
-              '&:disabled': {
-                backgroundColor: 'rgba(255,255,255,0.3)',
-                color: 'rgba(255,255,255,0.5)'
-              }
-            }}
-          >
-            {isSubmitting ? '제출 중...' : '변론 제출'}
-          </Button>
-        </CardContent>
-      </Card>
-    </Fade>
+      {/* 완료 메시지 */}
+      {hasSubmitted && (
+        <Box sx={{ textAlign: 'center', mt: 2 }}>
+          <Chip 
+            icon={<CompleteIcon />}
+            label="변론이 제출되었습니다. 최종 투표를 기다려주세요..."
+            color="success"
+            variant="outlined"
+            sx={{ px: 2 }}
+          />
+        </Box>
+      )}
+    </Paper>
   )
 }
 
