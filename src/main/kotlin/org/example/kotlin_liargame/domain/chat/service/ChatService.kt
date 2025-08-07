@@ -98,8 +98,6 @@ class ChatService(
     }
     
     private fun sendMessageWithUserId(req: SendChatMessageRequest, userId: Long): ChatMessageResponse {
-        req.validate()
-        
         val game = gameRepository.findByGameNumber(req.gameNumber)
             ?: throw RuntimeException("Game not found")
         
@@ -124,8 +122,6 @@ class ChatService(
 
     @Transactional
     fun sendMessage(req: SendChatMessageRequest, session: HttpSession): ChatMessageResponse {
-        req.validate()
-        
         val userId = getCurrentUserId(session)
         val game = gameRepository.findByGameNumber(req.gameNumber)
             ?: throw RuntimeException("Game not found")
@@ -149,8 +145,6 @@ class ChatService(
 
     @Transactional(readOnly = true)
     fun getChatHistory(req: GetChatHistoryRequest): List<ChatMessageResponse> {
-        req.validate()
-        
         println("[DEBUG] ========== getChatHistory Debug Start ==========")
         println("[DEBUG] Request: gameNumber=${req.gameNumber}, type=${req.type}, limit=${req.limit}")
         

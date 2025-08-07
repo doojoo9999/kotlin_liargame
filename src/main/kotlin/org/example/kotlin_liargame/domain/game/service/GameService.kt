@@ -81,7 +81,6 @@ class GameService(
 
     @Transactional
     fun createGameRoom(req: CreateGameRoomRequest, session: HttpSession): Int {
-        req.validate()
 
         val nickname = getCurrentUserNickname(session)
         validateExistingOwner(session)
@@ -339,7 +338,6 @@ class GameService(
 
     @Transactional
     fun startGame(req: StartGameRequest, session: HttpSession): GameStateResponse {
-        req.validate()
 
         val nickname = getCurrentUserNickname(session)
         val game = gameRepository.findByGameOwner(nickname)
@@ -504,7 +502,6 @@ class GameService(
 
     @Transactional
     fun giveHint(req: GiveHintRequest, session: HttpSession): GameStateResponse {
-        req.validate()
 
                     val game = gameRepository.findByGameNumber(req.gameNumber)
             ?: throw RuntimeException("Game not found")
@@ -545,9 +542,8 @@ class GameService(
 
     @Transactional
     fun vote(req: VoteRequest, session: HttpSession): GameStateResponse {
-        req.isValidVote()
 
-                    val game = gameRepository.findByGameNumber(req.gameNumber)
+        val game = gameRepository.findByGameNumber(req.gameNumber)
             ?: throw RuntimeException("Game not found")
 
         if (game.gameState != GameState.IN_PROGRESS) {
@@ -651,7 +647,6 @@ class GameService(
 
     @Transactional
     fun defend(req: DefendRequest, session: HttpSession): GameStateResponse {
-        req.validate()
 
                     val game = gameRepository.findByGameNumber(req.gameNumber)
             ?: throw RuntimeException("Game not found")
@@ -690,7 +685,6 @@ class GameService(
 
     @Transactional
     fun survivalVote(req: SurvivalVoteRequest, session: HttpSession): GameStateResponse {
-        req.validate()
 
                     val game = gameRepository.findByGameNumber(req.gameNumber)
             ?: throw RuntimeException("Game not found")
@@ -810,7 +804,6 @@ class GameService(
 
     @Transactional
     fun guessWord(req: GuessWordRequest, session: HttpSession): GameResultResponse {
-        req.validate()
 
                     val game = gameRepository.findByGameNumber(req.gameNumber)
             ?: throw RuntimeException("Game not found")

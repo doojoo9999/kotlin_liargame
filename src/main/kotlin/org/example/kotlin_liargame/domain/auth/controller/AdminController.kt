@@ -32,11 +32,19 @@ class AdminController(
         } catch (e: IllegalArgumentException) {
             logger.debug("관리자 로그인 실패: {}", e.message)
             ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(ErrorResponse(message = e.message ?: "관리자 로그인 실패"))
+                .body(ErrorResponse(
+                    errorCode = "ADMIN_LOGIN_FAILED",
+                    message = e.message ?: "관리자 로그인 실패",
+                    userFriendlyMessage = "관리자 로그인에 실패했습니다."
+                ))
         } catch (e: Exception) {
             logger.error("관리자 로그인 중 서버 오류 발생", e)
             ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ErrorResponse(message = "서버 오류가 발생했습니다"))
+                .body(ErrorResponse(
+                    errorCode = "INTERNAL_ERROR",
+                    message = "서버 오류가 발생했습니다",
+                    userFriendlyMessage = "서버 오류가 발생했습니다."
+                ))
         }
     }
 
@@ -46,7 +54,11 @@ class AdminController(
         val isAdmin = session.getAttribute("isAdmin") as? Boolean ?: false
         if (!isAdmin) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(ErrorResponse(message = "관리자 권한이 필요합니다"))
+                .body(ErrorResponse(
+                    errorCode = "UNAUTHORIZED",
+                    message = "관리자 권한이 필요합니다",
+                    userFriendlyMessage = "관리자 권한이 필요합니다."
+                ))
         }
         
         val stats = adminService.getStatistics()
@@ -61,7 +73,11 @@ class AdminController(
         val isAdmin = session.getAttribute("isAdmin") as? Boolean ?: false
         if (!isAdmin) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(ErrorResponse(message = "관리자 권한이 필요합니다"))
+                .body(ErrorResponse(
+                    errorCode = "UNAUTHORIZED",
+                    message = "관리자 권한이 필요합니다",
+                    userFriendlyMessage = "관리자 권한이 필요합니다."
+                ))
         }
         
         return try {
@@ -71,7 +87,11 @@ class AdminController(
         } catch (e: Exception) {
             logger.error("관리자 플레이어 목록 조회 중 서버 오류 발생", e)
             ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ErrorResponse(message = "플레이어 목록 조회 중 서버 오류가 발생했습니다"))
+                .body(ErrorResponse(
+                    errorCode = "INTERNAL_ERROR",
+                    message = "플레이어 목록 조회 중 서버 오류가 발생했습니다",
+                    userFriendlyMessage = "플레이어 목록 조회 중 서버 오류가 발생했습니다."
+                ))
         }
     }
 
@@ -86,7 +106,11 @@ class AdminController(
         val isAdmin = session.getAttribute("isAdmin") as? Boolean ?: false
         if (!isAdmin) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(ErrorResponse(message = "관리자 권한이 필요합니다"))
+                .body(ErrorResponse(
+                    errorCode = "UNAUTHORIZED",
+                    message = "관리자 권한이 필요합니다",
+                    userFriendlyMessage = "관리자 권한이 필요합니다."
+                ))
         }
         
         return try {
@@ -96,11 +120,19 @@ class AdminController(
         } catch (e: IllegalArgumentException) {
             logger.debug("게임방 강제 종료 실패: {}", e.message)
             ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(ErrorResponse(message = e.message ?: "게임방 강제 종료 실패"))
+                .body(ErrorResponse(
+                    errorCode = "INVALID_REQUEST",
+                    message = e.message ?: "게임방 강제 종료 실패",
+                    userFriendlyMessage = "게임방 강제 종료에 실패했습니다."
+                ))
         } catch (e: Exception) {
             logger.error("게임방 강제 종료 중 서버 오류 발생", e)
             ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ErrorResponse(message = "게임방 강제 종료 중 서버 오류가 발생했습니다"))
+                .body(ErrorResponse(
+                    errorCode = "INTERNAL_ERROR",
+                    message = "게임방 강제 종료 중 서버 오류가 발생했습니다",
+                    userFriendlyMessage = "게임방 강제 종료 중 서버 오류가 발생했습니다."
+                ))
         }
     }
 }
