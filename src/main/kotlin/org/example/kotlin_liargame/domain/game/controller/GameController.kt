@@ -12,6 +12,10 @@ import org.example.kotlin_liargame.global.util.ControllerErrorHandler
 import org.example.kotlin_liargame.global.util.SessionUtil
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
+import org.springframework.messaging.handler.annotation.DestinationVariable
+import org.springframework.messaging.handler.annotation.MessageMapping
+import org.springframework.messaging.handler.annotation.Payload
+import org.springframework.messaging.simp.SimpMessageHeaderAccessor
 import org.springframework.web.bind.annotation.*
 
 @RestController
@@ -263,6 +267,42 @@ class GameController(
                     "gameNumber" to gameNumber
                 )
             )
+        }
+    }
+
+    @MessageMapping("/game/{gameNumber}/vote")
+    fun handleVote(
+        @DestinationVariable gameNumber: Int,
+        @Payload request: CastVoteRequest,
+        headerAccessor: SimpMessageHeaderAccessor
+    ) {
+        try {
+            val userId = headerAccessor.sessionAttributes?.get("userId") as? Long
+                ?: throw IllegalArgumentException("Not authenticated")
+            
+            votingService.castVote(gameNumber, userId, request.targetPlayerId)
+            
+        } catch (e: Exception) {
+            println("[ERROR] WebSocket vote failed: ${e.message}")
+            // 에러는 서비스 레벨에서 WebSocket으로 전송됨
+        }
+    }
+    
+    @MessageMapping("/game/{gameNumber}/guess-topic")
+    fun handleTopicGuess(
+        @DestinationVariable gameNumber: Int,
+        @Payload request: SubmitLiarGuessRequest,
+        headerAccessor: SimpMessageHeaderAccessor
+    ) {
+        try {
+            val userId = headerAccessor.sessionAttributes?.get("userId") as? Long
+                ?: throw IllegalArgumentException("Not authenticated")
+            
+            gameResultService.submitLiarGuess(gameNumber, userId, request.guess)
+            
+        } catch (e: Exception) {
+            println("[ERROR] WebSocket topic guess failed: ${e.message}")
+            // 에러는 서비스 레벨에서 WebSocket으로 전송됨
         }
     }
 }
