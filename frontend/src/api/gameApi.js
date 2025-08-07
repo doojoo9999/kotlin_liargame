@@ -221,30 +221,33 @@ export const submitHint = async (gameNumber, hint) => {
 
 // ==================== Defense Operations ====================
 
+// 변론 제출 API
 export const submitDefense = async (gameNumber, defenseText) => {
   try {
-    if (!gameNumber || gameNumber <= 0) {
-      throw new Error('Invalid game number')
-    }
-    if (!defenseText || !defenseText.trim()) {
-      throw new Error('Defense text cannot be empty')
-    }
-    if (defenseText.trim().length > 100) {
-      throw new Error('Defense text cannot exceed 100 characters')
-    }
-
-    console.log('[DEBUG] Submitting defense:', { gameNumber, defenseText: defenseText.trim() })
-    
-    const response = await apiClient.post('/game/defense', {
+    const response = await apiClient.post('/game/submit-defense', {
       gameNumber: parseInt(gameNumber),
       defenseText: defenseText.trim()
     })
-    
-    console.log('[DEBUG] Defense submission response:', response.data)
+    console.log('[DEBUG_LOG] Defense submitted successfully:', response.data)
     return response.data
   } catch (error) {
-    console.error('Failed to submit defense:', error)
-    throw error
+    console.error('[ERROR] Failed to submit defense:', error)
+    throw new Error(error.response?.data?.message || '변론 제출에 실패했습니다.')
+  }
+}
+
+// 최종 판결 투표 API
+export const castFinalJudgment = async (gameNumber, judgment) => {
+  try {
+    const response = await apiClient.post('/game/cast-final-judgment', {
+      gameNumber: parseInt(gameNumber),
+      judgment: judgment // "KILL" or "SPARE"
+    })
+    console.log('[DEBUG_LOG] Final judgment cast successfully:', response.data)
+    return response.data
+  } catch (error) {
+    console.error('[ERROR] Failed to cast final judgment:', error)
+    throw new Error(error.response?.data?.message || '최종 판결 투표에 실패했습니다.')
   }
 }
 
@@ -307,5 +310,32 @@ export const guessWord = async (gameNumber, guessedWord) => {
   } catch (error) {
     console.error('Failed to guess word:', error)
     throw error
+  }
+}
+
+// 라이어 추측 제출 API
+export const submitLiarGuess = async (gameNumber, guess) => {
+  try {
+    const response = await apiClient.post('/game/submit-liar-guess', {
+      gameNumber: parseInt(gameNumber),
+      guess: guess.trim()
+    })
+    console.log('[DEBUG_LOG] Liar guess submitted successfully:', response.data)
+    return response.data
+  } catch (error) {
+    console.error('[ERROR] Failed to submit liar guess:', error)
+    throw new Error(error.response?.data?.message || '라이어 추측 제출에 실패했습니다.')
+  }
+}
+
+// 게임 상태 복구 API (재연결 시 사용)
+export const recoverGameState = async (gameNumber) => {
+  try {
+    const response = await apiClient.get(`/game/recover-state/${gameNumber}`)
+    console.log('[DEBUG_LOG] Game state recovered:', response.data)
+    return response.data
+  } catch (error) {
+    console.error('[ERROR] Failed to recover game state:', error)
+    return null
   }
 }
