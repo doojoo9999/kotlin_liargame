@@ -30,7 +30,8 @@ class GameService(
     private val wordRepository: WordRepository,
     private val gameSubjectRepository: GameSubjectRepository,
     private val chatService: ChatService,
-    private val messagingTemplate: SimpMessagingTemplate
+    private val messagingTemplate: SimpMessagingTemplate,
+    private val defenseService: DefenseService
 ) {
 
     private fun validateExistingOwner(session: HttpSession) {
@@ -929,6 +930,31 @@ class GameService(
 
         return getGameState(game, session)
     }
+
+    @Transactional
+    fun recoverGameState(gameNumber: Int, userId: Long): Map<String, Any> {
+        val game = gameRepository.findByGameNumber(gameNumber)
+            ?: throw IllegalArgumentException("Game not found: $gameNumber")
+
+        val player = playerRepository.findByGameAndUserId(game, userId)
+            ?: throw IllegalArgumentException("Player not found in game")
+
+        val defenseRecovery = defenseService.recoverGameState(gameNumber)
+
+        return mapOf(
+            "gameNumber" to gameNumber,
+            "gameState" to game.gameState.name,
+            "defense" to defenseRecovery,
+            "player" to mapOf(
+                "id" to player.id,
+                "nickname" to player.nickname,
+                "isAlive" to player.isAlive,
+                "role" to player.role.name
+            ),
+            "timestamp" to java.time.Instant.now().toString()
+        )
+    }
+
 
     private fun getGameState(game: GameEntity, session: HttpSession): GameStateResponse {
         val players = playerRepository.findByGame(game)
