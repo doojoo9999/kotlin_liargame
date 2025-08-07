@@ -1,7 +1,6 @@
 import React, {useEffect, useState} from 'react'
 import {
     Alert,
-    AppBar,
     Box,
     Button,
     Chip,
@@ -12,19 +11,22 @@ import {
     DialogContent,
     DialogTitle,
     Paper,
-    Toolbar,
-    Typography
+    Typography,
+    useMediaQuery,
+    useTheme
 } from '@mui/material'
 import {
     ExitToApp as ExitIcon,
+    Help as HelpIcon,
     Pause as PauseIcon,
     People as PeopleIcon,
     PlayArrow as PlayIcon
 } from '@mui/icons-material'
 import {useGame} from '../context/GameContext'
+import {useToast} from '../components/EnhancedToastSystem'
 import PlayerProfile from '../components/PlayerProfile'
 import PlayerSpeechBubble from '../components/PlayerSpeechBubble'
-import ChatWindow from '../components/ChatWindow'
+import EnhancedChatSystem from '../components/EnhancedChatSystem'
 import GameInfoDisplay from '../components/GameInfoDisplay'
 import HintInputComponent from '../components/HintInputComponent'
 import VotingComponent from '../components/VotingComponent'
@@ -32,8 +34,15 @@ import DefenseComponent from '../components/DefenseComponent'
 import SurvivalVotingComponent from '../components/SurvivalVotingComponent'
 import WordGuessComponent from '../components/WordGuessComponent'
 import GameTimerComponent from '../components/GameTimerComponent'
+import ResponsiveGameLayout from '../components/ResponsiveGameLayout'
+import GameResultScreen from '../components/GameResultScreen'
+import GameTutorialSystem, {ActionGuidance} from '../components/GameTutorialSystem'
 
 function GameRoomPage() {
+  const theme = useTheme()
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'))
+  const { addToast, showSystemMessage } = useToast()
+  
   const {
     currentRoom,
     currentUser,
@@ -55,6 +64,8 @@ function GameRoomPage() {
     mySurvivalVote,
     wordGuessResult,
     finalGameResult,
+    chatMessages,
+    sendChatMessage,
     // ... 기타 상태들
     disconnectSocket,
     connectToRoom,
@@ -78,6 +89,29 @@ function GameRoomPage() {
   const [survivalVoteError, setSurvivalVoteError] = useState(null)
   const [wordGuessSubmitted, setWordGuessSubmitted] = useState(false)
   const [wordGuessError, setWordGuessError] = useState(null)
+  const [tutorialOpen, setTutorialOpen] = useState(false)
+  const [showGameResult, setShowGameResult] = useState(false)
+  const [newMessageCount, setNewMessageCount] = useState(0)
+
+  // Enhanced chat message handler
+  const handleSendChatMessage = (content) => {
+    if (!currentRoom?.gameNumber) {
+      addToast('채팅을 보낼 수 없습니다. 방 정보를 확인해주세요.', 'error')
+      return
+    }
+    
+    if (!socketConnected) {
+      addToast('서버 연결이 끊어졌습니다. 재연결을 기다려주세요.', 'warning')
+      return
+    }
+    
+    try {
+      sendChatMessage(currentRoom.gameNumber, content)
+    } catch (error) {
+      console.error('[ERROR] Failed to send chat message:', error)
+      addToast('메시지 전송에 실패했습니다.', 'error')
+    }
+  }
 
   // Timer expiration callback
   const handleTimerExpired = () => {
@@ -352,367 +386,412 @@ function GameRoomPage() {
   // Use real-time current turn player ID from WebSocket
   const effectiveCurrentTurnPlayerId = currentTurnPlayerId || currentRoom.currentTurnPlayerId
 
-  return (
-    <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
-      {/* Top App Bar */}
-      <AppBar position="static" color="primary">
-        <Toolbar>
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            {currentRoom.title || `${currentRoom.gameName || '제목 없음'} #${currentRoom.gameNumber}`}
-            {currentRoom.subjects && currentRoom.subjects.length > 0 && ` - [${currentRoom.subjects.join(', ')}]`}
-            {!currentRoom.subjects && currentRoom.subject && ` - [${currentRoom.subject?.name || currentRoom.subject?.content || '주제 없음'}]`}
+  // Prepare components for ResponsiveGameLayout
+  const gameInfoComponent = (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+      <Typography variant="h6" component="div" sx={{ flexGrow: 1, minWidth: 200 }}>
+        {currentRoom.title || `${currentRoom.gameName || '제목 없음'} #${currentRoom.gameNumber}`}
+        {currentRoom.subjects && currentRoom.subjects.length > 0 && ` - [${currentRoom.subjects.join(', ')}]`}
+        {!currentRoom.subjects && currentRoom.subject && ` - [${currentRoom.subject?.name || currentRoom.subject?.content || '주제 없음'}]`}
+      </Typography>
+      
+      <Chip
+        icon={roomStateInfo.icon}
+        label={roomStateInfo.text}
+        color={roomStateInfo.color}
+        variant="outlined"
+        size={isMobile ? 'small' : 'medium'}
+      />
+      
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        <PeopleIcon />
+        <Typography variant="body2">
+          {players.length}/{currentRoom.maxPlayers || currentRoom.gameParticipants || 8}
+        </Typography>
+      </Box>
+      
+      <Button
+        variant="outlined"
+        startIcon={<HelpIcon />}
+        onClick={() => setTutorialOpen(true)}
+        size={isMobile ? 'small' : 'medium'}
+      >
+        도움말
+      </Button>
+      
+      <Button
+        color="error"
+        variant="outlined"
+        startIcon={<ExitIcon />}
+        onClick={() => setLeaveDialogOpen(true)}
+        size={isMobile ? 'small' : 'medium'}
+      >
+        나가기
+      </Button>
+    </Box>
+  )
+
+  const chatComponent = (
+    <EnhancedChatSystem
+      messages={chatMessages || []}
+      currentUser={currentUser}
+      onSendMessage={handleSendChatMessage}
+      disabled={!socketConnected}
+    />
+  )
+
+  const playersComponent = (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+      {players.map((player) => (
+        <PlayerProfile
+          key={player.id}
+          player={player}
+          isCurrentTurn={effectiveCurrentTurnPlayerId === player.id}
+          compact={isMobile}
+        />
+      ))}
+    </Box>
+  )
+
+  const centerComponent = (
+    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, width: '100%' }}>
+      {/* Game Info Display */}
+      <GameInfoDisplay
+        gameState={currentRoom?.gameState}
+        gamePhase={currentRoom?.gamePhase}
+        round={currentRound}
+        timeRemaining={gameTimer}
+        word={assignedWord}
+        subject={currentRoom?.subject}
+        gameInfo={{
+          round: currentRound || 1,
+          topic: currentRoom?.subjects && currentRoom.subjects.length > 0 
+            ? currentRoom.subjects.join(', ') 
+            : currentRoom?.subject?.name || currentRoom?.subject?.content || '주제 없음',
+          status: gameStatus === 'WAITING' ? '대기 중' : 
+                  gameStatus === 'SPEAKING' ? '발언 단계' :
+                  gameStatus === 'VOTING' ? '투표 단계' :
+                  gameStatus === 'RESULTS' ? '결과 발표' :
+                  gameStatus === 'FINISHED' ? '게임 종료' : '게임 진행 중'
+        }}
+      />
+
+      {/* Game Start Button - Only visible for host when game is waiting */}
+      {gameStatus === 'WAITING' && isHost() && (
+        <Button
+          variant="contained"
+          size="large"
+          startIcon={<PlayIcon />}
+          onClick={handleStartGame}
+          sx={{
+            mb: 2,
+            px: 4,
+            py: 1.5,
+            fontSize: '1.1rem',
+            backgroundColor: 'success.main',
+            '&:hover': {
+              backgroundColor: 'success.dark'
+            }
+          }}
+        >
+          게임 시작
+        </Button>
+      )}
+
+      {/* Player Role and Word Display - Only visible during game */}
+      {gameStatus !== 'WAITING' && (playerRole || assignedWord) && (
+        <Paper 
+          sx={{ 
+            p: 2, 
+            mb: 2, 
+            backgroundColor: playerRole === 'LIAR' ? 'error.light' : 'primary.light',
+            color: 'white',
+            textAlign: 'center',
+            minWidth: isMobile ? 280 : 300,
+            width: '100%',
+            maxWidth: 400
+          }}
+        >
+          <Typography variant="h6" gutterBottom>
+            {playerRole === 'LIAR' ? '🎭 라이어' : '👥 시민'}
           </Typography>
-          
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Chip
-              icon={roomStateInfo.icon}
-              label={roomStateInfo.text}
-              color={roomStateInfo.color}
-              variant="outlined"
-              sx={{ color: 'white', borderColor: 'white' }}
+          <Typography variant="body1">
+            키워드: <strong>{assignedWord || '???'}</strong>
+          </Typography>
+          {currentRound > 0 && (
+            <Typography variant="body2" sx={{ mt: 1, opacity: 0.9 }}>
+              라운드 {currentRound}
+            </Typography>
+          )}
+        </Paper>
+      )}
+
+      {/* Game Timer Component */}
+      {gameStatus !== 'WAITING' && gameTimer > 0 && (
+        <GameTimerComponent
+          gameTimer={gameTimer}
+          maxTime={60}
+          gameStatus={gameStatus}
+          onTimeExpired={handleTimerExpired}
+          showCountdown={true}
+          size={isMobile ? 100 : 140}
+        />
+      )}
+
+      {/* Voting Component - Only visible during VOTING phase */}
+      {gameStatus === 'VOTING' && (
+        <Box sx={{ mb: 2, width: '100%' }}>
+          <VotingComponent
+            players={players}
+            gameTimer={gameTimer}
+            gameNumber={currentRoom?.gameNumber}
+            onVoteComplete={(targetPlayerId) => {
+              console.log('[DEBUG_LOG] Vote completed for player:', targetPlayerId)
+            }}
+          />
+        </Box>
+      )}
+
+      {/* Defense Component - Only visible during DEFENSE phase */}
+      {gameStatus === 'DEFENSE' && (
+        <Box sx={{ mb: 2, width: '100%' }}>
+          <DefenseComponent
+            gameTimer={gameTimer}
+            onSubmitDefense={handleDefenseSubmit}
+            isSubmitted={defenseSubmitted}
+            isLoading={loading.room}
+            error={defenseError}
+            accusedPlayerId={accusedPlayerId}
+            currentUserId={currentUser?.id}
+            accusedPlayerName={players.find(p => p.id === accusedPlayerId)?.nickname}
+          />
+        </Box>
+      )}
+
+      {/* Survival Voting Component - Only visible during SURVIVAL_VOTING phase */}
+      {gameStatus === 'SURVIVAL_VOTING' && (
+        <Box sx={{ mb: 2, width: '100%' }}>
+          <SurvivalVotingComponent
+            gameTimer={gameTimer}
+            onCastSurvivalVote={handleSurvivalVoteSubmit}
+            isVoted={survivalVoteSubmitted || mySurvivalVote !== null}
+            isLoading={loading.room}
+            error={survivalVoteError}
+            accusedPlayer={players.find(p => p.id === accusedPlayerId)}
+            votingProgress={survivalVotingProgress}
+            players={players}
+          />
+        </Box>
+      )}
+
+      {/* Word Guess Component - Only visible during WORD_GUESS phase */}
+      {gameStatus === 'WORD_GUESS' && (
+        <Box sx={{ mb: 2, width: '100%' }}>
+          <WordGuessComponent
+            gameTimer={gameTimer}
+            onGuessWord={handleWordGuessSubmit}
+            onRestartGame={handleRestartGame}
+            isSubmitted={wordGuessSubmitted}
+            isLoading={loading.room}
+            error={wordGuessError}
+            playerRole={playerRole}
+            guessResult={wordGuessResult}
+            gameResult={finalGameResult}
+          />
+        </Box>
+      )}
+
+      {/* Hint Input - Only visible during SPEAKING or HINT_PHASE */}
+      {(gameStatus === 'SPEAKING' || gameStatus === 'HINT_PHASE') && (
+        <Box sx={{ mb: 2, width: '100%' }}>
+          <HintInputComponent
+            gameTimer={gameTimer}
+            onSubmitHint={handleHintSubmit}
+            isSubmitted={hintSubmitted}
+            isLoading={loading.room}
+            error={hintError}
+          />
+        </Box>
+      )}
+    </Box>
+  )
+
+  // Players positioned around the screen for desktop/tablet
+  const playersAroundScreen = (
+    <>
+      {/* Top Players */}
+      <Box
+        sx={{
+          position: 'absolute',
+          top: 20,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          display: 'flex',
+          gap: 2,
+          zIndex: 1
+        }}
+      >
+        {playerPositions.top.map((player) => (
+          <Box key={player.id} sx={{ position: 'relative' }}>
+            <PlayerProfile
+              player={player}
+              isCurrentTurn={effectiveCurrentTurnPlayerId === player.id}
             />
-            
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'white' }}>
-              <PeopleIcon />
-              <Typography variant="body2">
-                {players.length}/{currentRoom.maxPlayers || currentRoom.gameParticipants || 8}
-              </Typography>
-            </Box>
-            
-            <Button
-              color="inherit"
-              startIcon={<ExitIcon />}
-              onClick={() => setLeaveDialogOpen(true)}
-            >
-              나가기
-            </Button>
+            {speechBubbles[player.id] && (
+              <PlayerSpeechBubble
+                message={speechBubbles[player.id]}
+                position="bottom"
+              />
+            )}
           </Box>
-        </Toolbar>
-      </AppBar>
+        ))}
+      </Box>
+
+      {/* Right Players */}
+      <Box
+        sx={{
+          position: 'absolute',
+          right: 20,
+          top: '50%',
+          transform: 'translateY(-50%)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2,
+          zIndex: 1
+        }}
+      >
+        {playerPositions.right.map((player) => (
+          <Box key={player.id} sx={{ position: 'relative' }}>
+            <PlayerProfile
+              player={player}
+              isCurrentTurn={effectiveCurrentTurnPlayerId === player.id}
+            />
+            {speechBubbles[player.id] && (
+              <PlayerSpeechBubble
+                message={speechBubbles[player.id]}
+                position="left"
+              />
+            )}
+          </Box>
+        ))}
+      </Box>
+
+      {/* Bottom Players */}
+      <Box
+        sx={{
+          position: 'absolute',
+          bottom: 20,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          display: 'flex',
+          gap: 2,
+          zIndex: 1
+        }}
+      >
+        {playerPositions.bottom.map((player) => (
+          <Box key={player.id} sx={{ position: 'relative' }}>
+            <PlayerProfile
+              player={player}
+              isCurrentTurn={effectiveCurrentTurnPlayerId === player.id}
+            />
+            {speechBubbles[player.id] && (
+              <PlayerSpeechBubble
+                message={speechBubbles[player.id]}
+                position="top"
+              />
+            )}
+          </Box>
+        ))}
+      </Box>
+
+      {/* Left Players */}
+      <Box
+        sx={{
+          position: 'absolute',
+          left: 20,
+          top: '50%',
+          transform: 'translateY(-50%)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2,
+          zIndex: 1
+        }}
+      >
+        {playerPositions.left.map((player) => (
+          <Box key={player.id} sx={{ position: 'relative' }}>
+            <PlayerProfile
+              player={player}
+              isCurrentTurn={effectiveCurrentTurnPlayerId === player.id}
+            />
+            {speechBubbles[player.id] && (
+              <PlayerSpeechBubble
+                message={speechBubbles[player.id]}
+                position="right"
+              />
+            )}
+          </Box>
+        ))}
+      </Box>
+    </>
+  )
+
+  return (
+    <>
+      {/* Action Guidance */}
+      <ActionGuidance
+        gameStatus={gameStatus}
+        isCurrentTurn={effectiveCurrentTurnPlayerId === currentUser?.id}
+        currentPlayer={players.find(p => p.id === effectiveCurrentTurnPlayerId)}
+        show={gameStatus !== 'WAITING'}
+      />
 
       {/* Error Alert */}
       {error.room && (
-        <Alert severity="error" sx={{ m: 2 }}>
+        <Alert 
+          severity="error" 
+          sx={{ 
+            position: 'fixed', 
+            top: isMobile ? 120 : 140, 
+            left: '50%', 
+            transform: 'translateX(-50%)',
+            zIndex: 999,
+            maxWidth: isMobile ? 'calc(100vw - 32px)' : 400
+          }}
+        >
           {error.room}
         </Alert>
       )}
 
-      {/* Main Game Area */}
-      <Box sx={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-        {/* Top Players */}
-        <Box
-          sx={{
-            position: 'absolute',
-            top: 20,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            display: 'flex',
-            gap: 2,
-            zIndex: 1
-          }}
-        >
-          {playerPositions.top.map((player) => (
-            <Box key={player.id} sx={{ position: 'relative' }}>
-              <Box>
-                <PlayerProfile
-                  player={player}
-                  isCurrentTurn={effectiveCurrentTurnPlayerId === player.id}
-                />
-              </Box>
-              {speechBubbles[player.id] && (
-                <PlayerSpeechBubble
-                  message={speechBubbles[player.id]}
-                  position="bottom"
-                />
-              )}
-            </Box>
-          ))}
-        </Box>
+      {/* Main Layout */}
+      <ResponsiveGameLayout
+        gameInfoComponent={gameInfoComponent}
+        chatComponent={chatComponent}
+        playersComponent={playersComponent}
+        centerComponent={centerComponent}
+        newMessageCount={newMessageCount}
+      >
+        {playersAroundScreen}
+      </ResponsiveGameLayout>
 
-        {/* Right Players */}
-        <Box
-          sx={{
-            position: 'absolute',
-            right: 20,
-            top: '50%',
-            transform: 'translateY(-50%)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 2,
-            zIndex: 1
-          }}
-        >
-          {playerPositions.right.map((player) => (
-            <Box key={player.id} sx={{ position: 'relative' }}>
-              <Box>
-                <PlayerProfile
-                  player={player}
-                  isCurrentTurn={effectiveCurrentTurnPlayerId === player.id}
-                />
-              </Box>
-              {speechBubbles[player.id] && (
-                <PlayerSpeechBubble
-                  message={speechBubbles[player.id]}
-                  position="left"
-                />
-              )}
-            </Box>
-          ))}
-        </Box>
+      {/* Tutorial System */}
+      <GameTutorialSystem
+        open={tutorialOpen}
+        onClose={() => setTutorialOpen(false)}
+        showOnFirstVisit={true}
+      />
 
-        {/* Bottom Players */}
-        <Box
-          sx={{
-            position: 'absolute',
-            bottom: 20,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            display: 'flex',
-            gap: 2,
-            zIndex: 1
-          }}
-        >
-          {playerPositions.bottom.map((player) => (
-            <Box key={player.id} sx={{ position: 'relative' }}>
-              <Box>
-                <PlayerProfile
-                  player={player}
-                  isCurrentTurn={effectiveCurrentTurnPlayerId === player.id}
-                />
-              </Box>
-              {speechBubbles[player.id] && (
-                <PlayerSpeechBubble
-                  message={speechBubbles[player.id]}
-                  position="top"
-                />
-              )}
-            </Box>
-          ))}
-        </Box>
-
-        {/* Left Players */}
-        <Box
-          sx={{
-            position: 'absolute',
-            left: 20,
-            top: '50%',
-            transform: 'translateY(-50%)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 2,
-            zIndex: 1
-          }}
-        >
-          {playerPositions.left.map((player) => (
-            <Box key={player.id} sx={{ position: 'relative' }}>
-              <Box>
-                <PlayerProfile
-                  player={player}
-                  isCurrentTurn={effectiveCurrentTurnPlayerId === player.id}
-                />
-              </Box>
-              {speechBubbles[player.id] && (
-                <PlayerSpeechBubble
-                  message={speechBubbles[player.id]}
-                  position="right"
-                />
-              )}
-            </Box>
-          ))}
-        </Box>
-
-        {/* Center Area - Game Info and Chat */}
-        <Box
-          sx={{
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: 2,
-            zIndex: 2
-          }}
-        >
-          {/* Game Info Display */}
-          <GameInfoDisplay
-            gameState={currentRoom?.gameState}
-            gamePhase={currentRoom?.gamePhase}
-            round={currentRound}
-            timeRemaining={gameTimer}
-            word={assignedWord}
-            subject={currentRoom?.subject}
-            gameInfo={{
-              round: currentRound || 1,
-              topic: currentRoom?.subjects && currentRoom.subjects.length > 0 
-                ? currentRoom.subjects.join(', ') 
-                : currentRoom?.subject?.name || currentRoom?.subject?.content || '주제 없음',
-              status: gameStatus === 'WAITING' ? '대기 중' : 
-                      gameStatus === 'SPEAKING' ? '발언 단계' :
-                      gameStatus === 'VOTING' ? '투표 단계' :
-                      gameStatus === 'RESULTS' ? '결과 발표' :
-                      gameStatus === 'FINISHED' ? '게임 종료' : '게임 진행 중'
-            }}/>
-
-          {/* Game Start Button - Only visible for host when game is waiting */}
-          {gameStatus === 'WAITING' && isHost() && (
-            <Button
-              variant="contained"
-              size="large"
-              startIcon={<PlayIcon />}
-              onClick={handleStartGame}
-              sx={{
-                mb: 2,
-                px: 4,
-                py: 1.5,
-                fontSize: '1.1rem',
-                backgroundColor: 'success.main',
-                '&:hover': {
-                  backgroundColor: 'success.dark'
-                }
-              }}
-            >
-              게임 시작
-            </Button>
-          )}
-
-          {/* Player Role and Word Display - Only visible during game */}
-          {gameStatus !== 'WAITING' && (playerRole || assignedWord) && (
-            <Paper 
-              sx={{ 
-                p: 2, 
-                mb: 2, 
-                backgroundColor: playerRole === 'LIAR' ? 'error.light' : 'primary.light',
-                color: 'white',
-                textAlign: 'center',
-                minWidth: 300
-              }}
-            >
-              <Typography variant="h6" gutterBottom>
-                {playerRole === 'LIAR' ? '🎭 라이어' : '👥 시민'}
-              </Typography>
-              <Typography variant="body1">
-                키워드: <strong>{assignedWord || '???'}</strong>
-              </Typography>
-              {currentRound > 0 && (
-                <Typography variant="body2" sx={{ mt: 1, opacity: 0.9 }}>
-                  라운드 {currentRound}
-                </Typography>
-              )}
-            </Paper>
-          )}
-
-          {/* Game Timer Component */}
-          {gameStatus !== 'WAITING' && gameTimer > 0 && (
-            <GameTimerComponent
-              gameTimer={gameTimer}
-              maxTime={60} // Default max time, can be adjusted based on game phase
-              gameStatus={gameStatus}
-              onTimeExpired={handleTimerExpired}
-              showCountdown={true}
-              size={140}
-            />
-          )}
-
-          {/* Game Status Display */}
-          {gameStatus !== 'WAITING' && gameStatus !== 'VOTING' && gameStatus !== 'DEFENSE' && (
-            <Paper sx={{ p: 2, mb: 2, textAlign: 'center', minWidth: 300 }}>
-              <Typography variant="h6" gutterBottom>
-                {gameStatus === 'SPEAKING' && '🎤 발언 단계'}
-                {gameStatus === 'RESULTS' && '📊 결과 발표'}
-                {gameStatus === 'FINISHED' && '🏁 게임 종료'}
-              </Typography>
-              {gameStatus === 'SPEAKING' && currentTurnPlayerId && (
-                <Typography variant="body1" sx={{ mt: 1 }}>
-                  {players.find(p => p.id === currentTurnPlayerId)?.nickname || 'Unknown'}님의 차례
-                </Typography>
-              )}
-            </Paper>
-          )}
-
-          {/* Voting Component - Only visible during VOTING phase */}
-          {gameStatus === 'VOTING' && (
-            <Box sx={{ mb: 2, width: '100%', maxWidth: 800 }}>
-              <VotingComponent
-                players={players}
-                gameTimer={gameTimer}
-                gameNumber={currentRoom?.gameNumber}
-                onVoteComplete={(targetPlayerId) => {
-                  console.log('[DEBUG_LOG] Vote completed for player:', targetPlayerId)
-                }}
-              />
-            </Box>
-          )}
-
-          {/* Defense Component - Only visible during DEFENSE phase */}
-          {gameStatus === 'DEFENSE' && (
-            <Box sx={{ mb: 2 }}>
-              <DefenseComponent
-                gameTimer={gameTimer}
-                onSubmitDefense={handleDefenseSubmit}
-                isSubmitted={defenseSubmitted}
-                isLoading={loading.room}
-                error={defenseError}
-                accusedPlayerId={accusedPlayerId}
-                currentUserId={currentUser?.id}
-                accusedPlayerName={players.find(p => p.id === accusedPlayerId)?.nickname}
-              />
-            </Box>
-          )}
-
-          {/* Survival Voting Component - Only visible during SURVIVAL_VOTING phase */}
-          {gameStatus === 'SURVIVAL_VOTING' && (
-            <Box sx={{ mb: 2 }}>
-              <SurvivalVotingComponent
-                gameTimer={gameTimer}
-                onCastSurvivalVote={handleSurvivalVoteSubmit}
-                isVoted={survivalVoteSubmitted || mySurvivalVote !== null}
-                isLoading={loading.room}
-                error={survivalVoteError}
-                accusedPlayer={players.find(p => p.id === accusedPlayerId)}
-                votingProgress={survivalVotingProgress}
-                players={players}
-              />
-            </Box>
-          )}
-
-          {/* Word Guess Component - Only visible during WORD_GUESS phase */}
-          {gameStatus === 'WORD_GUESS' && (
-            <Box sx={{ mb: 2 }}>
-              <WordGuessComponent
-                gameTimer={gameTimer}
-                onGuessWord={handleWordGuessSubmit}
-                onRestartGame={handleRestartGame}
-                isSubmitted={wordGuessSubmitted}
-                isLoading={loading.room}
-                error={wordGuessError}
-                playerRole={playerRole}
-                guessResult={wordGuessResult}
-                gameResult={finalGameResult}
-              />
-            </Box>
-          )}
-
-          {/* Hint Input - Only visible during SPEAKING or HINT_PHASE */}
-          {(gameStatus === 'SPEAKING' || gameStatus === 'HINT_PHASE') && (
-            <Box sx={{ mb: 2 }}>
-              <HintInputComponent
-                gameTimer={gameTimer}
-                onSubmitHint={handleHintSubmit}
-                isSubmitted={hintSubmitted}
-                isLoading={loading.room}
-                error={hintError}
-              />
-            </Box>
-          )}
-
-          {/* Chat Window */}
-          <Paper sx={{ width: 400, height: 300 }}>
-            <ChatWindow />
-          </Paper>
-        </Box>
-      </Box>
+      {/* Game Result Screen */}
+      {showGameResult && finalGameResult && (
+        <GameResultScreen
+          gameResult={finalGameResult}
+          players={players}
+          liarPlayer={players.find(p => p.isLiar)}
+          winningTeam={finalGameResult.winningTeam}
+          gameStats={finalGameResult.stats}
+          onRestartGame={handleRestartGame}
+          onReturnToLobby={navigateToLobby}
+        />
+      )}
 
       {/* Leave Room Confirmation Dialog */}
       <Dialog open={leaveDialogOpen} onClose={() => setLeaveDialogOpen(false)}>
@@ -739,7 +818,7 @@ function GameRoomPage() {
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </>
   )
 }
 
