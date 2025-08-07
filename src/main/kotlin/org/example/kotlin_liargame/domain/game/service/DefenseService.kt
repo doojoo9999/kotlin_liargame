@@ -3,6 +3,7 @@ package org.example.kotlin_liargame.domain.game.service
 import org.example.kotlin_liargame.domain.game.dto.response.*
 import org.example.kotlin_liargame.domain.game.repository.GameRepository
 import org.example.kotlin_liargame.domain.game.repository.PlayerRepository
+import org.springframework.context.annotation.Lazy
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.scheduling.TaskScheduler
 import org.springframework.stereotype.Service
@@ -18,7 +19,8 @@ class DefenseService(
     private val gameRepository: GameRepository,
     private val playerRepository: PlayerRepository,
     private val messagingTemplate: SimpMessagingTemplate,
-    private val taskScheduler: TaskScheduler
+    private val taskScheduler: TaskScheduler,
+    @Lazy private val gameResultService: GameResultService
 ) {
 
     private val gameDefenseStatusMap = ConcurrentHashMap<Int, DefenseStatus>()
@@ -367,41 +369,31 @@ class DefenseService(
         
         cleanupGameState(gameNumber)
         
-        scheduleNextPhase(gameNumber, isExecuted, defenseStatus.accusedPlayerId)
+        // Create FinalJudgmentResultResponse and call GameResultService
+        val isLiar = accusedPlayer.role.name == "LIAR"
+        val judgmentResult = FinalJudgmentResultResponse(
+            gameNumber = gameNumber,
+            accusedPlayerId = defenseStatus.accusedPlayerId,
+            accusedPlayerNickname = accusedPlayer.nickname,
+            isKilled = isExecuted,
+            isLiar = isLiar,
+            executionVotes = executionVotes,
+            survivalVotes = survivalVotes,
+            totalVotes = totalVotes
+        )
         
-        return response
-    }
-    
-    private fun scheduleNextPhase(gameNumber: Int, wasExecuted: Boolean, accusedPlayerId: Long) {
-        val task = taskScheduler.schedule({
-            if (wasExecuted) {
-                messagingTemplate.convertAndSend(
-                    "/topic/game/$gameNumber/phase",
-                    GamePhaseMessage(
-                        phase = "GUESSING_WORD",
-                        timestamp = Instant.now(),
-                        additionalData = mapOf("executedPlayerId" to accusedPlayerId)
-                    )
-                )
-            } else {
-                messagingTemplate.convertAndSend(
-                    "/topic/game/$gameNumber/phase",
-                    GamePhaseMessage(
-                        phase = "GAME_OVER",
-                        timestamp = Instant.now(),
-                        additionalData = mapOf("winner" to "LIAR", "survivedPlayerId" to accusedPlayerId)
-                    )
-                )
-            }
+        // Schedule GameResultService call after 3 seconds
+        taskScheduler.schedule({
+            gameResultService.processGameResult(gameNumber, judgmentResult)
         }, Instant.now().plusSeconds(3))
         
-        addScheduledTask(gameNumber, task)
+        return response
     }
     
     private fun addScheduledTask(gameNumber: Int, task: ScheduledFuture<*>) {
         scheduledTasksMap.computeIfAbsent(gameNumber) { mutableListOf() }.add(task)
     }
-    
+
     fun cleanupGameState(gameNumber: Int) {
         gameDefenseStatusMap.remove(gameNumber)
         gameFinalVotingStatusMap.remove(gameNumber)
