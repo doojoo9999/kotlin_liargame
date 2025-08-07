@@ -22,12 +22,10 @@ class ValidSubjectConfigurationValidator : ConstraintValidator<ValidSubjectConfi
         return try {
             val clazz = value::class.java
             
-            // CreateGameRoomRequest 검증
             if (hasField(clazz, "useRandomSubjects")) {
                 return validateCreateGameRoomRequest(value, context)
             }
             
-            // StartGameRequest 검증
             if (hasField(clazz, "useAllSubjects")) {
                 return validateStartGameRequest(value, context)
             }
