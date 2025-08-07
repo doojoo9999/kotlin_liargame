@@ -30,7 +30,8 @@ class GameService(
     private val wordRepository: WordRepository,
     private val gameSubjectRepository: GameSubjectRepository,
     private val chatService: ChatService,
-    private val messagingTemplate: SimpMessagingTemplate
+    private val messagingTemplate: SimpMessagingTemplate,
+    private val defenseService: DefenseService
 ) {
 
     private fun validateExistingOwner(session: HttpSession) {
@@ -255,6 +256,31 @@ class GameService(
         if (deletedCount > 0) {
             val remainingPlayers = playerRepository.findByGame(game)
 
+            // Check if the leaving player was the room owner
+            val wasOwner = game.gameOwner == nickname
+
+            if (remainingPlayers.isEmpty()) {
+                // No players left, delete the room
+                println("[DEBUG] No players remaining, deleting room ${game.gameNumber}")
+                gameRepository.delete(game)
+                
+                // Notify lobby that room was deleted
+                messagingTemplate.convertAndSend("/topic/lobby", mapOf(
+                    "type" to "ROOM_DELETED",
+                    "gameNumber" to game.gameNumber
+                ))
+                
+                return true
+            } else if (wasOwner) {
+                // Transfer ownership to the oldest remaining player (earliest joinedAt timestamp)
+                val newOwner = remainingPlayers.minByOrNull { it.joinedAt }
+                if (newOwner != null) {
+                    game.gameOwner = newOwner.nickname
+                    gameRepository.save(game)
+                    println("[DEBUG] Transferred ownership from $nickname to ${newOwner.nickname} in room ${game.gameNumber} (joined at: ${newOwner.joinedAt})")
+                }
+            }
+
             // Get all subjects for this game
             val gameSubjects = gameSubjectRepository.findByGameWithSubject(game)
             val subjectNames = gameSubjects.map { it.subject.content ?: "Unknown" }
@@ -271,6 +297,8 @@ class GameService(
                 "userId" to userId,
                 "currentPlayers" to remainingPlayers.size,
                 "maxPlayers" to game.gameParticipants,
+                "ownershipTransferred" to wasOwner,
+                "newOwner" to if (wasOwner && remainingPlayers.isNotEmpty()) game.gameOwner else null,
                 "roomData" to mapOf(
                     "gameNumber" to game.gameNumber,
                     "title" to "${game.gameName} #${game.gameNumber}",
@@ -902,6 +930,31 @@ class GameService(
 
         return getGameState(game, session)
     }
+
+    @Transactional
+    fun recoverGameState(gameNumber: Int, userId: Long): Map<String, Any> {
+        val game = gameRepository.findByGameNumber(gameNumber)
+            ?: throw IllegalArgumentException("Game not found: $gameNumber")
+
+        val player = playerRepository.findByGameAndUserId(game, userId)
+            ?: throw IllegalArgumentException("Player not found in game")
+
+        val defenseRecovery = defenseService.recoverGameState(gameNumber)
+
+        return mapOf(
+            "gameNumber" to gameNumber,
+            "gameState" to game.gameState.name,
+            "defense" to defenseRecovery,
+            "player" to mapOf(
+                "id" to player.id,
+                "nickname" to player.nickname,
+                "isAlive" to player.isAlive,
+                "role" to player.role.name
+            ),
+            "timestamp" to java.time.Instant.now().toString()
+        )
+    }
+
 
     private fun getGameState(game: GameEntity, session: HttpSession): GameStateResponse {
         val players = playerRepository.findByGame(game)

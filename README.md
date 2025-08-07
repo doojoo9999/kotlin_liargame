@@ -1,32 +1,32 @@
-# ¶óÀÌ¾î °ÔÀÓ (Liar Game)
+# ë¼ì´ì–´ ê²Œì„ (Liar Game)
 
 <div align="center">
 
 ![Kotlin](https://img.shields.io/badge/kotlin-%237F52FF.svg?style=for-the-badge&logo=kotlin&logoColor=white)
 ![Spring](https://img.shields.io/badge/spring-%236DB33F.svg?style=for-the-badge&logo=spring&logoColor=white)
-![Vue.js](https://img.shields.io/badge/vuejs-%2335495e.svg?style=for-the-badge&logo=vuedotjs&logoColor=%234FC08D)
-![Socket.io](https://img.shields.io/badge/Socket.io-black?style=for-the-badge&logo=socket.io&badgeColor=010101)
+![React](https://img.shields.io/badge/react-%2320232a.svg?style=for-the-badge&logo=react&logoColor=%2361DAFB)
+![WebSocket](https://img.shields.io/badge/websocket-010101?style=for-the-badge&logo=socketdotio&logoColor=white)
 
 </div>
 
 <div align="center">
   <h3>
-    <a href="#ÇÁ·ÎÁ§Æ®-°³¿ä">
-      ÇÑ±¹¾î
+    <a href="#í”„ë¡œì íŠ¸-ì†Œê°œ">
+      í•œêµ­ì–´
     </a>
   </h3>
 </div>
 
-## ¸ñÂ÷ (Table of Contents)
+## ëª©ì°¨ (Table of Contents)
 
-- [ÇÑ±¹¾î](#ÇÁ·ÎÁ§Æ®-°³¿ä)
-  - [ÇÁ·ÎÁ§Æ® °³¿ä](#ÇÁ·ÎÁ§Æ®-°³¿ä)
-  - [ÁÖ¿ä ±â´É](#ÁÖ¿ä-±â´É)
-  - [ÇÁ·ÎÁ§Æ® ±¸Á¶](#ÇÁ·ÎÁ§Æ®-±¸Á¶)
-  - [±â¼ú ½ºÅÃ](#±â¼ú-½ºÅÃ)
-  - [¼³Ä¡ ¹× ½ÇÇà ¹æ¹ı](#¼³Ä¡-¹×-½ÇÇà-¹æ¹ı)
-  - [°ÔÀÓ ÇÃ·¹ÀÌ ¹æ¹ı](#°ÔÀÓ-ÇÃ·¹ÀÌ-¹æ¹ı)
-  - [ÇâÈÄ °³¹ß °èÈ¹](#ÇâÈÄ-°³¹ß-°èÈ¹)
+- [í•œêµ­ì–´](#í”„ë¡œì íŠ¸-ì†Œê°œ)
+  - [í”„ë¡œì íŠ¸ ì†Œê°œ](#í”„ë¡œì íŠ¸-ì†Œê°œ)
+  - [ì£¼ìš” ê¸°ëŠ¥](#ì£¼ìš”-ê¸°ëŠ¥)
+  - [í”„ë¡œì íŠ¸ êµ¬ì¡°](#í”„ë¡œì íŠ¸-êµ¬ì¡°)
+  - [ê¸°ìˆ  ìŠ¤íƒ](#ê¸°ìˆ -ìŠ¤íƒ)
+  - [ì„¤ì¹˜ ë° ì‹¤í–‰ ë°©ë²•](#ì„¤ì¹˜-ë°-ì‹¤í–‰-ë°©ë²•)
+  - [ê²Œì„ í”Œë ˆì´ ë°©ë²•](#ê²Œì„-í”Œë ˆì´-ë°©ë²•)
+  - [í–¥í›„ ê°œë°œ ê³„íš](#í–¥í›„-ê°œë°œ-ê³„íš)
 - [English](#project-overview)
   - [Project Overview](#project-overview)
   - [Key Features](#key-features)
@@ -40,83 +40,258 @@
 
 ---
 
-## ÇÁ·ÎÁ§Æ® °³¿ä
+## í”„ë¡œì íŠ¸ ì†Œê°œ
 
-¶óÀÌ¾î °ÔÀÓÀº ÇÃ·¹ÀÌ¾îµéÀÌ ÁÖÁ¦¿Í °ü·ÃµÈ ´Ü¾î¿¡ ´ëÇØ ÈùÆ®¸¦ Á¦°øÇÏ°í, ´©°¡ ¶óÀÌ¾î(°ÅÁş¸»ÀïÀÌ)ÀÎÁö Ã£¾Æ³»´Â ¼Ò¼È Ãß¸® °ÔÀÓÀÔ´Ï´Ù. ¶óÀÌ¾î´Â ´Ü¾î¸¦ ¸ğ¸£´Â »óÅÂ¿¡¼­ ´Ù¸¥ ÇÃ·¹ÀÌ¾îµéÀÇ ÈùÆ®¸¦ µè°í ´Ü¾î¸¦ ÃßÃøÇØ¾ß ÇÕ´Ï´Ù.
+ë¼ì´ì–´ ê²Œì„ì€ í”Œë ˆì´ì–´ë“¤ì´ ì£¼ì–´ì§„ ì£¼ì œì— ëŒ€í•œ íŒíŠ¸ë¥¼ ì œê³µí•˜ê³ , ìˆ¨ì–´ìˆëŠ” ë¼ì´ì–´(ê±°ì§“ë§ìŸì´)ë¥¼ ì°¾ì•„ë‚´ëŠ” ì†Œì…œ ì¶”ë¦¬ ê²Œì„ì…ë‹ˆë‹¤. ë¼ì´ì–´ëŠ” ì£¼ì œë¥¼ ëª¨ë¥´ëŠ” ìƒíƒœì—ì„œ ë‹¤ë¥¸ í”Œë ˆì´ì–´ë“¤ì˜ íŒíŠ¸ë¥¼ ë“£ê³  ì£¼ì œë¥¼ ì¶”ì¸¡í•´ì•¼ í•©ë‹ˆë‹¤.
 
-ÀÌ ÇÁ·ÎÁ§Æ®´Â Kotlin ¹é¿£µå¿Í Vue 3 ÇÁ·ĞÆ®¿£µå¸¦ Æ÷ÇÔÇÏ´Â ¸ğ³ë·¹Æ÷·Î ±¸¼ºµÇ¾î ÀÖ½À´Ï´Ù.
+ì´ í”„ë¡œì íŠ¸ëŠ” Kotlin ë°±ì—”ë“œì™€ React í”„ë¡ íŠ¸ì—”ë“œë¥¼ ì‚¬ìš©í•˜ëŠ” ì‹¤ì‹œê°„ ì›¹ ê²Œì„ìœ¼ë¡œ êµ¬í˜„ë˜ì–´ ìˆìŠµë‹ˆë‹¤.
 
-## ÁÖ¿ä ±â´É
+## ì£¼ìš” ê¸°ëŠ¥
 
-- »ç¿ëÀÚ ÀÎÁõ ¹× °ÔÀÓ Âü¿©
-- °ÔÀÓ »ı¼º ¹× ¼³Á¤ (ÇÃ·¹ÀÌ¾î ¼ö, ½Ã°£ Á¦ÇÑ, ¶ó¿îµå ¼ö)
-- ½Ç½Ã°£ Ã¤ÆÃ ¹× ÈùÆ® Á¦°ø
-- ¶óÀÌ¾î ÅõÇ¥ ¹× º¯·Ğ ½Ã½ºÅÛ
-- ¶ó¿îµå ÁøÇà ¹× °á°ú È®ÀÎ
+- ì‹¤ì‹œê°„ ê²Œì„ ë°© ìƒì„± ë° ì°¸ê°€ ê¸°ëŠ¥
+- ê²Œì„ ì„¤ì • ë° ê´€ë¦¬ (í”Œë ˆì´ì–´ ìˆ˜, ì‹œê°„ ì œí•œ, ë¼ìš´ë“œ ìˆ˜)
+- ì‹¤ì‹œê°„ ì±„íŒ… ë° íŒíŠ¸ ì œê³µ
+- ë¼ì´ì–´ ì§€ëª© ë° íˆ¬í‘œ ì‹œìŠ¤í…œ
+- ê²Œì„ ê²°ê³¼ ë° í†µê³„ í™•ì¸
+- ê´€ë¦¬ì ëŒ€ì‹œë³´ë“œ (ì£¼ì œ ë° ë‹¨ì–´ ê´€ë¦¬)
 
-## ÇÁ·ÎÁ§Æ® ±¸Á¶
+## í”„ë¡œì íŠ¸ êµ¬ì¡°
 
 ```
 kotlin_liargame/
-¦§¦¡¦¡ frontend/             # Vue 3 ÇÁ·ĞÆ®¿£µå ¾ÖÇÃ¸®ÄÉÀÌ¼Ç
-¦¢   ¦§¦¡¦¡ public/           # Á¤Àû ÀÚ»ê
-¦¢   ¦§¦¡¦¡ src/              # Vue ¼Ò½º ÄÚµå
-¦¢   ¦¢   ¦§¦¡¦¡ assets/       # ÇÁ·ĞÆ®¿£µå ÀÚ»ê (CSS, ÀÌ¹ÌÁö)
-¦¢   ¦¢   ¦§¦¡¦¡ components/   # Vue ÄÄÆ÷³ÍÆ®
-¦¢   ¦¢   ¦§¦¡¦¡ views/        # ÆäÀÌÁö ºä ÄÄÆ÷³ÍÆ®
-¦¢   ¦¢   ¦§¦¡¦¡ stores/       # Pinia »óÅÂ °ü¸® ½ºÅä¾î
-¦¢   ¦¢   ¦§¦¡¦¡ router/       # Vue Router ¼³Á¤
-¦¢   ¦¢   ¦§¦¡¦¡ App.vue       # ¸ŞÀÎ Vue ÄÄÆ÷³ÍÆ®
-¦¢   ¦¢   ¦¦¦¡¦¡ main.js       # Vue ¾ÖÇÃ¸®ÄÉÀÌ¼Ç ÁøÀÔÁ¡
-¦¢   ¦§¦¡¦¡ package.json      # ÇÁ·ĞÆ®¿£µå ÀÇÁ¸¼º
-¦¢   ¦¦¦¡¦¡ vite.config.js    # Vite ¼³Á¤
-¦§¦¡¦¡ src/                  # Kotlin ¹é¿£µå ¼Ò½º ÄÚµå
-¦¢   ¦§¦¡¦¡ main/             # ¸ŞÀÎ ¼Ò½º ÄÚµå
-¦¢   ¦¢   ¦§¦¡¦¡ kotlin/       # Kotlin ÄÚµå
-¦¢   ¦¢   ¦¢   ¦¦¦¡¦¡ org/example/kotlin_liargame/
-¦¢   ¦¢   ¦¢       ¦§¦¡¦¡ domain/   # µµ¸ŞÀÎº° ÄÚµå (°ÔÀÓ, Ã¤ÆÃ, »ç¿ëÀÚ µî)
-¦¢   ¦¢   ¦¢       ¦¦¦¡¦¡ config/   # ¾ÖÇÃ¸®ÄÉÀÌ¼Ç ¼³Á¤
-¦¢   ¦¢   ¦¦¦¡¦¡ resources/    # ¸®¼Ò½º ÆÄÀÏ
-¦¢   ¦¦¦¡¦¡ test/             # Å×½ºÆ® ÄÚµå
-¦§¦¡¦¡ build.gradle.kts      # Gradle ºôµå ¼³Á¤
-¦¦¦¡¦¡ settings.gradle.kts   # Gradle ¼³Á¤
+â”œâ”€â”€ frontend/             # React í”„ë¡ íŠ¸ì—”ë“œ ì• í”Œë¦¬ì¼€ì´ì…˜
+â”‚   â”œâ”€â”€ public/           # ì •ì  ìì›
+â”‚   â”œâ”€â”€ src/              # React ì†ŒìŠ¤ ì½”ë“œ
+â”‚   â”‚   â”œâ”€â”€ components/   # React ì»´í¬ë„ŒíŠ¸
+â”‚   â”‚   â”œâ”€â”€ pages/        # í˜ì´ì§€ë³„ ì»´í¬ë„ŒíŠ¸
+â”‚   â”‚   â”‚   â”œâ”€â”€ LoginPage.jsx
+â”‚   â”‚   â”‚   â”œâ”€â”€ LobbyPage.jsx
+â”‚   â”‚   â”‚   â”œâ”€â”€ GameRoomPage.jsx
+â”‚   â”‚   â”‚   â”œâ”€â”€ AdminLoginPage.jsx
+â”‚   â”‚   â”‚   â”œâ”€â”€ AdminDashboard.jsx
+â”‚   â”‚   â”‚   â””â”€â”€ SubjectWordPage.jsx
+â”‚   â”‚   â”œâ”€â”€ stores/       # Zustand ìƒíƒœ ê´€ë¦¬ ìŠ¤í† ì–´
+â”‚   â”‚   â”œâ”€â”€ App.jsx       # ë©”ì¸ React ì»´í¬ë„ŒíŠ¸
+â”‚   â”‚   â””â”€â”€ main.jsx      # React ì• í”Œë¦¬ì¼€ì´ì…˜ ì§„ì…ì 
+â”‚   â”œâ”€â”€ package.json      # í”„ë¡ íŠ¸ì—”ë“œ ì˜ì¡´ì„±
+â”‚   â””â”€â”€ vite.config.js    # Vite ì„¤ì •
+â”œâ”€â”€ src/                  # Kotlin ë°±ì—”ë“œ ì†ŒìŠ¤ ì½”ë“œ
+â”‚   â”œâ”€â”€ main/             # ë©”ì¸ ì†ŒìŠ¤ ì½”ë“œ
+â”‚   â”‚   â”œâ”€â”€ kotlin/       # Kotlin ì½”ë“œ
+â”‚   â”‚   â”‚   â””â”€â”€ org/example/kotlin_liargame/
+â”‚   â”‚   â”‚       â”œâ”€â”€ domain/   # ë„ë©”ì¸ë³„ ì½”ë“œ (ê²Œì„, ì±„íŒ…, ì‚¬ìš©ì ë“±)
+â”‚   â”‚   â”‚       â”‚   â”œâ”€â”€ auth/     # ì¸ì¦ ê´€ë ¨
+â”‚   â”‚   â”‚       â”‚   â”œâ”€â”€ chat/     # ì±„íŒ… ê¸°ëŠ¥
+â”‚   â”‚   â”‚       â”‚   â”œâ”€â”€ game/     # ê²Œì„ ë¡œì§
+â”‚   â”‚   â”‚       â”‚   â”œâ”€â”€ subject/  # ì£¼ì œ ê´€ë¦¬
+â”‚   â”‚   â”‚       â”‚   â”œâ”€â”€ user/     # ì‚¬ìš©ì ê´€ë¦¬
+â”‚   â”‚   â”‚       â”‚   â””â”€â”€ word/     # ë‹¨ì–´ ê´€ë¦¬
+â”‚   â”‚   â”‚       â””â”€â”€ config/   # ì• í”Œë¦¬ì¼€ì´ì…˜ ì„¤ì •
+â”‚   â”‚   â””â”€â”€ resources/    # ë¦¬ì†ŒìŠ¤ íŒŒì¼
+â”‚   â””â”€â”€ test/             # í…ŒìŠ¤íŠ¸ ì½”ë“œ
+â”œâ”€â”€ build.gradle.kts      # Gradle ë¹Œë“œ ì„¤ì •
+â””â”€â”€ settings.gradle.kts   # Gradle ì„¤ì •
 ```
 
-## ±â¼ú ½ºÅÃ
+## ê¸°ìˆ  ìŠ¤íƒ
 
-### ¹é¿£µå
-- Kotlin
-- Spring Boot
-- Spring WebSocket
-- JPA/Hibernate
-- H2 Database
+### ë°±ì—”ë“œ
+- **Kotlin** 1.9.0
+- **Spring Boot** 3.2.0
+- **Spring Data JPA** - ë°ì´í„°ë² ì´ìŠ¤ ORM
+- **Spring WebSocket** - ì‹¤ì‹œê°„ í†µì‹ 
+- **Spring Session** - ì„¸ì…˜ ê´€ë¦¬
+- **H2 Database** - ì¸ë©”ëª¨ë¦¬ ë°ì´í„°ë² ì´ìŠ¤
+- **SpringDoc OpenAPI** - API ë¬¸ì„œí™” (Swagger)
+- **MockK** - í…ŒìŠ¤íŠ¸ í”„ë ˆì„ì›Œí¬
 
-### ÇÁ·ĞÆ®¿£µå
-- Vue 3 (Composition API)
-- Vue Router
-- Pinia (»óÅÂ °ü¸®)
-- Axios (HTTP ¿äÃ»)
-- Socket.io (½Ç½Ã°£ Åë½Å)
+### í”„ë¡ íŠ¸ì—”ë“œ
+- **React** 18.2.0
+- **Material-UI (MUI)** 5.14.19 - UI ì»´í¬ë„ŒíŠ¸ ë¼ì´ë¸ŒëŸ¬ë¦¬
+- **React Router DOM** 7.7.1 - ë¼ìš°íŒ…
+- **Zustand** 5.0.7 - ìƒíƒœ ê´€ë¦¬
+- **Axios** 1.11.0 - HTTP í´ë¼ì´ì–¸íŠ¸
+- **STOMP.js** 7.0.0 - WebSocket í†µì‹ 
+- **Socket.io Client** 4.8.1 - ì‹¤ì‹œê°„ í†µì‹ 
+- **Vite** 5.0.0 - ë¹Œë“œ ë„êµ¬
 
-## °ÔÀÓ ÇÃ·¹ÀÌ ¹æ¹ı
+### ê°œë°œ ë„êµ¬
+- **Java** 17
+- **Gradle** - ë¹Œë“œ ë„êµ¬
+- **TypeScript** - íƒ€ì… ì•ˆì „ì„±
 
-1. È¨ È­¸é¿¡¼­ »ç¿ëÀÚ ÀÌ¸§À» ÀÔ·ÂÇÏ¿© ·Î±×ÀÎÇÕ´Ï´Ù.
-2. »õ °ÔÀÓÀ» ¸¸µé°Å³ª ±âÁ¸ °ÔÀÓ¿¡ Âü¿©ÇÒ ¼ö ÀÖ½À´Ï´Ù.
-3. °ÔÀÓ »ı¼º ½Ã ÇÃ·¹ÀÌ¾î ¼ö, Á¦ÇÑ ½Ã°£, ¶ó¿îµå ¼ö¸¦ ¼³Á¤ÇÒ ¼ö ÀÖ½À´Ï´Ù.
-4. °ÔÀÓ ·Îºñ¿¡¼­ ´Ù¸¥ ÇÃ·¹ÀÌ¾îµéÀÌ Âü¿©ÇÒ ¶§±îÁö ±â´Ù¸³´Ï´Ù.
-5. °ÔÀÓÀÌ ½ÃÀÛµÇ¸é ÁÖÁ¦¿Í ´Ü¾î°¡ Ç¥½ÃµË´Ï´Ù (¶óÀÌ¾î´Â ´Ü¾î¸¦ º¼ ¼ö ¾ø½À´Ï´Ù).
-6. °¢ ÇÃ·¹ÀÌ¾î´Â ÈùÆ®¸¦ Á¦°øÇÏ°í, ´©°¡ ¶óÀÌ¾îÀÎÁö ÅõÇ¥ÇÕ´Ï´Ù.
-7. ¶óÀÌ¾î·Î Áö¸ñµÈ ÇÃ·¹ÀÌ¾î´Â º¯·ĞÇÒ ±âÈ¸°¡ ÀÖ½À´Ï´Ù.
-8. ¶óÀÌ¾î´Â ´Ü¾î¸¦ ¸ÂÃß·Á°í ½ÃµµÇÕ´Ï´Ù.
-9. ¶ó¿îµå°¡ ³¡³ª¸é °á°ú°¡ Ç¥½ÃµÇ°í ´ÙÀ½ ¶ó¿îµå·Î ÁøÇàÇÕ´Ï´Ù.
-10. ¸ğµç ¶ó¿îµå°¡ ³¡³ª¸é ÃÖÁ¾ °á°ú°¡ Ç¥½ÃµË´Ï´Ù.
+## ì„¤ì¹˜ ë° ì‹¤í–‰ ë°©ë²•
 
-## ÇâÈÄ °³¹ß °èÈ¹
+### ì‚¬ì „ ìš”êµ¬ì‚¬í•­
+- Java 17 ì´ìƒ
+- Node.js 16 ì´ìƒ
+- npm ë˜ëŠ” yarn
 
-1. **´Ù±¹¾î Áö¿ø**: i18nÀ» ÅëÇÑ ´Ù±¹¾î Áö¿ø Ãß°¡
-2. **Å×¸¶ ¼³Á¤**: ´ÙÅ© ¸ğµå µî Å×¸¶ ¼³Á¤ ±â´É Ãß°¡
-3. **»ç¿ëÀÚ ÇÁ·ÎÇÊ ¹× Åë°è**: »ç¿ëÀÚ ÇÁ·ÎÇÊ ¹× °ÔÀÓ Åë°è ±â´É Ãß°¡
-4. **°ÔÀÓ È÷½ºÅä¸®**: ÀÌÀü °ÔÀÓ ±â·Ï Á¶È¸ ±â´É Ãß°¡
-5. **¸ğ¹ÙÀÏ ÃÖÀûÈ­**: ¸ğ¹ÙÀÏ È¯°æ¿¡¼­ÀÇ »ç¿ë¼º °³¼±
-6. **CI/CD ÆÄÀÌÇÁ¶óÀÎ**: ÇÁ·ĞÆ®¿£µå ¹× ¹é¿£µå¸¦ À§ÇÑ CI/CD ÆÄÀÌÇÁ¶óÀÎ ±¸Ãà
-7. **Å×½ºÆ® °­È­**: ´ÜÀ§ Å×½ºÆ® ¹× E2E Å×½ºÆ® Ãß°¡
+### ë°±ì—”ë“œ ì‹¤í–‰
+```bash
+# í”„ë¡œì íŠ¸ ë£¨íŠ¸ ë””ë ‰í† ë¦¬ì—ì„œ
+./gradlew bootRun
+```
+
+### í”„ë¡ íŠ¸ì—”ë“œ ì‹¤í–‰
+```bash
+# frontend ë””ë ‰í† ë¦¬ë¡œ ì´ë™
+cd frontend
+
+# ì˜ì¡´ì„± ì„¤ì¹˜
+npm install
+
+# ê°œë°œ ì„œë²„ ì‹¤í–‰
+npm run dev
+```
+
+## ê²Œì„ í”Œë ˆì´ ë°©ë²•
+
+1. í™ˆ í™”ë©´ì—ì„œ ë‹‰ë„¤ì„ì„ ì…ë ¥í•˜ì—¬ ë¡œê·¸ì¸í•©ë‹ˆë‹¤.
+2. ë¡œë¹„ì—ì„œ ê²Œì„ ë°©ì„ ìƒì„±í•˜ê±°ë‚˜ ê¸°ì¡´ ê²Œì„ì— ì°¸ê°€í•  ìˆ˜ ìˆìŠµë‹ˆë‹¤.
+3. ê²Œì„ ë°©ì—ì„œ í”Œë ˆì´ì–´ ìˆ˜, ê²Œì„ ì‹œê°„, ë¼ìš´ë“œ ìˆ˜ë¥¼ ì„¤ì •í•  ìˆ˜ ìˆìŠµë‹ˆë‹¤.
+4. ê²Œì„ ë¡œë¹„ì—ì„œ ë‹¤ë¥¸ í”Œë ˆì´ì–´ë“¤ê³¼ ì±„íŒ…ì„ ë‚˜ëˆ„ë©° ê¸°ë‹¤ë¦½ë‹ˆë‹¤.
+5. ê²Œì„ì´ ì‹œì‘ë˜ë©´ ì£¼ì œê°€ í‘œì‹œë©ë‹ˆë‹¤ (ë¼ì´ì–´ëŠ” ì£¼ì œë¥¼ ë³¼ ìˆ˜ ì—†ìŠµë‹ˆë‹¤).
+6. ê° í”Œë ˆì´ì–´ëŠ” íŒíŠ¸ë¥¼ ì œê³µí•˜ê³ , ë‹¤ë¥¸ ë¼ì´ì–´ë¥¼ ì§€ëª©í•©ë‹ˆë‹¤.
+7. ë¼ì´ì–´ë¡œ ì˜ì‹¬ë˜ëŠ” í”Œë ˆì´ì–´ì— ëŒ€í•´ íˆ¬í‘œí•©ë‹ˆë‹¤.
+8. ë¼ì´ì–´ê°€ ë³€ëª…í•  ê¸°íšŒë¥¼ ê°€ì§‘ë‹ˆë‹¤.
+9. ìµœì¢… íˆ¬í‘œê°€ ì§„í–‰ë˜ê³  ê²°ê³¼ê°€ í‘œì‹œë©ë‹ˆë‹¤.
+10. ë¼ì´ì–´ê°€ ì£¼ì œë¥¼ ë§ì¶”ë ¤ê³  ì‹œë„í•©ë‹ˆë‹¤.
+11. ê²Œì„ì´ ì¢…ë£Œë˜ê³  ìµœì¢… ê²°ê³¼ê°€ í‘œì‹œë©ë‹ˆë‹¤.
+
+## í–¥í›„ ê°œë°œ ê³„íš
+
+1. **ë‹¤êµ­ì–´ ì§€ì›**: i18nì„ í†µí•œ ë‹¤êµ­ì–´ ì¸í„°í˜ì´ìŠ¤ ì¶”ê°€
+2. **í…Œë§ˆ ê¸°ëŠ¥**: ë‹¤í¬ ëª¨ë“œ ë° í…Œë§ˆ ì»¤ìŠ¤í„°ë§ˆì´ì§• ê¸°ëŠ¥ ì¶”ê°€
+3. **ì‚¬ìš©ì í”„ë¡œí•„ ë° í†µê³„**: ì‚¬ìš©ì í”„ë¡œí•„ ë° ê²Œì„ í†µê³„ ê¸°ëŠ¥ ì¶”ê°€
+4. **ê²Œì„ íˆìŠ¤í† ë¦¬**: ê²Œì„ ê¸°ë¡ ì¡°íšŒ ê¸°ëŠ¥ ì¶”ê°€
+5. **ì„œë²„ ìµœì í™”**: í”„ë¡œë•ì…˜ í™˜ê²½ì—ì„œì˜ ì„±ëŠ¥ ìµœì í™”
+6. **CI/CD íŒŒì´í”„ë¼ì¸**: í”„ë¡ íŠ¸ì—”ë“œ ë° ë°±ì—”ë“œë¥¼ ìœ„í•œ CI/CD íŒŒì´í”„ë¼ì¸ êµ¬ì¶•
+7. **í…ŒìŠ¤íŠ¸ ê°•í™”**: ë‹¨ìœ„ í…ŒìŠ¤íŠ¸ ë° E2E í…ŒìŠ¤íŠ¸ ì¶”ê°€
+
+---
+
+## Project Overview
+
+Liar Game is a social deduction game where players provide hints about a given topic and try to identify the hidden liar. The liar must guess the topic without knowing it, based on hints from other players.
+
+This project is implemented as a real-time web game using a Kotlin backend and React frontend.
+
+## Key Features
+
+- Real-time game room creation and joining
+- Game configuration and management (player count, time limits, rounds)
+- Real-time chat and hint sharing
+- Liar accusation and voting system
+- Game results and statistics
+- Admin dashboard for topic and word management
+
+## Project Structure
+
+```
+kotlin_liargame/
+â”œâ”€â”€ frontend/             # React frontend application
+â”‚   â”œâ”€â”€ public/           # Static assets
+â”‚   â”œâ”€â”€ src/              # React source code
+â”‚   â”‚   â”œâ”€â”€ components/   # React components
+â”‚   â”‚   â”œâ”€â”€ pages/        # Page components
+â”‚   â”‚   â”œâ”€â”€ stores/       # Zustand state management stores
+â”‚   â”‚   â”œâ”€â”€ App.jsx       # Main React component
+â”‚   â”‚   â””â”€â”€ main.jsx      # React application entry point
+â”‚   â”œâ”€â”€ package.json      # Frontend dependencies
+â”‚   â””â”€â”€ vite.config.js    # Vite configuration
+â”œâ”€â”€ src/                  # Kotlin backend source code
+â”‚   â”œâ”€â”€ main/             # Main source code
+â”‚   â”‚   â”œâ”€â”€ kotlin/       # Kotlin code
+â”‚   â”‚   â”‚   â””â”€â”€ org/example/kotlin_liargame/
+â”‚   â”‚   â”‚       â”œâ”€â”€ domain/   # Domain-specific code
+â”‚   â”‚   â”‚       â””â”€â”€ config/   # Application configuration
+â”‚   â”‚   â””â”€â”€ resources/    # Resource files
+â”‚   â””â”€â”€ test/             # Test code
+â”œâ”€â”€ build.gradle.kts      # Gradle build configuration
+â””â”€â”€ settings.gradle.kts   # Gradle settings
+```
+
+## Technology Stack
+
+### Backend
+- **Kotlin** 1.9.0
+- **Spring Boot** 3.2.0
+- **Spring Data JPA** - Database ORM
+- **Spring WebSocket** - Real-time communication
+- **Spring Session** - Session management
+- **H2 Database** - In-memory database
+- **SpringDoc OpenAPI** - API documentation (Swagger)
+- **MockK** - Testing framework
+
+### Frontend
+- **React** 18.2.0
+- **Material-UI (MUI)** 5.14.19 - UI component library
+- **React Router DOM** 7.7.1 - Routing
+- **Zustand** 5.0.7 - State management
+- **Axios** 1.11.0 - HTTP client
+- **STOMP.js** 7.0.0 - WebSocket communication
+- **Socket.io Client** 4.8.1 - Real-time communication
+- **Vite** 5.0.0 - Build tool
+
+### Development Tools
+- **Java** 17
+- **Gradle** - Build tool
+- **TypeScript** - Type safety
+
+## Installation and Setup
+
+### Prerequisites
+- Java 17 or higher
+- Node.js 16 or higher
+- npm or yarn
+
+### Backend Setup
+```bash
+# From project root directory
+./gradlew bootRun
+```
+
+### Frontend Setup
+```bash
+# Navigate to frontend directory
+cd frontend
+
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+```
+
+## How to Play
+
+1. Enter your nickname on the home screen to log in.
+2. Create a game room or join an existing game in the lobby.
+3. Configure player count, game time, and number of rounds in the game room.
+4. Chat with other players while waiting in the game lobby.
+5. When the game starts, the topic is displayed (liars cannot see the topic).
+6. Each player provides hints and accuses other players of being the liar.
+7. Vote for the player suspected of being the liar.
+8. The accused player gets a chance to defend themselves.
+9. Final voting takes place and results are displayed.
+10. The liar attempts to guess the topic.
+11. The game ends and final results are shown.
+
+## Future Development Plans
+
+1. **Multi-language Support**: Add multi-language interface through i18n
+2. **Theme Features**: Add dark mode and theme customization
+3. **User Profiles and Statistics**: Add user profile and game statistics features
+4. **Game History**: Add game record viewing functionality
+5. **Server Optimization**: Performance optimization for production environment
+6. **CI/CD Pipeline**: Build CI/CD pipeline for frontend and backend
+7. **Enhanced Testing**: Add unit tests and E2E tests
+
+## License
+
+This project is licensed under the MIT License.
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.

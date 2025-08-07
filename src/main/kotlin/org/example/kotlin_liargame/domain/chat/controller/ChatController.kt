@@ -1,11 +1,13 @@
 package org.example.kotlin_liargame.domain.chat.controller
 
 import jakarta.servlet.http.HttpSession
+import org.example.kotlin_liargame.domain.chat.dto.request.CompleteSpeechRequest
 import org.example.kotlin_liargame.domain.chat.dto.request.GetChatHistoryRequest
 import org.example.kotlin_liargame.domain.chat.dto.request.SendChatMessageRequest
 import org.example.kotlin_liargame.domain.chat.dto.response.ChatMessageResponse
 import org.example.kotlin_liargame.domain.chat.model.enum.ChatMessageType
 import org.example.kotlin_liargame.domain.chat.service.ChatService
+import org.example.kotlin_liargame.domain.game.service.GameProgressService
 import org.springframework.http.ResponseEntity
 import org.springframework.messaging.handler.annotation.MessageMapping
 import org.springframework.messaging.handler.annotation.Payload
@@ -17,7 +19,8 @@ import org.springframework.web.bind.annotation.*
 @RequestMapping("/api/v1/chat")
 class ChatController(
     private val chatService: ChatService,
-    private val messagingTemplate: SimpMessagingTemplate
+    private val messagingTemplate: SimpMessagingTemplate,
+    private val gameProgressService: GameProgressService
 ) {
 
     @PostMapping("/send")
@@ -144,5 +147,19 @@ class ChatController(
         
         val response = chatService.getChatHistory(request)
         return ResponseEntity.ok(response)
+    }
+    
+    @PostMapping("/speech/complete")
+    fun completeSpeech(@RequestBody request: CompleteSpeechRequest, session: HttpSession): ResponseEntity<String> {
+        return try {
+            val userId = session.getAttribute("userId") as? Long
+                ?: return ResponseEntity.status(401).body("Not authenticated")
+                
+            gameProgressService.markPlayerAsSpoken(request.gameNumber.toInt(), userId)
+            ResponseEntity.ok("Speech completed")
+            
+        } catch (e: Exception) {
+            ResponseEntity.badRequest().body("Failed to complete speech: ${e.message}")
+        }
     }
 }
