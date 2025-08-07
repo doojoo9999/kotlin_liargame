@@ -1,4 +1,4 @@
-package org.example.kotlin_liargame.domain.game.util
+package org.example.kotlin_liargame.global.util
 
 import org.example.kotlin_liargame.domain.game.dto.response.DefenseSubmissionResponse
 import org.example.kotlin_liargame.domain.game.dto.response.FinalVoteResponse
@@ -10,10 +10,7 @@ import org.springframework.stereotype.Component
 
 @Component
 class ControllerErrorHandler {
-    
-    /**
-     * DefenseSubmissionResponse 에러 응답을 생성합니다.
-     */
+
     fun createDefenseErrorResponse(
         gameNumber: Int,
         status: HttpStatus,
@@ -30,10 +27,7 @@ class ControllerErrorHandler {
             )
         )
     }
-    
-    /**
-     * FinalVoteResponse 에러 응답을 생성합니다.
-     */
+
     fun createFinalVoteErrorResponse(
         gameNumber: Int,
         status: HttpStatus,
@@ -50,10 +44,7 @@ class ControllerErrorHandler {
             )
         )
     }
-    
-    /**
-     * LiarGuessResultResponse 에러 응답을 생성합니다.
-     */
+
     fun createLiarGuessErrorResponse(
         gameNumber: Int,
         guess: String = "",
@@ -71,10 +62,7 @@ class ControllerErrorHandler {
             )
         )
     }
-    
-    /**
-     * VoteResponse 에러 응답을 생성합니다.
-     */
+
     fun createVoteErrorResponse(
         status: HttpStatus,
         message: String
@@ -83,19 +71,13 @@ class ControllerErrorHandler {
             VoteResponse("", "", false, message)
         )
     }
-    
-    /**
-     * 인증 실패 응답을 생성합니다.
-     */
+
     fun createUnauthorizedResponse(): ResponseEntity<Map<String, Any>> {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
             mapOf("error" to "Not authenticated")
         )
     }
-    
-    /**
-     * 예외에 따른 적절한 HTTP 상태 코드를 반환합니다.
-     */
+
     fun getStatusForException(exception: Exception): HttpStatus {
         return when (exception) {
             is IllegalArgumentException -> HttpStatus.BAD_REQUEST
@@ -103,10 +85,7 @@ class ControllerErrorHandler {
             else -> HttpStatus.INTERNAL_SERVER_ERROR
         }
     }
-    
-    /**
-     * 예외에 따른 적절한 에러 메시지를 생성합니다.
-     */
+
     fun getMessageForException(exception: Exception, operation: String): String {
         return when (exception) {
             is IllegalArgumentException -> "Invalid request: ${exception.message}"
