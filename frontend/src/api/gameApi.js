@@ -189,3 +189,123 @@ export const completeSpeech = async (gameNumber) => {
   })
   return response.data
 }
+
+// ==================== Hint Operations ====================
+
+export const submitHint = async (gameNumber, hint) => {
+  try {
+    if (!gameNumber || gameNumber <= 0) {
+      throw new Error('Invalid game number')
+    }
+    if (!hint || !hint.trim()) {
+      throw new Error('Hint cannot be empty')
+    }
+    if (hint.trim().length > 30) {
+      throw new Error('Hint cannot exceed 30 characters')
+    }
+
+    console.log('[DEBUG] Submitting hint:', { gameNumber, hint: hint.trim() })
+    
+    const response = await apiClient.post('/game/hint', {
+      gameNumber: parseInt(gameNumber),
+      hint: hint.trim()
+    })
+    
+    console.log('[DEBUG] Hint submission response:', response.data)
+    return response.data
+  } catch (error) {
+    console.error('Failed to submit hint:', error)
+    throw error
+  }
+}
+
+// ==================== Defense Operations ====================
+
+export const submitDefense = async (gameNumber, defenseText) => {
+  try {
+    if (!gameNumber || gameNumber <= 0) {
+      throw new Error('Invalid game number')
+    }
+    if (!defenseText || !defenseText.trim()) {
+      throw new Error('Defense text cannot be empty')
+    }
+    if (defenseText.trim().length > 100) {
+      throw new Error('Defense text cannot exceed 100 characters')
+    }
+
+    console.log('[DEBUG] Submitting defense:', { gameNumber, defenseText: defenseText.trim() })
+    
+    const response = await apiClient.post('/game/defense', {
+      gameNumber: parseInt(gameNumber),
+      defenseText: defenseText.trim()
+    })
+    
+    console.log('[DEBUG] Defense submission response:', response.data)
+    return response.data
+  } catch (error) {
+    console.error('Failed to submit defense:', error)
+    throw error
+  }
+}
+
+// ==================== Voting Operations ====================
+
+export const castVote = async (gameNumber, targetPlayerId) => {
+  const response = await apiClient.post('/game/vote', { gameNumber, targetPlayerId })
+  return response.data
+}
+
+// ==================== Survival Voting Operations ====================
+
+export const castSurvivalVote = async (gameNumber, survival) => {
+  try {
+    if (!gameNumber || gameNumber <= 0) {
+      throw new Error('Invalid game number')
+    }
+    if (typeof survival !== 'boolean') {
+      throw new Error('Survival vote must be boolean (true for spare, false for eliminate)')
+    }
+
+    console.log('[DEBUG] Casting survival vote:', { gameNumber, survival })
+    
+    const response = await apiClient.post('/game/survival-vote', {
+      gameNumber: parseInt(gameNumber),
+      survival: survival
+    })
+    
+    console.log('[DEBUG] Survival vote response:', response.data)
+    return response.data
+  } catch (error) {
+    console.error('Failed to cast survival vote:', error)
+    throw error
+  }
+}
+
+// ==================== Word Guessing Operations ====================
+
+export const guessWord = async (gameNumber, guessedWord) => {
+  try {
+    if (!gameNumber || gameNumber <= 0) {
+      throw new Error('Invalid game number')
+    }
+    if (!guessedWord || !guessedWord.trim()) {
+      throw new Error('Guessed word cannot be empty')
+    }
+    if (guessedWord.trim().length > 20) {
+      throw new Error('Guessed word cannot exceed 20 characters')
+    }
+
+    console.log('[DEBUG] Submitting word guess:', { gameNumber, guessedWord: guessedWord.trim() })
+    
+    const response = await apiClient.post('/game/guess-word', {
+      gameNumber: parseInt(gameNumber),
+      guessedWord: guessedWord.trim()
+    })
+    
+    console.log('[DEBUG] Word guess response:', response.data)
+    return response.data
+  } catch (error) {
+    console.error('Failed to guess word:', error)
+    throw error
+  }
+}
