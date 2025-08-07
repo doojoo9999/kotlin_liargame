@@ -21,7 +21,10 @@ data class GameStateResponse(
     val yourRole: String? = null,
     val yourWord: String? = null,
     val accusedPlayer: PlayerResponse? = null,
-    val isChatAvailable: Boolean = false
+    val isChatAvailable: Boolean = false,
+    val citizenSubject: String? = null,
+    val liarSubject: String? = null,
+    val subjects: List<String>? = null
 ) {
     companion object {
         fun from(
@@ -49,7 +52,10 @@ data class GameStateResponse(
                 yourRole = currentPlayer?.role?.name,
                 yourWord = currentPlayer?.subject?.content,
                 accusedPlayer = accusedPlayer?.let { PlayerResponse.from(it) },
-                isChatAvailable = isChatAvailable
+                isChatAvailable = isChatAvailable,
+                citizenSubject = game.citizenSubject?.content,
+                liarSubject = game.liarSubject?.content,
+                subjects = listOfNotNull(game.citizenSubject?.content, game.liarSubject?.content).distinct()
             )
         }
     }

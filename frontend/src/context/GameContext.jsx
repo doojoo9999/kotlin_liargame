@@ -22,9 +22,18 @@ const initialState = {
   assignedWord: null, // The word/keyword assigned to the player
   gameTimer: 0, // Remaining time for current phase
   votingResults: null,
+  votingData: null,
+  votingProgress: { voted: 0, total: 0 },
+  myVote: null, // The player ID that current user voted for
   gameResults: null,
   accusedPlayerId: null,
   defendingPlayerId: null,
+  defenseText: null,
+  survivalVotingProgress: { spare: 0, eliminate: 0, total: 0 },
+  mySurvivalVote: null, // true for spare, false for eliminate
+  wordGuessResult: null, // { correct: boolean, guessedWord: string, actualWord: string }
+  finalGameResult: null, // { winner: 'LIAR' | 'CITIZEN', message: string }
+  moderatorMessage: null,
   
   // UI state
   loading: {
@@ -83,13 +92,24 @@ const ActionTypes = {
   SET_ASSIGNED_WORD: 'SET_ASSIGNED_WORD',
   SET_GAME_TIMER: 'SET_GAME_TIMER',
   SET_VOTING_RESULTS: 'SET_VOTING_RESULTS',
+  SET_VOTING_DATA: 'SET_VOTING_DATA',
+  SET_VOTING_PROGRESS: 'SET_VOTING_PROGRESS',
+  SET_MY_VOTE: 'SET_MY_VOTE',
   SET_GAME_RESULTS: 'SET_GAME_RESULTS',
   SET_ACCUSED_PLAYER: 'SET_ACCUSED_PLAYER',
   SET_DEFENDING_PLAYER: 'SET_DEFENDING_PLAYER',
+  SET_DEFENSE_TEXT: 'SET_DEFENSE_TEXT',
+  SET_SURVIVAL_VOTING_PROGRESS: 'SET_SURVIVAL_VOTING_PROGRESS',
+  SET_MY_SURVIVAL_VOTE: 'SET_MY_SURVIVAL_VOTE',
+  SET_WORD_GUESS_RESULT: 'SET_WORD_GUESS_RESULT',
+  SET_FINAL_GAME_RESULT: 'SET_FINAL_GAME_RESULT',
   RESET_GAME_STATE: 'RESET_GAME_STATE',
   
   // Navigation actions
-  SET_CURRENT_PAGE: 'SET_CURRENT_PAGE'
+  SET_CURRENT_PAGE: 'SET_CURRENT_PAGE',
+  
+  // Moderator message actions
+  SET_MODERATOR_MESSAGE: 'SET_MODERATOR_MESSAGE'
 }
 
 // Reducer function
@@ -184,6 +204,12 @@ const gameReducer = (state, action) => {
         currentPage: action.payload
       }
       
+    case ActionTypes.SET_MODERATOR_MESSAGE:
+      return {
+        ...state,
+        moderatorMessage: action.payload
+      }
+      
     // WebSocket actions
     case ActionTypes.SET_SOCKET_CONNECTION:
       return {
@@ -268,6 +294,24 @@ const gameReducer = (state, action) => {
         votingResults: action.payload
       }
       
+    case ActionTypes.SET_VOTING_DATA:
+      return {
+        ...state,
+        votingData: action.payload
+      }
+      
+    case ActionTypes.SET_VOTING_PROGRESS:
+      return {
+        ...state,
+        votingProgress: action.payload
+      }
+      
+    case ActionTypes.SET_MY_VOTE:
+      return {
+        ...state,
+        myVote: action.payload
+      }
+      
     case ActionTypes.SET_GAME_RESULTS:
       return {
         ...state,
@@ -286,6 +330,36 @@ const gameReducer = (state, action) => {
         defendingPlayerId: action.payload
       }
       
+    case ActionTypes.SET_DEFENSE_TEXT:
+      return {
+        ...state,
+        defenseText: action.payload
+      }
+      
+    case ActionTypes.SET_SURVIVAL_VOTING_PROGRESS:
+      return {
+        ...state,
+        survivalVotingProgress: action.payload
+      }
+      
+    case ActionTypes.SET_MY_SURVIVAL_VOTE:
+      return {
+        ...state,
+        mySurvivalVote: action.payload
+      }
+      
+    case ActionTypes.SET_WORD_GUESS_RESULT:
+      return {
+        ...state,
+        wordGuessResult: action.payload
+      }
+      
+    case ActionTypes.SET_FINAL_GAME_RESULT:
+      return {
+        ...state,
+        finalGameResult: action.payload
+      }
+      
     case ActionTypes.RESET_GAME_STATE:
       return {
         ...state,
@@ -297,7 +371,12 @@ const gameReducer = (state, action) => {
         votingResults: null,
         gameResults: null,
         accusedPlayerId: null,
-        defendingPlayerId: null
+        defendingPlayerId: null,
+        defenseText: null,
+        survivalVotingProgress: { spare: 0, eliminate: 0, total: 0 },
+        mySurvivalVote: null,
+        wordGuessResult: null,
+        finalGameResult: null
       }
       
     default:
@@ -679,6 +758,37 @@ export const GameProvider = ({ children }) => {
       gameStompClient.subscribeToGameChat(gameNumber, handleChatMessage)
       gameStompClient.subscribeToGameRoom(gameNumber, handleGameUpdate)
       gameStompClient.subscribeToPlayerUpdates(gameNumber, handlePlayerUpdate)
+      
+      // 사회자 메시지 구독
+      gameStompClient.subscribe(`/topic/game/${gameNumber}/moderator`, (message) => {
+        const moderatorMessage = JSON.parse(message.body)
+        console.log('[DEBUG_LOG] Moderator message received:', moderatorMessage)
+        
+        // 사회자 메시지 상태 업데이트
+        dispatch({ 
+          type: ActionTypes.SET_MODERATOR_MESSAGE, 
+          payload: moderatorMessage.content 
+        })
+        
+        // 3초 후 메시지 숨기기
+        setTimeout(() => {
+          dispatch({ 
+            type: ActionTypes.SET_MODERATOR_MESSAGE, 
+            payload: null 
+          })
+        }, 3000)
+      })
+      
+      // 턴 변경 구독
+      gameStompClient.subscribe(`/topic/game/${gameNumber}/turn`, (message) => {
+        const turnMessage = JSON.parse(message.body)
+        console.log('[DEBUG_LOG] Turn change received:', turnMessage)
+        
+        dispatch({ 
+          type: ActionTypes.SET_CURRENT_TURN_PLAYER, 
+          payload: turnMessage.currentSpeakerId 
+        })
+      })
 
       console.log('[DEBUG_LOG] WebSocket subscriptions set up for game:', gameNumber)
       setLoading('socket', false)
@@ -717,10 +827,206 @@ export const GameProvider = ({ children }) => {
     }
   }
 
-  const castVote = (playerId) => {
-    if (gameStompClient.isClientConnected() && state.currentRoom) {
-      console.log('[DEBUG_LOG] Casting vote for player:', playerId)
-      gameStompClient.sendGameAction(state.currentRoom.gameNumber, 'vote', { targetPlayerId: playerId })
+  const castVote = async (gameNumber, targetPlayerId) => {
+    try {
+      if (!state.currentRoom) {
+        throw new Error('No current room available')
+      }
+
+      if (!targetPlayerId) {
+        throw new Error('Target player ID is required')
+      }
+
+      setLoading('room', true)
+      setError('room', null)
+
+      console.log('[DEBUG_LOG] Casting vote for player:', targetPlayerId, 'in game:', gameNumber)
+
+      // Call API to cast vote
+      const result = await gameApi.castVote(gameNumber, targetPlayerId)
+
+      // Update local state
+      dispatch({ type: ActionTypes.SET_MY_VOTE, payload: targetPlayerId })
+
+      // Send WebSocket message for real-time updates
+      if (gameStompClient.isClientConnected()) {
+        gameStompClient.sendGameAction(gameNumber, 'vote', { targetPlayerId })
+      }
+
+      console.log('[DEBUG_LOG] Vote cast successfully:', result)
+      setLoading('room', false)
+
+      return result
+    } catch (error) {
+      console.error('[ERROR] Failed to cast vote:', error)
+      setError('room', error.message || '투표에 실패했습니다.')
+      setLoading('room', false)
+      throw error
+    }
+  }
+
+  const submitHint = async (hint) => {
+    try {
+      if (!state.currentRoom) {
+        throw new Error('No current room available')
+      }
+
+      if (!hint || !hint.trim()) {
+        throw new Error('Hint cannot be empty')
+      }
+
+      setLoading('room', true)
+      setError('room', null)
+
+      console.log('[DEBUG_LOG] Submitting hint:', hint, 'for game:', state.currentRoom.gameNumber)
+      
+      // Call API to submit hint
+      const result = await gameApi.submitHint(state.currentRoom.gameNumber, hint.trim())
+      
+      // Send WebSocket message for real-time updates
+      if (gameStompClient.isClientConnected()) {
+        gameStompClient.sendGameAction(state.currentRoom.gameNumber, 'hint', { hint: hint.trim() })
+      }
+
+      console.log('[DEBUG_LOG] Hint submitted successfully:', result)
+      setLoading('room', false)
+      
+      return result
+    } catch (error) {
+      console.error('[ERROR] Failed to submit hint:', error)
+      setError('room', error.message || '힌트 제출에 실패했습니다.')
+      setLoading('room', false)
+      throw error
+    }
+  }
+
+  const submitDefense = async (defenseText) => {
+    try {
+      if (!state.currentRoom) {
+        throw new Error('No current room available')
+      }
+
+      if (!defenseText || !defenseText.trim()) {
+        throw new Error('Defense text cannot be empty')
+      }
+
+      setLoading('room', true)
+      setError('room', null)
+
+      console.log('[DEBUG_LOG] Submitting defense:', defenseText, 'for game:', state.currentRoom.gameNumber)
+      
+      // Call API to submit defense
+      const result = await gameApi.submitDefense(state.currentRoom.gameNumber, defenseText.trim())
+      
+      // Update local state with defense text
+      dispatch({ type: ActionTypes.SET_DEFENSE_TEXT, payload: defenseText.trim() })
+      
+      // Send WebSocket message for real-time updates
+      if (gameStompClient.isClientConnected()) {
+        gameStompClient.sendGameAction(state.currentRoom.gameNumber, 'defense', { 
+          defenseText: defenseText.trim(),
+          accusedPlayerId: state.accusedPlayerId 
+        })
+      }
+
+      console.log('[DEBUG_LOG] Defense submitted successfully:', result)
+      setLoading('room', false)
+      
+      return result
+    } catch (error) {
+      console.error('[ERROR] Failed to submit defense:', error)
+      setError('room', error.message || '변론 제출에 실패했습니다.')
+      setLoading('room', false)
+      throw error
+    }
+  }
+
+  const castSurvivalVote = async (survival) => {
+    try {
+      if (!state.currentRoom) {
+        throw new Error('No current room available')
+      }
+
+      if (typeof survival !== 'boolean') {
+        throw new Error('Survival vote must be boolean')
+      }
+
+      setLoading('room', true)
+      setError('room', null)
+
+      console.log('[DEBUG_LOG] Casting survival vote:', survival, 'for game:', state.currentRoom.gameNumber)
+      
+      // Call API to cast survival vote
+      const result = await gameApi.castSurvivalVote(state.currentRoom.gameNumber, survival)
+      
+      // Update local state with survival vote
+      dispatch({ type: ActionTypes.SET_MY_SURVIVAL_VOTE, payload: survival })
+      
+      // Send WebSocket message for real-time updates
+      if (gameStompClient.isClientConnected()) {
+        gameStompClient.sendGameAction(state.currentRoom.gameNumber, 'survival-vote', { 
+          survival: survival,
+          accusedPlayerId: state.accusedPlayerId 
+        })
+      }
+
+      console.log('[DEBUG_LOG] Survival vote cast successfully:', result)
+      setLoading('room', false)
+      
+      return result
+    } catch (error) {
+      console.error('[ERROR] Failed to cast survival vote:', error)
+      setError('room', error.message || '생존 투표에 실패했습니다.')
+      setLoading('room', false)
+      throw error
+    }
+  }
+
+  const guessWord = async (guessedWord) => {
+    try {
+      if (!state.currentRoom) {
+        throw new Error('No current room available')
+      }
+
+      if (!guessedWord || !guessedWord.trim()) {
+        throw new Error('Guessed word cannot be empty')
+      }
+
+      setLoading('room', true)
+      setError('room', null)
+
+      console.log('[DEBUG_LOG] Guessing word:', guessedWord, 'for game:', state.currentRoom.gameNumber)
+      
+      // Call API to guess word
+      const result = await gameApi.guessWord(state.currentRoom.gameNumber, guessedWord.trim())
+      
+      // Update local state with guess result
+      if (result.guessResult) {
+        dispatch({ type: ActionTypes.SET_WORD_GUESS_RESULT, payload: result.guessResult })
+      }
+      
+      // Update final game result if available
+      if (result.gameResult) {
+        dispatch({ type: ActionTypes.SET_FINAL_GAME_RESULT, payload: result.gameResult })
+      }
+      
+      // Send WebSocket message for real-time updates
+      if (gameStompClient.isClientConnected()) {
+        gameStompClient.sendGameAction(state.currentRoom.gameNumber, 'word-guess', { 
+          guessedWord: guessedWord.trim(),
+          result: result
+        })
+      }
+
+      console.log('[DEBUG_LOG] Word guess submitted successfully:', result)
+      setLoading('room', false)
+      
+      return result
+    } catch (error) {
+      console.error('[ERROR] Failed to guess word:', error)
+      setError('room', error.message || '단어 추리에 실패했습니다.')
+      setLoading('room', false)
+      throw error
     }
   }
 
@@ -915,8 +1221,11 @@ export const GameProvider = ({ children }) => {
         host: roomDetails.host || roomDetails.gameOwner || roomDetails.hostNickname || '알 수 없음',
         currentPlayers: parseInt(roomDetails.currentPlayers || roomDetails.playerCount || 0),
         maxPlayers: parseInt(roomDetails.maxPlayers || roomDetails.gameParticipants || 8),
-        subject: roomDetails.subject || roomDetails.citizenSubject?.content || roomDetails.subjectName || '주제 없음',
-        subjects: Array.isArray(roomDetails.subjects) ? roomDetails.subjects : [],
+        subject: roomDetails.subject || roomDetails.citizenSubject?.content || roomDetails.citizenSubject || roomDetails.subjectName || '주제 없음',
+        // Fix: Properly handle subjects array from GameStateResponse
+        subjects: Array.isArray(roomDetails.subjects) && roomDetails.subjects.length > 0 
+          ? roomDetails.subjects 
+          : (roomDetails.citizenSubject ? [roomDetails.citizenSubject] : []),
         state: roomDetails.state || roomDetails.gameState || 'WAITING',
         round: parseInt(roomDetails.currentRound || roomDetails.gameCurrentRound || 1),
         players: Array.isArray(roomDetails.players) ? roomDetails.players : [],
@@ -941,6 +1250,16 @@ export const GameProvider = ({ children }) => {
   }
 
 
+  const completeSpeech = useCallback(async (gameNumber) => {
+    try {
+      console.log('[DEBUG_LOG] Speech completed successfully')
+      await gameApi.completeSpeech(gameNumber)
+    } catch (error) {
+      console.error('Failed to complete speech:', error)
+      throw error
+    }
+  }, [])
+
   useEffect(() => {
     const userData = localStorage.getItem('userData')
     if (userData) {
@@ -962,6 +1281,93 @@ export const GameProvider = ({ children }) => {
       fetchRooms()
     }
   }, [state.isAuthenticated, state.currentPage])
+
+  // Timer management useEffect
+  useEffect(() => {
+    let timerInterval = null
+    
+    // Only run timer if game is active and timer > 0
+    if (state.gameTimer > 0 && state.gameStatus !== 'WAITING' && state.currentRoom) {
+      console.log('[DEBUG_LOG] Starting timer countdown:', state.gameTimer)
+      
+      timerInterval = setInterval(() => {
+        dispatch({ 
+          type: ActionTypes.SET_GAME_TIMER, 
+          payload: Math.max(0, state.gameTimer - 1) 
+        })
+      }, 1000)
+    }
+    
+    // Auto-execute actions when timer expires
+    if (state.gameTimer === 0 && state.gameStatus !== 'WAITING' && state.currentRoom) {
+      console.log('[DEBUG_LOG] Timer expired, executing auto action for status:', state.gameStatus)
+      
+      const executeAutoAction = async () => {
+        try {
+          const gameNumber = state.currentRoom.gameNumber
+          
+          switch (state.gameStatus) {
+            case 'SPEAKING':
+              // Auto-submit empty hint
+              console.log('[DEBUG_LOG] Auto-submitting empty hint')
+              await submitHint('')
+              break
+              
+            case 'VOTING':
+              // Auto-vote for random player (excluding self)
+              const availablePlayers = state.roomPlayers.filter(p => 
+                p.id !== state.currentUser?.id && p.isAlive !== false
+              )
+              if (availablePlayers.length > 0) {
+                const randomPlayer = availablePlayers[Math.floor(Math.random() * availablePlayers.length)]
+                console.log('[DEBUG_LOG] Auto-voting for random player:', randomPlayer.nickname)
+                await castVote(randomPlayer.id)
+              }
+              break
+              
+            case 'DEFENSE':
+              // Auto-submit empty defense
+              console.log('[DEBUG_LOG] Auto-submitting empty defense')
+              await submitDefense('')
+              break
+              
+            case 'SURVIVAL_VOTING':
+              // Auto-vote to eliminate (false)
+              console.log('[DEBUG_LOG] Auto-voting to eliminate')
+              await castSurvivalVote(false)
+              break
+              
+            case 'WORD_GUESS':
+              // Auto-submit empty word guess
+              console.log('[DEBUG_LOG] Auto-submitting empty word guess')
+              await guessWord('')
+              break
+              
+            default:
+              console.log('[DEBUG_LOG] No auto action defined for status:', state.gameStatus)
+          }
+        } catch (error) {
+          console.error('[ERROR] Failed to execute auto action:', error)
+        }
+      }
+      
+      // Execute auto action with slight delay to ensure state consistency
+      setTimeout(executeAutoAction, 100)
+    }
+    
+    return () => {
+      if (timerInterval) {
+        clearInterval(timerInterval)
+      }
+    }
+  }, [state.gameTimer, state.gameStatus, state.currentRoom, state.roomPlayers, state.currentUser])
+
+  // Server timer synchronization useEffect
+  useEffect(() => {
+    // This effect handles server-sent timer updates
+    // The timer value from server takes precedence over client countdown
+    console.log('[DEBUG_LOG] Timer synchronized from server:', state.gameTimer)
+  }, [state.gameTimer])
 
   // Memoized context value to prevent unnecessary re-renders
   const contextValue = useMemo(() => ({
@@ -997,6 +1403,11 @@ export const GameProvider = ({ children }) => {
     // Game functions
     startGame,
     castVote,
+    submitHint,
+    submitDefense,
+    castSurvivalVote,
+    guessWord,
+    completeSpeech,
 
     // Game Connection
     connectToRoom,
@@ -1021,6 +1432,11 @@ export const GameProvider = ({ children }) => {
     loadChatHistory,
     startGame,
     castVote,
+    submitHint,
+    submitDefense,
+    castSurvivalVote,
+    guessWord,
+    completeSpeech,
     connectToRoom,
     fetchRoomDetails
   ])

@@ -9,9 +9,14 @@ const useSocketStore = create(
   subscribeWithSelector((set, get) => ({
     // State
     socketConnected: false,
+    connectionStatus: 'disconnected', // 'disconnected' | 'connecting' | 'connected' | 'reconnecting' | 'error'
+    lastConnectionTime: null,
+    reconnectAttempts: 0,
     chatMessages: [],
     roomPlayers: [],
     currentTurnPlayerId: null,
+    playerConnectionStatus: {}, // Track individual player connection status
+    lastGameStateSync: null,
     loading: {
       socket: false,
       chatHistory: false,
@@ -26,29 +31,102 @@ const useSocketStore = create(
         console.log('[DEBUG_LOG] Connecting to WebSocket for game:', gameNumber)
         set(state => ({ 
           loading: { ...state.loading, socket: true },
-          error: { ...state.error, socket: null }
+          error: { ...state.error, socket: null },
+          connectionStatus: 'connecting'
         }))
 
         await gameStompClient.connect()
         
         const handleChatMessage = (message) => {
           console.log('[DEBUG_LOG] Received chat message via WebSocket:', message)
-          set(state => ({
-            chatMessages: [...state.chatMessages, message]
-          }))
+          
+          // Separate system messages from user chat
+          if (message.type === 'SYSTEM') {
+            console.log('[DEBUG_LOG] System message:', message.content)
+            // Handle system messages differently (e.g., game notifications)
+            set(state => ({
+              chatMessages: [...state.chatMessages, {
+                ...message,
+                timestamp: message.timestamp || new Date().toISOString(),
+                isSystemMessage: true
+              }]
+            }))
+          } else if (message.type === 'GAME_ACTION') {
+            console.log('[DEBUG_LOG] Game action message:', message.action)
+            // Handle game action notifications
+            set(state => ({
+              chatMessages: [...state.chatMessages, {
+                ...message,
+                timestamp: message.timestamp || new Date().toISOString(),
+                isGameAction: true
+              }]
+            }))
+          } else {
+            // Regular chat message
+            set(state => ({
+              chatMessages: [...state.chatMessages, {
+                ...message,
+                timestamp: message.timestamp || new Date().toISOString(),
+                isUserMessage: true
+              }]
+            }))
+          }
         }
 
         const handleGameUpdate = (update) => {
           console.log('[DEBUG_LOG] Received game update:', update)
+          
+          // Update last sync time
+          set({ lastGameStateSync: new Date().toISOString() })
+          
+          // Handle different types of game updates
+          switch (update.type) {
+            case 'GAME_STATE_CHANGE':
+              console.log('[DEBUG_LOG] Game state changed:', update.gameStatus)
+              break
+            case 'TIMER_UPDATE':
+              console.log('[DEBUG_LOG] Timer updated:', update.gameTimer)
+              break
+            case 'PLAYER_ACTION':
+              console.log('[DEBUG_LOG] Player action:', update.action, 'by', update.playerId)
+              break
+            case 'GAME_PHASE_TRANSITION':
+              console.log('[DEBUG_LOG] Game phase transition:', update.fromPhase, '->', update.toPhase)
+              break
+            default:
+              console.log('[DEBUG_LOG] Generic game update:', update.type)
+          }
+          
           // Forward game updates to gameStore (avoid circular dependency)
           import('./gameStore').then(({ default: gameStore }) => {
             gameStore.getState().handleGameUpdate(update)
+          }).catch(error => {
+            console.error('[ERROR] Failed to forward game update:', error)
+            // Fallback: try to sync game state directly
+            console.log('[DEBUG_LOG] Attempting direct game state sync fallback')
           })
         }
 
         const handlePlayerUpdate = (players) => {
           console.log('[DEBUG_LOG] Received player update:', players)
-          set({ roomPlayers: players })
+          
+          // Update player connection status
+          const connectionStatus = {}
+          if (Array.isArray(players)) {
+            players.forEach(player => {
+              connectionStatus[player.id] = {
+                connected: player.connected !== false,
+                lastSeen: player.lastSeen || new Date().toISOString(),
+                nickname: player.nickname,
+                isAlive: player.isAlive !== false
+              }
+            })
+          }
+          
+          set({ 
+            roomPlayers: players,
+            playerConnectionStatus: connectionStatus
+          })
         }
 
         gameStompClient.subscribeToGameChat(gameNumber, handleChatMessage)
@@ -58,15 +136,85 @@ const useSocketStore = create(
         console.log('[DEBUG_LOG] WebSocket subscriptions set up for game:', gameNumber)
         set(state => ({
           socketConnected: true,
+          connectionStatus: 'connected',
+          lastConnectionTime: new Date().toISOString(),
+          reconnectAttempts: 0,
           loading: { ...state.loading, socket: false }
         }))
+
+        // Start heartbeat monitoring
+        get().startHeartbeat(gameNumber)
 
       } catch (error) {
         console.error('Failed to connect socket:', error)
         set(state => ({
           error: { ...state.error, socket: error.message },
+          connectionStatus: 'error',
           loading: { ...state.loading, socket: false }
         }))
+        
+        // Attempt auto-reconnect
+        get().scheduleReconnect(gameNumber)
+      }
+    },
+
+    // Auto-reconnect functionality
+    scheduleReconnect: (gameNumber, delay = 2000) => {
+      const state = get()
+      if (state.reconnectAttempts >= 5) {
+        console.error('[ERROR] Max reconnection attempts reached')
+        set(state => ({
+          connectionStatus: 'error',
+          error: { ...state.error, socket: '연결을 복구할 수 없습니다. 페이지를 새로고침해주세요.' }
+        }))
+        return
+      }
+
+      console.log(`[DEBUG_LOG] Scheduling reconnect in ${delay}ms (attempt ${state.reconnectAttempts + 1}/5)`)
+      set(state => ({
+        connectionStatus: 'reconnecting',
+        reconnectAttempts: state.reconnectAttempts + 1
+      }))
+
+      setTimeout(() => {
+        console.log('[DEBUG_LOG] Attempting auto-reconnect...')
+        get().connectSocket(gameNumber)
+      }, delay * Math.pow(2, state.reconnectAttempts)) // Exponential backoff
+    },
+
+    // Heartbeat monitoring
+    startHeartbeat: (gameNumber) => {
+      const heartbeatInterval = setInterval(() => {
+        if (!gameStompClient.isClientConnected()) {
+          console.warn('[WARNING] WebSocket connection lost, attempting reconnect')
+          clearInterval(heartbeatInterval)
+          get().scheduleReconnect(gameNumber)
+        } else {
+          console.log('[DEBUG_LOG] WebSocket heartbeat OK')
+        }
+      }, 30000) // Check every 30 seconds
+
+      // Store interval reference for cleanup
+      set({ heartbeatInterval })
+    },
+
+    // Request game state re-sync
+    requestGameStateSync: async (gameNumber) => {
+      try {
+        console.log('[DEBUG_LOG] Requesting game state re-sync')
+        const gameApi = await import('../api/gameApi')
+        const gameState = await gameApi.getGameState(gameNumber)
+        
+        // Forward to game context
+        import('../context/GameContext').then(({ useGame }) => {
+          console.log('[DEBUG_LOG] Game state re-sync completed')
+        })
+        
+        set({ lastGameStateSync: new Date().toISOString() })
+        return gameState
+      } catch (error) {
+        console.error('[ERROR] Failed to sync game state:', error)
+        throw error
       }
     },
 

@@ -1,20 +1,29 @@
 package org.example.kotlin_liargame.domain.game.controller
 
+import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.responses.ApiResponse
+import io.swagger.v3.oas.annotations.responses.ApiResponses
 import jakarta.servlet.http.HttpSession
+import jakarta.validation.Valid
 import org.example.kotlin_liargame.domain.game.dto.request.*
-import org.example.kotlin_liargame.domain.game.dto.response.GameResultResponse
-import org.example.kotlin_liargame.domain.game.dto.response.GameRoomListResponse
-import org.example.kotlin_liargame.domain.game.dto.response.GameStateResponse
-import org.example.kotlin_liargame.domain.game.service.GameService
+import org.example.kotlin_liargame.domain.game.dto.response.*
+import org.example.kotlin_liargame.domain.game.service.*
+import org.example.kotlin_liargame.global.util.ControllerErrorHandler
+import org.example.kotlin_liargame.global.util.SessionUtil
+import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
-import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.web.bind.annotation.*
 
 @RestController
 @RequestMapping("/api/v1/game")
 class GameController(
     private val gameService: GameService,
-    private val messagingTemplate: SimpMessagingTemplate
+    private val gameProgressService: GameProgressService,
+    private val votingService: VotingService,
+    private val defenseService: DefenseService,
+    private val gameResultService: GameResultService,
+    private val sessionUtil: SessionUtil,
+    private val errorHandler: ControllerErrorHandler
 ) {
     
     @PostMapping("/create")
@@ -25,55 +34,42 @@ class GameController(
 
     @PostMapping("/join")
     fun joinGame(@RequestBody request: JoinGameRequest, session: HttpSession): ResponseEntity<GameStateResponse> {
-        try {
+        return try {
             val response = gameService.joinGame(request, session)
-
-            messagingTemplate.convertAndSend("/topic/room.${request.gameNumber}", mapOf(
-                "type" to "PLAYER_JOINED",
-                "gameState" to response,
-                "gameNumber" to request.gameNumber
-            ))
-
-            messagingTemplate.convertAndSend("/topic/lobby", mapOf(
-                "type" to "ROOM_UPDATED",
-                "gameNumber" to request.gameNumber
-            ))
-
-            return ResponseEntity.ok(response)
+            ResponseEntity.ok(response)
         } catch (e: Exception) {
             println("[ERROR] Failed to join game: ${e.message}")
-            return ResponseEntity.badRequest().body(null)
+            ResponseEntity.badRequest().body(null)
         }
     }
 
 
     @PostMapping("/leave")
     fun leaveGame(@RequestBody request: LeaveGameRequest, session: HttpSession): ResponseEntity<Boolean> {
-        try {
+        return try {
             val response = gameService.leaveGame(request, session)
-
-            messagingTemplate.convertAndSend("/topic/room.${request.gameNumber}", mapOf(
-                "type" to "PLAYER_LEFT",
-                "gameNumber" to request.gameNumber
-            ))
-
-            messagingTemplate.convertAndSend("/topic/lobby", mapOf(
-                "type" to "ROOM_UPDATED",
-                "gameNumber" to request.gameNumber
-            ))
-
-            return ResponseEntity.ok(response)
+            ResponseEntity.ok(response)
         } catch (e: Exception) {
             println("[ERROR] Failed to leave game: ${e.message}")
-            return ResponseEntity.badRequest().body(null)
+            ResponseEntity.badRequest().body(null)
         }
     }
 
     
     @PostMapping("/start")
     fun startGame(@RequestBody request: StartGameRequest, session: HttpSession): ResponseEntity<GameStateResponse> {
-        val response = gameService.startGame(request, session)
-        return ResponseEntity.ok(response)
+        return try {
+            // 기존 게임 시작 로직
+            val gameState = gameService.startGame(request, session)
+            
+            // 새로운 게임 진행 로직 추가
+            gameProgressService.initializeGameProgress(gameState.gameNumber)
+            
+            ResponseEntity.ok(gameState)
+        } catch (e: Exception) {
+            println("[ERROR] Failed to start game: ${e.message}")
+            ResponseEntity.badRequest().body(null)
+        }
     }
     
     @PostMapping("/hint")
@@ -86,6 +82,25 @@ class GameController(
     fun vote(@RequestBody request: VoteRequest, session: HttpSession): ResponseEntity<GameStateResponse> {
         val response = gameService.vote(request, session)
         return ResponseEntity.ok(response)
+    }
+    
+    @PostMapping("/cast-vote")
+    fun castVote(@RequestBody request: CastVoteRequest, session: HttpSession): ResponseEntity<VoteResponse> {
+        return try {
+            val userId = sessionUtil.getUserId(session)
+                ?: return errorHandler.createVoteErrorResponse(
+                    HttpStatus.UNAUTHORIZED, 
+                    "Not authenticated"
+                )
+                
+            val response = votingService.castVote(request.gameNumber, userId, request.targetPlayerId)
+            ResponseEntity.ok(response)
+            
+        } catch (e: Exception) {
+            val status = errorHandler.getStatusForException(e)
+            val message = errorHandler.getMessageForException(e, "Vote")
+            errorHandler.createVoteErrorResponse(status, message)
+        }
     }
     
     @PostMapping("/defend")
@@ -128,5 +143,126 @@ class GameController(
     fun getAllGameRooms(session: HttpSession): ResponseEntity<GameRoomListResponse> {
         val response = gameService.getAllGameRooms(session)
         return ResponseEntity.ok(response)
+    }
+    
+    @PostMapping("/submit-defense")
+    @Operation(summary = "변론 제출", description = "지목된 플레이어가 변론을 제출합니다")
+    @ApiResponses(value = [
+        ApiResponse(responseCode = "200", description = "변론 제출 성공"),
+        ApiResponse(responseCode = "400", description = "잘못된 요청 데이터"),
+        ApiResponse(responseCode = "401", description = "인증되지 않은 사용자"),
+        ApiResponse(responseCode = "403", description = "변론 권한 없음")
+    ])
+    fun submitDefense(
+        @RequestBody @Valid request: SubmitDefenseRequest, 
+        session: HttpSession
+    ): ResponseEntity<DefenseSubmissionResponse> {
+        return try {
+            request.validate()
+            
+            val userId = sessionUtil.getUserId(session)
+                ?: return errorHandler.createDefenseErrorResponse(
+                    request.gameNumber, 
+                    HttpStatus.UNAUTHORIZED, 
+                    "Not authenticated"
+                )
+            
+            val response = defenseService.submitDefense(request.gameNumber, userId, request.defenseText)
+            ResponseEntity.ok(response)
+            
+        } catch (e: Exception) {
+            val status = errorHandler.getStatusForException(e)
+            val message = errorHandler.getMessageForException(e, "Defense submission")
+            errorHandler.createDefenseErrorResponse(request.gameNumber, status, message)
+        }
+    }
+
+    @PostMapping("/cast-final-judgment")
+    @Operation(summary = "최종 판결 투표", description = "플레이어가 처형/생존에 대해 투표합니다")
+    @ApiResponses(value = [
+        ApiResponse(responseCode = "200", description = "투표 성공"),
+        ApiResponse(responseCode = "400", description = "잘못된 요청 데이터"),
+        ApiResponse(responseCode = "401", description = "인증되지 않은 사용자"),
+        ApiResponse(responseCode = "403", description = "투표 권한 없음")
+    ])
+    fun castFinalJudgment(
+        @RequestBody @Valid request: CastFinalJudgmentRequest, 
+        session: HttpSession
+    ): ResponseEntity<FinalVoteResponse> {
+        return try {
+            request.validate()
+            
+            val userId = sessionUtil.getUserId(session)
+                ?: return errorHandler.createFinalVoteErrorResponse(
+                    request.gameNumber, 
+                    HttpStatus.UNAUTHORIZED, 
+                    "Not authenticated"
+                )
+            
+            val response = defenseService.castFinalVote(request.gameNumber, userId, request.voteForExecution)
+            ResponseEntity.ok(response)
+            
+        } catch (e: Exception) {
+            val status = errorHandler.getStatusForException(e)
+            val message = errorHandler.getMessageForException(e, "Final judgment")
+            errorHandler.createFinalVoteErrorResponse(request.gameNumber, status, message)
+        }
+    }
+
+    @PostMapping("/submit-liar-guess")
+    @Operation(summary = "라이어 추측 제출", description = "라이어가 주제에 대한 추측을 제출합니다")
+    @ApiResponses(value = [
+        ApiResponse(responseCode = "200", description = "추측 제출 성공"),
+        ApiResponse(responseCode = "400", description = "잘못된 요청 데이터"),
+        ApiResponse(responseCode = "401", description = "인증되지 않은 사용자"),
+        ApiResponse(responseCode = "403", description = "라이어만 추측 가능")
+    ])
+    fun submitLiarGuess(
+        @RequestBody @Valid request: SubmitLiarGuessRequest, 
+        session: HttpSession
+    ): ResponseEntity<LiarGuessResultResponse> {
+        return try {
+            request.validate()
+            
+            val userId = sessionUtil.getUserId(session)
+                ?: return errorHandler.createLiarGuessErrorResponse(
+                    request.gameNumber, 
+                    request.guess,
+                    HttpStatus.UNAUTHORIZED, 
+                    "Not authenticated"
+                )
+            
+            val response = gameResultService.submitLiarGuess(request.gameNumber, userId, request.guess)
+            ResponseEntity.ok(response)
+            
+        } catch (e: Exception) {
+            val status = errorHandler.getStatusForException(e)
+            val message = errorHandler.getMessageForException(e, "Liar guess submission")
+            errorHandler.createLiarGuessErrorResponse(request.gameNumber, request.guess, status, message)
+        }
+    }
+
+    @GetMapping("/recover-state/{gameNumber}")
+    @Operation(summary = "게임 상태 복구", description = "재연결 시 현재 게임 상태를 복구합니다")
+    fun recoverGameState(
+        @PathVariable gameNumber: Int,
+        session: HttpSession
+    ): ResponseEntity<Map<String, Any>> {
+        return try {
+            val userId = sessionUtil.getUserId(session)
+                ?: return errorHandler.createUnauthorizedResponse()
+
+            val recoveryData = gameService.recoverGameState(gameNumber, userId)
+            ResponseEntity.ok(recoveryData)
+
+        } catch (e: Exception) {
+            val status = errorHandler.getStatusForException(e)
+            ResponseEntity.status(status).body(
+                mapOf(
+                    "error" to "Failed to recover game state: ${e.message}",
+                    "gameNumber" to gameNumber
+                )
+            )
+        }
     }
 }
