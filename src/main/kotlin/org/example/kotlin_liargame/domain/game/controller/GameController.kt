@@ -162,8 +162,7 @@ class GameController(
         session: HttpSession
     ): ResponseEntity<DefenseSubmissionResponse> {
         return try {
-            request.validate()
-            
+
             val userId = sessionUtil.getUserId(session)
                 ?: return errorHandler.createDefenseErrorResponse(
                     request.gameNumber, 
@@ -194,7 +193,6 @@ class GameController(
         session: HttpSession
     ): ResponseEntity<FinalVoteResponse> {
         return try {
-            request.validate()
             
             val userId = sessionUtil.getUserId(session)
                 ?: return errorHandler.createFinalVoteErrorResponse(
@@ -226,7 +224,6 @@ class GameController(
         session: HttpSession
     ): ResponseEntity<LiarGuessResultResponse> {
         return try {
-            request.validate()
             
             val userId = sessionUtil.getUserId(session)
                 ?: return errorHandler.createLiarGuessErrorResponse(

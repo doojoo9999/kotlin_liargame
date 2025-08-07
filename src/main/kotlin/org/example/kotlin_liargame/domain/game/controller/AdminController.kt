@@ -11,10 +11,7 @@ import org.springframework.web.bind.annotation.*
 class AdminController(
     private val gameTerminationService: GameTerminationService
 ) {
-    
-    /**
-     * Force terminate a game (Admin only)
-     */
+
     @PostMapping("/games/{gameNumber}/terminate")
     fun forceTerminateGame(
         @PathVariable gameNumber: Int,
@@ -41,10 +38,7 @@ class AdminController(
             )
         }
     }
-    
-    /**
-     * Start monitoring a game for abnormal conditions
-     */
+
     @PostMapping("/games/{gameNumber}/monitor")
     fun startGameMonitoring(@PathVariable gameNumber: Int): ResponseEntity<*> {
         return try {
@@ -65,10 +59,7 @@ class AdminController(
             )
         }
     }
-    
-    /**
-     * Stop monitoring a game
-     */
+
     @DeleteMapping("/games/{gameNumber}/monitor")
     fun stopGameMonitoring(@PathVariable gameNumber: Int): ResponseEntity<*> {
         return try {
@@ -89,10 +80,7 @@ class AdminController(
             )
         }
     }
-    
-    /**
-     * Manually trigger auto-termination for testing
-     */
+
     @PostMapping("/games/{gameNumber}/auto-terminate")
     fun triggerAutoTermination(
         @PathVariable gameNumber: Int,
@@ -124,10 +112,7 @@ class AdminController(
             )
         }
     }
-    
-    /**
-     * Get termination statistics
-     */
+
     @GetMapping("/termination/stats")
     fun getTerminationStats(): ResponseEntity<*> {
         return try {
@@ -142,10 +127,7 @@ class AdminController(
             )
         }
     }
-    
-    /**
-     * Health check endpoint for admin functionality
-     */
+
     @GetMapping("/health")
     fun healthCheck(): ResponseEntity<*> {
         return ResponseEntity.ok(
@@ -158,17 +140,12 @@ class AdminController(
     }
 }
 
-/**
- * Request body for admin game termination
- */
+
 data class AdminTerminationRequest(
     val reason: String,
     val adminId: String? = null // Optional admin identifier
 )
 
-/**
- * Request body for auto-termination testing
- */
 data class AutoTerminationRequest(
     val condition: String // One of: ALL_PLAYERS_DISCONNECTED, GAME_STUCK, SERVER_ERROR, TIMEOUT_EXCEEDED
 )

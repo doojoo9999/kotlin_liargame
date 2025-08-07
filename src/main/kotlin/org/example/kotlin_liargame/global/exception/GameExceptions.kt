@@ -13,11 +13,20 @@ abstract class GameException(
 ) : RuntimeException(message, cause)
 
 // Game state exceptions
-class GameNotFoundException(gameNumber: Int) : GameException(
-    message = "Game not found: $gameNumber",
-    errorCode = "GAME_NOT_FOUND",
-    userFriendlyMessage = "게임을 찾을 수 없습니다."
-)
+class GameNotFoundException : GameException {
+    constructor(gameNumber: Int) : super(
+        message = "Game not found: $gameNumber",
+        errorCode = "GAME_NOT_FOUND",
+        userFriendlyMessage = "게임을 찾을 수 없습니다."
+    )
+    
+    // Legacy constructor for compatibility with ExceptionHandler.kt
+    constructor(message: String) : super(
+        message = message,
+        errorCode = "GAME_NOT_FOUND",
+        userFriendlyMessage = "게임을 찾을 수 없습니다."
+    )
+}
 
 class GameStateException(message: String, userFriendlyMessage: String) : GameException(
     message = message,
@@ -31,12 +40,20 @@ class GameFullException(gameNumber: Int) : GameException(
     userFriendlyMessage = "게임이 가득 찼습니다."
 )
 
-// Player exceptions
-class PlayerNotFoundException(playerId: Long) : GameException(
-    message = "Player not found: $playerId",
-    errorCode = "PLAYER_NOT_FOUND",
-    userFriendlyMessage = "플레이어를 찾을 수 없습니다."
-)
+class PlayerNotFoundException : GameException {
+    constructor(playerId: Long) : super(
+        message = "Player not found: $playerId",
+        errorCode = "PLAYER_NOT_FOUND",
+        userFriendlyMessage = "플레이어를 찾을 수 없습니다."
+    )
+    
+    // Legacy constructor for compatibility with ExceptionHandler.kt
+    constructor(message: String) : super(
+        message = message,
+        errorCode = "PLAYER_NOT_FOUND",
+        userFriendlyMessage = "플레이어를 찾을 수 없습니다."
+    )
+}
 
 class PlayerNotInGameException(playerId: Long, gameNumber: Int) : GameException(
     message = "Player $playerId not in game $gameNumber",
@@ -64,11 +81,26 @@ class TopicGuessTimeoutException(gameNumber: Int) : GameException(
 )
 
 // Voting exceptions
-class VotingException(message: String, userFriendlyMessage: String) : GameException(
-    message = message,
-    errorCode = "VOTING_ERROR",
-    userFriendlyMessage = userFriendlyMessage
-)
+class VotingException : GameException {
+    val gameNumber: Int?
+    
+    constructor(message: String, userFriendlyMessage: String) : super(
+        message = message,
+        errorCode = "VOTING_ERROR",
+        userFriendlyMessage = userFriendlyMessage
+    ) {
+        this.gameNumber = null
+    }
+    
+    // Legacy constructor for compatibility with ExceptionHandler.kt
+    constructor(message: String, gameNumber: Int? = null) : super(
+        message = message,
+        errorCode = "VOTING_ERROR",
+        userFriendlyMessage = message
+    ) {
+        this.gameNumber = gameNumber
+    }
+}
 
 class InvalidVoteException(reason: String) : GameException(
     message = "Invalid vote: $reason",
@@ -103,15 +135,15 @@ class RateLimitExceededException(action: String) : GameException(
     userFriendlyMessage = "요청이 너무 빈번합니다. 잠시 후 다시 시도해주세요."
 )
 
-// Error response data class
-data class ErrorResponse(
-    val success: Boolean = false,
-    val errorCode: String,
-    val message: String,
-    val userFriendlyMessage: String,
-    val timestamp: Long = System.currentTimeMillis(),
-    val details: Map<String, Any>? = null
-)
+// Legacy exception classes from ExceptionHandler.kt (simple RuntimeException-based)
+class GamePhaseException(message: String, val gameNumber: Int? = null) : RuntimeException(message)
+class PlayerDisconnectedException(
+    message: String, 
+    val gameNumber: Int? = null, 
+    val playerId: Long? = null, 
+    val playerNickname: String? = null
+) : RuntimeException(message)
+
 
 // Error codes enum for consistency
 enum class GameErrorCode(val code: String, val defaultMessage: String) {
