@@ -5,5 +5,6 @@ data class DefenseSubmissionResponse(
     val playerId: Long,
     val playerNickname: String,
     val defenseText: String,
-    val success: Boolean
+    val success: Boolean,
+    val message: String? = null
 )
