@@ -15,7 +15,8 @@ class VotingService(
     private val gameRepository: GameRepository,
     private val playerRepository: PlayerRepository,
     private val messagingTemplate: SimpMessagingTemplate,
-    private val taskScheduler: TaskScheduler
+    private val taskScheduler: TaskScheduler,
+    private val defenseService: DefenseService
 ) {
     
     // 투표 상태 관리
@@ -205,19 +206,14 @@ class VotingService(
     
     private fun scheduleDefensePhase(gameNumber: Int, accusedPlayerId: Long) {
         taskScheduler.schedule({
-            val accusedPlayer = playerRepository.findById(accusedPlayerId)
-                .orElseThrow { IllegalArgumentException("Player not found") }
-                
-            sendModeratorMessage(
-                gameNumber, 
-                "지목된 ${accusedPlayer.nickname}님, 변론해 주세요."
-            )
+            // DefenseService를 통해 변론 단계 시작
+            defenseService.startDefensePhase(gameNumber, accusedPlayerId)
             
             // 변론 단계로 변경
             messagingTemplate.convertAndSend(
                 "/topic/game/$gameNumber/phase",
                 GamePhaseMessage(
-                    phase = "DEFENSE",
+                    phase = "DEFENDING",
                     timestamp = Instant.now(),
                     additionalData = mapOf("accusedPlayerId" to accusedPlayerId)
                 )
