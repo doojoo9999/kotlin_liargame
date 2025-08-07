@@ -9,6 +9,7 @@ import GameRoomPage from './pages/GameRoomPage'
 import AdminLoginPage from './pages/AdminLoginPage'
 import AdminDashboard from './pages/AdminDashboard'
 import ErrorBoundary from './components/ErrorBoundary'
+import ToastProvider, {WebSocketMessageHandler} from './components/EnhancedToastSystem'
 
 const theme = createTheme({
   palette: {
@@ -160,11 +161,15 @@ function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <ErrorBoundary>
-        <GameProvider>
-          <Router>
-            <AppRouter />
-          </Router>
-        </GameProvider>
+        <ToastProvider>
+          <GameProvider>
+            <WebSocketMessageHandler>
+              <Router>
+                <AppRouter />
+              </Router>
+            </WebSocketMessageHandler>
+          </GameProvider>
+        </ToastProvider>
       </ErrorBoundary>
     </ThemeProvider>
   )
