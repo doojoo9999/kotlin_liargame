@@ -26,6 +26,12 @@ import PlayerProfile from '../components/PlayerProfile'
 import PlayerSpeechBubble from '../components/PlayerSpeechBubble'
 import ChatWindow from '../components/ChatWindow'
 import GameInfoDisplay from '../components/GameInfoDisplay'
+import HintInputComponent from '../components/HintInputComponent'
+import VotingComponent from '../components/VotingComponent'
+import DefenseComponent from '../components/DefenseComponent'
+import SurvivalVotingComponent from '../components/SurvivalVotingComponent'
+import WordGuessComponent from '../components/WordGuessComponent'
+import GameTimerComponent from '../components/GameTimerComponent'
 
 function GameRoomPage() {
   const {
@@ -43,18 +49,41 @@ function GameRoomPage() {
     gameTimer,
     votingResults,
     gameResults,
+    accusedPlayerId,
+    defenseText,
+    survivalVotingProgress,
+    mySurvivalVote,
+    wordGuessResult,
+    finalGameResult,
     // ... 기타 상태들
     disconnectSocket,
     connectToRoom,
     leaveRoom,
     navigateToLobby,
     startGame,
-    castVote
+    castVote,
+    submitHint,
+    submitDefense,
+    castSurvivalVote,
+    guessWord
   } = useGame()
 
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false)
   const [speechBubbles, setSpeechBubbles] = useState({})
-  const [selectedVoteTarget, setSelectedVoteTarget] = useState(null)
+  const [hintSubmitted, setHintSubmitted] = useState(false)
+  const [hintError, setHintError] = useState(null)
+  const [defenseSubmitted, setDefenseSubmitted] = useState(false)
+  const [defenseError, setDefenseError] = useState(null)
+  const [survivalVoteSubmitted, setSurvivalVoteSubmitted] = useState(false)
+  const [survivalVoteError, setSurvivalVoteError] = useState(null)
+  const [wordGuessSubmitted, setWordGuessSubmitted] = useState(false)
+  const [wordGuessError, setWordGuessError] = useState(null)
+
+  // Timer expiration callback
+  const handleTimerExpired = () => {
+    console.log('[DEBUG_LOG] Timer expired in GameRoomPage, current status:', gameStatus)
+    // The auto-actions are handled in GameContext, but we can add UI feedback here
+  }
 
     useEffect(() => {
         if (!currentRoom) {
@@ -127,22 +156,112 @@ function GameRoomPage() {
     return currentPlayer?.isHost || false
   }
 
-  // Handle voting
-  const handleVoteSelect = (playerId) => {
-    if (gameStatus !== 'VOTING') return
-    setSelectedVoteTarget(playerId)
+
+  // Handle hint submission
+  const handleHintSubmit = async (hint) => {
+    try {
+      setHintError(null)
+      console.log('[DEBUG_LOG] Submitting hint:', hint)
+      await submitHint(hint)
+      setHintSubmitted(true)
+      console.log('[DEBUG_LOG] Hint submitted successfully')
+    } catch (error) {
+      console.error('[ERROR] Failed to submit hint:', error)
+      setHintError(error.message || '힌트 제출에 실패했습니다.')
+    }
   }
 
-  const handleVoteConfirm = () => {
-    if (!selectedVoteTarget) return
-    console.log('[DEBUG_LOG] Casting vote for player:', selectedVoteTarget)
-    castVote(selectedVoteTarget)
-    setSelectedVoteTarget(null)
+  // Handle defense submission
+  const handleDefenseSubmit = async (defenseText) => {
+    try {
+      setDefenseError(null)
+      console.log('[DEBUG_LOG] Submitting defense:', defenseText)
+      await submitDefense(defenseText)
+      setDefenseSubmitted(true)
+      console.log('[DEBUG_LOG] Defense submitted successfully')
+    } catch (error) {
+      console.error('[ERROR] Failed to submit defense:', error)
+      setDefenseError(error.message || '변론 제출에 실패했습니다.')
+    }
   }
 
-  const handleVoteCancel = () => {
-    setSelectedVoteTarget(null)
+  // Handle survival vote submission
+  const handleSurvivalVoteSubmit = async (survival) => {
+    try {
+      setSurvivalVoteError(null)
+      console.log('[DEBUG_LOG] Casting survival vote:', survival)
+      await castSurvivalVote(survival)
+      setSurvivalVoteSubmitted(true)
+      console.log('[DEBUG_LOG] Survival vote cast successfully')
+    } catch (error) {
+      console.error('[ERROR] Failed to cast survival vote:', error)
+      setSurvivalVoteError(error.message || '생존 투표에 실패했습니다.')
+    }
   }
+
+  // Handle word guess submission
+  const handleWordGuessSubmit = async (guessedWord) => {
+    try {
+      setWordGuessError(null)
+      console.log('[DEBUG_LOG] Submitting word guess:', guessedWord)
+      await guessWord(guessedWord)
+      setWordGuessSubmitted(true)
+      console.log('[DEBUG_LOG] Word guess submitted successfully')
+    } catch (error) {
+      console.error('[ERROR] Failed to submit word guess:', error)
+      setWordGuessError(error.message || '단어 추리에 실패했습니다.')
+    }
+  }
+
+  // Handle restart game
+  const handleRestartGame = () => {
+    console.log('[DEBUG_LOG] Restarting game')
+    // Reset all local states
+    setHintSubmitted(false)
+    setHintError(null)
+    setDefenseSubmitted(false)
+    setDefenseError(null)
+    setSurvivalVoteSubmitted(false)
+    setSurvivalVoteError(null)
+    setWordGuessSubmitted(false)
+    setWordGuessError(null)
+    setSpeechBubbles({})
+    
+    // Start a new game
+    startGame()
+  }
+
+  // Reset hint submission state when game status changes
+  useEffect(() => {
+    if (gameStatus !== 'SPEAKING' && gameStatus !== 'HINT_PHASE') {
+      setHintSubmitted(false)
+      setHintError(null)
+    }
+  }, [gameStatus])
+
+  // Reset defense submission state when game status changes
+  useEffect(() => {
+    if (gameStatus !== 'DEFENSE') {
+      setDefenseSubmitted(false)
+      setDefenseError(null)
+    }
+  }, [gameStatus])
+
+  // Reset survival vote submission state when game status changes
+  useEffect(() => {
+    if (gameStatus !== 'SURVIVAL_VOTING') {
+      setSurvivalVoteSubmitted(false)
+      setSurvivalVoteError(null)
+    }
+  }, [gameStatus])
+
+  // Reset word guess submission state when game status changes
+  useEffect(() => {
+    if (gameStatus !== 'WORD_GUESS') {
+      setWordGuessSubmitted(false)
+      setWordGuessError(null)
+    }
+  }, [gameStatus])
 
   // Calculate player distribution around the screen
   const calculatePlayerDistribution = (playerCount) => {
@@ -294,16 +413,7 @@ function GameRoomPage() {
         >
           {playerPositions.top.map((player) => (
             <Box key={player.id} sx={{ position: 'relative' }}>
-              <Box
-                onClick={() => gameStatus === 'VOTING' && handleVoteSelect(player.id)}
-                sx={{
-                  cursor: gameStatus === 'VOTING' ? 'pointer' : 'default',
-                  border: gameStatus === 'VOTING' && selectedVoteTarget === player.id ? '3px solid #ff9800' : 'none',
-                  borderRadius: 2,
-                  p: gameStatus === 'VOTING' ? 0.5 : 0,
-                  backgroundColor: gameStatus === 'VOTING' && selectedVoteTarget === player.id ? 'rgba(255, 152, 0, 0.1)' : 'transparent'
-                }}
-              >
+              <Box>
                 <PlayerProfile
                   player={player}
                   isCurrentTurn={effectiveCurrentTurnPlayerId === player.id}
@@ -334,16 +444,7 @@ function GameRoomPage() {
         >
           {playerPositions.right.map((player) => (
             <Box key={player.id} sx={{ position: 'relative' }}>
-              <Box
-                onClick={() => gameStatus === 'VOTING' && handleVoteSelect(player.id)}
-                sx={{
-                  cursor: gameStatus === 'VOTING' ? 'pointer' : 'default',
-                  border: gameStatus === 'VOTING' && selectedVoteTarget === player.id ? '3px solid #ff9800' : 'none',
-                  borderRadius: 2,
-                  p: gameStatus === 'VOTING' ? 0.5 : 0,
-                  backgroundColor: gameStatus === 'VOTING' && selectedVoteTarget === player.id ? 'rgba(255, 152, 0, 0.1)' : 'transparent'
-                }}
-              >
+              <Box>
                 <PlayerProfile
                   player={player}
                   isCurrentTurn={effectiveCurrentTurnPlayerId === player.id}
@@ -373,16 +474,7 @@ function GameRoomPage() {
         >
           {playerPositions.bottom.map((player) => (
             <Box key={player.id} sx={{ position: 'relative' }}>
-              <Box
-                onClick={() => gameStatus === 'VOTING' && handleVoteSelect(player.id)}
-                sx={{
-                  cursor: gameStatus === 'VOTING' ? 'pointer' : 'default',
-                  border: gameStatus === 'VOTING' && selectedVoteTarget === player.id ? '3px solid #ff9800' : 'none',
-                  borderRadius: 2,
-                  p: gameStatus === 'VOTING' ? 0.5 : 0,
-                  backgroundColor: gameStatus === 'VOTING' && selectedVoteTarget === player.id ? 'rgba(255, 152, 0, 0.1)' : 'transparent'
-                }}
-              >
+              <Box>
                 <PlayerProfile
                   player={player}
                   isCurrentTurn={effectiveCurrentTurnPlayerId === player.id}
@@ -413,16 +505,7 @@ function GameRoomPage() {
         >
           {playerPositions.left.map((player) => (
             <Box key={player.id} sx={{ position: 'relative' }}>
-              <Box
-                onClick={() => gameStatus === 'VOTING' && handleVoteSelect(player.id)}
-                sx={{
-                  cursor: gameStatus === 'VOTING' ? 'pointer' : 'default',
-                  border: gameStatus === 'VOTING' && selectedVoteTarget === player.id ? '3px solid #ff9800' : 'none',
-                  borderRadius: 2,
-                  p: gameStatus === 'VOTING' ? 0.5 : 0,
-                  backgroundColor: gameStatus === 'VOTING' && selectedVoteTarget === player.id ? 'rgba(255, 152, 0, 0.1)' : 'transparent'
-                }}
-              >
+              <Box>
                 <PlayerProfile
                   player={player}
                   isCurrentTurn={effectiveCurrentTurnPlayerId === player.id}
@@ -514,62 +597,113 @@ function GameRoomPage() {
               </Typography>
               {currentRound > 0 && (
                 <Typography variant="body2" sx={{ mt: 1, opacity: 0.9 }}>
-                  라운드 {currentRound} | 남은 시간: {gameTimer}초
+                  라운드 {currentRound}
                 </Typography>
               )}
             </Paper>
           )}
 
+          {/* Game Timer Component */}
+          {gameStatus !== 'WAITING' && gameTimer > 0 && (
+            <GameTimerComponent
+              gameTimer={gameTimer}
+              maxTime={60} // Default max time, can be adjusted based on game phase
+              gameStatus={gameStatus}
+              onTimeExpired={handleTimerExpired}
+              showCountdown={true}
+              size={140}
+            />
+          )}
+
           {/* Game Status Display */}
-          {gameStatus !== 'WAITING' && (
+          {gameStatus !== 'WAITING' && gameStatus !== 'VOTING' && gameStatus !== 'DEFENSE' && (
             <Paper sx={{ p: 2, mb: 2, textAlign: 'center', minWidth: 300 }}>
               <Typography variant="h6" gutterBottom>
                 {gameStatus === 'SPEAKING' && '🎤 발언 단계'}
-                {gameStatus === 'VOTING' && '🗳️ 투표 단계'}
                 {gameStatus === 'RESULTS' && '📊 결과 발표'}
                 {gameStatus === 'FINISHED' && '🏁 게임 종료'}
               </Typography>
-              {gameTimer > 0 && (
-                <Typography variant="h4" color="primary">
-                  {gameTimer}초
-                </Typography>
-              )}
               {gameStatus === 'SPEAKING' && currentTurnPlayerId && (
                 <Typography variant="body1" sx={{ mt: 1 }}>
                   {players.find(p => p.id === currentTurnPlayerId)?.nickname || 'Unknown'}님의 차례
                 </Typography>
               )}
-              {gameStatus === 'VOTING' && !selectedVoteTarget && (
-                <Typography variant="body1" sx={{ mt: 1 }}>
-                  라이어라고 생각하는 플레이어를 선택하세요
-                </Typography>
-              )}
-              {gameStatus === 'VOTING' && selectedVoteTarget && (
-                <Typography variant="body1" sx={{ mt: 1 }}>
-                  {players.find(p => p.id === selectedVoteTarget)?.nickname}님을 선택했습니다
-                </Typography>
-              )}
             </Paper>
           )}
 
-          {/* Voting Confirmation Buttons */}
-          {gameStatus === 'VOTING' && selectedVoteTarget && (
-            <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-              <Button
-                variant="contained"
-                color="error"
-                onClick={handleVoteConfirm}
-                sx={{ px: 3 }}
-              >
-                투표 확정
-              </Button>
-              <Button
-                variant="outlined"
-                onClick={handleVoteCancel}
-                sx={{ px: 3 }}
-              >
-                취소
-              </Button>
+          {/* Voting Component - Only visible during VOTING phase */}
+          {gameStatus === 'VOTING' && (
+            <Box sx={{ mb: 2, width: '100%', maxWidth: 800 }}>
+              <VotingComponent
+                players={players}
+                gameTimer={gameTimer}
+                gameNumber={currentRoom?.gameNumber}
+                onVoteComplete={(targetPlayerId) => {
+                  console.log('[DEBUG_LOG] Vote completed for player:', targetPlayerId)
+                }}
+              />
+            </Box>
+          )}
+
+          {/* Defense Component - Only visible during DEFENSE phase */}
+          {gameStatus === 'DEFENSE' && (
+            <Box sx={{ mb: 2 }}>
+              <DefenseComponent
+                gameTimer={gameTimer}
+                onSubmitDefense={handleDefenseSubmit}
+                isSubmitted={defenseSubmitted}
+                isLoading={loading.room}
+                error={defenseError}
+                accusedPlayerId={accusedPlayerId}
+                currentUserId={currentUser?.id}
+                accusedPlayerName={players.find(p => p.id === accusedPlayerId)?.nickname}
+              />
+            </Box>
+          )}
+
+          {/* Survival Voting Component - Only visible during SURVIVAL_VOTING phase */}
+          {gameStatus === 'SURVIVAL_VOTING' && (
+            <Box sx={{ mb: 2 }}>
+              <SurvivalVotingComponent
+                gameTimer={gameTimer}
+                onCastSurvivalVote={handleSurvivalVoteSubmit}
+                isVoted={survivalVoteSubmitted || mySurvivalVote !== null}
+                isLoading={loading.room}
+                error={survivalVoteError}
+                accusedPlayer={players.find(p => p.id === accusedPlayerId)}
+                votingProgress={survivalVotingProgress}
+                players={players}
+              />
+            </Box>
+          )}
+
+          {/* Word Guess Component - Only visible during WORD_GUESS phase */}
+          {gameStatus === 'WORD_GUESS' && (
+            <Box sx={{ mb: 2 }}>
+              <WordGuessComponent
+                gameTimer={gameTimer}
+                onGuessWord={handleWordGuessSubmit}
+                onRestartGame={handleRestartGame}
+                isSubmitted={wordGuessSubmitted}
+                isLoading={loading.room}
+                error={wordGuessError}
+                playerRole={playerRole}
+                guessResult={wordGuessResult}
+                gameResult={finalGameResult}
+              />
+            </Box>
+          )}
+
+          {/* Hint Input - Only visible during SPEAKING or HINT_PHASE */}
+          {(gameStatus === 'SPEAKING' || gameStatus === 'HINT_PHASE') && (
+            <Box sx={{ mb: 2 }}>
+              <HintInputComponent
+                gameTimer={gameTimer}
+                onSubmitHint={handleHintSubmit}
+                isSubmitted={hintSubmitted}
+                isLoading={loading.room}
+                error={hintError}
+              />
             </Box>
           )}
 
