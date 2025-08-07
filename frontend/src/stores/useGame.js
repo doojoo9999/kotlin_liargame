@@ -1,9 +1,10 @@
-import {useMemo} from 'react'
+import {useCallback, useMemo} from 'react'
 import useAuthStore from './authStore'
 import useRoomStore from './roomStore'
 import useSocketStore from './socketStore'
 import useGameStore from './gameStore'
 import useSubjectStore from './subjectStore'
+import * as gameApi from '../api/gameApi'
 
 /**
  * Unified hook that provides access to all game-related state and actions
@@ -158,6 +159,42 @@ export const useGame = () => {
     }
   }
 
+  // DefenseComponent에서 사용할 함수
+  const submitDefense = useCallback(async (gameNumber, defenseText) => {
+    try {
+      const response = await gameApi.submitDefense(gameNumber, defenseText)
+      console.log('[DEBUG_LOG] Defense submitted successfully')
+      return response
+    } catch (error) {
+      console.error('[ERROR] Failed to submit defense:', error)
+      throw error
+    }
+  }, [])
+
+  // FinalJudgmentComponent에서 사용할 함수
+  const castFinalJudgment = useCallback(async (gameNumber, judgment) => {
+    try {
+      const response = await gameApi.castFinalJudgment(gameNumber, judgment)
+      console.log('[DEBUG_LOG] Final judgment cast successfully')
+      return response
+    } catch (error) {
+      console.error('[ERROR] Failed to cast final judgment:', error)
+      throw error
+    }
+  }, [])
+
+  // LiarGuessComponent에서 사용할 함수
+  const submitLiarGuess = useCallback(async (gameNumber, guess) => {
+    try {
+      const response = await gameApi.submitLiarGuess(gameNumber, guess)
+      console.log('[DEBUG_LOG] Liar guess submitted successfully')
+      return response
+    } catch (error) {
+      console.error('[ERROR] Failed to submit liar guess:', error)
+      throw error
+    }
+  }, [])
+
   // Return the unified API
   return {
     // State - Auth
@@ -237,6 +274,9 @@ export const useGame = () => {
     castVote,
     handleGameUpdate,
     resetGameState,
+    submitDefense,
+    castFinalJudgment,
+    submitLiarGuess,
 
     // Actions - Subjects
     fetchSubjects,
