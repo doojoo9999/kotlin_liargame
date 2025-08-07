@@ -5,5 +5,6 @@ data class FinalVoteResponse(
     val voterPlayerId: Long,
     val voterNickname: String,
     val voteForExecution: Boolean,
-    val success: Boolean
+    val success: Boolean,
+    val message: String? = null
 )
