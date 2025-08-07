@@ -545,7 +545,7 @@ class GameService(
 
     @Transactional
     fun vote(req: VoteRequest, session: HttpSession): GameStateResponse {
-        req.validate()
+        req.isValidVote()
 
                     val game = gameRepository.findByGameNumber(req.gameNumber)
             ?: throw RuntimeException("Game not found")

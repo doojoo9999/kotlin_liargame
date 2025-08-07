@@ -1,10 +1,14 @@
 package org.example.kotlin_liargame.domain.game.dto.request
 
 import jakarta.validation.constraints.*
+import org.example.kotlin_liargame.common.validation.ValidLiarCount
+import org.example.kotlin_liargame.common.validation.ValidSubjectConfiguration
 import org.example.kotlin_liargame.domain.game.model.GameEntity
 import org.example.kotlin_liargame.domain.game.model.enum.GameMode
 import org.example.kotlin_liargame.domain.game.model.enum.GameState
 
+@ValidLiarCount
+@ValidSubjectConfiguration
 data class CreateGameRoomRequest(
     @field:Size(min = 2, max = 20, message = "닉네임은 2자 이상 20자 이하여야 합니다")
     @field:Pattern(
@@ -45,18 +49,6 @@ data class CreateGameRoomRequest(
     fun getSanitizedGameName(): String? {
         return gameName?.trim()?.takeIf { it.isNotBlank() }
             ?.replace(Regex("[<>\"'&]"), "") // XSS 방지
-    }
-    
-    fun isValidLiarCount(): Boolean {
-        return gameLiarCount in 1 until gameParticipants
-    }
-    
-    fun isValidSubjectConfiguration(): Boolean {
-        return if (useRandomSubjects) {
-            randomSubjectCount != null && randomSubjectCount > 0
-        } else {
-            !subjectIds.isNullOrEmpty()
-        }
     }
     
     fun to(gameNumber: Int, gameOwner: String): GameEntity {

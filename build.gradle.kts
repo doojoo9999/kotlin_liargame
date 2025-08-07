@@ -35,8 +35,7 @@ dependencies {
     runtimeOnly("org.postgresql:postgresql")
     
     // Migration
-    implementation("org.flywaydb:flyway-core")
-    implementation("org.flywaydb:flyway-database-postgresql")
+    implementation("org.flywaydb:flyway-core:9.22.3")
     
     // Connection pooling
     implementation("com.zaxxer:HikariCP")
@@ -52,6 +51,10 @@ dependencies {
     // 세션 관리를 위한 의존성 추가
     implementation("org.springframework.session:spring-session-core")
     implementation("io.github.cdimascio:dotenv-java:2.3.2")
+    
+    // Redis for game state recovery and caching
+    implementation("org.springframework.boot:spring-boot-starter-data-redis")
+    implementation("org.springframework.session:spring-session-data-redis")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("io.mockk:mockk:1.13.10")

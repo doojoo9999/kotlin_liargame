@@ -22,7 +22,8 @@ import org.springframework.web.socket.server.HandshakeInterceptor
 @EnableWebSocketMessageBroker
 class WebSocketConfig(
     private val webSocketSessionManager: WebSocketSessionManager,
-    private val rateLimitingService: RateLimitingService
+    private val rateLimitingService: RateLimitingService,
+    private val connectionManager: WebSocketConnectionManager
 ) : WebSocketMessageBrokerConfigurer {
     
     override fun configureMessageBroker(config: MessageBrokerRegistry) {
@@ -119,6 +120,11 @@ class WebSocketConfig(
 
                                     println("[DEBUG] WebSocket session authenticated with userId: $userId, nickname: $nickname")
                                 }
+                                
+                                // Register connection with ConnectionManager for advanced monitoring
+                                sessionId?.let { wsSessionId ->
+                                    connectionManager.registerConnection(wsSessionId, userId)
+                                }
                             } else {
                                 println("[WARN] No HTTP session found in WebSocket connection")
 
@@ -139,6 +145,11 @@ class WebSocketConfig(
                                     }
                                 } catch (e: Exception) {
                                     println("[DEBUG] Failed to read headers: ${e.message}")
+                                }
+                                
+                                // Register connection even without userId for monitoring
+                                sessionId?.let { wsSessionId ->
+                                    connectionManager.registerConnection(wsSessionId, null)
                                 }
                             }
                         } catch (e: Exception) {
@@ -169,6 +180,7 @@ class WebSocketConfig(
                         val sessionId = accessor.sessionId
                         if (sessionId != null) {
                             webSocketSessionManager.removeSession(sessionId)
+                            connectionManager.handleDisconnection(sessionId)
                             println("[DEBUG] WebSocket session disconnected: $sessionId")
                         }
                     }

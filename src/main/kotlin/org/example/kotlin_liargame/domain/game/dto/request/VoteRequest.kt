@@ -8,8 +8,4 @@ data class VoteRequest(
     
     @field:Positive(message = "대상 플레이어 ID는 양수여야 합니다")
     val targetPlayerId: Long
-) {
-    fun isValidVote(): Boolean {
-        return gameNumber > 0 && targetPlayerId > 0
-    }
-}
+)
