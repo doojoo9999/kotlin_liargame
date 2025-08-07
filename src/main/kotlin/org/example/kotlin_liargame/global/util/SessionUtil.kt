@@ -1,4 +1,4 @@
-package org.example.kotlin_liargame.domain.game.util
+package org.example.kotlin_liargame.global.util
 
 import jakarta.servlet.http.HttpSession
 import org.springframework.stereotype.Component
