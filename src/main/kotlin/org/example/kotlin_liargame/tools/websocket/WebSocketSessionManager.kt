@@ -1,21 +1,22 @@
 package org.example.kotlin_liargame.tools.websocket
 
 import jakarta.servlet.http.HttpSession
+ import org.springframework.context.annotation.Lazy
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor
+import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.stereotype.Component
+import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 
-/**
- * WebSocket 세션 관리를 위한 유틸리티 클래스
- */
 @Component
-class WebSocketSessionManager {
-    // WebSocket 세션 ID를 키로, HTTP 세션 정보를 값으로 저장하는 맵
+class WebSocketSessionManager(
+    @Lazy private val messagingTemplate: SimpMessagingTemplate
+) {
     private val sessionMap = ConcurrentHashMap<String, Map<String, Any>>()
+    
+    private val playerGameMap = ConcurrentHashMap<Long, Int>()
 
-    /**
-     * WebSocket 연결 시 HTTP 세션 정보를 저장
-     */
+
     fun storeSession(webSocketSessionId: String, httpSession: HttpSession) {
         val userId = httpSession.getAttribute("userId") as? Long
         val nickname = httpSession.getAttribute("nickname") as? String
@@ -26,7 +27,6 @@ class WebSocketSessionManager {
             println("[DEBUG] Storing WebSocket session mapping: $webSocketSessionId -> userId=$userId")
         } else {
             println("[WARN] No userId found in HTTP session for WebSocket: $webSocketSessionId")
-            // HTTP 세션의 모든 속성 출력
             httpSession.attributeNames.asIterator().forEach { attrName ->
                 println("[DEBUG] HTTP Session attribute: $attrName = ${httpSession.getAttribute(attrName)}")
             }
@@ -45,23 +45,16 @@ class WebSocketSessionManager {
         }
     }
 
-    /**
-     * WebSocket 세션 ID로 사용자 ID 조회
-     */
+
     fun getUserId(webSocketSessionId: String): Long? {
         return sessionMap[webSocketSessionId]?.get("userId") as? Long
     }
 
-    /**
-     * WebSocket 세션 ID로 사용자 닉네임 조회
-     */
+
     fun getNickname(webSocketSessionId: String): String? {
         return sessionMap[webSocketSessionId]?.get("nickname") as? String
     }
 
-    /**
-     * WebSocket 메시지 헤더 액세서에 사용자 정보 주입
-     */
     fun injectUserInfo(accessor: SimpMessageHeaderAccessor) {
         val sessionId = accessor.sessionId ?: return
         val sessionInfo = sessionMap[sessionId] ?: return
@@ -73,17 +66,90 @@ class WebSocketSessionManager {
         }
     }
 
-    /**
-     * WebSocket 연결 종료 시 세션 정보 제거
-     */
-    fun removeSession(webSocketSessionId: String) {
-        sessionMap.remove(webSocketSessionId)
-        println("[DEBUG] Removed WebSocket session: $webSocketSessionId")
+
+    fun registerPlayerInGame(userId: Long, gameNumber: Int) {
+        playerGameMap[userId] = gameNumber
+        println("[DEBUG] Registered player $userId in game $gameNumber")
     }
 
-    /**
-     * 현재 저장된 모든 세션 정보 출력 (디버깅용)
-     */
+    fun removePlayerFromGame(userId: Long) {
+        val gameNumber = playerGameMap.remove(userId)
+        if (gameNumber != null) {
+            println("[DEBUG] Removed player $userId from game $gameNumber")
+        }
+    }
+
+    fun getPlayerGame(userId: Long): Int? {
+        return playerGameMap[userId]
+    }
+
+    fun removeSession(webSocketSessionId: String) {
+        val sessionInfo = sessionMap.remove(webSocketSessionId)
+        println("[DEBUG] Removed WebSocket session: $webSocketSessionId")
+        
+        if (sessionInfo != null) {
+            val userId = sessionInfo["userId"] as? Long
+            val nickname = sessionInfo["nickname"] as? String
+            
+            if (userId != null) {
+                val gameNumber = getPlayerGame(userId)
+                if (gameNumber != null) {
+                    handlePlayerDisconnection(gameNumber, userId, nickname)
+                    removePlayerFromGame(userId)
+                }
+            }
+        }
+    }
+
+    private fun handlePlayerDisconnection(gameNumber: Int, userId: Long, nickname: String?) {
+        try {
+            val disconnectMessage = mapOf(
+                "type" to "PLAYER_DISCONNECTED",
+                "playerId" to userId,
+                "playerNickname" to nickname,
+                "message" to "${nickname ?: "플레이어"}님의 연결이 끊어졌습니다",
+                "timestamp" to Instant.now()
+            )
+            
+            messagingTemplate.convertAndSend(
+                "/topic/game/$gameNumber/player-status",
+                disconnectMessage
+            )
+            
+            checkGameContinuity(gameNumber, userId, nickname)
+            
+            println("[INFO] Notified game $gameNumber about player $userId ($nickname) disconnection")
+            
+        } catch (e: Exception) {
+            println("[ERROR] Failed to handle player disconnection: ${e.message}")
+        }
+    }
+    private fun checkGameContinuity(gameNumber: Int, disconnectedUserId: Long, nickname: String?) {
+        try {
+            val remainingPlayers = playerGameMap.values.count { it == gameNumber }
+            
+            if (remainingPlayers < 3) {
+                val gameEndMessage = mapOf(
+                    "type" to "GAME_INTERRUPTED",
+                    "reason" to "INSUFFICIENT_PLAYERS",
+                    "message" to "플레이어 수가 부족하여 게임이 중단됩니다",
+                    "remainingPlayers" to remainingPlayers,
+                    "timestamp" to Instant.now()
+                )
+                
+                messagingTemplate.convertAndSend(
+                    "/topic/game/$gameNumber/game-status",
+                    gameEndMessage
+                )
+                
+                println("[INFO] Game $gameNumber interrupted due to insufficient players ($remainingPlayers remaining)")
+            }
+            
+        } catch (e: Exception) {
+            println("[ERROR] Failed to check game continuity: ${e.message}")
+        }
+    }
+
     fun printSessionInfo() {
         println("[DEBUG] Current WebSocket sessions (${sessionMap.size})")
         sessionMap.forEach { (sessionId, info) ->
