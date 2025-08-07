@@ -38,14 +38,12 @@ class WebSocketConfig(
                     wsHandler: WebSocketHandler,
                     attributes: MutableMap<String, Any>
                 ): Boolean {
-                    // HTTP 세션을 WebSocket 세션 속성에 추가
                     if (request is ServletServerHttpRequest) {
                         val httpSession = request.servletRequest.session
                         if (httpSession != null) {
                             attributes["HTTP.SESSION"] = httpSession
                             println("[DEBUG] HTTP session added to WebSocket attributes: ${httpSession.id}")
                             
-                            // 세션 속성 로깅
                             try {
                                 httpSession.attributeNames.asIterator().forEach { attrName ->
                                     println("[DEBUG] HTTP Session attribute: $attrName = ${httpSession.getAttribute(attrName)}")
@@ -76,14 +74,12 @@ class WebSocketConfig(
             .withSockJS()
     }
     
-    // 세션 기반 인증을 위한 인터셉터
     override fun configureClientInboundChannel(registration: ChannelRegistration) {
         registration.interceptors(object : ChannelInterceptor {
             override fun preSend(message: Message<*>, channel: MessageChannel): Message<*>? {
                 val accessor = StompHeaderAccessor.wrap(message)
                 
                 when (accessor.command) {
-                    // 연결 시 HTTP 세션 정보 저장
                     StompCommand.CONNECT -> {
                         val sessionId = accessor.sessionId
                         println("[DEBUG] WebSocket connection attempt: $sessionId")
@@ -93,7 +89,6 @@ class WebSocketConfig(
                             println("[DEBUG] HTTP Session found: ${httpSession != null}")
 
                             if (httpSession != null) {
-                                // 세션에서 모든 속성 출력
                                 println("[DEBUG] HTTP Session details: ${httpSession.id}")
                                 try {
                                     httpSession.attributeNames.asIterator().forEach { attrName ->
@@ -103,12 +98,10 @@ class WebSocketConfig(
                                     println("[WARN] Error reading session attributes: ${e.message}")
                                 }
 
-                                // WebSocket 세션 매니저에 세션 정보 저장
                                 sessionId?.let { wsSessionId ->
                                     webSocketSessionManager.storeSession(wsSessionId, httpSession)
                                 }
 
-                                // 기존 로직도 유지
                                 val userId = httpSession.getAttribute("userId") as? Long
                                 val nickname = httpSession.getAttribute("nickname") as? String
 
@@ -127,7 +120,6 @@ class WebSocketConfig(
                             } else {
                                 println("[WARN] No HTTP session found in WebSocket connection")
 
-                                // 디버깅을 위한 모든 헤더 출력
                                 try {
                                     val headers = message.headers
                                     println("[DEBUG] All headers:")
@@ -135,7 +127,6 @@ class WebSocketConfig(
                                         println("[DEBUG]   - $key: $value")
                                     }
 
-                                    // 디버깅: 세션 속성이 있으면 모두 출력
                                     if (accessor.sessionAttributes != null) {
                                         println("[DEBUG] Session attributes:")
                                         accessor.sessionAttributes!!.forEach { (key, value) ->
@@ -154,20 +145,16 @@ class WebSocketConfig(
                         }
                     }
 
-                    // 메시지 전송 시 세션 정보 활용
                     StompCommand.SEND -> {
                         val sessionId = accessor.sessionId
                         if (sessionId != null) {
-                            // 세션 매니저에서 저장된 사용자 정보 주입
                             webSocketSessionManager.injectUserInfo(accessor)
 
-                            // 디버깅 로그
                             println("[DEBUG] WebSocket message from sessionId: $sessionId")
                             println("[DEBUG] SessionAttributes after injection: ${accessor.sessionAttributes?.keys}")
                         }
                     }
 
-                    // 연결 해제 시 세션 정보 제거
                     StompCommand.DISCONNECT -> {
                         val sessionId = accessor.sessionId
                         if (sessionId != null) {
