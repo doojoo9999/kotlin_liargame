@@ -3,12 +3,12 @@ package org.example.kotlin_liargame.domain.game.service
 import org.example.kotlin_liargame.domain.game.dto.response.*
 import org.example.kotlin_liargame.domain.game.repository.GameRepository
 import org.example.kotlin_liargame.domain.game.repository.PlayerRepository
+import org.springframework.context.annotation.Lazy
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.scheduling.TaskScheduler
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
-import java.util.concurrent.ConcurrentHashMap
 
 @Service  
 @Transactional
@@ -16,9 +16,9 @@ class GameResultService(
     private val gameRepository: GameRepository,
     private val playerRepository: PlayerRepository,
     private val messagingTemplate: SimpMessagingTemplate,
-    private val taskScheduler: TaskScheduler
+    private val taskScheduler: TaskScheduler,
+    @Lazy private val topicGuessService: TopicGuessService
 ) {
-    private val liarGuessStatusMap = ConcurrentHashMap<Int, LiarGuessStatus>()
     
     fun processGameResult(gameNumber: Int, judgmentResult: FinalJudgmentResultResponse) {
         when {
@@ -41,72 +41,14 @@ class GameResultService(
     }
     
     fun startLiarGuessPhase(gameNumber: Int, liarPlayerId: Long): LiarGuessStartResponse {
-        val game = gameRepository.findByGameNumber(gameNumber)
-            ?: throw IllegalArgumentException("Game not found")
-        val liarPlayer = playerRepository.findById(liarPlayerId)
-            .orElseThrow { IllegalArgumentException("Liar player not found") }
-        
-        val guessStatus = LiarGuessStatus(
-            liarPlayerId = liarPlayerId,
-            guessTimeLimit = 30,
-            startTime = Instant.now()
-        )
-        liarGuessStatusMap[gameNumber] = guessStatus
-        
-        sendModeratorMessage(gameNumber, "라이어님, 주제를 맞춰보세요!")
-        
-        val citizenSubject = game.citizenSubject?.content ?: "Unknown"
-        val response = LiarGuessStartResponse(
-            gameNumber = gameNumber,
-            liarPlayer = PlayerResultInfo.from(liarPlayer),
-            citizenSubject = citizenSubject
-        )
-        
-        messagingTemplate.convertAndSend(
-            "/topic/game/$gameNumber/liar-guess-start",
-            response
-        )
-        
-        startLiarGuessTimer(gameNumber)
-        
-        return response
+        return topicGuessService.startLiarGuessPhase(gameNumber, liarPlayerId)
     }
     
     fun submitLiarGuess(gameNumber: Int, liarPlayerId: Long, guess: String): LiarGuessResultResponse {
-        val guessStatus = liarGuessStatusMap[gameNumber]
-            ?: throw IllegalStateException("No liar guess phase active")
+        val response = topicGuessService.submitLiarGuess(gameNumber, liarPlayerId, guess)
         
-        if (guessStatus.liarPlayerId != liarPlayerId) {
-            throw IllegalArgumentException("Only the liar can submit a guess")
-        }
-        
-        if (guessStatus.guessSubmitted) {
-            throw IllegalStateException("Guess already submitted")
-        }
-        
-        val game = gameRepository.findByGameNumber(gameNumber)
-            ?: throw IllegalArgumentException("Game not found")
-        
-        val correctAnswer = game.citizenSubject?.content ?: ""
-        
-        val normalizedGuess = guess.trim().lowercase()
-        val normalizedAnswer = correctAnswer.trim().lowercase()
-        val isCorrect = normalizedGuess == normalizedAnswer
-        
-        guessStatus.guessSubmitted = true
-        guessStatus.guessText = guess
-        
-        val winner = if (isCorrect) "LIARS" else "CITIZENS"
-        
-        val response = LiarGuessResultResponse(
-            gameNumber = gameNumber,
-            liarGuess = guess,
-            correctAnswer = correctAnswer,
-            isCorrect = isCorrect,
-            winner = winner
-        )
-        
-        if (isCorrect) {
+        // Handle game ending based on the result
+        if (response.isCorrect) {
             endGameWithLiarVictory(gameNumber)
         } else {
             endGameWithCitizenVictory(gameNumber)
@@ -143,7 +85,7 @@ class GameResultService(
             response
         )
         
-        liarGuessStatusMap.remove(gameNumber)
+        topicGuessService.cleanupGuessStatus(gameNumber)
         
         return response
     }
@@ -176,7 +118,7 @@ class GameResultService(
             response
         )
         
-        liarGuessStatusMap.remove(gameNumber)
+        topicGuessService.cleanupGuessStatus(gameNumber)
         
         return response
     }
@@ -231,14 +173,6 @@ class GameResultService(
         }
     }
     
-    private fun startLiarGuessTimer(gameNumber: Int) {
-        taskScheduler.schedule({
-            val guessStatus = liarGuessStatusMap[gameNumber]
-            if (guessStatus != null && !guessStatus.guessSubmitted) {
-                endGameWithCitizenVictory(gameNumber)
-            }
-        }, Instant.now().plusSeconds(30))
-    }
     
     private fun calculateGameStatistics(gameNumber: Int): GameStatistics {
         val game = gameRepository.findByGameNumber(gameNumber)
