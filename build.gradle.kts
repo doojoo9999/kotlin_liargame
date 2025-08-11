@@ -55,6 +55,7 @@ dependencies {
     // Redis for game state recovery and caching
     implementation("org.springframework.boot:spring-boot-starter-data-redis")
     implementation("org.springframework.session:spring-session-data-redis")
+    implementation("org.apache.commons:commons-pool2")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("io.mockk:mockk:1.13.10")

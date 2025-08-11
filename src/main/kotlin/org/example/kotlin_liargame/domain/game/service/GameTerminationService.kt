@@ -3,6 +3,7 @@ package org.example.kotlin_liargame.domain.game.service
 import org.example.kotlin_liargame.domain.game.model.enum.GameState
 import org.example.kotlin_liargame.domain.game.repository.GameRepository
 import org.example.kotlin_liargame.domain.game.repository.PlayerRepository
+import org.springframework.context.annotation.Lazy
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.scheduling.TaskScheduler
 import org.springframework.stereotype.Service
@@ -16,7 +17,7 @@ import java.util.concurrent.ScheduledFuture
 class GameTerminationService(
     private val gameRepository: GameRepository,
     private val playerRepository: PlayerRepository,
-    private val messagingTemplate: SimpMessagingTemplate,
+    @Lazy private val messagingTemplate: SimpMessagingTemplate,
     private val taskScheduler: TaskScheduler
 ) {
     

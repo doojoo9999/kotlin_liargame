@@ -2,6 +2,7 @@ package org.example.kotlin_liargame.tools.websocket
 
 import org.example.kotlin_liargame.global.security.RateLimitingService
 import org.springframework.context.annotation.Configuration
+import org.springframework.context.annotation.Lazy
 import org.springframework.http.server.ServerHttpRequest
 import org.springframework.http.server.ServerHttpResponse
 import org.springframework.http.server.ServletServerHttpRequest
@@ -23,7 +24,7 @@ import org.springframework.web.socket.server.HandshakeInterceptor
 class WebSocketConfig(
     private val webSocketSessionManager: WebSocketSessionManager,
     private val rateLimitingService: RateLimitingService,
-    private val connectionManager: WebSocketConnectionManager
+    @Lazy private val connectionManager: WebSocketConnectionManager
 ) : WebSocketMessageBrokerConfigurer {
     
     override fun configureMessageBroker(config: MessageBrokerRegistry) {
