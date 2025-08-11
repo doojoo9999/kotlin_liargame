@@ -205,7 +205,7 @@ class VotingService(
                 }
                 
                 // 투표 결과 발표
-                val game = gameRepository.findByGameNumber(gameNumber)
+                gameRepository.findByGameNumber(gameNumber)
                     ?: throw IllegalArgumentException("Game not found")
                 sendModeratorMessage(gameNumber, resultMessage)
                 

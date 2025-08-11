@@ -229,7 +229,7 @@ class ChatService(
     
 
     fun startPostRoundChat(gameNumber: Int) {
-        val game = gameRepository.findByGameNumber(gameNumber)
+        gameRepository.findByGameNumber(gameNumber)
             ?: throw RuntimeException("Game not found")
 
         val endTime = Instant.now().plusSeconds(POST_ROUND_CHAT_DURATION)
