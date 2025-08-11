@@ -27,13 +27,13 @@ const ResponsiveGameLayout = ({
   // Mobile layout
   if (isMobile) {
     return (
-      <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
-        {/* Top Game Info - Collapsible on mobile */}
+      <Box sx={{ height: '100vh', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+        {/* Top Game Info - Always visible when chat is open, collapsible otherwise */}
         <Paper 
           elevation={2} 
           sx={{ 
             position: 'relative',
-            zIndex: 1,
+            zIndex: chatDrawerOpen ? 1300 : 1, // Higher z-index when chat is open
             borderRadius: 0,
             borderBottom: '1px solid',
             borderColor: 'divider'
@@ -48,15 +48,16 @@ const ResponsiveGameLayout = ({
                 top: 8,
                 zIndex: 2
               }}
+              disabled={chatDrawerOpen} // Prevent collapse when chat is open
             >
-              {gameInfoExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+              {(gameInfoExpanded || chatDrawerOpen) ? <ExpandLessIcon /> : <ExpandMoreIcon />}
             </IconButton>
             
-            <Collapse in={gameInfoExpanded}>
+            <Collapse in={gameInfoExpanded || chatDrawerOpen}>
               {gameInfoComponent}
             </Collapse>
             
-            {!gameInfoExpanded && (
+            {!gameInfoExpanded && !chatDrawerOpen && (
               <Box sx={{ textAlign: 'center', py: 1 }}>
                 <ExpandMoreIcon color="action" />
               </Box>
@@ -70,7 +71,9 @@ const ResponsiveGameLayout = ({
           position: 'relative',
           overflow: 'hidden',
           display: 'flex',
-          flexDirection: 'column'
+          flexDirection: 'column',
+          minHeight: 0,
+          minWidth: 0
         }}>
           {/* Players positioned around the edges */}
           <Box sx={{ 
@@ -136,7 +139,7 @@ const ResponsiveGameLayout = ({
           onClose={() => setChatDrawerOpen(false)}
           PaperProps={{
             sx: {
-              height: '70vh',
+              height: '50vh',
               borderTopLeftRadius: 16,
               borderTopRightRadius: 16
             }
@@ -193,18 +196,19 @@ const ResponsiveGameLayout = ({
   // Tablet layout
   if (isTablet) {
     return (
-      <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <Box sx={{ height: '100vh', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         {/* Top Game Info */}
         <Paper elevation={1} sx={{ p: 2, borderRadius: 0 }}>
           {gameInfoComponent}
         </Paper>
 
-        <Box sx={{ flex: 1, display: 'flex' }}>
+        <Box sx={{ flex: 1, display: 'flex', minHeight: 0 }}>
           {/* Main Game Area */}
           <Box sx={{ 
             flex: 1, 
             position: 'relative',
-            overflow: 'hidden'
+            overflow: 'hidden',
+            minHeight: 0
           }}>
             {children}
             
@@ -230,7 +234,8 @@ const ResponsiveGameLayout = ({
             display: 'flex', 
             flexDirection: 'column',
             borderLeft: '1px solid',
-            borderColor: 'divider'
+            borderColor: 'divider',
+            minHeight: 0
           }}>
             {/* Players */}
             <Box sx={{ 
@@ -248,11 +253,11 @@ const ResponsiveGameLayout = ({
             </Box>
 
             {/* Chat */}
-            <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
               <Box sx={{ p: 2, fontWeight: 'bold', borderBottom: '1px solid', borderColor: 'divider' }}>
                 채팅
               </Box>
-              <Box sx={{ flex: 1, overflow: 'hidden' }}>
+              <Box sx={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
                 {chatComponent}
               </Box>
             </Box>
@@ -270,12 +275,13 @@ const ResponsiveGameLayout = ({
         {gameInfoComponent}
       </Paper>
 
-      <Box sx={{ flex: 1, display: 'flex' }}>
+      <Box sx={{ flex: 1, display: 'flex', minHeight: 0 }}>
         {/* Main Game Area */}
         <Box sx={{ 
           flex: 1, 
           position: 'relative',
-          overflow: 'hidden'
+          overflow: 'hidden',
+          minHeight: 0
         }}>
           {children}
           
@@ -301,7 +307,8 @@ const ResponsiveGameLayout = ({
           display: 'flex', 
           flexDirection: 'column',
           borderLeft: '1px solid',
-          borderColor: 'divider'
+          borderColor: 'divider',
+          minHeight: 0
         }}>
           {/* Players */}
           <Box sx={{ 
@@ -313,17 +320,17 @@ const ResponsiveGameLayout = ({
             <Box sx={{ p: 2, fontWeight: 'bold', borderBottom: '1px solid', borderColor: 'divider' }}>
               플레이어 ({playersComponent?.props?.players?.length || 0})
             </Box>
-            <Box sx={{ p: 2 }}>
+            <Box sx={{ p: 1 }}>
               {playersComponent}
             </Box>
           </Box>
 
           {/* Chat */}
-          <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
             <Box sx={{ p: 2, fontWeight: 'bold', borderBottom: '1px solid', borderColor: 'divider' }}>
               채팅
             </Box>
-            <Box sx={{ flex: 1, overflow: 'hidden' }}>
+            <Box sx={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
               {chatComponent}
             </Box>
           </Box>
