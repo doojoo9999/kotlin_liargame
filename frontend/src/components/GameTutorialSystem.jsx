@@ -33,7 +33,6 @@ import {
     Timer as TimerIcon
 } from '@mui/icons-material'
 
-// Tutorial steps data
 const TUTORIAL_STEPS = [
   {
     title: '라이어 게임에 오신 것을 환영합니다! 🎭',
