@@ -1,6 +1,7 @@
 import React, {useEffect, useState} from 'react'
 import {
     Alert,
+    Avatar,
     Box,
     Button,
     Chip,
@@ -10,6 +11,7 @@ import {
     DialogActions,
     DialogContent,
     DialogTitle,
+    IconButton,
     Paper,
     Typography,
     useMediaQuery,
@@ -20,7 +22,9 @@ import {
     Help as HelpIcon,
     Pause as PauseIcon,
     People as PeopleIcon,
-    PlayArrow as PlayIcon
+    PersonAdd as PersonAddIcon,
+    PlayArrow as PlayIcon,
+    Report as ReportIcon
 } from '@mui/icons-material'
 import {useGame} from '../context/GameContext'
 import {useToast} from '../components/EnhancedToastSystem'
@@ -181,6 +185,24 @@ function GameRoomPage() {
   const handleStartGame = () => {
     console.log('[DEBUG_LOG] Host starting game')
     startGame()
+  }
+
+  // Action handlers for player icons
+  const handleAddFriend = (player) => {
+    if (!currentUser) {
+      addToast('로그인이 필요합니다.', 'info')
+      return
+    }
+    if (player?.nickname && player.nickname === currentUser?.nickname) {
+      addToast('본인은 친구로 추가할 수 없습니다.', 'warning')
+      return
+    }
+    addToast(`${player?.nickname || '플레이어'}님을 친구로 추가했어요. (준비 중)`, 'success')
+  }
+
+  const handleReportPlayer = (player) => {
+    if (!player) return
+    addToast(`${player.nickname}님을 신고했습니다. (검토 예정)`, 'info')
   }
 
   // Check if current user is host
@@ -442,14 +464,50 @@ function GameRoomPage() {
 
   const playersComponent = (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-      {players.map((player) => (
-        <PlayerProfile
-          key={player.id}
-          player={player}
-          isCurrentTurn={effectiveCurrentTurnPlayerId === player.id}
-          compact={isMobile}
-        />
-      ))}
+      {players.map((player) => {
+        const isTurn = effectiveCurrentTurnPlayerId === player.id
+        const initial = (player.nickname || 'U').charAt(0).toUpperCase()
+        const isSelf = currentUser?.nickname && player.nickname === currentUser.nickname
+        return (
+          <Box key={player.id} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {/* Left: ~1/3 for player chip */}
+            <Box sx={{ flex: '0 0 33%', minWidth: 0 }}>
+              <Chip
+                avatar={
+                  <Avatar
+                    sx={{ width: 24, height: 24, fontSize: 12 }}
+                    src={player.avatarUrl || undefined}
+                  >
+                    {initial}
+                  </Avatar>
+                }
+                label={player.nickname}
+                size="small"
+                variant={isTurn ? 'filled' : 'outlined'}
+                color={isTurn ? 'warning' : 'default'}
+                sx={{
+                  width: '100%',
+                  justifyContent: 'flex-start',
+                  px: 0.5,
+                  '& .MuiChip-label': { overflow: 'hidden', textOverflow: 'ellipsis' }
+                }}
+              />
+            </Box>
+
+            {/* Right: actions */}
+            <Box sx={{ flex: '1 1 67%', display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
+              {!isSelf && (
+                <IconButton size="small" aria-label={`친구 추가: ${player.nickname}`} onClick={() => handleAddFriend(player)}>
+                  <PersonAddIcon fontSize="small" />
+                </IconButton>
+              )}
+              <IconButton size="small" aria-label={`신고: ${player.nickname}`} onClick={() => handleReportPlayer(player)}>
+                <ReportIcon fontSize="small" />
+              </IconButton>
+            </Box>
+          </Box>
+        )
+      })}
     </Box>
   )
 
@@ -467,7 +525,7 @@ function GameRoomPage() {
           round: currentRound || 1,
           topic: currentRoom?.subjects && currentRoom.subjects.length > 0 
             ? currentRoom.subjects.join(', ') 
-            : currentRoom?.subject?.name || currentRoom?.subject?.content || '주제 없음',
+            : currentRoom?.subject?.name || currentRoom?.subject?.content || currentRoom?.subject || '주제 없음',
           status: gameStatus === 'WAITING' ? '대기 중' : 
                   gameStatus === 'SPEAKING' ? '발언 단계' :
                   gameStatus === 'VOTING' ? '투표 단계' :
