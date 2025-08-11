@@ -48,7 +48,7 @@ class DefenseService(
     }
     
     fun startDefensePhase(gameNumber: Int, accusedPlayerId: Long): DefenseStartResponse {
-        val game = gameRepository.findByGameNumber(gameNumber)
+        gameRepository.findByGameNumber(gameNumber)
             ?: throw IllegalArgumentException("Game not found")
             
         val accusedPlayer = playerRepository.findById(accusedPlayerId)

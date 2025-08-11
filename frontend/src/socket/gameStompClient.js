@@ -26,6 +26,9 @@ class GameStompClient {
             return this.connectionPromise
         }
 
+        // Reset reconnect attempts when explicitly connecting
+        this.reconnectAttempts = 0
+
         // 세션 상태 로깅
         console.log('[DEBUG_LOG] Starting WebSocket connection, cookies should be sent automatically')
 
@@ -169,9 +172,15 @@ class GameStompClient {
     }
 
     subscribe(topic, callback, timeout = 10000) {
+        // Check if already subscribed to this topic
+        if (this.subscriptions.has(topic)) {
+            console.log('[DEBUG_LOG] Already subscribed to topic:', topic, '- returning existing subscription')
+            return Promise.resolve(this.subscriptions.get(topic))
+        }
+
         // If already connected, subscribe immediately
         if (this.isConnected && this.client && this.client.connected) {
-            return this._doSubscribe(topic, callback)
+            return Promise.resolve(this._doSubscribe(topic, callback))
         }
 
         // If not connected, wait for connection then subscribe
@@ -184,6 +193,14 @@ class GameStompClient {
 
             const attemptSubscribe = async () => {
                 try {
+                    // Check again if already subscribed (race condition prevention)
+                    if (this.subscriptions.has(topic)) {
+                        clearTimeout(timeoutId)
+                        console.log('[DEBUG_LOG] Subscription already exists for:', topic)
+                        resolve(this.subscriptions.get(topic))
+                        return
+                    }
+
                     // Try to connect if not already connecting
                     if (!this.isConnected && !this.isConnecting) {
                         console.log('[DEBUG_LOG] Initiating connection for subscription to:', topic)
@@ -195,8 +212,16 @@ class GameStompClient {
                         await this.connectionPromise
                     }
                     
-                    // Double-check connection state
+                    // Double-check connection state and subscription status
                     if (this.isConnected && this.client && this.client.connected) {
+                        // Final check for duplicate subscription
+                        if (this.subscriptions.has(topic)) {
+                            clearTimeout(timeoutId)
+                            console.log('[DEBUG_LOG] Subscription created by another call for:', topic)
+                            resolve(this.subscriptions.get(topic))
+                            return
+                        }
+                        
                         clearTimeout(timeoutId)
                         const subscription = this._doSubscribe(topic, callback)
                         resolve(subscription)

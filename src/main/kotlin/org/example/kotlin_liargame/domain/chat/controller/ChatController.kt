@@ -59,7 +59,7 @@ class ChatController(
 
             // 2. HttpSession에서 userId 추출 시도
             if (userId == null) {
-                val httpSession = sessionAttributes?.get("HTTP.SESSION") as? jakarta.servlet.http.HttpSession
+                val httpSession = sessionAttributes?.get("HTTP.SESSION") as? HttpSession
                 if (httpSession != null) {
                     userId = httpSession.getAttribute("userId") as? Long
                     if (userId != null) {

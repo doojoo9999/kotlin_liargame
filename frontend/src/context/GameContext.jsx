@@ -803,7 +803,7 @@ export const GameProvider = ({ children }) => {
   }, [])
 
 
-  const disconnectSocket = () => {
+  const disconnectSocket = useCallback(() => {
     try {
       console.log('[DEBUG_LOG] Disconnecting STOMP client')
 
@@ -819,7 +819,7 @@ export const GameProvider = ({ children }) => {
     } catch (error) {
       console.error('[ERROR] Failed to disconnect socket:', error)
     }
-  }
+  }, [dispatch])
 
 
   const startGame = async () => {
@@ -1123,13 +1123,32 @@ export const GameProvider = ({ children }) => {
   }, [state.loading.chatHistory])
 
 
-  const connectToRoom = async (gameNumber, retryCount = 0) => {
+  const connectToRoom = useCallback(async (gameNumber, retryCount = 0) => {
     const MAX_RETRIES = 3
 
     if (retryCount >= MAX_RETRIES) {
       console.error('[ERROR] Max connection retries reached')
       setError('socket', 'WebSocket 연결에 실패했습니다.')
       return
+    }
+
+    // Prevent multiple simultaneous connection attempts to the same room
+    if (state.socketConnected && state.currentRoom?.gameNumber === gameNumber) {
+      console.log('[DEBUG_LOG] Already connected to room:', gameNumber)
+      return
+    }
+
+    // Check if already connecting to prevent rapid calls
+    if (gameStompClient.isConnecting) {
+      console.log('[DEBUG_LOG] Connection already in progress, waiting...')
+      try {
+        if (gameStompClient.connectionPromise) {
+          await gameStompClient.connectionPromise
+        }
+        return
+      } catch (error) {
+        console.log('[DEBUG_LOG] Existing connection failed, proceeding with new attempt')
+      }
     }
 
     try {
@@ -1221,7 +1240,7 @@ export const GameProvider = ({ children }) => {
         dispatch({ type: ActionTypes.SET_SOCKET_CONNECTION, payload: false })
       }
     }
-  }
+  }, [loadChatHistory, dispatch, setError])
 
 
 
