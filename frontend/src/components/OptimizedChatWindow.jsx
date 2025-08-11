@@ -1,0 +1,272 @@
+import React, {useEffect, useState} from 'react'
+import {Alert, Box, Button, Paper, Typography, useMediaQuery, useTheme} from '@mui/material'
+import ChatMessageList from './ChatMessageList'
+import ChatInput from './ChatInput'
+import {useGame} from '../context/GameContext'
+import {useChatOptimization} from '../hooks/useChatOptimization'
+import {getChatThemeVariant, THEME_TRANSITIONS} from '../styles/themeVariants'
+
+function OptimizedChatWindow() {
+  const theme = useTheme()
+  const isDarkMode = theme.palette.mode === 'dark'
+  const isXs = useMediaQuery(theme.breakpoints.down('sm'))
+  
+  const {
+    chatMessages,
+    socketConnected,
+    sendChatMessage,
+    currentUser,
+    currentRoom,
+    error
+  } = useGame()
+
+  const gameNumber = currentRoom?.gameNumber
+  const currentUserId = currentUser?.id || currentUser?.playerId
+
+  // Chat optimization hook
+  const {
+    messages: optimizedMessages,
+    addMessages,
+    clearMessages,
+    isThrottling,
+    performanceStats,
+    getPerformanceReport
+  } = useChatOptimization({
+    maxMessages: 500,
+    throttleDelay: isXs ? 150 : 100, // Slower on mobile
+    batchSize: isXs ? 5 : 10,
+    enableVirtualization: true,
+    enableMessageLimiting: true,
+    enableThrottling: true,
+    debugMode: process.env.NODE_ENV === 'development'
+  })
+
+  // State for debugging and monitoring
+  const [showPerformanceStats, setShowPerformanceStats] = useState(false)
+  
+  // Sync chat messages with optimization hook
+  useEffect(() => {
+    if (chatMessages && chatMessages.length > 0) {
+      // Only add new messages that aren't already in optimized messages
+      const lastOptimizedId = optimizedMessages.length > 0 ? 
+        optimizedMessages[optimizedMessages.length - 1].id : null
+      
+      if (chatMessages.length === 0) {
+        clearMessages()
+      } else if (!lastOptimizedId || 
+                 chatMessages[chatMessages.length - 1].id !== lastOptimizedId) {
+        // Find new messages to add
+        const lastOptimizedIndex = lastOptimizedId ? 
+          chatMessages.findIndex(msg => msg.id === lastOptimizedId) : -1
+        
+        const newMessages = lastOptimizedIndex >= 0 ? 
+          chatMessages.slice(lastOptimizedIndex + 1) : chatMessages
+        
+        if (newMessages.length > 0) {
+          addMessages(newMessages)
+        }
+      }
+    }
+  }, [chatMessages, optimizedMessages, addMessages, clearMessages])
+
+  // Get chat theme
+  const chatTheme = getChatThemeVariant(isDarkMode)
+
+  console.log('[DEBUG_LOG] OptimizedChatWindow - currentRoom:', currentRoom)
+  console.log('[DEBUG_LOG] OptimizedChatWindow - gameNumber:', gameNumber)
+  console.log('[DEBUG_LOG] OptimizedChatWindow - socketConnected:', socketConnected)
+  console.log('[DEBUG_LOG] OptimizedChatWindow - optimized messages count:', optimizedMessages.length)
+
+  if (!gameNumber) {
+    return (
+      <Paper sx={{ 
+        p: 2, 
+        height: '100%', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        transition: THEME_TRANSITIONS.standard
+      }}>
+        <Typography color="error" variant="body2">
+          채팅을 사용할 수 없습니다. 방 정보를 확인해주세요.
+        </Typography>
+      </Paper>
+    )
+  }
+
+  if (!socketConnected) {
+    return (
+      <Paper sx={{ 
+        p: 2, 
+        height: '100%', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        transition: THEME_TRANSITIONS.standard
+      }}>
+        <Typography color="info" variant="body2">
+          채팅 연결 중...
+        </Typography>
+      </Paper>
+    )
+  }
+
+  const handleSendMessage = (content) => {
+    if (!currentRoom) {
+      console.error('[DEBUG_LOG] Cannot send message: currentRoom is null/undefined')
+      return
+    }
+
+    const gameNumber = currentRoom.gameNumber
+    if (!gameNumber) {
+      console.error('[DEBUG_LOG] Cannot send message: gameNumber is null/undefined')
+      return
+    }
+
+    if (!socketConnected) {
+      console.warn('[DEBUG_LOG] Cannot send message: WebSocket not connected')
+      return
+    }
+
+    console.log('[DEBUG_LOG] Sending optimized chat message:', content, 'to game:', gameNumber)
+    sendChatMessage(gameNumber, content)
+  }
+
+  const handlePerformanceStatsToggle = () => {
+    setShowPerformanceStats(!showPerformanceStats)
+    if (!showPerformanceStats) {
+      console.log('[DEBUG_LOG] Performance Report:', getPerformanceReport())
+    }
+  }
+
+  return (
+    <Paper
+      elevation={3}
+      sx={{
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        borderRadius: 4,
+        backgroundColor: chatTheme.message.background,
+        overflow: 'hidden',
+        transition: THEME_TRANSITIONS.color
+      }}
+    >
+      {/* Chat header */}
+      <Box sx={{
+        p: isXs ? 1.5 : 2,
+        borderBottom: 1,
+        borderColor: 'divider',
+        backgroundColor: 'primary.light',
+        transition: THEME_TRANSITIONS.standard
+      }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant={isXs ? "subtitle1" : "h6"} color="white">
+            채팅 {gameNumber ? `#${gameNumber}` : ''}
+            {isThrottling && (
+              <Typography component="span" sx={{ ml: 1, opacity: 0.7, fontSize: '0.75em' }}>
+                (처리중...)
+              </Typography>
+            )}
+          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {/* Performance stats toggle (development only) */}
+            {process.env.NODE_ENV === 'development' && (
+              <Button 
+                size="small" 
+                variant="outlined" 
+                sx={{ 
+                  color: 'white', 
+                  borderColor: 'white', 
+                  fontSize: '10px',
+                  minWidth: 'auto',
+                  px: 1
+                }}
+                onClick={handlePerformanceStatsToggle}
+              >
+                성능
+              </Button>
+            )}
+            
+            {/* Connection status indicator */}
+            <Box
+              sx={{
+                width: 8,
+                height: 8,
+                borderRadius: '50%',
+                backgroundColor: socketConnected ? 'success.main' : 'error.main',
+                transition: THEME_TRANSITIONS.standard
+              }}
+            />
+            <Typography variant="caption" color="white">
+              {socketConnected ? '연결됨' : '연결 끊김'}
+            </Typography>
+          </Box>
+        </Box>
+        
+        {/* Performance stats display */}
+        {showPerformanceStats && process.env.NODE_ENV === 'development' && (
+          <Box sx={{ 
+            mt: 1, 
+            p: 1, 
+            backgroundColor: 'rgba(255,255,255,0.1)', 
+            borderRadius: 1,
+            fontSize: '11px',
+            color: 'white'
+          }}>
+            <Typography variant="caption" display="block">
+              메시지: {performanceStats.messagesProcessed} | 
+              삭제됨: {performanceStats.messagesDropped} | 
+              렌더링: {performanceStats.averageRenderTime}ms | 
+              메모리: {performanceStats.memoryUsage}MB
+            </Typography>
+          </Box>
+        )}
+      </Box>
+
+      {/* Connection Error Alert */}
+      {error.socket && (
+        <Alert severity="error" sx={{ m: 1 }}>
+          {error.socket}
+        </Alert>
+      )}
+
+      {/* No currentRoom warning */}
+      {!currentRoom && (
+        <Alert severity="warning" sx={{ m: 1 }}>
+          방 정보를 불러오는 중입니다...
+        </Alert>
+      )}
+
+      {/* Optimized Chat messages area */}
+      <Box sx={{
+        flexGrow: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        p: isXs ? 0.5 : 1
+      }}>
+        <ChatMessageList
+          messages={optimizedMessages}
+          currentUserId={currentUserId}
+          isDarkMode={isDarkMode}
+          height="100%" 
+          autoScroll={true}
+          maxMessages={500}
+          onScrollToBottom={() => {
+            console.log('[DEBUG_LOG] User scrolled to bottom')
+          }}
+        />
+      </Box>
+
+      {/* Chat input area */}
+      <ChatInput
+        onSendMessage={handleSendMessage}
+        disabled={!currentRoom || !socketConnected}
+      />
+    </Paper>
+  )
+}
+
+export default OptimizedChatWindow
