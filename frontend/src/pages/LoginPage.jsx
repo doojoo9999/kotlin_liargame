@@ -1,15 +1,29 @@
-import React, {useState} from 'react'
+import React, {useEffect, useState} from 'react'
 import {Alert, Box, Button, CircularProgress, Container, Paper, Snackbar, TextField, Typography} from '@mui/material'
 import {Login as LoginIcon, SportsEsports as GameIcon} from '@mui/icons-material'
 import {useGame} from '../context/GameContext'
+import {useNavigate, useSearchParams} from 'react-router-dom'
+import {mapAuthCodeToUiPreset, mapHttpErrorToAuthCode} from '../utils/authErrorMapping'
+import {getReturnToFromQuery, persistReturnTo} from '../utils/redirect'
+import {Events, trackEvent} from '../utils/analytics'
 
 function LoginPage() {
   const { login, loading, error } = useGame()
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
 
   const [nickname, setNickname] = useState('')
   const [validationError, setValidationError] = useState('')
   const [snackbarOpen, setSnackbarOpen] = useState(false)
   const [snackbarMessage, setSnackbarMessage] = useState('')
+
+  useEffect(() => {
+    // Prefill nickname and persist safe returnTo on arrival
+    const prefillNick = searchParams.get('nickname')
+    if (prefillNick) setNickname(prefillNick)
+    const safeReturnTo = getReturnToFromQuery()
+    if (safeReturnTo) persistReturnTo(safeReturnTo)
+  }, [searchParams])
 
   const handleNicknameChange = (event) => {
     const value = event.target.value
@@ -62,20 +76,26 @@ function LoginPage() {
       console.log('[DEBUG_LOG] Login successful')
     } catch (error) {
       console.error('[DEBUG_LOG] Login failed:', error)
-      
-      // Handle specific error cases
-      let errorMessage = '로그인에 실패했습니다.'
-      
-      if (error.response?.status === 409) {
-        errorMessage = '이미 사용 중인 닉네임입니다.'
-      } else if (error.response?.status === 400) {
-        errorMessage = '유효하지 않은 닉네임입니다.'
-      } else if (error.response?.data?.message) {
-        errorMessage = error.response.data.message
+
+      const errorCode = mapHttpErrorToAuthCode(error)
+      const preset = mapAuthCodeToUiPreset(errorCode)
+      const returnTo = getReturnToFromQuery()
+
+      // Only include server-provided message for network/server errors to avoid leaking sensitive info
+      let errorMessage = ''
+      if (errorCode === 'SERVER_ERROR' || errorCode === 'NETWORK_ERROR') {
+        errorMessage = error.response?.data?.message || ''
       }
-      
-      setSnackbarMessage(errorMessage)
-      setSnackbarOpen(true)
+
+      const params = new URLSearchParams()
+      params.set('errorCode', errorCode)
+      if (errorMessage) params.set('errorMessage', errorMessage)
+      if (returnTo) params.set('returnTo', returnTo)
+      if (trimmedNickname) params.set('nickname', trimmedNickname)
+      if (preset.defaultRedirectSec) params.set('retryAfterSeconds', String(preset.defaultRedirectSec))
+
+      trackEvent(Events.RedirectStarted, { to: '/auth/login-failed', reason: 'error' })
+      navigate(`/auth/login-failed?${params.toString()}`)
     }
   }
 
