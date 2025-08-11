@@ -1,5 +1,5 @@
 import React, {useEffect} from 'react'
-import {BrowserRouter as Router, Navigate, Route, Routes, useNavigate} from 'react-router-dom'
+import {BrowserRouter as Router, Navigate, Route, Routes, useLocation, useNavigate} from 'react-router-dom'
 import {createTheme, ThemeProvider} from '@mui/material/styles'
 import {Alert, Box, CircularProgress, CssBaseline} from '@mui/material'
 import {GameProvider, useGame} from './context/GameContext'
@@ -10,6 +10,8 @@ import AdminLoginPage from './pages/AdminLoginPage'
 import AdminDashboard from './pages/AdminDashboard'
 import ErrorBoundary from './components/ErrorBoundary'
 import ToastProvider, {WebSocketMessageHandler} from './components/EnhancedToastSystem'
+import LoginFailurePage from './pages/LoginFailurePage'
+import {I18nProvider} from './i18n/i18n.jsx'
 
 const theme = createTheme({
   palette: {
@@ -64,18 +66,27 @@ function AdminProtectedRoute({ children }) {
 function AppRouter() {
   const { isAuthenticated, currentPage, loading, error } = useGame()
   const navigate = useNavigate()
+  const location = useLocation()
 
   useEffect(() => {
     if (isAuthenticated) {
-      if (currentPage === 'room') {
-        navigate('/game', { replace: true })
-      } else if (currentPage === 'lobby') {
-        navigate('/lobby', { replace: true })
-      }
+      // On successful auth, prefer a previously persisted safe returnTo
+      import('./utils/redirect').then(({ consumePersistedReturnTo }) => {
+        const to = consumePersistedReturnTo()
+        if (to) {
+          navigate(to, { replace: true })
+          return
+        }
+        if (currentPage === 'room') {
+          navigate('/game', { replace: true })
+        } else if (currentPage === 'lobby') {
+          navigate('/lobby', { replace: true })
+        }
+      })
     }
   }, [currentPage, isAuthenticated, navigate])
 
-  if (error.auth && !isAuthenticated) {
+  if (error.auth && !isAuthenticated && location.pathname !== '/login' && location.pathname !== '/auth/login-failed') {
     return (
       <Box
         sx={{
@@ -101,6 +112,12 @@ function AppRouter() {
         element={
           isAuthenticated ? <Navigate to="/lobby" replace /> : <LoginPage />
         } 
+      />
+
+      {/* Login failed page */}
+      <Route
+        path="/auth/login-failed"
+        element={<LoginFailurePage />}
       />
       
       {/* Admin routes */}
@@ -160,17 +177,19 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <ErrorBoundary>
-        <ToastProvider>
-          <GameProvider>
-            <WebSocketMessageHandler>
-              <Router>
-                <AppRouter />
-              </Router>
-            </WebSocketMessageHandler>
-          </GameProvider>
-        </ToastProvider>
-      </ErrorBoundary>
+      <I18nProvider>
+        <ErrorBoundary>
+          <ToastProvider>
+            <GameProvider>
+              <WebSocketMessageHandler>
+                <Router>
+                  <AppRouter />
+                </Router>
+              </WebSocketMessageHandler>
+            </GameProvider>
+          </ToastProvider>
+        </ErrorBoundary>
+      </I18nProvider>
     </ThemeProvider>
   )
 }
