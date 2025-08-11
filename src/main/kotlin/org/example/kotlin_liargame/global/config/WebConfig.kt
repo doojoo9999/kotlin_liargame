@@ -35,10 +35,7 @@ class WebConfig(
             .allowedHeaders("*")
             .allowCredentials(true)
     }
-    
-    /**
-     * 환경별 허용된 Origin 설정
-     */
+
     private fun getAllowedOrigins(): Array<String> {
         val profile = System.getProperty("spring.profiles.active") ?: "dev"
         
