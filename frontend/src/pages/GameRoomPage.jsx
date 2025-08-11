@@ -1,7 +1,6 @@
 import React, {useEffect, useState} from 'react'
 import {
     Alert,
-    Avatar,
     Box,
     Button,
     Chip,
@@ -41,6 +40,7 @@ import GameTimerComponent from '../components/GameTimerComponent'
 import ResponsiveGameLayout from '../components/ResponsiveGameLayout'
 import GameResultScreen from '../components/GameResultScreen'
 import GameTutorialSystem, {ActionGuidance} from '../components/GameTutorialSystem'
+import UserAvatar from '../components/UserAvatar'
 
 function GameRoomPage() {
   const theme = useTheme()
@@ -466,7 +466,6 @@ function GameRoomPage() {
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
       {players.map((player) => {
         const isTurn = effectiveCurrentTurnPlayerId === player.id
-        const initial = (player.nickname || 'U').charAt(0).toUpperCase()
         const isSelf = currentUser?.nickname && player.nickname === currentUser.nickname
         return (
           <Box key={player.id} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -474,12 +473,12 @@ function GameRoomPage() {
             <Box sx={{ flex: '0 0 33%', minWidth: 0 }}>
               <Chip
                 avatar={
-                  <Avatar
-                    sx={{ width: 24, height: 24, fontSize: 12 }}
-                    src={player.avatarUrl || undefined}
-                  >
-                    {initial}
-                  </Avatar>
+                  <UserAvatar
+                    userId={player.id}
+                    nickname={player.nickname}
+                    avatarUrl={player.avatarUrl}
+                    size="small"
+                  />
                 }
                 label={player.nickname}
                 size="small"
@@ -827,6 +826,7 @@ function GameRoomPage() {
         playersComponent={playersComponent}
         centerComponent={centerComponent}
         newMessageCount={newMessageCount}
+        players={players}
       >
         {playersAroundScreen}
       </ResponsiveGameLayout>
