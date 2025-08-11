@@ -1,14 +1,91 @@
-import React, {useCallback, useEffect, useMemo, useRef} from 'react'
+import React, {useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState} from 'react'
 import {FixedSizeList as List} from 'react-window'
 import {Box, useMediaQuery, useTheme} from '@mui/material'
 import PropTypes from 'prop-types'
 import CompactChatMessage from './CompactChatMessage'
-import {CHAT_DESIGN_CONSTANTS, getChatListStyles} from '../styles/chatStyles'
+import {getChatListStyles} from '../styles/chatStyles'
 
-/**
- * Individual message item renderer for react-window
- * @param {Object} props - Item renderer props from react-window
- */
+// 메시지 그룹핑 함수
+const groupMessages = (messages) => {
+  const groups = []
+  let currentGroup = null
+  
+  messages.forEach((message, index) => {
+    const isSystem = message.isSystem || message.type === 'announcement'
+    const senderId = message.playerId || message.playerNickname || message.sender
+    const prevMessage = messages[index - 1]
+    const prevSenderId = prevMessage ? (prevMessage.playerId || prevMessage.playerNickname || prevMessage.sender) : null
+    
+    // 시스템 메시지는 항상 독립 그룹
+    if (isSystem) {
+      if (currentGroup) {
+        groups.push(currentGroup)
+        currentGroup = null
+      }
+      groups.push({
+        senderId: 'system',
+        senderName: 'System',
+        messages: [{ ...message, isFirst: true, isLast: true }],
+        isSystem: true
+      })
+      return
+    }
+    
+    // 새로운 그룹 시작 조건
+    const shouldStartNewGroup = !currentGroup || 
+      currentGroup.senderId !== senderId ||
+      (message.timestamp && currentGroup.lastTimestamp && 
+       new Date(message.timestamp) - new Date(currentGroup.lastTimestamp) > 60000) // 1분 이상 차이
+    
+    if (shouldStartNewGroup) {
+      if (currentGroup) {
+        // 이전 그룹의 마지막 메시지 표시
+        currentGroup.messages[currentGroup.messages.length - 1].isLast = true
+        groups.push(currentGroup)
+      }
+      
+      currentGroup = {
+        senderId,
+        senderName: message.playerNickname || message.sender || '익명',
+        messages: [{ ...message, isFirst: true, isLast: false }],
+        lastTimestamp: message.timestamp
+      }
+    } else {
+      // 기존 그룹에 메시지 추가
+      currentGroup.messages.push({ ...message, isFirst: false, isLast: false })
+      currentGroup.lastTimestamp = message.timestamp
+    }
+  })
+  
+  // 마지막 그룹 처리
+  if (currentGroup) {
+    currentGroup.messages[currentGroup.messages.length - 1].isLast = true
+    groups.push(currentGroup)
+  }
+  
+  return groups
+}
+
+// 그룹을 플랫한 메시지 리스트로 변환
+const flattenGroups = (groups) => {
+  const flatMessages = []
+  
+  groups.forEach(group => {
+    group.messages.forEach(message => {
+      flatMessages.push({
+        ...message,
+        groupInfo: {
+          senderId: group.senderId,
+          senderName: group.senderName,
+          isSystem: group.isSystem || false
+        }
+      })
+    })
+  })
+  
+  return flatMessages
+}
+
 const MessageItem = React.memo(({ index, style, data }) => {
   const { messages, currentUserId, isDarkMode } = data
   const message = messages[index]
@@ -30,10 +107,7 @@ const MessageItem = React.memo(({ index, style, data }) => {
 
 MessageItem.displayName = 'MessageItem'
 
-/**
- * Optimized chat message list with virtualization for performance
- * Handles large numbers of messages efficiently
- */
+
 function ChatMessageList({ 
   messages, 
   currentUserId, 
@@ -50,71 +124,94 @@ function ChatMessageList({
   const containerRef = useRef(null)
   const prevMessagesLengthRef = useRef(0)
   
-  // Calculate item height based on screen size
-  const itemHeight = useMemo(() => {
-    if (isXs) {
-      return CHAT_DESIGN_CONSTANTS.MESSAGE_HEIGHT.MIN + CHAT_DESIGN_CONSTANTS.MARGIN.VERTICAL * 2
-    }
-    return CHAT_DESIGN_CONSTANTS.MESSAGE_HEIGHT.COMPACT + CHAT_DESIGN_CONSTANTS.MARGIN.VERTICAL * 2
-  }, [isXs])
-  
-  // Limit messages for performance
-  const limitedMessages = useMemo(() => {
-    if (messages.length <= maxMessages) {
-      return messages
-    }
-    // Keep the most recent messages
-    return messages.slice(-maxMessages)
+  // 메시지 그룹핑 및 플래튼
+  const processedMessages = useMemo(() => {
+    const limitedMessages = messages.length <= maxMessages ? messages : messages.slice(-maxMessages)
+    const groupedMessages = groupMessages(limitedMessages)
+    return flattenGroups(groupedMessages)
   }, [messages, maxMessages])
   
-  // Auto scroll to bottom when new messages arrive
+  const itemHeight = useMemo(() => {
+    return 60 // 동적 높이를 위해 넉넉하게 설정
+  }, [])
+  
   const scrollToBottom = useCallback(() => {
-    if (listRef.current && limitedMessages.length > 0) {
-      listRef.current.scrollToItem(limitedMessages.length - 1, 'end')
+    if (listRef.current && processedMessages.length > 0) {
+      listRef.current.scrollToItem(processedMessages.length - 1, 'end')
       onScrollToBottom?.()
     }
-  }, [limitedMessages.length, onScrollToBottom])
+  }, [processedMessages.length, onScrollToBottom])
   
-  // Handle auto scroll on new messages
   useEffect(() => {
-    if (autoScroll && limitedMessages.length > prevMessagesLengthRef.current) {
-      // Small delay to ensure DOM is updated
+    if (autoScroll && processedMessages.length > prevMessagesLengthRef.current) {
       const timeoutId = setTimeout(scrollToBottom, 50)
       return () => clearTimeout(timeoutId)
     }
-    prevMessagesLengthRef.current = limitedMessages.length
-  }, [limitedMessages.length, autoScroll, scrollToBottom])
+    prevMessagesLengthRef.current = processedMessages.length
+  }, [processedMessages.length, autoScroll, scrollToBottom])
   
-  // Handle scroll events for manual scroll detection
   const handleScroll = useCallback((scrollProps) => {
     const { scrollOffset, scrollDirection } = scrollProps
     const container = containerRef.current
     
     if (!container) return
     
-    // Check if user is at the bottom
     const containerHeight = container.clientHeight
-    const scrollHeight = limitedMessages.length * itemHeight
+    const scrollHeight = processedMessages.length * itemHeight
     const isAtBottom = scrollOffset + containerHeight >= scrollHeight - itemHeight
     
-    // Notify parent about scroll state
     if (onScrollToBottom && isAtBottom && scrollDirection === 'forward') {
       onScrollToBottom()
     }
-  }, [limitedMessages.length, itemHeight, onScrollToBottom])
+  }, [processedMessages.length, itemHeight, onScrollToBottom])
   
-  // Prepare data for react-window
   const itemData = useMemo(() => ({
-    messages: limitedMessages,
+    messages: processedMessages,
     currentUserId,
     isDarkMode
-  }), [limitedMessages, currentUserId, isDarkMode])
+  }), [processedMessages, currentUserId, isDarkMode])
   
-  // Get container styles
+  const [containerHeight, setContainerHeight] = useState(400)
+  
+  useLayoutEffect(() => {
+    const updateContainerHeight = () => {
+      if (containerRef.current) {
+        const clientHeight = containerRef.current.clientHeight
+        if (clientHeight > 0) {
+          setContainerHeight(clientHeight)
+        }
+      }
+    }
+    
+    updateContainerHeight()
+    
+    const resizeObserver = new ResizeObserver(updateContainerHeight)
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current)
+    }
+    
+    return () => {
+      resizeObserver.disconnect()
+    }
+  }, [])
+  
+  const numericHeight = useMemo(() => {
+    if (typeof height === 'number') {
+      return height
+    }
+    if (typeof height === 'string') {
+      if (height === '100%') {
+        return containerHeight
+      }
+      const parsed = parseInt(height, 10)
+      return isNaN(parsed) ? 400 : parsed
+    }
+    return 400
+  }, [height, containerHeight])
+  
   const containerStyles = getChatListStyles(isDarkMode)
   
-  // Handle empty messages
-  if (limitedMessages.length === 0) {
+  if (processedMessages.length === 0) {
     return (
       <Box 
         ref={containerRef}
@@ -140,14 +237,13 @@ function ChatMessageList({
       </Box>
     )
   }
-  
+
   return (
     <Box 
       ref={containerRef}
       sx={{
         ...containerStyles,
         height,
-        // Ensure proper scrollbar styling
         '& .react-window-list': {
           scrollbarWidth: 'thin',
           scrollbarColor: isDarkMode ? 'rgba(255,255,255,0.3) transparent' : 'rgba(0,0,0,0.3) transparent',
@@ -169,18 +265,18 @@ function ChatMessageList({
       className={className}
       role="log"
       aria-live="polite"
-      aria-label={`Chat messages, ${limitedMessages.length} total`}
+      aria-label={`Chat messages, ${processedMessages.length} total`}
     >
       <List
         ref={listRef}
-        height={height}
-        itemCount={limitedMessages.length}
+        height={numericHeight}
+        itemCount={processedMessages.length}
         itemSize={itemHeight}
         itemData={itemData}
         onScroll={handleScroll}
         className="react-window-list"
         overscanCount={5}
-        initialScrollOffset={limitedMessages.length * itemHeight}
+        initialScrollOffset={processedMessages.length * itemHeight}
       >
         {MessageItem}
       </List>
@@ -204,7 +300,7 @@ ChatMessageList.propTypes = {
   ).isRequired,
   currentUserId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
   isDarkMode: PropTypes.bool,
-  height: PropTypes.number,
+  height: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
   autoScroll: PropTypes.bool,
   maxMessages: PropTypes.number,
   onScrollToBottom: PropTypes.func,
