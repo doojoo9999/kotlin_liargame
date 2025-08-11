@@ -5,6 +5,7 @@ import org.example.kotlin_liargame.tools.websocket.dto.ConnectionState
 import org.example.kotlin_liargame.tools.websocket.dto.ConnectionStats
 import org.example.kotlin_liargame.tools.websocket.dto.HeartbeatMessage
 import org.example.kotlin_liargame.tools.websocket.enum.ConnectionStatus
+import org.springframework.context.annotation.Lazy
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.scheduling.TaskScheduler
 import org.springframework.stereotype.Component
@@ -15,7 +16,7 @@ import java.util.concurrent.ScheduledFuture
 
 @Component
 class WebSocketConnectionManager(
-    private val messagingTemplate: SimpMessagingTemplate,
+    @Lazy private val messagingTemplate: SimpMessagingTemplate,
     private val taskScheduler: TaskScheduler
 ) {
     
