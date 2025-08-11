@@ -1,6 +1,5 @@
 import React, {useEffect, useRef, useState} from 'react'
 import {
-    Avatar,
     Box,
     Chip,
     Divider,
@@ -23,6 +22,7 @@ import {
     Send as SendIcon,
     Warning as WarningIcon
 } from '@mui/icons-material'
+import UserAvatar from './UserAvatar'
 
 // Common emojis for the game
 const GAME_EMOJIS = [
@@ -188,16 +188,11 @@ const EnhancedChatSystem = ({
         >
           {/* Avatar */}
           {showAvatar && !isOwnMessage && (
-            <Avatar
-              sx={{
-                width: isMobile ? 32 : 40,
-                height: isMobile ? 32 : 40,
-                bgcolor: `hsl(${(message.playerId || 0) * 30}, 70%, 50%)`,
-                fontSize: isMobile ? '0.8rem' : '1rem'
-              }}
-            >
-              {message.playerNickname?.charAt(0) || '?'}
-            </Avatar>
+            <UserAvatar
+              userId={message.playerId}
+              nickname={message.playerNickname}
+              size={isMobile ? 'small' : 'medium'}
+            />
           )}
 
           {/* Message bubble */}
