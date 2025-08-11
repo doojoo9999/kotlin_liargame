@@ -32,6 +32,19 @@ export const CHAT_DESIGN_CONSTANTS = {
 }
 
 export const getMessageContainerStyles = (message, isDarkMode = false, isOwnMessage = false) => {
+  // Main container that holds the entire message row
+  return {
+    display: 'flex',
+    width: '100%',
+    marginBottom: `${CHAT_DESIGN_CONSTANTS.MARGIN.VERTICAL * 2}px`,
+    alignItems: 'flex-end', // Align avatars with bottom of speech bubble
+    justifyContent: isOwnMessage ? 'flex-end' : 'flex-start',
+    flexDirection: isOwnMessage ? 'row-reverse' : 'row',
+    gap: '8px'
+  }
+}
+
+export const getSpeechBubbleStyles = (message, isDarkMode = false, isOwnMessage = false) => {
   let colorSet
 
   if (message.isSystem) {
@@ -43,18 +56,19 @@ export const getMessageContainerStyles = (message, isDarkMode = false, isOwnMess
     colorSet = getUserColorSet(userId, isDarkMode)
   }
 
-  const baseStyles = {
+  const bubbleStyles = {
     display: 'flex',
-    alignItems: 'center',
-    minHeight: CHAT_DESIGN_CONSTANTS.MESSAGE_HEIGHT.COMPACT,
-    maxHeight: CHAT_DESIGN_CONSTANTS.MESSAGE_HEIGHT.MAX,
-    padding: `${CHAT_DESIGN_CONSTANTS.PADDING.VERTICAL}px ${CHAT_DESIGN_CONSTANTS.PADDING.HORIZONTAL}px`,
-    margin: `${CHAT_DESIGN_CONSTANTS.MARGIN.VERTICAL}px ${CHAT_DESIGN_CONSTANTS.MARGIN.HORIZONTAL}px`,
+    flexDirection: 'column',
+    maxWidth: '75%', // 70-80% constraint as requested
+    minWidth: '60px', // Minimum width for very short messages
+    padding: `${CHAT_DESIGN_CONSTANTS.PADDING.VERTICAL + 2}px ${CHAT_DESIGN_CONSTANTS.PADDING.HORIZONTAL + 2}px`,
     backgroundColor: colorSet.background,
     border: `1px solid ${colorSet.border}`,
-    borderRadius: CHAT_DESIGN_CONSTANTS.BORDER_RADIUS,
+    borderRadius: isOwnMessage ? '18px 18px 4px 18px' : '18px 18px 18px 4px', // KakaoTalk-style bubble shape
     boxShadow: isDarkMode ? CHAT_DESIGN_CONSTANTS.BOX_SHADOW_DARK : CHAT_DESIGN_CONSTANTS.BOX_SHADOW,
     transition: 'all 0.2s ease-in-out',
+    position: 'relative',
+    wordBreak: 'break-word',
     '&:hover': {
       backgroundColor: colorSet.background.replace(/[\d.]+\)$/g, (isDarkMode ? '0.2)' : '0.15)')),
       transform: 'translateY(-1px)',
@@ -62,19 +76,13 @@ export const getMessageContainerStyles = (message, isDarkMode = false, isOwnMess
     }
   }
 
-  if (isOwnMessage) {
-    baseStyles.marginLeft = 'auto'
-    baseStyles.marginRight = 0
-    baseStyles.maxWidth = '80%'
-  }
-
-  return baseStyles
+  return bubbleStyles
 }
 
 export const getAvatarStyles = (isSmall = false) => ({
   width: isSmall ? CHAT_DESIGN_CONSTANTS.AVATAR.SIZE_SMALL : CHAT_DESIGN_CONSTANTS.AVATAR.SIZE,
   height: isSmall ? CHAT_DESIGN_CONSTANTS.AVATAR.SIZE_SMALL : CHAT_DESIGN_CONSTANTS.AVATAR.SIZE,
-  marginRight: 8,
+  marginRight: '2',
   flexShrink: 0,
   fontSize: isSmall ? 10 : 12,
   fontWeight: 'bold'
@@ -84,34 +92,32 @@ export const getNicknameStyles = (userColor, isDarkMode = false) => ({
   fontSize: CHAT_DESIGN_CONSTANTS.FONT_SIZES.NICKNAME,
   fontWeight: 'bold',
   color: userColor,
-  marginRight: 8,
+  marginLeft: 1,
+  marginRight: 1,
   flexShrink: 0,
   lineHeight: 1.2,
-  maxWidth: '120px',
+  maxWidth: '80px',
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap'
 })
 
-export const getMessageContentStyles = (isDarkMode = false, isSystem = false) => ({
+export const getMessageContentStyles = (isDarkMode = false, isSystem = false, isOwnMessage = false) => ({
   fontSize: isSystem ? CHAT_DESIGN_CONSTANTS.FONT_SIZES.SYSTEM : CHAT_DESIGN_CONSTANTS.FONT_SIZES.MESSAGE,
   fontStyle: isSystem ? 'italic' : 'normal',
   fontWeight: isSystem ? 'medium' : 'normal',
   color: isDarkMode ? 'rgba(255, 255, 255, 0.87)' : 'rgba(0, 0, 0, 0.87)',
-  flex: 1,
-  lineHeight: 1.3,
+  lineHeight: 1.4,
   wordBreak: 'break-word',
-  overflow: 'hidden',
-  display: '-webkit-box',
-  WebkitLineClamp: 2,
-  WebkitBoxOrient: 'vertical',
-  textAlign: isSystem ? 'center' : 'left'
+  whiteSpace: 'pre-wrap', // Preserve line breaks and wrap text
+  textAlign: isSystem ? 'center' : (isOwnMessage ? 'left' : 'left'), // Keep left alignment for readability
+  margin: 0,
+  padding: 0
 })
 
 export const getTimestampStyles = (isDarkMode = false) => ({
   fontSize: CHAT_DESIGN_CONSTANTS.FONT_SIZES.TIMESTAMP,
   color: isDarkMode ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.6)',
-  marginLeft: 'auto',
   flexShrink: 0,
   lineHeight: 1,
   whiteSpace: 'nowrap'

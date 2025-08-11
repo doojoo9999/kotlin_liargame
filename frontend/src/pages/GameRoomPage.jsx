@@ -519,25 +519,30 @@ const GameRoomPage = React.memo(() => {
         </Box>
     )
 
-    const chatComponent = useMemo(() => (
-        <OptimizedEnhancedChatSystem
-            messages={chatMessages || []}
-            currentUser={currentUser}
-            onSendMessage={handlers.chat.handleSendChatMessage}
-            disabled={!socketConnected}
-            placeholder={!socketConnected ? "서버에 연결 중..." : "메시지를 입력하세요..."}
-            fallback={
-                !socketConnected ? (
-                    <Box sx={{p: 2, textAlign: 'center'}}>
-                        <CircularProgress size={24}/>
-                        <Typography variant="body2" sx={{mt: 1}}>
-                            서버에 연결 중...
-                        </Typography>
-                    </Box>
-                ) : null
-            }
-        />
-    ), [chatMessages, currentUser, handlers.chat.handleSendChatMessage, socketConnected])
+    const chatComponent = useMemo(() => {
+        console.log('[DEBUG_LOG] ChatComponent - currentUser:', currentUser) // 디버깅용 로그 추가
+
+        return (
+            <OptimizedEnhancedChatSystem
+                messages={chatMessages || []}
+                currentUser={currentUser}
+                onSendMessage={handlers.chat.handleSendChatMessage}
+                disabled={!socketConnected}
+                placeholder={!socketConnected ? "서버에 연결 중..." : "메시지를 입력하세요..."}
+                fallback={
+                    !socketConnected ? (
+                        <Box sx={{p: 2, textAlign: 'center'}}>
+                            <CircularProgress size={24}/>
+                            <Typography variant="body2" sx={{mt: 1}}>
+                                서버에 연결 중...
+                            </Typography>
+                        </Box>
+                    ) : null
+                }
+            />
+        )
+    }, [chatMessages, currentUser, handlers.chat.handleSendChatMessage, socketConnected])
+
 
     const playersComponent = useMemo(() => (
         <Box sx={{display: 'flex', flexDirection: 'column', gap: 1}}>
