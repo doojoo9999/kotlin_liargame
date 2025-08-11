@@ -46,9 +46,26 @@ class VotingService(
             
         val players = playerRepository.findByGame(game)
         
+        // 유효한 플레이어만 필터링 (id가 null이거나 0이 아닌 경우)
+        val validPlayers = players.filter { player ->
+            val playerId = player.id
+            if (playerId == null || playerId <= 0) {
+                println("[ERROR] Invalid player found in game $gameNumber: id=$playerId, nickname=${player.nickname}")
+                false
+            } else {
+                true
+            }
+        }
+        
+        if (validPlayers.isEmpty()) {
+            throw IllegalStateException("No valid players found for voting in game $gameNumber")
+        }
+        
         // 투표 상태 초기화 - Thread-safe
         val votingStatus = ConcurrentHashMap<Long, Long?>()
-        players.forEach { votingStatus[it.id] = null }
+        validPlayers.forEach { player ->
+            votingStatus[player.id] = null
+        }
         gameVotingStatusMap[gameNumber] = votingStatus
         votingTimerMap[gameNumber] = true
         votingLocks[gameNumber] = ReentrantLock()
@@ -56,7 +73,7 @@ class VotingService(
         // 투표 가능한 플레이어 목록 전송 (자신 제외)
         val votingData = VotingStartMessage(
             gameNumber = gameNumber,
-            availablePlayers = players.map { PlayerVotingInfo(it.id, it.nickname) },
+            availablePlayers = validPlayers.map { PlayerVotingInfo(it.id, it.nickname) },
             votingTimeLimit = 60, // 60초 투표 시간
             timestamp = Instant.now()
         )
@@ -71,7 +88,7 @@ class VotingService(
         
         return VotingStartResponse(
             gameNumber = gameNumber,
-            players = players,
+            players = validPlayers,
             votingTimeLimit = 60
         )
     }

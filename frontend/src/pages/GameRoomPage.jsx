@@ -150,7 +150,7 @@ const GameRoomPage = React.memo(() => {
 
     const systemMessages = useSystemMessages({
         gameStatus,
-        maxMessages: 50,
+        maxMessages: 10000,
         enableAutoCleanup: true
     })
 

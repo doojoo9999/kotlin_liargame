@@ -89,7 +89,7 @@ const OptimizedEnhancedChatSystem = ({
         isThrottling,
         performanceStats
     } = useChatOptimization({
-        maxMessages: 500,
+        maxMessages: 10000,
         throttleDelay: isMobile ? 150 : 100,
         batchSize: isMobile ? 5 : 10,
         enableVirtualization: true,
@@ -190,7 +190,7 @@ const OptimizedEnhancedChatSystem = ({
                     isDarkMode={isDarkMode}
                     height="100%"
                     autoScroll={true}
-                    maxMessages={500}
+                    maxMessages={10000}
                     onScrollToBottom={() => {
                         if (process.env.NODE_ENV === 'development') {
                             console.log('[DEBUG_LOG] Auto-scrolled to bottom')

@@ -13,7 +13,7 @@ class AdminStompClient {
     }
 
 
-    connect(serverUrl = 'http://localhost:20021', options = {}) {
+    connect(serverUrl = 'http://119.201.51.128:20021', options = {}) {
         return new Promise((resolve, reject) => {
             try {
                 console.log('[DEBUG_LOG] Connecting to STOMP server:', serverUrl)

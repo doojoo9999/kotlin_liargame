@@ -1168,7 +1168,7 @@ export const GameProvider = ({ children }) => {
       await loadChatHistory(gameNumber)
 
       console.log('[DEBUG_LOG] Establishing WebSocket connection')
-      const client = await gameStompClient.connect('http://localhost:20021')
+      const client = await gameStompClient.connect('http://119.201.51.128:20021')
       socketRef.current = gameStompClient // ✅ gameStompClient 객체 자체를 저장
 
       gameStompClient.subscribeToGameChat(gameNumber, (message) => {

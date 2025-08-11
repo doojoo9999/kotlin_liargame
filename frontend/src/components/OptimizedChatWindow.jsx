@@ -32,11 +32,11 @@ function OptimizedChatWindow() {
     performanceStats,
     getPerformanceReport
   } = useChatOptimization({
-    maxMessages: 500,
+    maxMessages: 10000,
     throttleDelay: isXs ? 150 : 100, // Slower on mobile
-    batchSize: isXs ? 5 : 10,
+    batchSize: isXs ? 10 : 20,
     enableVirtualization: true,
-    enableMessageLimiting: true,
+    enableMessageLimiting: false,
     enableThrottling: true,
     debugMode: process.env.NODE_ENV === 'development'
   })
@@ -253,7 +253,7 @@ function OptimizedChatWindow() {
           isDarkMode={isDarkMode}
           height="100%" 
           autoScroll={true}
-          maxMessages={500}
+          maxMessages={10000}
           onScrollToBottom={() => {
             console.log('[DEBUG_LOG] User scrolled to bottom')
           }}

@@ -114,7 +114,7 @@ function ChatMessageList({
   isDarkMode = false, 
   height = 400,
   autoScroll = true,
-  maxMessages = 500,
+  maxMessages = 10000,
   onScrollToBottom,
   className
 }) {
@@ -312,7 +312,7 @@ ChatMessageList.defaultProps = {
   isDarkMode: false,
   height: 400,
   autoScroll: true,
-  maxMessages: 500,
+  maxMessages: 10000,
   onScrollToBottom: null,
   className: ''
 }

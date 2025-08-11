@@ -169,7 +169,7 @@ const LeftInfoPanel = ({
           messages={systemMessages}
           gameStatus={gameStatus}
           onDismissNotification={onDismissNotification}
-          maxMessages={20}
+          maxMessages={1000}
         />
       </Box>
     </Box>
