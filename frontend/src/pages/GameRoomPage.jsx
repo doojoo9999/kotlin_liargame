@@ -29,7 +29,7 @@ import {useGame} from '../context/GameContext'
 import {useToast} from '../components/EnhancedToastSystem'
 import PlayerProfile from '../components/PlayerProfile'
 import PlayerSpeechBubble from '../components/PlayerSpeechBubble'
-import EnhancedChatSystem from '../components/OptimizedEnhancedChatSystem'
+import OptimizedEnhancedChatSystem from '../components/OptimizedEnhancedChatSystem'
 import GameInfoDisplay from '../components/GameInfoDisplay'
 import HintInputComponent from '../components/HintInputComponent'
 import VotingComponent from '../components/VotingComponent'
@@ -523,7 +523,7 @@ const GameRoomPage = React.memo(() => {
   )
 
   const chatComponent = useMemo(() => (
-    <EnhancedChatSystem
+    <OptimizedEnhancedChatSystem
       messages={chatMessages || []}
       currentUser={currentUser}
       onSendMessage={handlers.chat.handleSendChatMessage}
