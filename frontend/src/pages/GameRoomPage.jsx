@@ -38,6 +38,12 @@ import SurvivalVotingComponent from '../components/SurvivalVotingComponent'
 import WordGuessComponent from '../components/WordGuessComponent'
 import GameTimerComponent from '../components/GameTimerComponent'
 import ResponsiveGameLayout from '../components/ResponsiveGameLayout'
+import AdaptiveGameLayout from '../components/AdaptiveGameLayout'
+import LeftInfoPanel from '../components/LeftInfoPanel'
+import ExpandedChatPanel from '../components/ExpandedChatPanel'
+import useGameLayout from '../hooks/useGameLayout'
+import useSystemMessages from '../hooks/useSystemMessages'
+import useGameGuidance from '../hooks/useGameGuidance'
 import GameResultScreen from '../components/GameResultScreen'
 import GameTutorialSystem, {ActionGuidance} from '../components/GameTutorialSystem'
 import UserAvatar from '../components/UserAvatar'
@@ -96,6 +102,33 @@ function GameRoomPage() {
   const [tutorialOpen, setTutorialOpen] = useState(false)
   const [showGameResult, setShowGameResult] = useState(false)
   const [newMessageCount, setNewMessageCount] = useState(0)
+
+  // Initialize adaptive layout hooks
+  const gameLayout = useGameLayout({
+    gameStatus,
+    playerCount: players.length,
+    enableTransitions: true
+  })
+
+  const systemMessages = useSystemMessages({
+    gameStatus,
+    maxMessages: 50,
+    enableAutoCleanup: true
+  })
+
+  const gameGuidance = useGameGuidance({
+    gameStatus,
+    currentUser,
+    currentTurnPlayerId,
+    players,
+    playerRole,
+    gameTimer,
+    accusedPlayerId,
+    hintSubmitted,
+    defenseSubmitted,
+    survivalVoteSubmitted,
+    wordGuessSubmitted
+  })
 
   // Enhanced chat message handler
   const handleSendChatMessage = (content) => {
@@ -820,16 +853,59 @@ function GameRoomPage() {
       )}
 
       {/* Main Layout */}
-      <ResponsiveGameLayout
-        gameInfoComponent={gameInfoComponent}
-        chatComponent={chatComponent}
-        playersComponent={playersComponent}
-        centerComponent={centerComponent}
-        newMessageCount={newMessageCount}
-        players={players}
-      >
-        {playersAroundScreen}
-      </ResponsiveGameLayout>
+      {isMobile ? (
+        <ResponsiveGameLayout
+          gameInfoComponent={gameInfoComponent}
+          chatComponent={chatComponent}
+          playersComponent={playersComponent}
+          centerComponent={centerComponent}
+          newMessageCount={newMessageCount}
+          players={players}
+        >
+          {playersAroundScreen}
+        </ResponsiveGameLayout>
+      ) : (
+        <AdaptiveGameLayout
+          gameStatus={gameStatus}
+          leftPanel={
+            <LeftInfoPanel
+              gameStatus={gameStatus}
+              currentRound={currentRound}
+              gameTimer={gameTimer}
+              currentUser={currentUser}
+              currentTurnPlayerId={effectiveCurrentTurnPlayerId}
+              players={players}
+              isCurrentTurn={effectiveCurrentTurnPlayerId === currentUser?.id}
+              playerRole={playerRole}
+              assignedWord={assignedWord}
+              accusedPlayerId={accusedPlayerId}
+              systemMessages={systemMessages.messages}
+              gamePhase={gamePhase}
+              subject={currentRoom?.subject}
+              votingResults={votingResults}
+              hintSubmitted={hintSubmitted}
+              defenseSubmitted={defenseSubmitted}
+              survivalVoteSubmitted={survivalVoteSubmitted}
+              wordGuessSubmitted={wordGuessSubmitted}
+              onDismissNotification={systemMessages.dismissMessage}
+            />
+          }
+          centerComponent={centerComponent}
+          rightPanel={
+            <ExpandedChatPanel
+              messages={chatMessages || []}
+              currentUser={currentUser}
+              onSendMessage={handleSendChatMessage}
+              disabled={!socketConnected}
+              gameStatus={gameStatus}
+              players={players}
+              systemMessages={systemMessages.messages}
+            />
+          }
+        >
+          {playersAroundScreen}
+        </AdaptiveGameLayout>
+      )}
 
       {/* Tutorial System */}
       <GameTutorialSystem
