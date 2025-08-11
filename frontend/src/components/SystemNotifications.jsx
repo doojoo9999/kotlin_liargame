@@ -126,7 +126,7 @@ const SystemNotifications = ({
   messages = [],
   gameStatus = 'WAITING',
   onDismissNotification,
-  maxMessages = 20,
+  maxMessages = 1000,
   autoHideDelay = 10000 // 10 seconds for low priority messages
 }) => {
   const theme = useTheme()

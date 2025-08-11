@@ -59,7 +59,13 @@ export const getRoomInfo = async (gameNumber) => {
 }
 
 export const startGame = async (gameNumber) => {
-  const response = await apiClient.post('/game/start', { gameNumber })
+  const response = await apiClient.post('/game/start', {
+    gameNumber: parseInt(gameNumber),
+    subjectIds: null,
+    useAllSubjects: false,
+    useRandomSubjects: true,
+    randomSubjectCount: 1
+  })
   return response.data
 }
 

@@ -13,7 +13,7 @@ class GameStompClient {
         this.connectionPromise = null
     }
 
-            async connect(serverUrl = 'http://localhost:20021', options = {}) {
+            async connect(serverUrl = 'http://119.201.51.128:20021', options = {}) {
         // If already connected, return immediately
         if (this.isConnected && this.client && this.client.connected) {
             console.log('[DEBUG_LOG] Game STOMP already connected')

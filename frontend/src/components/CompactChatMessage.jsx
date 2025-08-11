@@ -79,7 +79,7 @@ function CompactChatMessage({ message, currentUserId, isDarkMode = false }) {
           display: 'flex',
           justifyContent: 'center',
           padding: '4px 16px',
-          marginBottom: '4px',
+          marginBottom: '2px',
         }}
         role="listitem"
         aria-label={`System message: ${message.content}`}
@@ -120,7 +120,7 @@ function CompactChatMessage({ message, currentUserId, isDarkMode = false }) {
           display: 'flex',
           justifyContent: 'center',
           padding: '4px 16px',
-          marginBottom: '4px',
+          marginBottom: '2px',
         }}
         role="listitem"
         aria-label={`Announcement from ${senderName}: ${message.content}`}
@@ -163,7 +163,7 @@ function CompactChatMessage({ message, currentUserId, isDarkMode = false }) {
         display: 'flex',
         alignItems: 'flex-end',
         padding: '2px 16px',
-        marginBottom: isLast ? '6px' : '2px', // 그룹 마지막일 때만 큰 간격
+        marginBottom: isLast ? '4px' : '2px', // 그룹 마지막일 때만 큰 간격
         justifyContent: isOwnMessage ? 'flex-end' : 'flex-start',
       }}
       role="listitem"

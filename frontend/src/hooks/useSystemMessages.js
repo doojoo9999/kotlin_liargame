@@ -2,7 +2,7 @@ import {useCallback, useEffect, useMemo, useRef, useState} from 'react'
 import {MESSAGE_TYPES} from '../components/SystemNotifications'
 
 const useSystemMessages = ({
-  maxMessages = 50,
+  maxMessages = 10000,
   autoCleanupInterval = 300000, // 5 minutes
   priorityRetentionTime = 600000, // 10 minutes for high priority
   enableAutoCleanup = true,
@@ -61,32 +61,30 @@ const useSystemMessages = ({
   useEffect(() => {
     if (messageQueue.length > 0 && !isProcessingQueue) {
       setIsProcessingQueue(true)
-      
-      const processNextBatch = () => {
-        setMessageQueue(prevQueue => {
-          if (prevQueue.length === 0) {
-            setIsProcessingQueue(false)
-            return prevQueue
-          }
 
-          const batch = prevQueue.slice(0, 3)
-          const remaining = prevQueue.slice(3)
+        const BATCH_SIZE = 50  // 기존 3 → 50
+        const BATCH_DELAY = 10 // 기존 100 → 10
 
-          batch.forEach(msg => {
-            addMessage(msg)
-          })
+        const processNextBatch = () => {
+            setMessageQueue(prevQueue => {
+                if (prevQueue.length === 0) {
+                    setIsProcessingQueue(false)
+                    return prevQueue
+                }
+                const batch = prevQueue.slice(0, BATCH_SIZE)
+                const remaining = prevQueue.slice(BATCH_SIZE)
+                batch.forEach(addMessage)
+                if (remaining.length > 0) {
+                    setTimeout(processNextBatch, BATCH_DELAY)
+                } else {
+                    setIsProcessingQueue(false)
+                }
+                return remaining
+            })
+        }
 
-          if (remaining.length > 0) {
-            setTimeout(processNextBatch, 100)
-          } else {
-            setIsProcessingQueue(false)
-          }
 
-          return remaining
-        })
-      }
-
-      queueProcessorRef.current = setTimeout(processNextBatch, 50)
+        queueProcessorRef.current = setTimeout(processNextBatch, 50)
     }
 
     return () => {
