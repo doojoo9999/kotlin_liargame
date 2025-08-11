@@ -725,11 +725,12 @@ export const GameProvider = ({ children }) => {
               currentPlayers: update.roomData.currentPlayers,
               maxPlayers: update.roomData.maxPlayers,
               subject: update.roomData.subject,
+              subjects: update.roomData.subjects || [],
               state: update.roomData.state,
               players: update.roomData.players || []
             }
             
-            console.log('[DEBUG_LOG] Updating currentRoom with roomData:', updatedRoom)
+            console.log('[DEBUG_LOG] Updating currentRoom with roomData (including subjects):', updatedRoom)
             dispatch({ type: ActionTypes.SET_CURRENT_ROOM, payload: updatedRoom })
           }
           
@@ -743,6 +744,7 @@ export const GameProvider = ({ children }) => {
                 maxPlayers: update.roomData.maxPlayers,
                 title: update.roomData.title,
                 subject: update.roomData.subject,
+                subjects: update.roomData.subjects || [], // Include subjects array
                 state: update.roomData.state
               }
             })
@@ -820,10 +822,29 @@ export const GameProvider = ({ children }) => {
   }
 
 
-  const startGame = () => {
-    if (gameStompClient.isClientConnected() && state.currentRoom) {
+  const startGame = async () => {
+    try {
+      if (!state.currentRoom) {
+        throw new Error('No current room available')
+      }
+
+      setLoading('room', true)
+      setError('room', null)
+
       console.log('[DEBUG_LOG] Starting game for room:', state.currentRoom.gameNumber)
-      gameStompClient.sendGameAction(state.currentRoom.gameNumber, 'start')
+      
+      // Use REST API instead of WebSocket since backend has no WebSocket handler for 'start'
+      const result = await gameApi.startGame(state.currentRoom.gameNumber)
+      
+      console.log('[DEBUG_LOG] Game started successfully:', result)
+      setLoading('room', false)
+      
+      return result
+    } catch (error) {
+      console.error('[ERROR] Failed to start game:', error)
+      setError('room', error.message || '게임 시작에 실패했습니다.')
+      setLoading('room', false)
+      throw error
     }
   }
 
@@ -1151,11 +1172,12 @@ export const GameProvider = ({ children }) => {
               currentPlayers: update.roomData.currentPlayers,
               maxPlayers: update.roomData.maxPlayers,
               subject: update.roomData.subject,
+              subjects: update.roomData.subjects || [], // Include subjects array from backend
               state: update.roomData.state,
               players: update.roomData.players || []
             }
             
-            console.log('[DEBUG_LOG] Updating currentRoom with roomData:', updatedRoom)
+            console.log('[DEBUG_LOG] Updating currentRoom with roomData (including subjects):', updatedRoom)
             dispatch({ type: ActionTypes.SET_CURRENT_ROOM, payload: updatedRoom })
           }
           
@@ -1169,6 +1191,7 @@ export const GameProvider = ({ children }) => {
                 maxPlayers: update.roomData.maxPlayers,
                 title: update.roomData.title,
                 subject: update.roomData.subject,
+                subjects: update.roomData.subjects || [], // Include subjects array
                 state: update.roomData.state
               }
             })
