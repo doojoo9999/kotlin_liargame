@@ -14,7 +14,8 @@ const ResponsiveGameLayout = ({
   playersComponent,
   gameInfoComponent,
   centerComponent,
-  newMessageCount = 0
+  newMessageCount = 0,
+  players = []
 }) => {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
@@ -318,7 +319,7 @@ const ResponsiveGameLayout = ({
             overflow: 'auto'
           }}>
             <Box sx={{ p: 2, fontWeight: 'bold', borderBottom: '1px solid', borderColor: 'divider' }}>
-              플레이어 ({playersComponent?.props?.players?.length || 0})
+              플레이어 ({players.length})
             </Box>
             <Box sx={{ p: 1 }}>
               {playersComponent}
