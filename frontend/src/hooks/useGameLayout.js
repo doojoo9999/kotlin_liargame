@@ -196,18 +196,14 @@ const useGameLayout = ({
     }))
   }, [screenType])
 
-  // Get recommended layout for current context
   const getRecommendedLayout = useCallback((gameStatus, playerCount, chatActivity = 'normal') => {
     let recommendation = { ...layoutConfig[gameStatus] || layoutConfig.WAITING }
 
-    // Adjust based on player count
     if (playerCount <= 4) {
-      // Fewer players, can give more space to chat
       recommendation.right = '30%'
       recommendation.center = '45%'
       recommendation.left = '25%'
     } else if (playerCount >= 8) {
-      // More players, might need more space for player info
       recommendation.left = '30%'
       recommendation.center = '40%'
       recommendation.right = '30%'
