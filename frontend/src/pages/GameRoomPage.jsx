@@ -226,7 +226,7 @@ const GameRoomPage = React.memo(() => {
                 console.error('[DEBUG_LOG] Failed to disconnect WebSocket on unmount:', error)
             }
         }
-    }, [currentRoom?.gameNumber, connectToRoom, disconnectSocket, addToast])
+    }, [currentRoom?.gameNumber, addToast]) // Removed connectToRoom and disconnectSocket from dependencies
 
     useEffect(() => {
         if (socketConnected) {

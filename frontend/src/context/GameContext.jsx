@@ -1075,9 +1075,11 @@ export const GameProvider = ({ children }) => {
     }
   }
 
+  const loadChatHistoryRef = useRef(false)
+  
   const loadChatHistory = useCallback(async (gameNumber) => {
-    // Prevent multiple simultaneous calls
-    if (state.loading.chatHistory) {
+    // Prevent multiple simultaneous calls using ref instead of state
+    if (loadChatHistoryRef.current) {
       console.log('[DEBUG_LOG] Chat history already loading, skipping duplicate request')
       return []
     }
@@ -1086,6 +1088,7 @@ export const GameProvider = ({ children }) => {
       console.log('[DEBUG_LOG] ========== loadChatHistory Start ==========')
       console.log('[DEBUG_LOG] Loading chat history for game:', gameNumber)
       
+      loadChatHistoryRef.current = true
       setLoading('chatHistory', true)
       
       const messages = await gameApi.getChatHistory(gameNumber)
@@ -1119,8 +1122,9 @@ export const GameProvider = ({ children }) => {
       return []
     } finally {
       setLoading('chatHistory', false)
+      loadChatHistoryRef.current = false
     }
-  }, [state.loading.chatHistory])
+  }, [])
 
 
   const connectToRoom = useCallback(async (gameNumber, retryCount = 0) => {
