@@ -4,10 +4,9 @@ import {useGame} from '../hooks/useGame';
 import {Alert, Badge, Button, Container, Grid, Group, LoadingOverlay, Paper, Stack, Text, Title} from '@mantine/core';
 import {IconLogout} from '@tabler/icons-react';
 
-// Import the new components
 import PlayerCircle from '../components/game/PlayerCircle';
 import ActionPanel from '../components/game/ActionPanel';
-import ChatWindow from '../components/domain/ChatWindow'; // Assuming ChatWindow is a separate component
+import ChatWindow from '../components/domain/ChatWindow';
 
 function GameRoomPage() {
   const { gameNumber } = useParams();
@@ -15,9 +14,7 @@ function GameRoomPage() {
   const game = useGame();
 
   useEffect(() => {
-    // If there's no room data and we're not loading, redirect to lobby
     if (!game.currentRoom && !game.isJoiningRoom) {
-        // Attempt to join the room if gameNumber is present
         if (gameNumber) {
             game.joinRoom({ gameNumber });
         } else {
@@ -25,13 +22,11 @@ function GameRoomPage() {
         }
     }
 
-    // Setup WebSocket connection and subscriptions
     if (game.currentRoom?.gameNumber) {
       game.connectSocket();
       game.initializeSubscriptions(game.currentRoom.gameNumber);
     }
 
-    // Cleanup on component unmount
     return () => {
       if (game.isSocketConnected) {
         game.disconnectSocket();
@@ -47,9 +42,9 @@ function GameRoomPage() {
   if (game.joinRoomError) {
     return (
         <Container>
-            <Alert color="red" title="Error Joining Room">
+            <Alert color="red" title="방 입장 오류">
                 {game.joinRoomError.message}
-                <Button onClick={() => navigate('/lobby')} mt="md">Back to Lobby</Button>
+                <Button onClick={() => navigate('/lobby')} mt="md">로비로 돌아가기</Button>
             </Alert>
         </Container>
     );
@@ -61,11 +56,11 @@ function GameRoomPage() {
         <Group justify="space-between">
           <Stack gap={0}>
             <Title order={3}>{game.currentRoom.title}</Title>
-            <Text size="sm" c="dimmed">Room #{game.currentRoom.gameNumber}</Text>
+            <Text size="sm" c="dimmed">방 번호 #{game.currentRoom.gameNumber}</Text>
           </Stack>
           <Group>
             <Badge color={game.isSocketConnected ? 'green' : 'red'} variant="light">
-              {game.isSocketConnected ? 'Connected' : 'Disconnected'}
+              {game.isSocketConnected ? '연결됨' : '연결 끊김'}
             </Badge>
             <Button 
               leftSection={<IconLogout size={16} />} 
@@ -74,7 +69,7 @@ function GameRoomPage() {
               color="red"
               variant="outline"
             >
-              Leave
+              나가기
             </Button>
           </Group>
         </Group>
@@ -92,13 +87,13 @@ function GameRoomPage() {
         <Grid.Col span={4}>
           <Stack style={{ height: '100%' }}>
             <Paper withBorder shadow="sm" p="md">
-                <Title order={4}>Game Info</Title>
-                <Text>Status: <Badge>{game.gameStatus}</Badge></Text>
-                <Text>Round: {game.currentRound}</Text>
-                <Text>Time: {game.gameTimer}s</Text>
-                {game.playerRole && <Text>Role: <Badge color={game.playerRole === 'LIAR' ? 'red' : 'blue'}>{game.playerRole}</Badge></Text>}
-                {game.assignedWord && <Text>Word: <Text span fw={700}>{game.assignedWord}</Text></Text>}
-                {game.moderatorMessage && <Alert color="grape" title="Moderator">{game.moderatorMessage}</Alert>}
+                <Title order={4}>게임 정보</Title>
+                <Text>상태: <Badge>{game.gameStatus}</Badge></Text>
+                <Text>라운드: {game.currentRound}</Text>
+                <Text>시간: {game.gameTimer}초</Text>
+                {game.playerRole && <Text>내 역할: <Badge color={game.playerRole === 'LIAR' ? 'red' : 'blue'}>{game.playerRole}</Badge></Text>}
+                {game.assignedWord && <Text>제시어: <Text span fw={700}>{game.assignedWord}</Text></Text>}
+                {game.moderatorMessage && <Alert color="grape" title="사회자">{game.moderatorMessage}</Alert>}
             </Paper>
             <ChatWindow />
           </Stack>

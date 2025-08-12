@@ -173,6 +173,7 @@ export const useGame = () => {
     connectSocket: socket.connect,
     disconnectSocket: socket.disconnect,
     subscribe: socket.subscribe,
+    initializeSubscriptions: socket.initializeSubscriptions,
     sendChatMessage,
   };
 };

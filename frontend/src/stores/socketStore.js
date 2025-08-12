@@ -111,52 +111,43 @@ export const useSocketStore = create((set, get) => ({
   // --- Domain-specific subscriptions ---
   initializeSubscriptions: (gameNumber) => {
     const { subscribe } = get();
-    const { setRoomList, updateRoomInList, setCurrentRoom } = useRoomStore.getState();
+    const { updateRoomInList, setCurrentRoom } = useRoomStore.getState();
     const { 
-        setGameStatus, setRoomPlayers, addChatMessage, setModeratorMessage, 
-        setCurrentTurnPlayerId, setPlayerRole, setAssignedWord, setGameResults, 
-        setAccusedPlayerId, setGameTimer, setCurrentRound 
+        setGameState,
+        addChatMessage, 
+        setModeratorMessage, 
+        setPlayerRole, 
+        setAssignedWord
     } = useGameStore.getState();
 
-    // Room-level updates (lobby and general room state)
-    subscribe(`/topic/rooms`, (data) => {
-        setRoomList(data);
-    });
-
+    // Handles general room updates like player join/leave, or room setting changes.
     subscribe(`/topic/room.${gameNumber}`, (update) => {
-      console.log('[Socket] Room Update:', update);
-      updateRoomInList(update); // Update in lobby list
-      setCurrentRoom(update); // Update current room details
-      if(update.players) {
-        setRoomPlayers(update.players);
-      }
-      if(update.gameState) {
-        setGameStatus(update.gameState);
-      }
+        console.log('[Socket] Room Update:', update);
+        const roomData = update.roomData || update;
+        if (roomData) {
+            updateRoomInList(roomData); // For lobby list consistency
+            setCurrentRoom(roomData);   // For current room details
+        }
     });
 
-    // Game-specific updates
+    // Handles detailed, frequent game state updates during gameplay.
     subscribe(`/topic/game.${gameNumber}.state`, (state) => {
         console.log('[Socket] Game State Update:', state);
-        setGameStatus(state.gameStatus);
-        setCurrentRound(state.currentRound);
-        setGameTimer(state.timer);
-        setRoomPlayers(state.players);
-        setCurrentTurnPlayerId(state.currentTurnPlayerId);
-        setAccusedPlayerId(state.accusedPlayerId);
-        setGameResults(state.gameResults);
+        setGameState(state); 
     });
 
+    // Handles chat messages.
     subscribe(`/topic/game.${gameNumber}.chat`, (message) => {
         addChatMessage(message);
     });
 
+    // Handles moderator announcements.
     subscribe(`/topic/game.${gameNumber}.moderator`, (message) => {
         setModeratorMessage(message.content);
         setTimeout(() => setModeratorMessage(null), 4000);
     });
 
-    // Player-specific updates
+    // Handles private messages for the current user (e.g., role and word).
     subscribe(`/user/queue/game.${gameNumber}.role`, (data) => {
         console.log('[Socket] Role/Word Update:', data);
         setPlayerRole(data.role);

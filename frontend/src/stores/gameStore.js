@@ -42,6 +42,18 @@ export const useGameStore = create((set, get) => ({
       chatMessages: [...state.chatMessages, message],
     })),
 
+  // Action to handle a full game state update from the server
+  setGameState: (newState) => {
+    set({
+      gameStatus: newState.gameStatus,
+      currentRound: newState.currentRound,
+      gameTimer: newState.timer, // The backend sends 'timer'
+      roomPlayers: newState.players,
+      currentTurnPlayerId: newState.currentTurnPlayerId,
+      accusedPlayerId: newState.accusedPlayerId,
+      gameResults: newState.gameResults,
+    });
+  },
   // Reset state when leaving a room or game ends
   resetGameState: () =>
     set({

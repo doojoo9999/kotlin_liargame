@@ -1,27 +1,38 @@
 import axios from 'axios';
 
+// Helper function to get a cookie by name
+function getCookie(name) {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop().split(';').shift();
+}
+
 const apiClient = axios.create({
-  baseURL: '/api', // Vite proxy에서 설정한 경로
+  baseURL: '/api', // Vite proxy config
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: true, // 세션 쿠키를 주고받기 위해 설정
+  withCredentials: true, // Necessary for sending/receiving cookies
 });
 
-// 요청 인터셉터 (필요시 토큰 등 추가)
+// Request interceptor to add CSRF token to headers
 apiClient.interceptors.request.use((config) => {
-  // const token = localStorage.getItem('token');
-  // if (token) {
-  //   config.headers.Authorization = `Bearer ${token}`;
-  // }
+  // Spring Security expects the CSRF token in the X-XSRF-TOKEN header by default.
+  // It is sent by the server in a cookie, typically named XSRF-TOKEN.
+  if (config.method === 'post' || config.method === 'put' || config.method === 'delete') {
+    const csrfToken = getCookie('XSRF-TOKEN');
+    if (csrfToken) {
+      config.headers['X-XSRF-TOKEN'] = csrfToken;
+    }
+  }
   return config;
 });
 
-// 응답 인터셉터 (에러 처리 등)
+// Response interceptor for centralized error handling or data shaping
 apiClient.interceptors.response.use(
-  (response) => response.data, // 성공 시 response.data만 반환
+  (response) => response.data, // On success, return only the response data
   (error) => {
-    // 실패 시 에러 객체를 그대로 반환하여 React Query의 onError에서 처리
+    // On failure, return the whole error object for React Query's onError to handle
     return Promise.reject(error);
   }
 );
