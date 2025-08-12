@@ -1,7 +1,7 @@
 import {createTheme} from '@mantine/core';
 
 export const theme = createTheme({
-  fontFamily: 'SeoulAlrimTTF-Heavy, sans-serif',
+  fontFamily: 'SeoulAlrimTTF-Medium, sans-serif',
   primaryColor: 'blue',
   colors: {
     blue: [
