@@ -1,6 +1,7 @@
-import React, {createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef} from 'react'
+import React, {createContext, useCallback, useEffect, useMemo, useReducer, useRef} from 'react'
 import * as gameApi from '../api/gameApi'
 import gameStompClient from '../socket/gameStompClient'
+import {useGame as useGameZustand} from '../stores/useGame'
 
 
 const initialState = {
@@ -388,7 +389,7 @@ const gameReducer = (state, action) => {
 const GameContext = createContext()
 
 // Context provider component
-export const GameProvider = ({ children }) => {
+const LegacyGameProvider = ({ children }) => {
   const [state, dispatch] = useReducer(gameReducer, initialState)
   const socketRef = useRef(null)
   
@@ -1498,11 +1499,11 @@ export const GameProvider = ({ children }) => {
 }
 
 export const useGame = () => {
-  const context = useContext(GameContext)
-  if (!context) {
-    throw new Error('useGame must be used within a GameProvider')
-  }
-  return context
+  return useGameZustand()
+}
+
+export const GameProvider = ({ children }) => {
+  return <>{children}</>
 }
 
 export default GameContext
