@@ -6,18 +6,25 @@ export const useAuthStore = create(
     (set) => ({
       user: null,
       isAuthenticated: false,
-      initializeAuth: () => {
-        const storedState = JSON.parse(localStorage.getItem('auth-storage'));
-        if (storedState?.state?.user) {
-          set({ user: storedState.state.user, isAuthenticated: true });
-        }
+      _hasHydrated: false, // Hydration status state
+
+      // Action to set hydration status
+      setHasHydrated: (state) => {
+        set({
+          _hasHydrated: state,
+        });
       },
+
       login: (userData) => set({ user: userData, isAuthenticated: true }),
       logout: () => set({ user: null, isAuthenticated: false }),
     }),
     {
       name: 'auth-storage',
       storage: createJSONStorage(() => localStorage),
+      // This function is called when the store is rehydrated from storage
+      onRehydrateStorage: () => (state) => {
+        state.setHasHydrated(true);
+      },
     }
   )
 );
