@@ -1,5 +1,6 @@
 import {Client} from '@stomp/stompjs'
 import SockJS from 'sockjs-client'
+import SocketManager from './SocketManager'
 
 class GameStompClient {
     constructor() {
@@ -335,7 +336,4 @@ class GameStompClient {
     }
 }
 
-// 싱글톤 인스턴스 생성
-const gameStompClient = new GameStompClient()
-
-export default gameStompClient
+export default SocketManager
