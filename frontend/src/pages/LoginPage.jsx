@@ -1,19 +1,9 @@
-import React, { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useForm } from '@mantine/form';
-import { useAuth } from '../hooks/useAuth';
-import {
-  Box,
-  Button,
-  TextInput,
-  Text,
-  Container,
-  Paper,
-  Loader,
-  Stack,
-  Title,
-} from '@mantine/core';
-import { IconLogin, IconSwords } from '@tabler/icons-react';
+import React, {useEffect} from 'react';
+import {useNavigate} from 'react-router-dom';
+import {useForm} from '@mantine/form';
+import {useAuth} from '../hooks/useAuth';
+import {Box, Button, Container, Loader, Paper, Stack, Text, TextInput, Title,} from '@mantine/core';
+import {IconLogin, IconSwords} from '@tabler/icons-react';
 
 function LoginPage() {
   const navigate = useNavigate();
@@ -26,7 +16,6 @@ function LoginPage() {
     }
   }, [isAuthenticated, navigate]);
 
-  // Step 1: Use react-hook-form (via @mantine/form)
   const form = useForm({
     initialValues: {
       nickname: '',
@@ -75,7 +64,7 @@ function LoginPage() {
             <Title
               order={1}
               style={{
-                fontFamily: 'SeoulAlrimTTF-Heavy, sans-serif',
+                fontFamily: 'SeoulAlrimTTF-Medium, sans-serif',
                 color: 'var(--mantine-color-blue-6)',
                 textShadow: '2px 2px 4px rgba(0,0,0,0.1)',
               }}
@@ -87,10 +76,8 @@ function LoginPage() {
             </Text>
           </Stack>
 
-          {/* Step 1: Form with react-hook-form */}
           <form onSubmit={form.onSubmit(handleLoginSubmit)}>
             <Stack>
-              {/* Step 4: Modernized Component Name */}
               <TextInput
                 label="Nickname"
                 placeholder="Enter your nickname"
