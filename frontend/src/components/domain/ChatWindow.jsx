@@ -3,11 +3,11 @@ import {Button, Paper, ScrollArea, Stack, Text, TextInput} from '@mantine/core';
 import {useGameStore} from '../../stores/gameStore';
 import {useAuthStore} from '../../stores/authStore';
 import {useMutation} from '@tanstack/react-query';
-import {sendMessage} from '../../api/mutations/roomMutations';
+import {sendMessage} from '../../api/mutations/gameMutations'; // Corrected import path
 import {useRoomStore} from '../../stores/roomStore';
 
 function ChatWindow() {
-  const { chatMessages, addChatMessage, setChatMessages } = useGameStore();
+  const { chatMessages } = useGameStore();
   const { user } = useAuthStore();
   const { currentRoom } = useRoomStore();
   const [message, setMessage] = useState('');
@@ -18,6 +18,10 @@ function ChatWindow() {
     onSuccess: () => {
       setMessage('');
     },
+    onError: (error) => {
+        console.error("Failed to send message:", error);
+        // Optionally show an error notification to the user
+    }
   });
 
   const handleSendMessage = (e) => {
@@ -28,6 +32,7 @@ function ChatWindow() {
   };
 
   useEffect(() => {
+    // Scroll to the bottom whenever a new message is added
     if (viewport.current) {
       viewport.current.scrollTo({ top: viewport.current.scrollHeight, behavior: 'smooth' });
     }
@@ -41,12 +46,11 @@ function ChatWindow() {
             <Text
               key={index}
               size="sm"
-              style={{
-                color: msg.sender === user?.nickname ? 'var(--mantine-color-blue-6)' : 'var(--mantine-color-gray-7)',
-                fontWeight: msg.sender === user?.nickname ? 600 : 400,
-              }}
             >
-              {msg.sender || 'System'}: {msg.content}
+              <Text span fw={msg.sender === user?.nickname ? 700 : 500} c={msg.sender === user?.nickname ? 'blue' : 'dark'}>
+                {msg.sender || 'System'}:
+              </Text>{' '}
+              {msg.content}
             </Text>
           ))}
         </Stack>
@@ -56,6 +60,7 @@ function ChatWindow() {
           placeholder="Type your message..."
           value={message}
           onChange={(event) => setMessage(event.currentTarget.value)}
+          disabled={sendChatMessageMutation.isPending}
           rightSection={
             <Button type="submit" loading={sendChatMessageMutation.isPending}>
               Send
