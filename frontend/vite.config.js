@@ -1,5 +1,5 @@
-import {defineConfig} from 'vite'
-import react from '@vitejs/plugin-react'
+import {defineConfig} from 'vite';
+import react from '@vitejs/plugin-react';
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -13,10 +13,14 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/api/, '/api/v1'),
       },
       '/ws': {
-        target: 'ws://localhost:20021',
+        target: 'http://localhost:20021',
         ws: true,
         changeOrigin: true,
       },
     },
   },
-})
+  // Add this section to fix the 'global is not defined' error
+  define: {
+    global: 'window',
+  },
+});
