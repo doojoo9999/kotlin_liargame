@@ -1,26 +1,29 @@
-import axios from 'axios'
-import config from '../config/environment'
+import axios from 'axios';
 
 const apiClient = axios.create({
-  baseURL: config.apiBaseUrl + '/api/v1',
-  timeout: config.timeouts.apiRequest,
-  withCredentials: true, // 세션 쿠키 자동 전송
+  baseURL: '/api', // Vite proxy에서 설정한 경로
   headers: {
     'Content-Type': 'application/json',
   },
-})
+  withCredentials: true, // 세션 쿠키를 주고받기 위해 설정
+});
 
-// JWT 관련 인터셉터 모두 제거
+// 요청 인터셉터 (필요시 토큰 등 추가)
+apiClient.interceptors.request.use((config) => {
+  // const token = localStorage.getItem('token');
+  // if (token) {
+  //   config.headers.Authorization = `Bearer ${token}`;
+  // }
+  return config;
+});
+
+// 응답 인터셉터 (에러 처리 등)
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => response.data, // 성공 시 response.data만 반환
   (error) => {
-    if (error.response?.status === 401) {
-      // 단순하게 로그인 페이지로 리다이렉트
-      localStorage.removeItem('userData')
-      window.dispatchEvent(new CustomEvent('auth:logout'))
-    }
-    return Promise.reject(error)
+    // 실패 시 에러 객체를 그대로 반환하여 React Query의 onError에서 처리
+    return Promise.reject(error);
   }
-)
+);
 
-export default apiClient
+export default apiClient;

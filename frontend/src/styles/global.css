@@ -1,0 +1,10 @@
+@font-face {
+    font-family: 'SeoulAlrimTTF-Heavy';
+    src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/2505-1@1.0/SeoulAlrimTTF-Heavy.woff2') format('woff2');
+    font-weight: 500;
+    font-style: normal;
+}
+
+body {
+    font-family: 'SeoulAlrimTTF-Heavy', sans-serif;
+}

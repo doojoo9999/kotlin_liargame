@@ -1,256 +1,140 @@
-import React, {useState} from 'react'
-import {Alert, Box, Button, CircularProgress, Container, Paper, Snackbar, TextField, Typography} from '@mui/material'
-import {Login as LoginIcon, SportsEsports as GameIcon} from '@mui/icons-material'
-import {useGame} from '../context/GameContext'
+import React, { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useForm } from '@mantine/form';
+import { useAuth } from '../hooks/useAuth';
+import {
+  Box,
+  Button,
+  TextInput,
+  Text,
+  Container,
+  Paper,
+  Loader,
+  Stack,
+  Title,
+} from '@mantine/core';
+import { IconLogin, IconSwords } from '@tabler/icons-react';
 
 function LoginPage() {
-  const { login, loading, error } = useGame()
+  const navigate = useNavigate();
+  const { login, isLoggingIn, isAuthenticated } = useAuth();
 
-  const [nickname, setNickname] = useState('')
-  const [validationError, setValidationError] = useState('')
-  const [snackbarOpen, setSnackbarOpen] = useState(false)
-  const [snackbarMessage, setSnackbarMessage] = useState('')
-
-  const handleNicknameChange = (event) => {
-    const value = event.target.value
-    setNickname(value)
-
-    if (validationError) {
-      setValidationError('')
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/lobby');
     }
-  }
+  }, [isAuthenticated, navigate]);
 
-  const validateNickname = (nickname) => {
-    if (!nickname || nickname.trim().length === 0) {
-      return '닉네임을 입력해주세요.'
-    }
-    
-    if (nickname.trim().length < 2) {
-      return '닉네임은 최소 2글자 이상이어야 합니다.'
-    }
-    
-    if (nickname.trim().length > 12) {
-      return '닉네임은 최대 12글자까지 가능합니다.'
-    }
+  // Step 1: Use react-hook-form (via @mantine/form)
+  const form = useForm({
+    initialValues: {
+      nickname: '',
+    },
+    validate: {
+      nickname: (value) => {
+        const trimmed = value.trim();
+        if (!trimmed) return 'Nickname is required.';
+        if (trimmed.length < 2) return 'Nickname must be at least 2 characters long.';
+        if (trimmed.length > 12) return 'Nickname must be at most 12 characters long.';
+        if (/[<>\"'&]/.test(trimmed)) return 'Special characters are not allowed.';
+        return null;
+      },
+    },
+  });
 
-    const invalidChars = /[<>\"'&]/
-    if (invalidChars.test(nickname)) {
-      return '닉네임에 특수문자는 사용할 수 없습니다.'
-    }
-    
-    return null
-  }
-
-  const handleSubmit = async (event) => {
-    event.preventDefault()
-
-    const trimmedNickname = nickname.trim()
-    const validationError = validateNickname(trimmedNickname)
-    
-    if (validationError) {
-      setValidationError(validationError)
-      return
-    }
-
-    try {
-      console.log('[DEBUG_LOG] Attempting login with nickname:', trimmedNickname)
-      await login(trimmedNickname)
-
-      setSnackbarMessage(`${trimmedNickname}님, 환영합니다!`)
-      setSnackbarOpen(true)
-      
-      console.log('[DEBUG_LOG] Login successful')
-    } catch (error) {
-      console.error('[DEBUG_LOG] Login failed:', error)
-      
-      // Handle specific error cases
-      let errorMessage = '로그인에 실패했습니다.'
-      
-      if (error.response?.status === 409) {
-        errorMessage = '이미 사용 중인 닉네임입니다.'
-      } else if (error.response?.status === 400) {
-        errorMessage = '유효하지 않은 닉네임입니다.'
-      } else if (error.response?.data?.message) {
-        errorMessage = error.response.data.message
-      }
-      
-      setSnackbarMessage(errorMessage)
-      setSnackbarOpen(true)
-    }
-  }
-
-  const handleKeyPress = (event) => {
-    if (event.key === 'Enter') {
-      handleSubmit(event)
-    }
-  }
-
-  const handleSnackbarClose = () => {
-    setSnackbarOpen(false)
-  }
+  const handleLoginSubmit = (values) => {
+    login(values.nickname.trim());
+  };
 
   return (
     <Box
-      sx={{
+      style={{
         minHeight: '100vh',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        p: 2
+        padding: 'var(--mantine-spacing-md)',
       }}
     >
-      <Container maxWidth="sm">
+      <Container size="sm" style={{ width: '100%' }}>
         <Paper
-          elevation={8}
-          sx={{
-            p: 4,
-            borderRadius: 4,
+          shadow="xl"
+          radius="lg"
+          p="xl"
+          withBorder
+          style={{
             textAlign: 'center',
             backgroundColor: 'rgba(255, 255, 255, 0.95)',
-            backdropFilter: 'blur(10px)'
+            backdropFilter: 'blur(10px)',
           }}
         >
-          {/* Game Title and Icon */}
-          <Box sx={{ mb: 4 }}>
-            <GameIcon 
-              sx={{ 
-                fontSize: 64, 
-                color: 'primary.main', 
-                mb: 2 
-              }} 
-            />
-            <Typography 
-              variant="h3" 
-              component="h1" 
-              gutterBottom
-              sx={{ 
-                fontWeight: 'bold',
-                color: 'primary.main',
-                textShadow: '2px 2px 4px rgba(0,0,0,0.1)'
+          <Stack align="center" mb="xl">
+            <IconSwords size={64} style={{ color: 'var(--mantine-color-blue-6)' }} />
+            <Title
+              order={1}
+              style={{
+                fontFamily: 'SeoulAlrimTTF-Heavy, sans-serif',
+                color: 'var(--mantine-color-blue-6)',
+                textShadow: '2px 2px 4px rgba(0,0,0,0.1)',
               }}
             >
               라이어 게임
-            </Typography>
-            <Typography 
-              variant="h6" 
-              color="text.secondary"
-              sx={{ mb: 3 }}
-            >
-              닉네임을 입력하고 게임을 시작하세요!
-            </Typography>
-          </Box>
+            </Title>
+            <Text size="lg" c="dimmed">
+              Enter your nickname to start the game!
+            </Text>
+          </Stack>
 
-          {/* Login Form */}
-          <Box component="form" onSubmit={handleSubmit} sx={{ mb: 3 }}>
-            <TextField
-              fullWidth
-              label="닉네임"
-              variant="outlined"
-              value={nickname}
-              onChange={handleNicknameChange}
-              onKeyPress={handleKeyPress}
-              error={!!validationError}
-              helperText={validationError || '2-12글자의 닉네임을 입력해주세요'}
-              disabled={loading.auth}
-              sx={{ 
-                mb: 3,
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: 2,
-                  fontSize: '1.1rem'
-                }
-              }}
-              inputProps={{
-                maxLength: 12,
-                autoComplete: 'username'
-              }}
-              autoFocus
-            />
+          {/* Step 1: Form with react-hook-form */}
+          <form onSubmit={form.onSubmit(handleLoginSubmit)}>
+            <Stack>
+              {/* Step 4: Modernized Component Name */}
+              <TextInput
+                label="Nickname"
+                placeholder="Enter your nickname"
+                size="lg"
+                radius="md"
+                maxLength={12}
+                autoFocus
+                disabled={isLoggingIn}
+                {...form.getInputProps('nickname')}
+              />
 
-            <Button
-              type="submit"
-              variant="contained"
-              size="large"
-              fullWidth
-              startIcon={loading.auth ? <CircularProgress size={20} color="inherit" /> : <LoginIcon />}
-              disabled={loading.auth || !nickname.trim()}
-              sx={{
-                py: 1.5,
-                fontSize: '1.1rem',
-                fontWeight: 'bold',
-                borderRadius: 2,
-                textTransform: 'none',
-                boxShadow: 3,
-                '&:hover': {
-                  boxShadow: 6,
-                  transform: 'translateY(-2px)'
-                },
-                '&:disabled': {
-                  backgroundColor: 'grey.300'
-                }
-              }}
-            >
-              {loading.auth ? '접속 중...' : '게임 시작'}
-            </Button>
-          </Box>
+              <Button
+                type="submit"
+                fullWidth
+                mt="md"
+                size="lg"
+                radius="md"
+                leftSection={isLoggingIn ? <Loader size={20} /> : <IconLogin size={20} />}
+                disabled={isLoggingIn || !form.values.nickname.trim()}
+              >
+                {isLoggingIn ? 'Logging In...' : 'Start Game'}
+              </Button>
+            </Stack>
+          </form>
 
-          {/* Error Display */}
-          {error.auth && (
-            <Alert 
-              severity="error" 
-              sx={{ 
-                mb: 2,
-                borderRadius: 2,
-                '& .MuiAlert-message': {
-                  fontSize: '0.95rem'
-                }
-              }}
-            >
-              {error.auth}
-            </Alert>
-          )}
+          <Paper mt="xl" p="md" withBorder radius="md" bg="gray.0">
+            <Text fw={700} c="dimmed" mb="xs">
+              How to Play:
+            </Text>
+            <Text c="dimmed" ta="left" size="sm">
+              • One player becomes the Liar.<br />
+              • All other players (Citizens) get the same secret word.<br />
+              • The Liar gets a different, but related, word (or none at all!).<br />
+              • Talk to each other and find the Liar!
+            </Text>
+          </Paper>
 
-          {/* Game Instructions */}
-          <Box sx={{ mt: 4, p: 2, backgroundColor: 'grey.50', borderRadius: 2 }}>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              <strong>게임 방법:</strong>
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'left' }}>
-              • 플레이어 중 한 명이 라이어가 됩니다<br />
-              • 라이어를 제외한 모든 플레이어는 같은 주제를 받습니다<br />
-              • 라이어는 다른 주제나 가짜 키워드를 받습니다<br />
-              • 대화를 통해 라이어를 찾아내세요!
-            </Typography>
-          </Box>
-
-          {/* Version Info */}
-          <Typography 
-            variant="caption" 
-            color="text.disabled" 
-            sx={{ mt: 2, display: 'block' }}
-          >
-            Liar Game v1.0 - Powered by React & Material-UI
-          </Typography>
+          <Text c="dimmed" size="xs" mt="xl">
+            Liar Game v2.0 - Powered by React & Mantine
+          </Text>
         </Paper>
       </Container>
-
-      {/* Snackbar for notifications */}
-      <Snackbar
-        open={snackbarOpen}
-        autoHideDuration={4000}
-        onClose={handleSnackbarClose}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-      >
-        <Alert 
-          onClose={handleSnackbarClose} 
-          severity={error.auth ? 'error' : 'success'}
-          sx={{ width: '100%' }}
-        >
-          {snackbarMessage}
-        </Alert>
-      </Snackbar>
     </Box>
-  )
+  );
 }
 
-export default LoginPage
+export default LoginPage;
