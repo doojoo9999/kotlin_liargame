@@ -1,46 +1,56 @@
 import apiClient from '../apiClient';
 
-export const sendMessage = async (gameNumber, message) => {
-  const response = await apiClient.post('/chat/send', { gameNumber, message });
-  return response;
+/**
+ * @file API mutations for in-game actions.
+ * All functions are updated to match backend payload specifications.
+ */
+
+/**
+ * Submits a hint for the current turn.
+ * @param {string} gameNumber - The ID of the game room.
+ * @param {string} hint - The hint text.
+ * @returns {Promise<any>}
+ */
+export const submitHint = (gameNumber, hint) => {
+  return apiClient.post('/game/hint', { gameNumber, hint });
 };
 
-export const completeSpeech = async (gameNumber) => {
-  const response = await apiClient.post('/chat/speech/complete', { gameNumber: parseInt(gameNumber) });
-  return response;
+/**
+ * Casts a vote for a player suspected of being the liar.
+ * @param {string} gameNumber - The ID of the game room.
+ * @param {string} targetPlayerId - The session ID of the player being voted for.
+ * @returns {Promise<any>}
+ */
+export const castVote = (gameNumber, targetPlayerId) => {
+  return apiClient.post('/game/vote', { gameNumber, targetPlayerId });
 };
 
-export const submitHint = async (gameNumber, hint) => {
-  const response = await apiClient.post('/game/hint', { gameNumber: parseInt(gameNumber), hint: hint.trim() });
-  return response;
+/**
+ * Submits a defense statement when accused.
+ * @param {string} gameNumber - The ID of the game room.
+ * @param {string} defenseText - The defense statement.
+ * @returns {Promise<any>}
+ */
+export const submitDefense = (gameNumber, defenseText) => {
+  return apiClient.post('/game/submit-defense', { gameNumber, defenseText });
 };
 
-export const submitDefense = async (gameNumber, defenseText) => {
-  const response = await apiClient.post('/game/submit-defense', { gameNumber: parseInt(gameNumber), defenseText: defenseText.trim() });
-  return response;
+/**
+ * Casts a final vote on whether the accused player should survive.
+ * @param {string} gameNumber - The ID of the game room.
+ * @param {boolean} survival - True for spare, false for eliminate.
+ * @returns {Promise<any>}
+ */
+export const castSurvivalVote = (gameNumber, survival) => {
+  return apiClient.post('/game/survival-vote', { gameNumber, survival });
 };
 
-export const castFinalJudgment = async (gameNumber, judgment) => {
-  const response = await apiClient.post('/game/cast-final-judgment', { gameNumber: parseInt(gameNumber), judgment });
-  return response;
-};
-
-export const castVote = async (gameNumber, targetPlayerId) => {
-  const response = await apiClient.post('/game/vote', { gameNumber, targetPlayerId });
-  return response;
-};
-
-export const castSurvivalVote = async (gameNumber, survival) => {
-  const response = await apiClient.post('/game/survival-vote', { gameNumber: parseInt(gameNumber), survival });
-  return response;
-};
-
-export const guessWord = async (gameNumber, guessedWord) => {
-  const response = await apiClient.post('/game/guess-word', { gameNumber: parseInt(gameNumber), guessedWord: guessedWord.trim() });
-  return response;
-};
-
-export const submitLiarGuess = async (gameNumber, guess) => {
-  const response = await apiClient.post('/game/submit-liar-guess', { gameNumber: parseInt(gameNumber), guess: guess.trim() });
-  return response;
+/**
+ * Submits a final guess for the secret word if the player is the liar.
+ * @param {string} gameNumber - The ID of the game room.
+ * @param {string} guessedWord - The word being guessed.
+ * @returns {Promise<any>}
+ */
+export const guessWord = (gameNumber, guessedWord) => {
+  return apiClient.post('/game/guess-word', { gameNumber, guessedWord });
 };
