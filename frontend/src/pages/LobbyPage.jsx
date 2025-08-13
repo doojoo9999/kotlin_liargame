@@ -46,6 +46,7 @@ import {useGame} from '../context/GameContext'
 import useSubjectStore from '../stores/subjectStore'
 import {useSubjectsQuery} from '../hooks/useSubjectsQuery'
 import config from '../config/environment'
+import {useCreateRoom, useJoinRoom} from '../mutations/roomMutations'
 
 function LobbyPage() {
   const {
@@ -58,6 +59,10 @@ function LobbyPage() {
     joinRoom,
     logout
   } = useGame()
+
+  // Mutation hooks
+  const createRoomMutation = useCreateRoom()
+  const joinRoomMutation = useJoinRoom()
 
   // Use React Query for subjects data - modern server state management
   const {
@@ -672,68 +677,77 @@ function LobbyPage() {
       return
     }
 
-    try {
-      // Use default title if none provided
-      const defaultTitle = currentUser ? `${currentUser.nickname}님의 방` : '새로운 방'
-      const finalTitle = roomForm.title.trim() || defaultTitle
-      
-      const roomData = {
-        gameName: finalTitle,
-        gameParticipants: roomForm.maxPlayers,
-        gameTotalRounds: roomForm.gameTotalRounds,
-        gamePassword: roomForm.hasPassword ? roomForm.password : null,
-        subjectIds: roomForm.selectedSubjectIds.length > 0 ? roomForm.selectedSubjectIds : null,
-        useRandomSubjects: roomForm.selectedSubjectIds.length === 0,
-        randomSubjectCount: roomForm.selectedSubjectIds.length === 0 ? 1 : null
-      }
-
-      console.log('[DEBUG_LOG] Creating room with data:', roomData)
-      await createRoom(roomData)
-      setCreateRoomOpen(false)
-      showSnackbar('방이 성공적으로 생성되었습니다.', 'success')
-      
-      // Reset form
-      setRoomForm({
-        title: '',
-        maxPlayers: config.game.minPlayers,
-        gameTotalRounds: config.game.defaultRounds,
-        password: '',
-        selectedSubjectIds: [],
-        hasPassword: false,
-        gameMode: 'LIAR_KNOWS'
-      })
-    } catch (error) {
-      console.error('Failed to create room:', error)
-      
-      // 에러 메시지 파싱 및 사용자 친화적 메시지 표시
-      let errorMessage = '방 생성에 실패했습니다.'
-      
-      if (error.response?.data?.message) {
-        const backendError = error.response.data.message
-        if (backendError.includes('참가자는')) {
-          errorMessage = '참가자 수는 3명에서 15명 사이로 설정해주세요.'
-        } else if (backendError.includes('라운드')) {
-          errorMessage = '라운드 수를 확인해주세요.'
-        }
-      }
-      
-      showSnackbar(errorMessage, 'error')
+    // Use default title if none provided
+    const defaultTitle = currentUser ? `${currentUser.nickname}님의 방` : '새로운 방'
+    const finalTitle = roomForm.title.trim() || defaultTitle
+    
+    const roomData = {
+      gameName: finalTitle,
+      gameParticipants: roomForm.maxPlayers,
+      gameTotalRounds: roomForm.gameTotalRounds,
+      gamePassword: roomForm.hasPassword ? roomForm.password : null,
+      subjectIds: roomForm.selectedSubjectIds.length > 0 ? roomForm.selectedSubjectIds : null,
+      useRandomSubjects: roomForm.selectedSubjectIds.length === 0,
+      randomSubjectCount: roomForm.selectedSubjectIds.length === 0 ? 1 : null
     }
+
+    console.log('[DEBUG_LOG] Creating room with data:', roomData)
+    
+    createRoomMutation.mutate(roomData, {
+      onSuccess: () => {
+        setCreateRoomOpen(false)
+        showSnackbar('방이 성공적으로 생성되었습니다.', 'success')
+        
+        // Reset form
+        setRoomForm({
+          title: '',
+          maxPlayers: config.game.minPlayers,
+          gameTotalRounds: config.game.defaultRounds,
+          password: '',
+          selectedSubjectIds: [],
+          hasPassword: false,
+          gameMode: 'LIAR_KNOWS'
+        })
+      },
+      onError: (error) => {
+        console.error('Failed to create room:', error)
+        
+        // 에러 메시지 파싱 및 사용자 친화적 메시지 표시
+        let errorMessage = '방 생성에 실패했습니다.'
+        
+        if (error.response?.data?.message) {
+          const backendError = error.response.data.message
+          if (backendError.includes('참가자는')) {
+            errorMessage = '참가자 수는 3명에서 15명 사이로 설정해주세요.'
+          } else if (backendError.includes('라운드')) {
+            errorMessage = '라운드 수를 확인해주세요.'
+          }
+        }
+        
+        showSnackbar(errorMessage, 'error')
+      }
+    })
   }
 
   const handleJoinRoom = async () => {
-    try {
-      await joinRoom(selectedRoom.gameNumber, joinPassword)
-      setJoinRoomOpen(false)
-      setJoinPassword('')
-      setSelectedRoom(null)
+    joinRoomMutation.mutate(
+      { gameNumber: selectedRoom.gameNumber, password: joinPassword },
+      {
+        onSuccess: () => {
+          setJoinRoomOpen(false)
+          setJoinPassword('')
+          setSelectedRoom(null)
 
-      setTimeout(() => {
-        fetchRooms()
-      }, 1000)
-    } catch (error) {
-      console.error('Failed to join room:', error)
-    }
+          setTimeout(() => {
+            fetchRooms()
+          }, 1000)
+        },
+        onError: (error) => {
+          console.error('Failed to join room:', error)
+          showSnackbar(error.normalizedMessage || '방 참가에 실패했습니다.', 'error')
+        }
+      }
+    )
   }
 
 
@@ -1207,9 +1221,9 @@ function LobbyPage() {
           <Button
             onClick={handleCreateRoom}
             variant="contained"
-            disabled={!roomForm.title || loading.room}
+            disabled={!roomForm.title || createRoomMutation.isPending}
           >
-            {loading.room ? <CircularProgress size={20} /> : '방 만들기'}
+            {createRoomMutation.isPending ? <CircularProgress size={20} /> : '방 만들기'}
           </Button>
         </DialogActions>
       </Dialog>
@@ -1246,9 +1260,9 @@ function LobbyPage() {
           <Button
             onClick={handleJoinRoom}
             variant="contained"
-            disabled={loading.room || (selectedRoom?.hasPassword && !joinPassword)}
+            disabled={joinRoomMutation.isPending || (selectedRoom?.hasPassword && !joinPassword)}
           >
-            {loading.room ? <CircularProgress size={20} /> : '입장'}
+            {joinRoomMutation.isPending ? <CircularProgress size={20} /> : '입장'}
           </Button>
         </DialogActions>
       </Dialog>

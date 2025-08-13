@@ -34,6 +34,7 @@ import {
 import {useQuery} from '@tanstack/react-query'
 import apiClient from '../api/apiClient'
 import adminStompClient from '../utils/stompClient'
+import {useTerminateRoom} from '../mutations/adminMutations'
 
 function GameMonitoringPage() {
     // State management
@@ -48,6 +49,9 @@ function GameMonitoringPage() {
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState(null)
     const [wsConnected, setWsConnected] = useState(false)
+
+    // Mutation hooks
+    const terminateRoom = useTerminateRoom()
 
     // React Query: admin stats (manual refetch to preserve existing flow)
     const { refetch: refetchStats } = useQuery({
@@ -97,20 +101,6 @@ function GameMonitoringPage() {
         }
     }, [])
 
-    // Force terminate game room
-    const forceTerminateRoom = async (gameNumber) => {
-        try {
-            await apiClient.post('/admin/terminate-room', 
-                { gameNumber }
-            )
-            // Refresh data after termination
-            await fetchGameRooms()
-            await fetchStats()
-        } catch (error) {
-            console.error('[DEBUG_LOG] Failed to terminate room:', error)
-            setError('게임방 강제 종료에 실패했습니다.')
-        }
-    }
 
     // Load initial data
     useEffect(() => {
@@ -384,9 +374,10 @@ function GameMonitoringPage() {
                                                             size="small"
                                                             color="error"
                                                             startIcon={<StopIcon />}
-                                                            onClick={() => forceTerminateRoom(room.gameNumber)}
+                                                            disabled={terminateRoom.isPending}
+                                                            onClick={() => terminateRoom.mutate(room.gameNumber)}
                                                         >
-                                                            강제 종료
+                                                            {terminateRoom.isPending ? '처리중...' : '강제 종료'}
                                                         </Button>
                                                     )}
                                                 </TableCell>
