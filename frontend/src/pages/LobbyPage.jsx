@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {useNavigate} from 'react-router-dom';
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import {useForm} from '@mantine/form';
@@ -44,12 +44,11 @@ function LobbyPage() {
   const [addContentModalOpened, { open: openAddContentModal, close: closeAddContentModal }] = useDisclosure(false);
   const [selectedRoom, setSelectedRoom] = useState(null);
   const [joinPassword, setJoinPassword] = useState('');
+  const [isTitlePristine, setIsTitlePristine] = useState(true);
 
-  // Data Fetching
   const { data: rooms = [], isLoading: roomsLoading, error: roomsError, refetch: refetchRooms } = useQuery({ queryKey: ['rooms'], queryFn: getAllRooms });
   const { data: subjects = [], isLoading: subjectsLoading } = useQuery({ queryKey: ['subjects'], queryFn: getAllSubjects });
 
-  // Mutations
   const createRoomMutation = useMutation({ 
     mutationFn: createRoom, 
     onSuccess: (newRoom) => {
@@ -94,17 +93,18 @@ function LobbyPage() {
     }
   });
 
-  // Forms
   const createRoomForm = useForm({
     initialValues: {
       title: '',
       maxPlayers: 8,
+      rounds: 5, // Default rounds added
       password: '',
       subjectIds: [],
     },
     validate: {
       title: (value) => (value.trim().length >= 2 ? null : '방 제목은 2글자 이상이어야 합니다.'),
       maxPlayers: (value) => (value >= 3 && value <= 15 ? null : '인원은 3명에서 15명 사이여야 합니다.'),
+      rounds: (value) => (value >= 1 && value <= 10 ? null : '라운드는 1에서 10 사이여야 합니다.'),
     },
   });
 
@@ -116,7 +116,16 @@ function LobbyPage() {
     },
   });
 
-  // Handlers
+  useEffect(() => {
+    if (createModalOpened && user?.nickname) {
+      const defaultTitle = `${user.nickname}님의 방`;
+      createRoomForm.setFieldValue('title', defaultTitle);
+      setIsTitlePristine(true);
+    } else if (!createModalOpened) {
+      createRoomForm.reset();
+    }
+  }, [createModalOpened, user?.nickname]);
+
   const handleJoinClick = (room) => {
     setSelectedRoom(room);
     if (room.hasPassword) {
@@ -158,24 +167,48 @@ function LobbyPage() {
 
       <Table verticalSpacing="md" highlightOnHover>
         <Table.Thead><Table.Tr><Table.Th>방 제목</Table.Th><Table.Th>방장</Table.Th><Table.Th>인원</Table.Th><Table.Th>상태</Table.Th><Table.Th>입장</Table.Th></Table.Tr></Table.Thead>
-        <Table.Tbody>{rooms.map((room) => (<Table.Tr key={room.gameNumber}><Table.Td>{room.title}</Table.Td><Table.Td>{room.host}</Table.Td><Table.Td>{room.playerCount}/{room.maxPlayers}</Table.Td><Table.Td><Badge color={room.state === 'WAITING' ? 'green' : 'yellow'}>{getRoomStateText(room.state)}</Badge></Table.Td><Table.Td><Tooltip label={room.hasPassword ? '비밀번호 필요' : '방 입장'}><ActionIcon variant="subtle" onClick={() => handleJoinClick(room)} disabled={room.playerCount >= room.maxPlayers || room.state !== 'WAITING'}>{room.hasPassword ? <IconLock size={16} /> : <IconLogin size={16} />}</ActionIcon></Tooltip></Table.Td></Table.Tr>))}</Table.Tbody>
+        <Table.Tbody>{rooms.map((room) => {
+            const currentPlayers = room.playerCount ?? room.currentPlayers ?? 0;
+            const maxPlayers = room.maxPlayers ?? room.gameParticipants ?? 0;
+            return (
+                <Table.Tr key={room.gameNumber}>
+                    <Table.Td>{room.title}</Table.Td>
+                    <Table.Td>{room.host}</Table.Td>
+                    <Table.Td>{currentPlayers}/{maxPlayers}</Table.Td>
+                    <Table.Td><Badge color={room.state === 'WAITING' ? 'green' : 'yellow'}>{getRoomStateText(room.state)}</Badge></Table.Td>
+                    <Table.Td><Tooltip label={room.hasPassword ? '비밀번호 필요' : '방 입장'}><ActionIcon variant="subtle" onClick={() => handleJoinClick(room)} disabled={currentPlayers >= maxPlayers || room.state !== 'WAITING'}>{room.hasPassword ? <IconLock size={16} /> : <IconLogin size={16} />}</ActionIcon></Tooltip></Table.Td>
+                </Table.Tr>
+            );
+        })}</Table.Tbody>
       </Table>
 
       <Modal opened={createModalOpened} onClose={closeCreateModal} title="새 방 만들기" centered>
         <form onSubmit={createRoomForm.onSubmit((values) => createRoomMutation.mutate({
           gameName: values.title,
           gameParticipants: values.maxPlayers,
+          gameTotalRounds: values.rounds,
           gamePassword: values.password || null,
-          subjectIds: values.subjectIds.map(id => Number(id)), // Convert back to number on submit
+          subjectIds: values.subjectIds.map(id => Number(id)),
         }))}>
           <Stack>
-            <TextInput label="방 제목" placeholder="참가자들이 보게 될 방 제목" required {...createRoomForm.getInputProps('title')} />
+            <TextInput
+              label="방 제목"
+              required
+              {...createRoomForm.getInputProps('title')}
+              onFocus={() => {
+                if (isTitlePristine) {
+                  createRoomForm.setFieldValue('title', '');
+                  setIsTitlePristine(false);
+                }
+              }}
+            />
             <NumberInput label="최대 인원" min={3} max={15} required {...createRoomForm.getInputProps('maxPlayers')} />
+            <NumberInput label="총 라운드 수" min={1} max={10} required {...createRoomForm.getInputProps('rounds')} />
             <PasswordInput label="비밀번호 (선택 사항)" placeholder="설정 시 비밀방이 됩니다" {...createRoomForm.getInputProps('password')} />
             <MultiSelect
               label="주제"
               placeholder="플레이할 주제를 선택하세요 (미선택 시 랜덤)"
-              data={subjects.map(s => ({ value: String(s.id), label: s.name }))} // Convert id to string
+              data={subjects.map(s => ({ value: String(s.id), label: s.name }))}
               searchable
               nothingFoundMessage="검색 결과 없음..."
               disabled={subjectsLoading}
