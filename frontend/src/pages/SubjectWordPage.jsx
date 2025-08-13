@@ -1,112 +1,75 @@
-import React, {useEffect, useState} from 'react'
+import React, {useState} from 'react'
 import {
-  Alert,
-  Box,
-  Button,
-  Chip,
-  Container,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
-  Divider,
-  Grid,
-  IconButton,
-  Paper,
-  Snackbar,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TextField,
-  Typography
+    Alert,
+    Box,
+    Button,
+    Chip,
+    Container,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogContentText,
+    DialogTitle,
+    Divider,
+    Grid,
+    IconButton,
+    Paper,
+    Snackbar,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableRow,
+    TextField,
+    Typography
 } from '@mui/material'
 import {Add as AddIcon, Delete as DeleteIcon, Quiz as QuizIcon, Subject as SubjectIcon} from '@mui/icons-material'
 import apiClient from '../api/apiClient'
+import {useSubjectsQuery, useWordsQuery} from '../queries/subjectQueries'
 
 function SubjectWordPage() {
-  // State for subjects
-  const [subjects, setSubjects] = useState([])
+  // React Query hooks for data fetching
+  const { 
+    data: subjects = [], 
+    isLoading: subjectsLoading, 
+    error: subjectsError,
+    refetch: refetchSubjects 
+  } = useSubjectsQuery()
+  
+  const { 
+    data: words = [], 
+    isLoading: wordsLoading, 
+    error: wordsError,
+    refetch: refetchWords 
+  } = useWordsQuery()
+
+  // Form state
   const [subjectForm, setSubjectForm] = useState({ content: '' })
   const [subjectLoading, setSubjectLoading] = useState(false)
-
-  // State for words
-  const [words, setWords] = useState([])
   const [wordForm, setWordForm] = useState({ subject: '', word: '' })
   const [wordLoading, setWordLoading] = useState(false)
 
   // UI state
   const [deleteDialog, setDeleteDialog] = useState({ open: false, type: '', id: null, name: '' })
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' })
-  const [loading, setLoading] = useState(true)
 
-  // Load data on component mount
-  useEffect(() => {
-    loadData()
-  }, [])
-
-  const loadData = async () => {
-    setLoading(true)
-    try {
-      await Promise.all([loadSubjects(), loadWords()])
-    } catch (error) {
-      console.error('[DEBUG_LOG] Failed to load data:', error)
-      showSnackbar('데이터 로딩에 실패했습니다.', 'error')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const loadSubjects = async () => {
-    try {
-      console.log('[DEBUG_LOG] Loading subjects...')
-      const response = await apiClient.get('/subjects/listsubj')
-
-      // 주제 중복 제거 로직 추가
-      if (Array.isArray(response.data)) {
-        const subjectMap = new Map()
-
-        // 주제 이름을 기준으로 중복 제거 (같은 이름은 마지막 항목만 유지)
-        response.data.forEach(subject => {
-          if (subject && subject.content) {
-            const key = subject.content.toLowerCase()
-            subjectMap.set(key, subject)
-          }
-        })
-
-        // 맵에서 고유한 주제만 배열로 변환
-        const uniqueSubjects = Array.from(subjectMap.values())
-        console.log('[DEBUG_LOG] Found unique subjects:', uniqueSubjects.length, '/', response.data.length)
-
-        setSubjects(uniqueSubjects)
-      } else {
-        setSubjects([])
-      }
-
-      console.log('[DEBUG_LOG] Subjects loaded:', response.data?.length || 0)
-    } catch (error) {
-      console.error('[DEBUG_LOG] Failed to load subjects:', error)
-      throw error
-    }
-  }
-
-  const loadWords = async () => {
-    try {
-      console.log('[DEBUG_LOG] Loading words...')
-      const response = await apiClient.get('/words/wlist')
-      setWords(response.data)
-      console.log('[DEBUG_LOG] Words loaded:', response.data)
-    } catch (error) {
-      console.error('[DEBUG_LOG] Failed to load words:', error)
-      throw error
-    }
-  }
+  // Computed loading state - combines both queries
+  const loading = subjectsLoading || wordsLoading
 
   const showSnackbar = (message, severity = 'success') => {
     setSnackbar({ open: true, message, severity })
+  }
+
+  // Handle query errors
+  if (subjectsError && !snackbar.open) {
+    console.error('[DEBUG_LOG] Failed to load subjects:', subjectsError)
+    showSnackbar('주제 데이터를 불러오는데 실패했습니다.', 'error')
+  }
+  
+  if (wordsError && !snackbar.open) {
+    console.error('[DEBUG_LOG] Failed to load words:', wordsError)
+    showSnackbar('답안 데이터를 불러오는데 실패했습니다.', 'error')
   }
 
   const handleSnackbarClose = () => {
@@ -139,7 +102,7 @@ function SubjectWordPage() {
       await apiClient.post('/subjects/applysubj', { content: subjectName })
       
       setSubjectForm({ content: '' })
-      await loadSubjects()
+      await refetchSubjects()
       showSnackbar('주제가 성공적으로 추가되었습니다.')
     } catch (error) {
       console.error('[DEBUG_LOG] Failed to add subject:', error)
