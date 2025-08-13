@@ -44,6 +44,7 @@ import {
 } from '@mui/icons-material'
 import {useGame} from '../context/GameContext'
 import useSubjectStore from '../stores/subjectStore'
+import {useSubjectsQuery} from '../hooks/useSubjectsQuery'
 import config from '../config/environment'
 
 function LobbyPage() {
@@ -58,15 +59,16 @@ function LobbyPage() {
     logout
   } = useGame()
 
-  // Use subjectStore for subjects data to get real-time word count updates
+  // Use React Query for subjects data - modern server state management
   const {
-    subjects,
-    loading: subjectLoading,
+    data: subjects = [],
+    isLoading: subjectLoading,
     error: subjectError,
-    fetchSubjects,
-    addSubject,
-    addWord
-  } = useSubjectStore()
+    refetch: refetchSubjects
+  } = useSubjectsQuery()
+  
+  // Keep store for mutations (addSubject, addWord) until Sprint 4
+  const { addSubject, addWord } = useSubjectStore()
 
   const subjectsInitialized = useRef(false)
   const prevSubjectCount = useRef(0)
@@ -589,12 +591,7 @@ function LobbyPage() {
     newWord: ''
   })
 
-  useEffect(() => {
-    if (!subjectsInitialized.current && subjects.length === 0 && !subjectLoading) {
-      subjectsInitialized.current = true
-      fetchSubjects()
-    }
-  }, [subjects.length, subjectLoading, fetchSubjects])
+  // React Query handles data fetching automatically - no manual fetchSubjects needed
 
   useEffect(() => {
     // Initialize with first subject if no subjects are selected and subjects are available
