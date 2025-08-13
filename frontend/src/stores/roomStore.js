@@ -1,51 +1,59 @@
 import {create} from 'zustand';
-import {useQuery} from '@tanstack/react-query';
-import {getAllRooms} from '../api/queries/roomQueries';
+import {normalizeRoomData} from '../utils/normalizers';
 
-export const useRoomStore = create((set, get) => ({
+/**
+ * @typedef {import('../models/Room').Room} Room
+ */
+
+/**
+ * Zustand store for managing room-related state, including the list of all rooms and the current room.
+ */
+export const useRoomStore = create((set) => ({
+  /** @type {Room[]} */
   roomList: [],
+  /** @type {Room | null} */
   currentRoom: null,
-  isLoading: false,
-  error: null,
 
-  // Action to set the current room, typically when joining or creating one
-  setCurrentRoom: (room) => set({ currentRoom: room }),
-
-  // Action to clear the current room, typically when leaving
-  leaveRoom: () => set({ currentRoom: null }),
-
-  // Action to update a single room in the list (e.g., player count changes)
-  updateRoomInList: (updatedRoom) =>
+  /**
+   * Sets the list of all available rooms, ensuring data is normalized.
+   * @param {object[]} rawRooms - The raw array of room objects from the API.
+   */
+  setRoomList: (rawRooms) =>
     set((state) => ({
-      roomList: state.roomList.map((room) =>
-        room.gameNumber === updatedRoom.gameNumber ? { ...room, ...updatedRoom } : room
-      ),
+      ...state,
+      roomList: rawRooms.map(normalizeRoomData),
     })),
 
-  // TanStack Query is used for fetching, but we can sync its state here
-  setRoomList: (rooms) => set({ roomList: rooms }),
-  setLoading: (isLoading) => set({ isLoading }),
-  setError: (error) => set({ error }),
+  /**
+   * Sets the current room the user is in, ensuring data is normalized.
+   * @param {object} rawRoom - The raw room object from the API.
+   */
+  setCurrentRoom: (rawRoom) =>
+    set((state) => ({
+      ...state,
+      currentRoom: normalizeRoomData(rawRoom),
+    })),
+
+  /**
+   * Clears the current room data, typically when a user leaves.
+   */
+  leaveRoom: () =>
+    set((state) => ({
+      ...state,
+      currentRoom: null,
+    })),
+
+  /**
+   * Updates a single room in the main list with new data (e.g., from a WebSocket update).
+   * @param {object} rawUpdatedRoom - The raw updated room data.
+   */
+  updateRoomInList: (rawUpdatedRoom) => {
+    const normalizedRoom = normalizeRoomData(rawUpdatedRoom);
+    set((state) => ({
+      ...state,
+      roomList: state.roomList.map((room) =>
+        room.gameNumber === normalizedRoom.gameNumber ? normalizedRoom : room
+      ),
+    }));
+  },
 }));
-
-// Custom hook to fetch rooms and sync with the store
-export const useFetchRooms = () => {
-  const { setRoomList, setLoading, setError } = useRoomStore.getState();
-
-  return useQuery({
-    queryKey: ['rooms'],
-    queryFn: async () => {
-      setLoading(true);
-      try {
-        const rooms = await getAllRooms();
-        setRoomList(rooms);
-        return rooms;
-      } catch (err) {
-        setError(err);
-        throw err;
-      } finally {
-        setLoading(false);
-      }
-    },
-  });
-};
