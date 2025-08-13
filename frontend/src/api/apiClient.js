@@ -7,8 +7,28 @@ function getCookie(name) {
   if (parts.length === 2) return parts.pop().split(';').shift();
 }
 
+const rawBase = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE_URL) || null;
+
+function buildBaseURL() {
+  // Ensure the base URL includes exactly one '/api/v1'
+  let base = rawBase ? rawBase.replace(/\/+$/, '') : '/api/v1';
+  if (rawBase) {
+    const marker = '/api/v1';
+    const idx = base.indexOf(marker);
+    if (idx !== -1) {
+      // Truncate to end at '/api/v1' if found anywhere in the string
+      base = base.substring(0, idx + marker.length);
+    } else if (base.endsWith('/api')) {
+      base = base + '/v1';
+    } else {
+      base = base + '/api/v1';
+    }
+  }
+  return base;
+}
+
 const apiClient = axios.create({
-  baseURL: '/api', // Vite proxy config
+  baseURL: buildBaseURL(), // Ensure /api/v1 is applied exactly once
   headers: {
     'Content-Type': 'application/json',
   },
