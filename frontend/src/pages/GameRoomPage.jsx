@@ -31,7 +31,6 @@ function GameRoomPage() {
       if (game.isSocketConnected) {
         game.disconnectSocket();
       }
-      game.resetGameState();
     };
   }, [game.currentRoom?.gameNumber]);
 
@@ -93,8 +92,8 @@ function GameRoomPage() {
                 <Text>시간: {game.gameTimer}초</Text>
                 {game.playerRole && <Text>내 역할: <Badge color={game.playerRole === 'LIAR' ? 'red' : 'blue'}>{game.playerRole}</Badge></Text>}
                 {game.assignedWord && <Text>제시어: <Text span fw={700}>{game.assignedWord}</Text></Text>}
-                {game.moderatorMessage && <Alert color="grape" title="사회자">{game.moderatorMessage}</Alert>}
             </Paper>
+            {game.moderatorMessage && <Alert color="grape" title="사회자" mt="md">{game.moderatorMessage}</Alert>}
             <ChatWindow />
           </Stack>
         </Grid.Col>
