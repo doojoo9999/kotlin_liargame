@@ -1,60 +1,63 @@
 import {create} from 'zustand';
+import {normalizePlayerData} from '../utils/normalizers';
 
-export const useGameStore = create((set, get) => ({
+/**
+ * @typedef {import('../models/Player').Player} Player
+ */
+
+/**
+ * Zustand store for managing the state of an active game session.
+ */
+export const useGameStore = create((set) => ({
   // Game state
-  gameStatus: 'WAITING', // WAITING, SPEAKING, VOTING, DEFENSE, FINISHED, etc.
+  gameStatus: 'WAITING',
   currentRound: 0,
   gameTimer: 0,
   moderatorMessage: null,
-  gameResults: null, // { winner: 'LIAR' | 'CITIZEN', message: string }
+  gameResults: null,
 
   // Player state
+  /** @type {Player[]} */
   roomPlayers: [],
   currentTurnPlayerId: null,
   accusedPlayerId: null,
 
   // Current user-specific state
-  playerRole: null, // LIAR, CITIZEN
+  playerRole: null,
   assignedWord: null,
   myVote: null,
 
   // Chat state
   chatMessages: [],
 
-  // Actions
-  setGameStatus: (status) => set({ gameStatus: status }),
-  setCurrentRound: (round) => set({ currentRound: round }),
-  setGameTimer: (timer) => set({ gameTimer: timer }),
-  setModeratorMessage: (message) => set({ moderatorMessage: message }),
-  setGameResults: (results) => set({ gameResults: results }),
+  /**
+   * A comprehensive action to update the entire game state at once.
+   * Ensures partial updates don't wipe existing state.
+   * @param {object} newGameState - The new game state data.
+   */
+  setGameState: (newGameState) =>
+    set((state) => ({
+      ...state,
+      ...newGameState,
+      // Ensure nested player data is also normalized if present
+      ...(newGameState.roomPlayers && {
+        roomPlayers: newGameState.roomPlayers.map(normalizePlayerData),
+      }),
+    })),
 
-  setRoomPlayers: (players) => set({ roomPlayers: players }),
-  setCurrentTurnPlayerId: (playerId) => set({ currentTurnPlayerId: playerId }),
-  setAccusedPlayerId: (playerId) => set({ accusedPlayerId: playerId }),
-
-  setPlayerRole: (role) => set({ playerRole: role }),
-  setAssignedWord: (word) => set({ assignedWord: word }),
-  setMyVote: (vote) => set({ myVote: vote }),
-
-  setChatMessages: (messages) => set({ chatMessages: messages }),
+  /**
+   * Adds a new chat message to the list.
+   * @param {object} message - The chat message object.
+   */
   addChatMessage: (message) =>
     set((state) => ({
+      ...state,
       chatMessages: [...state.chatMessages, message],
     })),
 
-  // Action to handle a full game state update from the server
-  setGameState: (newState) => {
-    set({
-      gameStatus: newState.gameStatus,
-      currentRound: newState.currentRound,
-      gameTimer: newState.timer, // The backend sends 'timer'
-      roomPlayers: newState.players,
-      currentTurnPlayerId: newState.currentTurnPlayerId,
-      accusedPlayerId: newState.accusedPlayerId,
-      gameResults: newState.gameResults,
-    });
-  },
-  // Reset state when leaving a room or game ends
+  /**
+   * Resets the game state to its initial values.
+   */
   resetGameState: () =>
     set({
       gameStatus: 'WAITING',
