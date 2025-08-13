@@ -16,15 +16,21 @@ function GameRoomPage() {
   useEffect(() => {
     if (!game.currentRoom && !game.isJoiningRoom) {
         if (gameNumber) {
-            game.joinRoom({ gameNumber });
+            game.joinRoom({ gameNumber: Number(gameNumber) });
         } else {
             navigate('/lobby');
         }
     }
 
     if (game.currentRoom?.gameNumber) {
-      game.connectSocket();
-      game.initializeSubscriptions(game.currentRoom.gameNumber);
+      (async () => {
+        try {
+          await game.connectSocket();
+          game.initializeSubscriptions(game.currentRoom.gameNumber);
+        } catch (e) {
+          console.error('[GameRoomPage] Socket connect failed', e);
+        }
+      })();
     }
 
     return () => {

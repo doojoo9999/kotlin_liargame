@@ -1,20 +1,20 @@
 import apiClient from '../apiClient';
 
-/**
- * Adds a new subject.
- * @param {string} subjectName - The name of the new subject.
- * @returns {Promise<any>}
- */
-export const addSubject = async (subjectName) => {
-  return await apiClient.post('/subjects/applysubj', { subject: subjectName });
-};
+// Add a new subject. Ensures the backend receives exactly { name: string }
+export function addSubject(name) {
+  const trimmed = (name ?? '').trim();
+  if (!trimmed) {
+    throw new Error('주제 이름은 비워둘 수 없습니다.');
+  }
+  return apiClient.post('/subjects/applysubj', { name: trimmed });
+}
 
-/**
- * Adds a new word to a subject.
- * @param {string} subjectName - The name of the subject.
- * @param {string} word - The new word to add.
- * @returns {Promise<any>}
- */
-export const addWord = async (subjectName, word) => {
-  return await apiClient.post('/words/applyw', { subject: subjectName, word });
-};
+// Add a new word to a subject. Keeps existing contract { subject, word }
+export function addWord(subject, word) {
+  const s = (subject ?? '').trim();
+  const w = (word ?? '').trim();
+  if (!s || !w) {
+    throw new Error('주제와 단어는 비워둘 수 없습니다.');
+  }
+  return apiClient.post('/words/applyw', { subject: s, word: w });
+}

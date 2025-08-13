@@ -28,7 +28,8 @@ export const createRoom = async (roomData) => {
  * @returns {Promise<object>} The joined room data.
  */
 export const joinRoom = async (gameNumber, password = '') => {
-  const response = await apiClient.post('/game/join', { gameNumber, password });
+  const numericGameNumber = parseInt(gameNumber);
+  const response = await apiClient.post('/game/join', { gameNumber: numericGameNumber, password });
   return response;
 };
 

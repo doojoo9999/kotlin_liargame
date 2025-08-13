@@ -10,7 +10,7 @@ export const useSocketStore = create((set, get) => ({
   isConnecting: false,
   subscriptions: new Map(),
 
-  connect: (serverUrl = 'http://localhost:20021') => {
+  connect: () => {
     return new Promise((resolve, reject) => {
       if (get().isConnected || get().isConnecting) {
         console.log('[SocketStore] Already connected or connecting.');
@@ -19,7 +19,8 @@ export const useSocketStore = create((set, get) => ({
 
       set({ isConnecting: true });
 
-      const socket = new SockJS(`${serverUrl}/ws`);
+      // Use relative path to leverage Vite proxy and same-origin cookies
+      const socket = new SockJS('/ws');
       const client = new Client({
         webSocketFactory: () => socket,
         debug: (str) => { console.log('[SocketStore Debug]', str); },

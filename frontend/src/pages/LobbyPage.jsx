@@ -76,7 +76,7 @@ function LobbyPage() {
       contentForm.setFieldValue('newSubject', '');
     },
     onError: (error) => {
-      const errorMessage = error.response?.data?.message || '주제 추가 중 오류가 발생했습니다.';
+      const errorMessage = error.message || error.response?.data?.message || '주제 추가 중 오류가 발생했습니다.';
       notifications.show({ title: '주제 추가 실패', message: errorMessage, color: 'red' });
     }
   });
@@ -88,7 +88,7 @@ function LobbyPage() {
       contentForm.setFieldValue('newWord', '');
     },
     onError: (error) => {
-      const errorMessage = error.response?.data?.message || '단어 추가 중 알 수 없는 오류가 발생했습니다.';
+      const errorMessage = error.message || error.response?.data?.message || '단어 추가 중 알 수 없는 오류가 발생했습니다.';
       notifications.show({ title: '단어 추가 실패', message: errorMessage, color: 'red' });
     }
   });

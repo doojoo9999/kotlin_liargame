@@ -120,6 +120,7 @@ export const useGame = () => {
     isCreatingRoom: createRoomMutation.isPending,
     joinRoom: joinRoomMutation.mutate,
     isJoiningRoom: joinRoomMutation.isPending,
+    joinRoomError: joinRoomMutation.error, 
     leaveRoom: leaveRoomMutation.mutate,
     isLeavingRoom: leaveRoomMutation.isPending,
     startGame: startGameMutation.mutate,
