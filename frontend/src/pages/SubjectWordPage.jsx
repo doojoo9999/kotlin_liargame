@@ -120,7 +120,7 @@ function SubjectWordPage() {
         data: { content: subjectContent }
       })
       
-      await Promise.all([loadSubjects(), loadWords()])
+      await Promise.all([refetchSubjects(), refetchWords()])
       showSnackbar('주제가 성공적으로 삭제되었습니다.')
     } catch (error) {
       console.error('[DEBUG_LOG] Failed to delete subject:', error)
@@ -147,7 +147,7 @@ function SubjectWordPage() {
       })
       
       setWordForm({ subject: '', word: '' })
-      await loadWords()
+      await refetchWords()
       showSnackbar('답안이 성공적으로 추가되었습니다.')
     } catch (error) {
       console.error('[DEBUG_LOG] Failed to add word:', error)
@@ -163,7 +163,7 @@ function SubjectWordPage() {
       console.log('[DEBUG_LOG] Deleting word:', wordId)
       await apiClient.delete(`/words/delw/${wordId}?wordId=${wordId}`)
       
-      await loadWords()
+      await refetchWords()
       showSnackbar('답안이 성공적으로 삭제되었습니다.')
     } catch (error) {
       console.error('[DEBUG_LOG] Failed to delete word:', error)
