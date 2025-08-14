@@ -9,6 +9,7 @@ import {Events, trackEvent} from '../utils/analytics'
 import {Controller, useForm} from 'react-hook-form'
 import {z} from 'zod'
 import {zodResolver} from '@hookform/resolvers/zod'
+import FadeInUp from '../components/animations/FadeInUp'
 
 const schema = z.object({
   nickname: z.string()
@@ -92,16 +93,18 @@ function LoginPage() {
       }}
     >
       <Container maxWidth="sm">
-        <Paper
-          elevation={8}
-          sx={{
-            p: 4,
-            borderRadius: 4,
-            textAlign: 'center',
-            backgroundColor: 'rgba(255, 255, 255, 0.95)',
-            backdropFilter: 'blur(10px)'
-          }}
-        >
+        <FadeInUp delay={0.2}>
+          <Paper
+            elevation={8}
+            sx={{
+              p: 4,
+              borderRadius: 4,
+              textAlign: 'center',
+              background: 'rgba(255, 255, 255, 0.1)',
+              backdropFilter: 'blur(15px)',
+              border: '1px solid rgba(255, 255, 255, 0.2)'
+            }}
+          >
           {/* Game Title and Icon */}
           <Box sx={{ mb: 4 }}>
             <GameIcon 
@@ -227,6 +230,7 @@ function LoginPage() {
             Liar Game v1.0 - Powered by React & Material-UI
           </Typography>
         </Paper>
+        </FadeInUp>
       </Container>
 
       {/* Snackbar for notifications */}
