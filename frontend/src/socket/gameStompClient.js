@@ -1,6 +1,5 @@
 import {Client} from '@stomp/stompjs'
 import SockJS from 'sockjs-client'
-import SocketManager from './SocketManager'
 
 class GameStompClient {
     constructor() {
@@ -365,4 +364,4 @@ class GameStompClient {
     }
 }
 
-export default SocketManager
+export default GameStompClient
