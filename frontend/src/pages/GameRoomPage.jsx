@@ -29,15 +29,16 @@ import {useGame} from '../context/GameContext'
 import {useToast} from '../components/EnhancedToastSystem'
 import AnimatedPlayerProfile from '../components/AnimatedPlayerProfile'
 import GameModerator from '../components/GameModerator'
+import InteractiveVotingSystem from '../components/InteractiveVotingSystem'
+import EnhancedGameTimer from '../components/EnhancedGameTimer'
+import VictoryAnimation from '../components/VictoryAnimation'
 import PlayerSpeechBubble from '../components/PlayerSpeechBubble'
 import OptimizedEnhancedChatSystem from '../components/OptimizedEnhancedChatSystem'
 import GameInfoDisplay from '../components/GameInfoDisplay'
 import HintInputComponent from '../components/HintInputComponent'
-import VotingComponent from '../components/VotingComponent'
 import DefenseComponent from '../components/DefenseComponent'
 import SurvivalVotingComponent from '../components/SurvivalVotingComponent'
 import WordGuessComponent from '../components/WordGuessComponent'
-import GameTimerComponent from '../components/GameTimerComponent'
 import ResponsiveGameLayout from '../components/ResponsiveGameLayout'
 import AdaptiveGameLayout from '../components/AdaptiveGameLayout'
 import LeftInfoPanel from '../components/LeftInfoPanel'
@@ -678,25 +679,21 @@ const GameRoomPage = React.memo(() => {
             )}
 
             {gameStatus !== 'WAITING' && gameTimer > 0 && (
-                <GameTimerComponent
+                <EnhancedGameTimer
                     gameTimer={gameTimer}
                     maxTime={60}
                     gameStatus={gameStatus}
                     onTimeExpired={handlers.game.handleTimerExpired}
-                    showCountdown={true}
                     size={isMobile ? 100 : 140}
                 />
             )}
 
             {gameStatus === 'VOTING' && (
                 <Box sx={{mb: 2, width: '100%'}}>
-                    <VotingComponent
+                    <InteractiveVotingSystem
                         players={players}
-                        gameTimer={gameTimer}
-                        gameNumber={currentRoom?.gameNumber}
-                        onVoteComplete={(targetPlayerId) => {
-                            console.log('[DEBUG_LOG] Vote completed for player:', targetPlayerId)
-                        }}
+                        onVote={castVote}
+                        disabled={!socketConnected}
                     />
                 </Box>
             )}
@@ -966,6 +963,12 @@ const GameRoomPage = React.memo(() => {
                     onReturnToLobby={navigateToLobby}
                 />
             )}
+
+            <VictoryAnimation 
+                show={showGameResult && finalGameResult}
+                winningTeam={finalGameResult?.winningTeam}
+                onComplete={() => setShowGameResult(false)}
+            />
 
             <Dialog open={leaveDialogOpen} onClose={() => setLeaveDialogOpen(false)}>
                 <DialogTitle>방 나가기</DialogTitle>
