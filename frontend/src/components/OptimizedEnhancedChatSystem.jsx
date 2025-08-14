@@ -12,7 +12,7 @@ import {
 } from '@mui/material'
 import {EmojiEmotions as EmojiIcon, Send as SendIcon} from '@mui/icons-material'
 import ChatMessageList from './ChatMessageList'
-import {useChatOptimization} from '../hooks/useChatOptimization'
+import {useChatOptimization} from '../hooks/chat-optimization/useChatOptimization'
 import {getChatThemeVariant, THEME_TRANSITIONS} from '../styles/themeVariants'
 
 // Common emojis for the game
