@@ -1,14 +1,19 @@
-import React, {useEffect} from 'react'
-import {BrowserRouter as Router, Navigate, Route, Routes, useNavigate} from 'react-router-dom'
+import React from 'react'
+import {createBrowserRouter, Navigate, RouterProvider} from 'react-router-dom'
 import {createTheme, ThemeProvider} from '@mui/material/styles'
 import {Alert, Box, CircularProgress, CssBaseline} from '@mui/material'
 import {GameProvider, useGame} from './context/GameContext'
 import LoginPage from './pages/LoginPage'
-import LobbyPage from './pages/LobbyPage'
+import LobbyPageWithLoader from './pages/LobbyPageWithLoader'
 import GameRoomPage from './pages/GameRoomPage'
 import AdminLoginPage from './pages/AdminLoginPage'
 import AdminDashboard from './pages/AdminDashboard'
 import ErrorBoundary from './components/ErrorBoundary'
+import RouteErrorBoundary from './components/RouteErrorBoundary'
+import ToastProvider, {WebSocketMessageHandler} from './components/EnhancedToastSystem'
+import LoginFailurePage from './pages/LoginFailurePage'
+import {I18nProvider} from './i18n/i18n.jsx'
+import {lobbyLoader} from './loaders/lobbyLoader'
 
 const theme = createTheme({
   palette: {
@@ -60,112 +65,152 @@ function AdminProtectedRoute({ children }) {
   return children
 }
 
-function AppRouter() {
-  const { isAuthenticated, currentPage, loading, error } = useGame()
-  const navigate = useNavigate()
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      if (currentPage === 'room') {
-        navigate('/game', { replace: true })
-      } else if (currentPage === 'lobby') {
-        navigate('/lobby', { replace: true })
-      }
-    }
-  }, [currentPage, isAuthenticated, navigate])
-
-  if (error.auth && !isAuthenticated) {
-    return (
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          height: '100vh',
-          p: 2
-        }}
-      >
-        <Alert severity="error" sx={{ maxWidth: 400 }}>
-          {error.auth}
-        </Alert>
-      </Box>
-    )
+// Create router configuration
+const router = createBrowserRouter([
+  {
+    path: '/login',
+    element: (
+      <I18nProvider>
+        <ErrorBoundary>
+          <ToastProvider>
+            <GameProvider>
+              <WebSocketMessageHandler>
+                <AppRouterWrapper>
+                  <LoginPage />
+                </AppRouterWrapper>
+              </WebSocketMessageHandler>
+            </GameProvider>
+          </ToastProvider>
+        </ErrorBoundary>
+      </I18nProvider>
+    ),
+    errorElement: <RouteErrorBoundary />
+  },
+  {
+    path: '/auth/login-failed',
+    element: (
+      <I18nProvider>
+        <ErrorBoundary>
+          <ToastProvider>
+            <GameProvider>
+              <WebSocketMessageHandler>
+                <AppRouterWrapper>
+                  <LoginFailurePage />
+                </AppRouterWrapper>
+              </WebSocketMessageHandler>
+            </GameProvider>
+          </ToastProvider>
+        </ErrorBoundary>
+      </I18nProvider>
+    ),
+    errorElement: <RouteErrorBoundary />
+  },
+  {
+    path: '/admin/login',
+    element: (
+      <I18nProvider>
+        <ErrorBoundary>
+          <ToastProvider>
+            <GameProvider>
+              <WebSocketMessageHandler>
+                <AppRouterWrapper>
+                  <AdminLoginPage />
+                </AppRouterWrapper>
+              </WebSocketMessageHandler>
+            </GameProvider>
+          </ToastProvider>
+        </ErrorBoundary>
+      </I18nProvider>
+    ),
+    errorElement: <RouteErrorBoundary />
+  },
+  {
+    path: '/admin',
+    element: (
+      <I18nProvider>
+        <ErrorBoundary>
+          <ToastProvider>
+            <GameProvider>
+              <WebSocketMessageHandler>
+                <AppRouterWrapper>
+                  <AdminProtectedRoute>
+                    <AdminDashboard />
+                  </AdminProtectedRoute>
+                </AppRouterWrapper>
+              </WebSocketMessageHandler>
+            </GameProvider>
+          </ToastProvider>
+        </ErrorBoundary>
+      </I18nProvider>
+    ),
+    errorElement: <RouteErrorBoundary />
+  },
+  {
+    path: '/lobby',
+    element: (
+      <I18nProvider>
+        <ErrorBoundary>
+          <ToastProvider>
+            <GameProvider>
+              <WebSocketMessageHandler>
+                <AppRouterWrapper>
+                  <ProtectedRoute>
+                    <LobbyPageWithLoader />
+                  </ProtectedRoute>
+                </AppRouterWrapper>
+              </WebSocketMessageHandler>
+            </GameProvider>
+          </ToastProvider>
+        </ErrorBoundary>
+      </I18nProvider>
+    ),
+    loader: lobbyLoader,
+    errorElement: <RouteErrorBoundary />
+  },
+  {
+    path: '/game',
+    element: (
+      <I18nProvider>
+        <ErrorBoundary>
+          <ToastProvider>
+            <GameProvider>
+              <WebSocketMessageHandler>
+                <AppRouterWrapper>
+                  <ProtectedRoute>
+                    <GameRoomPage />
+                  </ProtectedRoute>
+                </AppRouterWrapper>
+              </WebSocketMessageHandler>
+            </GameProvider>
+          </ToastProvider>
+        </ErrorBoundary>
+      </I18nProvider>
+    ),
+    errorElement: <RouteErrorBoundary />
+  },
+  {
+    path: '/',
+    element: <Navigate to="/lobby" replace />,
+    errorElement: <RouteErrorBoundary />
+  },
+  {
+    path: '*',
+    element: <Navigate to="/lobby" replace />,
+    errorElement: <RouteErrorBoundary />
   }
+])
 
-  return (
-    <Routes>
-      {/* Public route - Login page */}
-      <Route 
-        path="/login" 
-        element={
-          isAuthenticated ? <Navigate to="/lobby" replace /> : <LoginPage />
-        } 
-      />
-      
-      {/* Admin routes */}
-      <Route 
-        path="/admin/login" 
-        element={<AdminLoginPage />} 
-      />
-      
-      <Route 
-        path="/admin" 
-        element={
-          <AdminProtectedRoute>
-            <AdminDashboard />
-          </AdminProtectedRoute>
-        } 
-      />
-      
-      {/* Protected routes */}
-      <Route 
-        path="/lobby" 
-        element={
-          <ProtectedRoute>
-            <LobbyPage />
-          </ProtectedRoute>
-        } 
-      />
-      
-      <Route 
-        path="/game" 
-        element={
-          <ProtectedRoute>
-            <GameRoomPage />
-          </ProtectedRoute>
-        } 
-      />
-      
-      {/* Default redirect */}
-      <Route 
-        path="/" 
-        element={
-          <Navigate to={isAuthenticated ? "/lobby" : "/login"} replace />
-        } 
-      />
-      
-      {/* Catch all - redirect to appropriate page */}
-      <Route 
-        path="*" 
-        element={
-          <Navigate to={isAuthenticated ? "/lobby" : "/login"} replace />
-        } 
-      />
-    </Routes>
-  )
+// Wrapper component to provide routing context
+function AppRouterWrapper({ children }) {
+  return children
 }
 
 function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <ErrorBoundary>
-        <GameProvider>
-          <Router>
-            <AppRouter />
-          </Router>
-        </GameProvider>
-      </ErrorBoundary>
+      <RouterProvider router={router} />
     </ThemeProvider>
   )
 }

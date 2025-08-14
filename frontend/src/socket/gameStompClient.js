@@ -5,7 +5,8 @@ class GameStompClient {
     constructor() {
         this.client = null
         this.isConnected = false
-        this.subscriptions = new Map()
+        this.subscriptions = new Map()      // topic -> Subscription (세션 종속)
+        this.topicHandlers = new Map()      // topic -> handler (논리적 구독)
         this.reconnectAttempts = 0
         this.maxReconnectAttempts = 5
         this.reconnectDelay = 3000
@@ -13,7 +14,7 @@ class GameStompClient {
         this.connectionPromise = null
     }
 
-            async connect(serverUrl = 'http://localhost:20021', options = {}) {
+            async connect(serverUrl = 'http://119.201.51.128:20021', options = {}) {
         // If already connected, return immediately
         if (this.isConnected && this.client && this.client.connected) {
             console.log('[DEBUG_LOG] Game STOMP already connected')
@@ -25,6 +26,9 @@ class GameStompClient {
             console.log('[DEBUG_LOG] Game STOMP connection already in progress')
             return this.connectionPromise
         }
+
+        // Reset reconnect attempts when explicitly connecting
+        this.reconnectAttempts = 0
 
         // 세션 상태 로깅
         console.log('[DEBUG_LOG] Starting WebSocket connection, cookies should be sent automatically')
@@ -73,6 +77,23 @@ class GameStompClient {
                     this.connectionPromise = null
                     this.reconnectAttempts = 0
 
+                    // 세션마다 재구독 - 보존된 토픽 목록을 순회하며 재구독 수행
+                    this.subscriptions.clear()
+                    this.topicHandlers.forEach((handler, topic) => {
+                        console.log('[DEBUG_LOG] Restoring subscription for topic:', topic)
+                        const subscription = this.client.subscribe(topic, (message) => {
+                            try {
+                                const data = JSON.parse(message.body)
+                                console.log('[DEBUG_LOG] Game STOMP received from', topic, ':', data)
+                                handler(data)
+                            } catch (error) {
+                                console.error('[DEBUG_LOG] Failed to parse Game STOMP message:', error)
+                                handler(message.body)
+                            }
+                        })
+                        this.subscriptions.set(topic, subscription)
+                    })
+
                     // 사용자 정보 확인
                     fetch('/api/v1/auth/me', { credentials: 'include' })
                         .then(response => response.json())
@@ -107,6 +128,8 @@ class GameStompClient {
                     this.isConnected = false
                     this.isConnecting = false
                     this.connectionPromise = null
+                    // onDisconnect 시에는 실제 subscription Map만 비우고, 토픽→핸들러 Map은 유지
+                    this.subscriptions.clear()
                     this.handleReconnect()
                 }
 
@@ -169,9 +192,20 @@ class GameStompClient {
     }
 
     subscribe(topic, callback, timeout = 10000) {
-        // If already connected, subscribe immediately
+        // 논리적 구독 보관 - 핸들러를 항상 저장
+        if (!this.topicHandlers.has(topic)) {
+            this.topicHandlers.set(topic, callback)
+        }
+
+        // 이미 물리적으로 구독되어 있으면 기존 구독 반환
+        if (this.subscriptions.has(topic)) {
+            console.log('[DEBUG_LOG] Already subscribed to topic:', topic, '- returning existing subscription')
+            return Promise.resolve(this.subscriptions.get(topic))
+        }
+
+        // 연결되어 있으면 즉시 물리적 구독, 아니면 onConnect에서 복원
         if (this.isConnected && this.client && this.client.connected) {
-            return this._doSubscribe(topic, callback)
+            return Promise.resolve(this._doSubscribe(topic, callback))
         }
 
         // If not connected, wait for connection then subscribe
@@ -184,6 +218,14 @@ class GameStompClient {
 
             const attemptSubscribe = async () => {
                 try {
+                    // Check again if already subscribed (race condition prevention)
+                    if (this.subscriptions.has(topic)) {
+                        clearTimeout(timeoutId)
+                        console.log('[DEBUG_LOG] Subscription already exists for:', topic)
+                        resolve(this.subscriptions.get(topic))
+                        return
+                    }
+
                     // Try to connect if not already connecting
                     if (!this.isConnected && !this.isConnecting) {
                         console.log('[DEBUG_LOG] Initiating connection for subscription to:', topic)
@@ -195,8 +237,16 @@ class GameStompClient {
                         await this.connectionPromise
                     }
                     
-                    // Double-check connection state
+                    // Double-check connection state and subscription status
                     if (this.isConnected && this.client && this.client.connected) {
+                        // Final check for duplicate subscription
+                        if (this.subscriptions.has(topic)) {
+                            clearTimeout(timeoutId)
+                            console.log('[DEBUG_LOG] Subscription created by another call for:', topic)
+                            resolve(this.subscriptions.get(topic))
+                            return
+                        }
+                        
                         clearTimeout(timeoutId)
                         const subscription = this._doSubscribe(topic, callback)
                         resolve(subscription)
@@ -243,8 +293,10 @@ class GameStompClient {
         if (subscription) {
             console.log('[DEBUG_LOG] Game STOMP unsubscribing from:', topic)
             subscription.unsubscribe()
-            this.subscriptions.delete(topic)
         }
+        // 두 Map 모두에서 제거 (논리적 구독도 해제)
+        this.subscriptions.delete(topic)
+        this.topicHandlers.delete(topic)
     }
 
     // 채팅 메시지 전송
@@ -289,10 +341,12 @@ class GameStompClient {
     disconnect() {
         console.log('[DEBUG_LOG] Game STOMP disconnecting')
 
-        // 모든 구독 해제
+        // 의도적 종료: 모든 구독 해제 및 두 Map 모두 정리
         this.subscriptions.forEach((subscription, topic) => {
-            this.unsubscribe(topic)
+            subscription.unsubscribe()
         })
+        this.subscriptions.clear()
+        this.topicHandlers.clear()
 
         if (this.client) {
             this.client.deactivate()
@@ -310,7 +364,4 @@ class GameStompClient {
     }
 }
 
-// 싱글톤 인스턴스 생성
-const gameStompClient = new GameStompClient()
-
-export default gameStompClient
+export default GameStompClient

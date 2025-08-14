@@ -31,13 +31,13 @@ class GameController(
 ) {
     
     @PostMapping("/create")
-    fun createGameRoom(@RequestBody request: CreateGameRoomRequest, session: HttpSession): ResponseEntity<Int> {
+    fun createGameRoom(@Valid @RequestBody request: CreateGameRoomRequest, session: HttpSession): ResponseEntity<Int> {
         val gameNumber = gameService.createGameRoom(request, session)
         return ResponseEntity.ok(gameNumber)
     }
 
     @PostMapping("/join")
-    fun joinGame(@RequestBody request: JoinGameRequest, session: HttpSession): ResponseEntity<GameStateResponse> {
+    fun joinGame(@Valid @RequestBody request: JoinGameRequest, session: HttpSession): ResponseEntity<GameStateResponse> {
         return try {
             val response = gameService.joinGame(request, session)
             ResponseEntity.ok(response)
@@ -49,7 +49,7 @@ class GameController(
 
 
     @PostMapping("/leave")
-    fun leaveGame(@RequestBody request: LeaveGameRequest, session: HttpSession): ResponseEntity<Boolean> {
+    fun leaveGame(@Valid @RequestBody request: LeaveGameRequest, session: HttpSession): ResponseEntity<Boolean> {
         return try {
             val response = gameService.leaveGame(request, session)
             ResponseEntity.ok(response)
@@ -61,7 +61,7 @@ class GameController(
 
     
     @PostMapping("/start")
-    fun startGame(@RequestBody request: StartGameRequest, session: HttpSession): ResponseEntity<GameStateResponse> {
+    fun startGame(@Valid @RequestBody request: StartGameRequest, session: HttpSession): ResponseEntity<GameStateResponse> {
         return try {
             // 기존 게임 시작 로직
             val gameState = gameService.startGame(request, session)
@@ -77,19 +77,19 @@ class GameController(
     }
     
     @PostMapping("/hint")
-    fun giveHint(@RequestBody request: GiveHintRequest, session: HttpSession): ResponseEntity<GameStateResponse> {
+    fun giveHint(@Valid @RequestBody request: GiveHintRequest, session: HttpSession): ResponseEntity<GameStateResponse> {
         val response = gameService.giveHint(request, session)
         return ResponseEntity.ok(response)
     }
     
     @PostMapping("/vote")
-    fun vote(@RequestBody request: VoteRequest, session: HttpSession): ResponseEntity<GameStateResponse> {
+    fun vote(@Valid @RequestBody request: VoteRequest, session: HttpSession): ResponseEntity<GameStateResponse> {
         val response = gameService.vote(request, session)
         return ResponseEntity.ok(response)
     }
     
     @PostMapping("/cast-vote")
-    fun castVote(@RequestBody request: CastVoteRequest, session: HttpSession): ResponseEntity<VoteResponse> {
+    fun castVote(@Valid @RequestBody request: CastVoteRequest, session: HttpSession): ResponseEntity<VoteResponse> {
         return try {
             val userId = sessionUtil.getUserId(session)
                 ?: return errorHandler.createVoteErrorResponse(
@@ -162,8 +162,7 @@ class GameController(
         session: HttpSession
     ): ResponseEntity<DefenseSubmissionResponse> {
         return try {
-            request.validate()
-            
+
             val userId = sessionUtil.getUserId(session)
                 ?: return errorHandler.createDefenseErrorResponse(
                     request.gameNumber, 
@@ -194,7 +193,6 @@ class GameController(
         session: HttpSession
     ): ResponseEntity<FinalVoteResponse> {
         return try {
-            request.validate()
             
             val userId = sessionUtil.getUserId(session)
                 ?: return errorHandler.createFinalVoteErrorResponse(
@@ -226,7 +224,6 @@ class GameController(
         session: HttpSession
     ): ResponseEntity<LiarGuessResultResponse> {
         return try {
-            request.validate()
             
             val userId = sessionUtil.getUserId(session)
                 ?: return errorHandler.createLiarGuessErrorResponse(

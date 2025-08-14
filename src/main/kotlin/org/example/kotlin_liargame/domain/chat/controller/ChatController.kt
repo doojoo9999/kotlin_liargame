@@ -1,6 +1,7 @@
 package org.example.kotlin_liargame.domain.chat.controller
 
 import jakarta.servlet.http.HttpSession
+import jakarta.validation.Valid
 import org.example.kotlin_liargame.domain.chat.dto.request.CompleteSpeechRequest
 import org.example.kotlin_liargame.domain.chat.dto.request.GetChatHistoryRequest
 import org.example.kotlin_liargame.domain.chat.dto.request.SendChatMessageRequest
@@ -25,7 +26,7 @@ class ChatController(
 
     @PostMapping("/send")
     fun sendMessage(
-        @RequestBody request: SendChatMessageRequest,
+        @Valid @RequestBody request: SendChatMessageRequest,
         session: HttpSession
     ): ResponseEntity<ChatMessageResponse> {
         val response = chatService.sendMessage(request, session)
@@ -35,7 +36,7 @@ class ChatController(
     
     @MessageMapping("/chat.send")
     fun handleChatMessage(
-        @Payload request: SendChatMessageRequest,
+        @Valid @Payload request: SendChatMessageRequest,
         headerAccessor: SimpMessageHeaderAccessor
     ) {
         try {
@@ -58,7 +59,7 @@ class ChatController(
 
             // 2. HttpSession에서 userId 추출 시도
             if (userId == null) {
-                val httpSession = sessionAttributes?.get("HTTP.SESSION") as? jakarta.servlet.http.HttpSession
+                val httpSession = sessionAttributes?.get("HTTP.SESSION") as? HttpSession
                 if (httpSession != null) {
                     userId = httpSession.getAttribute("userId") as? Long
                     if (userId != null) {

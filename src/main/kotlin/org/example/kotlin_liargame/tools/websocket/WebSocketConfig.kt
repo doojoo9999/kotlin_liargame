@@ -1,6 +1,8 @@
 package org.example.kotlin_liargame.tools.websocket
 
+import org.example.kotlin_liargame.global.security.RateLimitingService
 import org.springframework.context.annotation.Configuration
+import org.springframework.context.annotation.Lazy
 import org.springframework.http.server.ServerHttpRequest
 import org.springframework.http.server.ServerHttpResponse
 import org.springframework.http.server.ServletServerHttpRequest
@@ -20,7 +22,9 @@ import org.springframework.web.socket.server.HandshakeInterceptor
 @Configuration
 @EnableWebSocketMessageBroker
 class WebSocketConfig(
-    private val webSocketSessionManager: WebSocketSessionManager
+    private val webSocketSessionManager: WebSocketSessionManager,
+    private val rateLimitingService: RateLimitingService,
+    @Lazy private val connectionManager: WebSocketConnectionManager
 ) : WebSocketMessageBrokerConfigurer {
     
     override fun configureMessageBroker(config: MessageBrokerRegistry) {
@@ -117,6 +121,11 @@ class WebSocketConfig(
 
                                     println("[DEBUG] WebSocket session authenticated with userId: $userId, nickname: $nickname")
                                 }
+                                
+                                // Register connection with ConnectionManager for advanced monitoring
+                                sessionId?.let { wsSessionId ->
+                                    connectionManager.registerConnection(wsSessionId, userId)
+                                }
                             } else {
                                 println("[WARN] No HTTP session found in WebSocket connection")
 
@@ -138,6 +147,11 @@ class WebSocketConfig(
                                 } catch (e: Exception) {
                                     println("[DEBUG] Failed to read headers: ${e.message}")
                                 }
+                                
+                                // Register connection even without userId for monitoring
+                                sessionId?.let { wsSessionId ->
+                                    connectionManager.registerConnection(wsSessionId, null)
+                                }
                             }
                         } catch (e: Exception) {
                             println("[ERROR] Failed to extract userId from HTTP session: ${e.message}")
@@ -148,6 +162,14 @@ class WebSocketConfig(
                     StompCommand.SEND -> {
                         val sessionId = accessor.sessionId
                         if (sessionId != null) {
+                            // Rate limiting 검사
+                            val clientId = getWebSocketClientId(accessor)
+                            if (!rateLimitingService.isWebSocketMessageAllowed(clientId)) {
+                                println("[SECURITY] WebSocket rate limit exceeded for client: $clientId")
+                                // 메시지 차단 - null 반환으로 메시지 전송 중단
+                                return null
+                            }
+                            
                             webSocketSessionManager.injectUserInfo(accessor)
 
                             println("[DEBUG] WebSocket message from sessionId: $sessionId")
@@ -159,6 +181,7 @@ class WebSocketConfig(
                         val sessionId = accessor.sessionId
                         if (sessionId != null) {
                             webSocketSessionManager.removeSession(sessionId)
+                            connectionManager.handleDisconnection(sessionId)
                             println("[DEBUG] WebSocket session disconnected: $sessionId")
                         }
                     }
@@ -169,5 +192,27 @@ class WebSocketConfig(
                 return message
             }
         })
+    }
+    
+    /**
+     * WebSocket 클라이언트 식별자 추출
+     */
+    private fun getWebSocketClientId(accessor: StompHeaderAccessor): String {
+        val sessionAttributes = accessor.sessionAttributes
+        
+        // 1. 사용자 ID 우선 사용
+        val userId = sessionAttributes?.get("userId") as? Long
+        if (userId != null) {
+            return "user:$userId"
+        }
+        
+        // 2. WebSocket 세션 ID 사용
+        val sessionId = accessor.sessionId
+        if (sessionId != null) {
+            return "ws:$sessionId"
+        }
+        
+        // 3. 기본값
+        return "unknown:${System.currentTimeMillis()}"
     }
 }
