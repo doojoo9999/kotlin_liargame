@@ -1,6 +1,4 @@
-import { useMemo } from 'react'
-import React from 'react'
-import { Pause as PauseIcon, PlayArrow as PlayIcon } from '@mui/icons-material'
+import React, {useMemo} from 'react'
 
 const ROOM_STATE_CONFIG = {
   WAITING: { color: 'success', text: '대기 중', icon: 'pause' },
@@ -14,7 +12,7 @@ export default function useRoomStateInfo(state) {
     return {
       color: config.color,
       text: config.text,
-      icon: config.icon === 'pause' ? <PauseIcon/> : <PlayIcon/>,
+      icon: React.createElement(IconCmp)
     }
   }, [state])
 }
