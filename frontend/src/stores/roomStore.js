@@ -5,7 +5,6 @@ import useAuthStore from './authStore'
 
 const useRoomStore = create(
   subscribeWithSelector((set, get) => ({
-    // State
     roomList: [],
     currentRoom: null,
     currentPage: 'lobby', // 'lobby' | 'room'
@@ -18,7 +17,6 @@ const useRoomStore = create(
       room: null,
     },
 
-    // Actions
     fetchRooms: async () => {
       try {
         set(state => ({ 
@@ -81,7 +79,6 @@ const useRoomStore = create(
         
         const result = await gameApi.createRoom(roomData)
         
-        // Get subject info if available
         const getSubjectById = async (subjectId) => {
           try {
             const allSubjects = await gameApi.getAllSubjects()
@@ -117,7 +114,6 @@ const useRoomStore = create(
           loading: { ...state.loading, room: false }
         }))
         
-        // Refresh room list
         get().fetchRooms()
         
         return createdRoom
@@ -146,7 +142,6 @@ const useRoomStore = create(
           loading: { ...state.loading, room: false }
         }))
 
-        // Note: WebSocket connection will be handled by socketStore
         return response
       } catch (error) {
         console.error('Failed to join room:', error)
@@ -171,7 +166,6 @@ const useRoomStore = create(
           throw new Error('방 정보를 찾을 수 없습니다.')
         }
         
-        // Validate and normalize player data
         if (roomData.players && Array.isArray(roomData.players)) {
           roomData.players = roomData.players.map((player, index) => ({
             id: player.id || index + 1,
@@ -214,7 +208,6 @@ const useRoomStore = create(
           currentPage: 'lobby'
         })
 
-        // Note: Other cleanup (players, game state) will be handled by respective stores
         return response
 
       } catch (error) {
@@ -282,14 +275,12 @@ const useRoomStore = create(
       set({ currentPage: 'room' })
     },
 
-    // Clear errors
     clearError: (type) => {
       set(state => ({
         error: { ...state.error, [type]: null }
       }))
     },
 
-    // Reset store
     reset: () => {
       set({
         roomList: [],
@@ -302,7 +293,6 @@ const useRoomStore = create(
   }))
 )
 
-// Subscribe to auth changes to handle cleanup on logout
 useAuthStore.subscribe(
   (state) => state.isAuthenticated,
   (isAuthenticated) => {

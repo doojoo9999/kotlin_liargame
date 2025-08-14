@@ -6,7 +6,6 @@ import useSocketStore from './socketStore'
 
 const useGameStore = create(
   subscribeWithSelector((set, get) => ({
-    // Game state
     gameStatus: 'WAITING', // 'WAITING' | 'SPEAKING' | 'VOTING' | 'RESULTS' | 'FINISHED'
     currentRound: 0,
     playerRole: null, // 'LIAR' | 'CITIZEN' | null
@@ -17,7 +16,6 @@ const useGameStore = create(
     accusedPlayerId: null,
     defendingPlayerId: null,
 
-    // Actions
     setGameStatus: (status) => {
       console.log('[DEBUG_LOG] Setting game status to:', status)
       set({ gameStatus: status })
@@ -62,7 +60,6 @@ const useGameStore = create(
       set({ defendingPlayerId: playerId })
     },
 
-    // Game actions
     startGame: () => {
       const socketStore = useSocketStore.getState()
       const roomStore = useRoomStore.getState()
@@ -71,8 +68,7 @@ const useGameStore = create(
         console.log('[DEBUG_LOG] Starting game for room:', roomStore.currentRoom.gameNumber)
         socketStore.startGame()
         
-        // Update local game state
-        set({ 
+        set({
           gameStatus: 'SPEAKING',
           currentRound: 1 
         })
@@ -89,14 +85,12 @@ const useGameStore = create(
         console.log('[DEBUG_LOG] Casting vote for player:', playerId)
         socketStore.castVote(playerId)
         
-        // Update local state to show vote was cast
         set({ accusedPlayerId: playerId })
       } else {
         console.warn('[DEBUG_LOG] Cannot cast vote - not connected or no room')
       }
     },
 
-    // Handle game updates from WebSocket
     handleGameUpdate: (update) => {
       console.log('[DEBUG_LOG] Handling game update:', update)
       
@@ -165,7 +159,6 @@ const useGameStore = create(
       }
     },
 
-    // Game state queries
     isGameInProgress: () => {
       const { gameStatus } = get()
       return ['SPEAKING', 'VOTING', 'RESULTS', 'DEFENSE'].includes(gameStatus)
@@ -189,7 +182,6 @@ const useGameStore = create(
       const roomStore = useRoomStore.getState()
       const authStore = useAuthStore.getState()
       
-      // Check if user is host and game is waiting
       const isHost = roomStore.currentRoom?.players?.find(
         p => p.id === authStore.currentUser?.id
       )?.isHost
@@ -197,7 +189,6 @@ const useGameStore = create(
       return gameStatus === 'WAITING' && isHost
     },
 
-    // Reset game state
     resetGameState: () => {
       console.log('[DEBUG_LOG] Resetting game state')
       set({
@@ -213,14 +204,12 @@ const useGameStore = create(
       })
     },
 
-    // Reset store
     reset: () => {
       get().resetGameState()
     }
   }))
 )
 
-// Subscribe to auth changes to handle cleanup on logout
 useAuthStore.subscribe(
   (state) => state.isAuthenticated,
   (isAuthenticated) => {
@@ -230,19 +219,13 @@ useAuthStore.subscribe(
   }
 )
 
-// Subscribe to room changes to reset game state when leaving room
 useRoomStore.subscribe(
   (state) => state.currentRoom,
   (currentRoom, previousRoom) => {
-    // If we left a room, reset game state
     if (previousRoom && !currentRoom) {
       useGameStore.getState().resetGameState()
     }
   }
 )
-
-// Subscribe to WebSocket game updates
-// Note: This will be set up when socketStore receives game updates
-// The socketStore will call gameStore.handleGameUpdate() directly
 
 export default useGameStore

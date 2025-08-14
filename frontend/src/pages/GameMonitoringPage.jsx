@@ -3,7 +3,6 @@ import {
     Alert,
     Avatar,
     Box,
-    Button,
     Card,
     CardContent,
     Chip,
@@ -28,10 +27,10 @@ import {
     Games as GamesIcon,
     People as PeopleIcon,
     Person as PersonIcon,
-    Stop as StopIcon,
     TrendingUp as TrendingUpIcon
 } from '@mui/icons-material'
-import axios from 'axios'
+import {useQuery} from '@tanstack/react-query'
+import apiClient from '../api/apiClient'
 import adminStompClient from '../utils/stompClient'
 
 function GameMonitoringPage() {
@@ -48,57 +47,55 @@ function GameMonitoringPage() {
     const [error, setError] = useState(null)
     const [wsConnected, setWsConnected] = useState(false)
 
-    // API base URL
-    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:20021'
+
+    // React Query: admin stats (manual refetch to preserve existing flow)
+    const { refetch: refetchStats } = useQuery({
+        queryKey: ['admin', 'stats'],
+        queryFn: async () => {
+            const res = await apiClient.get('/admin/stats')
+            return res.data
+        },
+        enabled: false,
+        staleTime: 30000,
+        refetchOnWindowFocus: false,
+        onSuccess: (data) => {
+            setStats(data)
+        }
+    })
 
     // Fetch statistics data
     const fetchStats = useCallback(async () => {
         try {
-            // Authorization 헤더 제거, withCredentials가 세션 처리
-            const response = await axios.get(`${API_BASE_URL}/api/v1/admin/stats`)
-            setStats(response.data)
+            const { error: rqError } = await refetchStats()
+            if (rqError) throw rqError
         } catch (error) {
             console.error('[DEBUG_LOG] Failed to fetch stats:', error)
             setError('통계 데이터를 불러오는데 실패했습니다.')
         }
-    }, [API_BASE_URL])
+    }, [refetchStats])
 
     // Fetch game rooms data
     const fetchGameRooms = useCallback(async () => {
         try {
-            const response = await axios.get(`${API_BASE_URL}/api/v1/game/rooms`)
+            const response = await apiClient.get('/game/rooms')
             setGameRooms(response.data.gameRooms || [])
         } catch (error) {
             console.error('[DEBUG_LOG] Failed to fetch game rooms:', error)
             setError('게임방 데이터를 불러오는데 실패했습니다.')
         }
-    }, [API_BASE_URL])
+    }, [])
 
     // Fetch all players data
     const fetchAllPlayers = useCallback(async () => {
         try {
-            const response = await axios.get(`${API_BASE_URL}/api/v1/admin/players`)
+            const response = await apiClient.get('/admin/players')
             setAllPlayers(response.data.players || [])
         } catch (error) {
             console.error('[DEBUG_LOG] Failed to fetch players:', error)
             setError('플레이어 데이터를 불러오는데 실패했습니다.')
         }
-    }, [API_BASE_URL])
+    }, [])
 
-    // Force terminate game room
-    const forceTerminateRoom = async (gameNumber) => {
-        try {
-            await axios.post(`${API_BASE_URL}/api/v1/admin/terminate-room`, 
-                { gameNumber }
-            )
-            // Refresh data after termination
-            await fetchGameRooms()
-            await fetchStats()
-        } catch (error) {
-            console.error('[DEBUG_LOG] Failed to terminate room:', error)
-            setError('게임방 강제 종료에 실패했습니다.')
-        }
-    }
 
     // Load initial data
     useEffect(() => {
@@ -367,16 +364,8 @@ function GameMonitoringPage() {
                                                     {room.hasPassword ? '🔒' : '🔓'}
                                                 </TableCell>
                                                 <TableCell>
-                                                    {room.status !== 'FINISHED' && (
-                                                        <Button
-                                                            size="small"
-                                                            color="error"
-                                                            startIcon={<StopIcon />}
-                                                            onClick={() => forceTerminateRoom(room.gameNumber)}
-                                                        >
-                                                            강제 종료
-                                                        </Button>
-                                                    )}
+                                                    {/* 강제 종료 기능은 현재 비활성화되어 있습니다 */}
+                                                    -
                                                 </TableCell>
                                             </TableRow>
                                         ))
