@@ -6,65 +6,42 @@ import {useNavigate, useSearchParams} from 'react-router-dom'
 import {mapAuthCodeToUiPreset, mapHttpErrorToAuthCode} from '../utils/authErrorMapping'
 import {getReturnToFromQuery, persistReturnTo} from '../utils/redirect'
 import {Events, trackEvent} from '../utils/analytics'
+import {Controller, useForm} from 'react-hook-form'
+import {z} from 'zod'
+import {zodResolver} from '@hookform/resolvers/zod'
+
+const schema = z.object({
+  nickname: z.string()
+    .min(1, '닉네임을 입력해주세요.')
+    .min(2, '닉네임은 최소 2글자 이상이어야 합니다.')
+    .max(12, '닉네임은 최대 12글자까지 가능합니다.')
+    .refine((value) => !/[<>"'&]/.test(value), '닉네임에 특수문자는 사용할 수 없습니다.')
+})
 
 function LoginPage() {
   const { login, loading, error } = useGame()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
 
-  const [nickname, setNickname] = useState('')
-  const [validationError, setValidationError] = useState('')
   const [snackbarOpen, setSnackbarOpen] = useState(false)
   const [snackbarMessage, setSnackbarMessage] = useState('')
+
+  const { control, handleSubmit, formState: { errors, isSubmitting }, setValue } = useForm({
+    resolver: zodResolver(schema),
+    mode: 'onBlur',
+    defaultValues: { nickname: '' },
+  })
 
   useEffect(() => {
     // Prefill nickname and persist safe returnTo on arrival
     const prefillNick = searchParams.get('nickname')
-    if (prefillNick) setNickname(prefillNick)
+    if (prefillNick) setValue('nickname', prefillNick)
     const safeReturnTo = getReturnToFromQuery()
     if (safeReturnTo) persistReturnTo(safeReturnTo)
-  }, [searchParams])
+  }, [searchParams, setValue])
 
-  const handleNicknameChange = (event) => {
-    const value = event.target.value
-    setNickname(value)
-
-    if (validationError) {
-      setValidationError('')
-    }
-  }
-
-  const validateNickname = (nickname) => {
-    if (!nickname || nickname.trim().length === 0) {
-      return '닉네임을 입력해주세요.'
-    }
-    
-    if (nickname.trim().length < 2) {
-      return '닉네임은 최소 2글자 이상이어야 합니다.'
-    }
-    
-    if (nickname.trim().length > 12) {
-      return '닉네임은 최대 12글자까지 가능합니다.'
-    }
-
-    const invalidChars = /[<>\"'&]/
-    if (invalidChars.test(nickname)) {
-      return '닉네임에 특수문자는 사용할 수 없습니다.'
-    }
-    
-    return null
-  }
-
-  const handleSubmit = async (event) => {
-    event.preventDefault()
-
-    const trimmedNickname = nickname.trim()
-    const validationError = validateNickname(trimmedNickname)
-    
-    if (validationError) {
-      setValidationError(validationError)
-      return
-    }
+  const onSubmit = async (data) => {
+    const trimmedNickname = data.nickname.trim()
 
     try {
       console.log('[DEBUG_LOG] Attempting login with nickname:', trimmedNickname)
@@ -96,12 +73,6 @@ function LoginPage() {
 
       trackEvent(Events.RedirectStarted, { to: '/auth/login-failed', reason: 'error' })
       navigate(`/auth/login-failed?${params.toString()}`)
-    }
-  }
-
-  const handleKeyPress = (event) => {
-    if (event.key === 'Enter') {
-      handleSubmit(event)
     }
   }
 
@@ -162,56 +133,60 @@ function LoginPage() {
           </Box>
 
           {/* Login Form */}
-          <Box component="form" onSubmit={handleSubmit} sx={{ mb: 3 }}>
-            <TextField
-              fullWidth
-              label="닉네임"
-              variant="outlined"
-              value={nickname}
-              onChange={handleNicknameChange}
-              onKeyPress={handleKeyPress}
-              error={!!validationError}
-              helperText={validationError || '2-12글자의 닉네임을 입력해주세요'}
-              disabled={loading.auth}
-              sx={{ 
-                mb: 3,
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: 2,
-                  fontSize: '1.1rem'
-                }
-              }}
-              inputProps={{
-                maxLength: 12,
-                autoComplete: 'username'
-              }}
-              autoFocus
+          <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ mb: 3 }}>
+            <Controller
+              name="nickname"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  fullWidth
+                  label="닉네임"
+                  variant="outlined"
+                  error={!!errors.nickname}
+                  helperText={errors.nickname?.message || '2-12글자의 닉네임을 입력해주세요'}
+                  disabled={loading.auth}
+                  sx={{ 
+                    mb: 3,
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      fontSize: '1.1rem'
+                    }
+                  }}
+                  inputProps={{
+                    maxLength: 12,
+                    autoComplete: 'username'
+                  }}
+                  autoFocus
+                />
+              )}
             />
 
-            <Button
-              type="submit"
-              variant="contained"
-              size="large"
-              fullWidth
-              startIcon={loading.auth ? <CircularProgress size={20} color="inherit" /> : <LoginIcon />}
-              disabled={loading.auth || !nickname.trim()}
-              sx={{
-                py: 1.5,
-                fontSize: '1.1rem',
-                fontWeight: 'bold',
-                borderRadius: 2,
-                textTransform: 'none',
-                boxShadow: 3,
-                '&:hover': {
-                  boxShadow: 6,
-                  transform: 'translateY(-2px)'
-                },
-                '&:disabled': {
-                  backgroundColor: 'grey.300'
-                }
-              }}
-            >
-              {loading.auth ? '접속 중...' : '게임 시작'}
-            </Button>
+              <Button
+                  type="submit"
+                  variant="contained"
+                  size="large"
+                  fullWidth
+                  startIcon={loading.auth ? <CircularProgress size={20} color="inherit" /> : <LoginIcon />}
+                  disabled={loading.auth || isSubmitting || !nicknameValue?.trim()}
+                  sx={{
+                      py: 1.5,
+                      fontSize: '1.1rem',
+                      fontWeight: 'bold',
+                      borderRadius: 2,
+                      textTransform: 'none',
+                      boxShadow: 3,
+                      '&:hover': {
+                          boxShadow: 6,
+                          transform: 'translateY(-2px)'
+                      },
+                      '&:disabled': {
+                          backgroundColor: 'grey.300'
+                      }
+                  }}
+              >
+                  {loading.auth ? '접속 중...' : '게임 시작'}
+              </Button>
           </Box>
 
           {/* Error Display */}
