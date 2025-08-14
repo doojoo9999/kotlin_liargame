@@ -27,7 +27,8 @@ import {
 } from '@mui/icons-material'
 import {useGame} from '../context/GameContext'
 import {useToast} from '../components/EnhancedToastSystem'
-import PlayerProfile from '../components/PlayerProfile'
+import AnimatedPlayerProfile from '../components/AnimatedPlayerProfile'
+import GameModerator from '../components/GameModerator'
 import PlayerSpeechBubble from '../components/PlayerSpeechBubble'
 import OptimizedEnhancedChatSystem from '../components/OptimizedEnhancedChatSystem'
 import GameInfoDisplay from '../components/GameInfoDisplay'
@@ -602,6 +603,12 @@ const GameRoomPage = React.memo(() => {
 
     const centerComponent = (
         <Box sx={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, width: '100%'}}>
+            <GameModerator 
+                gameStatus={gameStatus}
+                currentPlayer={players.find(p => p.id === effectiveCurrentTurnPlayerId)}
+                timer={gameTimer}
+            />
+            
             <GameInfoDisplay
                 gameState={currentRoom?.gameState}
                 gamePhase={currentRoom?.gamePhase}
@@ -769,9 +776,10 @@ const GameRoomPage = React.memo(() => {
             >
                 {playerPositions.top.map((player) => (
                     <Box key={player.id} sx={{position: 'relative'}}>
-                        <PlayerProfile
+                        <AnimatedPlayerProfile
                             player={player}
                             isCurrentTurn={effectiveCurrentTurnPlayerId === player.id}
+                            playerRole={player.role}
                         />
                         {speechBubbles[player.id] && (
                             <PlayerSpeechBubble
@@ -797,9 +805,10 @@ const GameRoomPage = React.memo(() => {
             >
                 {playerPositions.right.map((player) => (
                     <Box key={player.id} sx={{position: 'relative'}}>
-                        <PlayerProfile
+                        <AnimatedPlayerProfile
                             player={player}
                             isCurrentTurn={effectiveCurrentTurnPlayerId === player.id}
+                            playerRole={player.role}
                         />
                         {speechBubbles[player.id] && (
                             <PlayerSpeechBubble
@@ -824,9 +833,10 @@ const GameRoomPage = React.memo(() => {
             >
                 {playerPositions.bottom.map((player) => (
                     <Box key={player.id} sx={{position: 'relative'}}>
-                        <PlayerProfile
+                        <AnimatedPlayerProfile
                             player={player}
                             isCurrentTurn={effectiveCurrentTurnPlayerId === player.id}
+                            playerRole={player.role}
                         />
                         {speechBubbles[player.id] && (
                             <PlayerSpeechBubble
@@ -852,9 +862,10 @@ const GameRoomPage = React.memo(() => {
             >
                 {playerPositions.left.map((player) => (
                     <Box key={player.id} sx={{position: 'relative'}}>
-                        <PlayerProfile
+                        <AnimatedPlayerProfile
                             player={player}
                             isCurrentTurn={effectiveCurrentTurnPlayerId === player.id}
+                            playerRole={player.role}
                         />
                         {speechBubbles[player.id] && (
                             <PlayerSpeechBubble
