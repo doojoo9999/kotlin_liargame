@@ -3,7 +3,7 @@ import {Alert, Box, Button, Paper, Typography, useMediaQuery, useTheme} from '@m
 import ChatMessageList from './ChatMessageList'
 import ChatInput from './ChatInput'
 import {useGame} from '../context/GameContext'
-import {useChatOptimization} from '../hooks/useChatOptimization'
+import {useChatOptimization} from '../hooks/chat-optimization/useChatOptimization'
 import {getChatThemeVariant, THEME_TRANSITIONS} from '../styles/themeVariants'
 
 function OptimizedChatWindow() {
