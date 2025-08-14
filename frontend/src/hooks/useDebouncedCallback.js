@@ -1,27 +1,25 @@
-import {useCallback, useRef, useState} from 'react'
+import {useCallback, useMemo, useState} from 'react'
+import {debounce} from 'lodash-es'
 
 export function useDebouncedCallback(fn, delay = 400) {
-  const timerRef = useRef(null)
   const [pending, setPending] = useState(false)
 
-  const run = useCallback((...args) => {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current)
-    }
-    setPending(true)
-    timerRef.current = setTimeout(() => {
+  const debouncedFn = useMemo(() => {
+    return debounce((...args) => {
       setPending(false)
       fn(...args)
     }, delay)
   }, [fn, delay])
 
+  const run = useCallback((...args) => {
+    setPending(true)
+    debouncedFn(...args)
+  }, [debouncedFn])
+
   const cancel = useCallback(() => {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current)
-      timerRef.current = null
-      setPending(false)
-    }
-  }, [])
+    debouncedFn.cancel()
+    setPending(false)
+  }, [debouncedFn])
 
   return { run, cancel, pending }
 }

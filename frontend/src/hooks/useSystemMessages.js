@@ -1,4 +1,5 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react'
+import dayjs from 'dayjs'
 import {MESSAGE_TYPES} from '../components/SystemNotifications'
 
 const useSystemMessages = ({
@@ -21,7 +22,7 @@ const useSystemMessages = ({
       id: message.id || `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       type: message.type || 'INFO',
       content: message.content || message.message || '',
-      timestamp: message.timestamp || new Date().toISOString(),
+      timestamp: message.timestamp || dayjs().toISOString(),
       playerId: message.playerId,
       playerName: message.playerName || message.playerNickname || message.sender,
       gameStatus: gameStatus,
@@ -31,8 +32,8 @@ const useSystemMessages = ({
       autoRemove: message.autoRemove !== false, // Default to true unless explicitly false
       expiresAt: message.expiresAt || (
         MESSAGE_TYPES[message.type]?.priority === 'high' 
-          ? new Date(Date.now() + priorityRetentionTime).toISOString()
-          : new Date(Date.now() + autoCleanupInterval).toISOString()
+          ? dayjs().add(priorityRetentionTime, 'millisecond').toISOString()
+          : dayjs().add(autoCleanupInterval, 'millisecond').toISOString()
       )
     }
 
@@ -137,9 +138,9 @@ const useSystemMessages = ({
       }
 
       if (filters.since) {
-        const messageTime = new Date(message.timestamp)
-        const sinceTime = new Date(filters.since)
-        if (messageTime < sinceTime) {
+        const messageTime = dayjs(message.timestamp)
+        const sinceTime = dayjs(filters.since)
+        if (messageTime.isBefore(sinceTime)) {
           return false
         }
       }
@@ -168,14 +169,14 @@ const useSystemMessages = ({
       isProcessing: isProcessingQueue
     }
 
-    const fiveMinutesAgo = new Date(Date.now() - 300000)
+    const fiveMinutesAgo = dayjs().subtract(5, 'minute')
 
     messages.forEach(message => {
       stats.byPriority[message.priority] = (stats.byPriority[message.priority] || 0) + 1
       
       stats.byType[message.type] = (stats.byType[message.type] || 0) + 1
       
-      if (new Date(message.timestamp) > fiveMinutesAgo) {
+      if (dayjs(message.timestamp).isAfter(fiveMinutesAgo)) {
         stats.recent += 1
       }
     })
@@ -184,7 +185,7 @@ const useSystemMessages = ({
   }, [messages, dismissedMessages, messageQueue.length, isProcessingQueue])
 
   const performCleanup = useCallback(() => {
-    const now = new Date()
+    const now = dayjs()
     
     setMessages(prevMessages => 
       prevMessages.filter(message => {
@@ -192,7 +193,7 @@ const useSystemMessages = ({
           return true
         }
 
-        if (message.expiresAt && new Date(message.expiresAt) < now) {
+        if (message.expiresAt && dayjs(message.expiresAt).isBefore(now)) {
           return false
         }
 
@@ -204,9 +205,9 @@ const useSystemMessages = ({
       })
     )
 
-    const oldestAllowedTime = new Date(now.getTime() - (autoCleanupInterval * 2))
+    const oldestAllowedTime = now.subtract(autoCleanupInterval * 2, 'millisecond')
     const messagesToKeep = messages.filter(msg => 
-      new Date(msg.timestamp) > oldestAllowedTime
+      dayjs(msg.timestamp).isAfter(oldestAllowedTime)
     )
     const validIds = new Set(messagesToKeep.map(msg => msg.id))
     
@@ -266,7 +267,7 @@ const useSystemMessages = ({
       return addMessage({
         ...eventMessage,
         ...data,
-        timestamp: new Date().toISOString()
+        timestamp: dayjs().toISOString()
       })
     }
 

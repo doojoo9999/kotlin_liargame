@@ -25,8 +25,8 @@ import {
     Typography
 } from '@mui/material'
 import {Add as AddIcon, Delete as DeleteIcon, Quiz as QuizIcon, Subject as SubjectIcon} from '@mui/icons-material'
+import {useQuery} from '@tanstack/react-query'
 import apiClient from '../api/apiClient'
-import {useSubjectsQuery, useWordsQuery} from '../queries/subjectQueries'
 
 function SubjectWordPage() {
   // React Query hooks for data fetching
@@ -35,14 +35,28 @@ function SubjectWordPage() {
     isLoading: subjectsLoading, 
     error: subjectsError,
     refetch: refetchSubjects 
-  } = useSubjectsQuery()
+  } = useQuery({
+    queryKey: ['subjects'],
+    queryFn: async () => {
+      const response = await apiClient.get('/subjects')
+      return response.data.subjects || []
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  })
   
   const { 
     data: words = [], 
     isLoading: wordsLoading, 
     error: wordsError,
     refetch: refetchWords 
-  } = useWordsQuery()
+  } = useQuery({
+    queryKey: ['words'],
+    queryFn: async () => {
+      const response = await apiClient.get('/words')
+      return response.data.words || []
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  })
 
   // Form state
   const [subjectForm, setSubjectForm] = useState({ content: '' })
@@ -134,7 +148,7 @@ function SubjectWordPage() {
     e.preventDefault()
     
     if (!wordForm.subject.trim() || !wordForm.word.trim()) {
-      showSnackbar('주제와 답안을 모두 입력해주세요.', 'error')
+      showSnackbar('주제와 답안을 모두 입력해 주세요.', 'error')
       return
     }
 
