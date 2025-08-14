@@ -148,7 +148,7 @@ function SubjectWordPage() {
     e.preventDefault()
     
     if (!wordForm.subject.trim() || !wordForm.word.trim()) {
-      showSnackbar('주제와 답안을 모두 입력해주세요.', 'error')
+      showSnackbar('주제와 답안을 모두 입력해 주세요.', 'error')
       return
     }
 
