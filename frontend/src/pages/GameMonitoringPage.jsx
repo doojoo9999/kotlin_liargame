@@ -3,7 +3,6 @@ import {
     Alert,
     Avatar,
     Box,
-    Button,
     Card,
     CardContent,
     Chip,
@@ -28,13 +27,11 @@ import {
     Games as GamesIcon,
     People as PeopleIcon,
     Person as PersonIcon,
-    Stop as StopIcon,
     TrendingUp as TrendingUpIcon
 } from '@mui/icons-material'
 import {useQuery} from '@tanstack/react-query'
 import apiClient from '../api/apiClient'
 import adminStompClient from '../utils/stompClient'
-import {useTerminateRoom} from '../mutations/adminMutations'
 
 function GameMonitoringPage() {
     // State management
@@ -50,8 +47,6 @@ function GameMonitoringPage() {
     const [error, setError] = useState(null)
     const [wsConnected, setWsConnected] = useState(false)
 
-    // Mutation hooks
-    const terminateRoom = useTerminateRoom()
 
     // React Query: admin stats (manual refetch to preserve existing flow)
     const { refetch: refetchStats } = useQuery({
@@ -369,17 +364,8 @@ function GameMonitoringPage() {
                                                     {room.hasPassword ? '🔒' : '🔓'}
                                                 </TableCell>
                                                 <TableCell>
-                                                    {room.status !== 'FINISHED' && (
-                                                        <Button
-                                                            size="small"
-                                                            color="error"
-                                                            startIcon={<StopIcon />}
-                                                            disabled={terminateRoom.isPending}
-                                                            onClick={() => terminateRoom.mutate(room.gameNumber)}
-                                                        >
-                                                            {terminateRoom.isPending ? '처리중...' : '강제 종료'}
-                                                        </Button>
-                                                    )}
+                                                    {/* 강제 종료 기능은 현재 비활성화되어 있습니다 */}
+                                                    -
                                                 </TableCell>
                                             </TableRow>
                                         ))
