@@ -1,6 +1,308 @@
-import React from 'react'
-import { Box, CircularProgress, Typography } from '@mui/material'
-import OptimizedEnhancedChatSystem from '../../../components/OptimizedEnhancedChatSystem'
+// Modernized ChatPanel component
+// Bubble-style chat with modern message system
+
+import React, {useEffect, useRef, useState} from 'react'
+import styled, {css} from 'styled-components'
+import {AnimatePresence, motion} from 'framer-motion'
+import {Box, CircularProgress, Typography, useRipple} from '../../../components/ui'
+import {Send as SendIcon} from 'lucide-react'
+
+// Chat panel container
+const ChatPanelContainer = styled(motion.div)`
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: ${({ theme }) => theme.colors.surface.primary};
+  border-radius: ${({ theme }) => theme.semanticBorderRadius.card.medium};
+  box-shadow: ${({ theme }) => theme.semanticShadows.card.default};
+  overflow: hidden;
+  
+  /* Responsive adjustments */
+  @media (max-width: 767px) {
+    border-radius: ${({ theme }) => theme.semanticBorderRadius.card.small};
+  }
+`
+
+// Message list container
+const MessageListContainer = styled.div`
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: ${({ theme }) => theme.semanticSpacing.component.sm};
+  
+  /* Custom scrollbar */
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: ${({ theme }) => theme.colors.surface.secondary};
+    border-radius: ${({ theme }) => theme.borderRadius.full};
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: ${({ theme }) => theme.colors.border.secondary};
+    border-radius: ${({ theme }) => theme.borderRadius.full};
+    
+    &:hover {
+      background: ${({ theme }) => theme.colors.text.tertiary};
+    }
+  }
+  
+  /* Smooth scrolling */
+  scroll-behavior: smooth;
+  
+  /* Mobile optimizations */
+  @media (max-width: 767px) {
+    padding: ${({ theme }) => theme.semanticSpacing.component.xs};
+  }
+`
+
+// Messages container for AnimatePresence
+const MessagesContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  gap: ${({ theme }) => theme.spacing[1]};
+`
+
+// Base bubble container
+const BubbleContainer = styled(motion.div)`
+  display: flex;
+  margin: ${({ theme }) => `${theme.spacing[1]} 0`};
+  max-width: 100%;
+  
+  /* Alignment based on message type */
+  ${({ $isUser, $isSystem }) => {
+    if ($isSystem) {
+      return css`
+        justify-content: center;
+        margin: ${({ theme }) => `${theme.spacing[2]} 0`};
+      `
+    }
+    return $isUser ? css`justify-content: flex-end;` : css`justify-content: flex-start;`
+  }}
+`
+
+// Message bubble styles
+const MessageBubble = styled.div`
+  position: relative;
+  max-width: 70%;
+  padding: ${({ theme }) => `${theme.spacing[2]} ${theme.spacing[3]}`};
+  border-radius: 18px;
+  word-wrap: break-word;
+  word-break: break-word;
+  
+  /* Bubble variants */
+  ${({ $variant, theme }) => {
+    switch ($variant) {
+      case 'user':
+        return css`
+          background-color: ${theme.colors.primary[500]};
+          color: ${theme.colors.white};
+          border-radius: 18px 18px 6px 18px;
+          box-shadow: ${theme.shadows.sm};
+          
+          &::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            right: -6px;
+            width: 0;
+            height: 0;
+            border-style: solid;
+            border-width: 6px 0 0 6px;
+            border-color: transparent transparent transparent ${theme.colors.primary[500]};
+          }
+        `
+      case 'other':
+        return css`
+          background-color: ${theme.colors.surface.primary};
+          color: ${theme.colors.text.primary};
+          border: 1px solid ${theme.colors.border.primary};
+          border-radius: 6px 18px 18px 18px;
+          box-shadow: ${theme.shadows.sm};
+          
+          &::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: -7px;
+            width: 0;
+            height: 0;
+            border-style: solid;
+            border-width: 6px 6px 0 0;
+            border-color: ${theme.colors.surface.primary} transparent transparent transparent;
+          }
+          
+          &::before {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: -8px;
+            width: 0;
+            height: 0;
+            border-style: solid;
+            border-width: 7px 7px 0 0;
+            border-color: ${theme.colors.border.primary} transparent transparent transparent;
+          }
+        `
+      case 'system':
+        return css`
+          background: linear-gradient(135deg, ${theme.colors.primary[50]}, ${theme.colors.secondary[50]});
+          color: ${theme.colors.text.primary};
+          border: 1px solid ${theme.colors.primary[200]};
+          border-radius: ${theme.borderRadius.lg};
+          text-align: center;
+          font-weight: ${theme.fontWeight.medium};
+          max-width: 80%;
+          box-shadow: ${theme.shadows.sm};
+        `
+      default:
+        return css`
+          background-color: ${theme.colors.surface.secondary};
+          color: ${theme.colors.text.primary};
+          border: 1px solid ${theme.colors.border.primary};
+        `
+    }
+  }}
+`
+
+// Message content
+const MessageContent = styled.div`
+  font-size: ${({ theme }) => theme.fontSize.sm};
+  line-height: ${({ theme }) => theme.lineHeight.relaxed};
+  
+  /* System message special styling */
+  ${({ $isSystem }) => $isSystem && css`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: ${({ theme }) => theme.spacing[1]};
+    
+    svg {
+      width: 16px;
+      height: 16px;
+    }
+  `}
+`
+
+// System message icon wrapper
+const SystemIcon = styled.span`
+  font-size: 16px;
+  filter: grayscale(0.2);
+`
+
+// Input container
+const InputContainer = styled.div`
+  display: flex;
+  align-items: flex-end;
+  gap: ${({ theme }) => theme.spacing[2]};
+  padding: ${({ theme }) => theme.semanticSpacing.component.md};
+  background-color: ${({ theme }) => theme.colors.surface.primary};
+  border-top: 1px solid ${({ theme }) => theme.colors.border.primary};
+  
+  /* Mobile adjustments */
+  @media (max-width: 767px) {
+    padding: ${({ theme }) => theme.semanticSpacing.component.sm};
+    gap: ${({ theme }) => theme.spacing[1]};
+  }
+`
+
+// Text input field
+const TextInput = styled.input`
+  width: 100%;
+  padding: ${({ theme }) => `${theme.spacing[3]} ${theme.spacing[4]}`};
+  border: 2px solid ${({ theme }) => theme.colors.border.primary};
+  border-radius: 24px;
+  font-family: ${({ theme }) => theme.fontFamily.primary};
+  font-size: ${({ theme }) => theme.fontSize.sm};
+  line-height: ${({ theme }) => theme.lineHeight.normal};
+  color: ${({ theme }) => theme.colors.text.primary};
+  background-color: ${({ theme }) => theme.colors.surface.primary};
+  outline: none;
+  transition: ${({ theme }) => theme.semanticTransitions.input.focus};
+  
+  &::placeholder {
+    color: ${({ theme }) => theme.colors.text.tertiary};
+    opacity: 0.7;
+  }
+  
+  &:focus {
+    border-color: ${({ theme }) => theme.colors.primary[400]};
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+  }
+  
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background-color: ${({ theme }) => theme.colors.surface.disabled};
+  }
+`
+
+// Send button
+const SendButton = styled(motion.button)`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 50%;
+  background: linear-gradient(135deg, ${({ theme }) => theme.colors.primary[500]}, ${({ theme }) => theme.colors.secondary[500]});
+  color: ${({ theme }) => theme.colors.white};
+  cursor: pointer;
+  transition: ${({ theme }) => theme.transition.fast};
+  box-shadow: ${({ theme }) => theme.shadows.sm};
+  
+  svg {
+    width: 20px;
+    height: 20px;
+    transform: rotate(-45deg);
+  }
+  
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, ${({ theme }) => theme.colors.primary[600]}, ${({ theme }) => theme.colors.secondary[600]});
+    box-shadow: ${({ theme }) => theme.shadows.md};
+    transform: translateY(-1px) scale(1.05);
+  }
+  
+  &:active:not(:disabled) {
+    transform: translateY(0) scale(0.95);
+    box-shadow: ${({ theme }) => theme.shadows.sm};
+  }
+  
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    background: ${({ theme }) => theme.colors.surface.disabled};
+    color: ${({ theme }) => theme.colors.text.disabled};
+  }
+`
+
+// Empty state message
+const EmptyState = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  padding: ${({ theme }) => theme.semanticSpacing.component.xl};
+  text-align: center;
+  color: ${({ theme }) => theme.colors.text.tertiary};
+  font-size: ${({ theme }) => theme.fontSize.sm};
+`
+
+// Loading fallback
+const LoadingFallback = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: ${({ theme }) => theme.spacing[2]};
+  padding: ${({ theme }) => theme.semanticSpacing.component.xl};
+`
 
 const ChatPanel = React.memo(function ChatPanel({
   messages,
@@ -9,24 +311,206 @@ const ChatPanel = React.memo(function ChatPanel({
   disabled,
   placeholder,
 }) {
-  return (
-    <OptimizedEnhancedChatSystem
-      messages={messages || []}
-      currentUser={currentUser}
-      onSendMessage={onSendMessage}
-      disabled={disabled}
-      placeholder={placeholder}
-      fallback={
-        disabled ? (
-          <Box sx={{ p: 2, textAlign: 'center' }}>
-            <CircularProgress size={24} />
-            <Typography variant="body2" sx={{ mt: 1 }}>
-              서버에 연결 중...
-            </Typography>
-          </Box>
-        ) : null
+  const [inputValue, setInputValue] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const containerRef = useRef(null)
+  const shouldScrollRef = useRef(true)
+  const { createRipple, RippleEffect } = useRipple()
+
+  // Convert messages to the format expected by our modern components
+  const convertedMessages = React.useMemo(() => {
+    if (!messages || !Array.isArray(messages)) return []
+    
+    return messages.map((message, index) => ({
+      id: message.id || `msg-${index}-${Date.now()}`,
+      content: message.content || '',
+      playerNickname: message.playerNickname || message.sender,
+      playerId: message.playerId || message.userId,
+      sender: message.sender || message.playerNickname,
+      timestamp: message.timestamp || message.createdAt || new Date().toISOString(),
+      isSystem: message.isSystem || ['system', 'info', 'warning', 'success', 'game_event'].includes(message.type),
+      type: message.type || 'user',
+      originalMessage: message
+    }))
+  }, [messages])
+
+  // Auto-scroll to bottom when new messages arrive
+  const scrollToBottom = React.useCallback((behavior = 'smooth') => {
+    if (!containerRef.current || !shouldScrollRef.current) return
+    
+    const container = containerRef.current
+    container.scrollTo({
+      top: container.scrollHeight,
+      behavior
+    })
+  }, [])
+
+  // Handle send message
+  const handleSendMessage = React.useCallback(async (content) => {
+    if (!onSendMessage || disabled) return
+    
+    setIsLoading(true)
+    
+    try {
+      await onSendMessage(content)
+      setInputValue('') // Clear input after sending
+    } catch (error) {
+      console.error('Failed to send message:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [onSendMessage, disabled])
+
+  // Handle send button click
+  const handleSend = async (e) => {
+    const trimmedValue = inputValue.trim()
+    if (!trimmedValue || disabled || isLoading) return
+    
+    // Create ripple effect
+    createRipple(e)
+    
+    await handleSendMessage(trimmedValue)
+  }
+
+  // Handle key press
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleSend()
+    }
+  }
+
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    if (convertedMessages.length > 0) {
+      setTimeout(() => scrollToBottom(), 50)
+    }
+  }, [convertedMessages.length, scrollToBottom])
+
+  // Render message bubble
+  const renderMessage = (message, index) => {
+    const isUser = message.playerNickname === currentUser || message.sender === currentUser
+    const isSystem = message.isSystem || ['system', 'info', 'warning', 'success', 'game_event'].includes(message.type)
+    
+    const variant = isSystem ? 'system' : (isUser ? 'user' : 'other')
+    
+    // Get system message icon based on type
+    const getSystemIcon = (type) => {
+      const iconMap = {
+        'system': '👑',
+        'info': 'ℹ️',
+        'warning': '⚠️',
+        'success': '✅',
+        'game_event': '🎯',
+        'game_start': '🎮',
+        'game_end': '🏆',
+        'player_join': '👋',
+        'player_leave': '👋',
       }
-    />
+      return iconMap[type] || '👑'
+    }
+
+    return (
+      <BubbleContainer
+        key={message.id}
+        $isUser={isUser}
+        $isSystem={isSystem}
+        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{
+          type: "spring",
+          stiffness: 300,
+          damping: 25,
+          duration: 0.3
+        }}
+      >
+        <MessageBubble $variant={variant}>
+          <MessageContent $isSystem={isSystem}>
+            {isSystem && (
+              <SystemIcon>
+                {getSystemIcon(message.type)}
+              </SystemIcon>
+            )}
+            {message.content}
+          </MessageContent>
+        </MessageBubble>
+      </BubbleContainer>
+    )
+  }
+
+  // Show loading state when disabled and no messages
+  if (disabled && (!messages || messages.length === 0)) {
+    return (
+      <ChatPanelContainer
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.2 }}
+      >
+        <LoadingFallback>
+          <CircularProgress size={24} />
+          <Typography variant="body2">
+            서버에 연결 중...
+          </Typography>
+        </LoadingFallback>
+      </ChatPanelContainer>
+    )
+  }
+
+  return (
+    <ChatPanelContainer
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ 
+        type: "spring",
+        stiffness: 300,
+        damping: 25,
+        duration: 0.3 
+      }}
+    >
+      <MessageListContainer ref={containerRef}>
+        {convertedMessages.length === 0 ? (
+          <EmptyState>
+            💬 채팅을 시작해보세요!
+          </EmptyState>
+        ) : (
+          <MessagesContainer>
+            <AnimatePresence mode="popLayout">
+              {convertedMessages.map((message, index) => (
+                <motion.div
+                  key={message.id}
+                  layout
+                >
+                  {renderMessage(message, index)}
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </MessagesContainer>
+        )}
+      </MessageListContainer>
+      
+      <InputContainer>
+        <TextInput
+          type="text"
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          onKeyPress={handleKeyPress}
+          placeholder={placeholder || "메시지를 입력하세요..."}
+          disabled={disabled}
+          maxLength={200}
+        />
+
+        <SendButton
+          onClick={handleSend}
+          disabled={!inputValue.trim() || disabled || isLoading}
+          whileTap={{ scale: 0.9 }}
+          whileHover={{ scale: 1.1 }}
+          aria-label="메시지 전송"
+        >
+          <SendIcon />
+          <RippleEffect color="rgba(255, 255, 255, 0.3)" />
+        </SendButton>
+      </InputContainer>
+    </ChatPanelContainer>
   )
 })
 

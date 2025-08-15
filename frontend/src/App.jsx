@@ -1,7 +1,7 @@
 import React from 'react'
 import {createBrowserRouter, Navigate, RouterProvider} from 'react-router-dom'
-import {createTheme, ThemeProvider} from '@mui/material/styles'
-import {Alert, Box, CircularProgress, CssBaseline} from '@mui/material'
+import {Alert, Box, CircularProgress, CssBaseline} from './components/ui'
+import {ThemeProvider} from './styles'
 import {GameProvider, useGame} from './context/GameContext'
 import LoginPage from './pages/LoginPage'
 import LobbyPageWithLoader from './pages/LobbyPageWithLoader'
@@ -15,17 +15,6 @@ import LoginFailurePage from './pages/LoginFailurePage'
 import {I18nProvider} from './i18n/i18n.jsx'
 import {lobbyLoader} from './loaders/lobbyLoader'
 
-const theme = createTheme({
-  palette: {
-    primary: {
-      main: '#1976d2',
-    },
-    secondary: {
-      main: '#dc004e',
-    },
-  },
-})
-
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated, loading } = useGame()
@@ -33,14 +22,12 @@ function ProtectedRoute({ children }) {
   if (loading.auth) {
     return (
       <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          height: '100vh',
-          flexDirection: 'column',
-          gap: 2
-        }}
+        $display="flex"
+        $justifyContent="center"
+        $alignItems="center"
+        $height="100vh"
+        $flexDirection="column"
+        $gap={2}
       >
         <CircularProgress size={60} />
         <Alert severity="info">인증 확인 중...</Alert>
@@ -208,9 +195,10 @@ function AppRouterWrapper({ children }) {
 
 function App() {
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <RouterProvider router={router} />
+    <ThemeProvider>
+      <CssBaseline>
+        <RouterProvider router={router} />
+      </CssBaseline>
     </ThemeProvider>
   )
 }

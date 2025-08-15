@@ -11,10 +11,9 @@ import {
     ListItemText,
     Paper,
     Stack,
-    Typography,
-    useTheme
-} from '@mui/material'
-import {CheckCircle as CheckIcon} from '@mui/icons-material'
+    Typography
+} from '@/components/ui'
+import {CheckCircle as CheckIcon} from 'lucide-react'
 import {buildActionGuidance, PRIORITY_MAPPING} from './ActionGuide.utils'
 import {getIconByKey} from './ActionGuide.icons'
 
@@ -32,8 +31,6 @@ const ActionGuide = React.memo(({
   wordGuessSubmitted = false,
   accusedPlayerId
 }) => {
-  const theme = useTheme()
-
   // Memoized guidance data generation using extracted utility
   const guidance = useMemo(() => 
     buildActionGuidance({
@@ -65,50 +62,42 @@ const ActionGuide = React.memo(({
   ])
 
   // Memoized styles to prevent recreation on each render
-  const containerStyles = useMemo(() => ({ p: 1 }), [])
+  const containerStyles = useMemo(() => ({ padding: '8px' }), [])
   
   const paperStyles = useMemo(() => ({
-    p: 2,
-    borderRadius: 2,
-    backgroundColor: theme.palette.background.paper
-  }), [theme.palette.background.paper])
+    padding: '16px',
+    borderRadius: '8px'
+  }), [])
   
   const urgentChipStyles = useMemo(() => ({ fontSize: '0.65rem' }), [])
   
   const alertStyles = useMemo(() => ({
-    mb: 2, 
-    '& .MuiAlert-message': { fontSize: '0.85rem' }
+    marginBottom: '16px'
   }), [])
   
-  const listItemIconStyles = useMemo(() => ({ minWidth: 32 }), [])
+  const listItemIconStyles = useMemo(() => ({ minWidth: '32px' }), [])
   
-  const actionTextStyles = useMemo(() => ({
-    '& .MuiListItemText-primary': {
-      fontSize: '0.8rem'
-    }
-  }), [])
+  const actionTextStyles = useMemo(() => ({}), [])
   
   const shortcutChipStyles = useMemo(() => ({ 
-    fontSize: '0.7rem', 
-    height: 20 
+    fontSize: '0.7rem'
   }), [])
   
-  const nextStepBg = theme.palette.grey[50]
   const nextStepBoxStyles = useMemo(() => ({
-    p: 1,
-    backgroundColor: nextStepBg,
-    borderRadius: 1
-  }), [nextStepBg])
+    padding: '8px',
+    backgroundColor: '#f5f5f5',
+    borderRadius: '4px'
+  }), [])
 
   // Get resolved icons and priority mapping
   const HeaderIcon = getIconByKey(guidance.iconKey)
   const priorityMapping = PRIORITY_MAPPING[guidance.priority] || PRIORITY_MAPPING.info
 
   return (
-    <Box sx={containerStyles}>
+    <Box style={containerStyles}>
       <Paper
         elevation={1}
-        sx={paperStyles}
+        style={paperStyles}
         role="region"
         aria-label={guidance.title}
       >

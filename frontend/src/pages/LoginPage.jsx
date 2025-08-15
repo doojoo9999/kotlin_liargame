@@ -27,11 +27,13 @@ function LoginPage() {
   const [snackbarOpen, setSnackbarOpen] = useState(false)
   const [snackbarMessage, setSnackbarMessage] = useState('')
 
-  const { control, handleSubmit, formState: { errors, isSubmitting }, setValue } = useForm({
+  const { control, handleSubmit, formState: { errors, isSubmitting }, setValue, watch } = useForm({
     resolver: zodResolver(schema),
     mode: 'onBlur',
     defaultValues: { nickname: '' },
   })
+
+  const nicknameValue = watch('nickname')
 
   useEffect(() => {
     // Prefill nickname and persist safe returnTo on arrival
