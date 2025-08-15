@@ -1,14 +1,9 @@
 import React from 'react'
-import { Box, Button, Paper, Typography } from '@mui/material'
-import { PlayArrow as PlayIcon } from '@mui/icons-material'
+import {Box} from '@mui/material'
 import GameModerator from '../../../components/GameModerator'
 import GameInfoDisplay from '../../../components/GameInfoDisplay'
-import EnhancedGameTimer from '../../../components/EnhancedGameTimer'
-import InteractiveVotingSystem from '../../../components/InteractiveVotingSystem'
-import DefenseComponent from '../../../components/DefenseComponent'
-import SurvivalVotingComponent from '../../../components/SurvivalVotingComponent'
-import WordGuessComponent from '../../../components/WordGuessComponent'
-import HintInputComponent from '../../../components/HintInputComponent'
+import {MessageQueue, useMessageQueue} from '../../../components/GameNarrator'
+import {CircularTimer, DefensePhase, GameResult, GameWaiting, HintPhase, VotingPhase} from './CenterStage/components'
 
 const CenterStage = React.memo(function CenterStage({
   isMobile,
@@ -38,14 +33,126 @@ const CenterStage = React.memo(function CenterStage({
   wordGuessResult,
   finalGameResult,
 }) {
+  const { messageQueueRef } = useMessageQueue()
+
+  // Find current turn player
+  const currentTurnPlayer = players.find(p => p.id === effectiveCurrentTurnPlayerId)
+
+  // Determine which component to render based on game status
+  const renderGamePhase = () => {
+    switch (gameStatus) {
+      case 'WAITING':
+        return (
+          <GameWaiting
+            isHost={isHost}
+            onStartGame={onStartGame}
+            isMobile={isMobile}
+          />
+        )
+
+      case 'SPEAKING':
+      case 'HINT_PHASE':
+        return (
+          <HintPhase
+            gameTimer={gameTimer}
+            assignedWord={assignedWord}
+            currentUser={currentUser}
+            currentTurnPlayer={currentTurnPlayer}
+            onSubmitHint={onHintSubmit}
+            isSubmitted={submissionStates?.hint?.submitted}
+            isLoading={loadingRoom}
+            error={submissionStates?.hint?.error}
+            isMobile={isMobile}
+          />
+        )
+
+      case 'VOTING':
+        return (
+          <VotingPhase
+            players={players}
+            currentUser={currentUser}
+            onVote={castVote}
+            votingProgress={survivalVotingProgress}
+            isVoted={submissionStates?.vote?.submitted}
+            isLoading={loadingRoom}
+            error={submissionStates?.vote?.error}
+            gameTimer={gameTimer}
+            isMobile={isMobile}
+          />
+        )
+
+      case 'DEFENSE':
+        return (
+          <DefensePhase
+            gameTimer={gameTimer}
+            accusedPlayer={players.find(p => p.id === accusedPlayerId)}
+            currentUser={currentUser}
+            onSubmitDefense={onDefenseSubmit}
+            isSubmitted={submissionStates?.defense?.submitted}
+            isLoading={loadingRoom}
+            error={submissionStates?.defense?.error}
+            isMobile={isMobile}
+          />
+        )
+
+      case 'SURVIVAL_VOTING':
+        return (
+          <VotingPhase
+            players={players}
+            currentUser={currentUser}
+            onVote={onSurvivalVoteSubmit}
+            votingProgress={survivalVotingProgress}
+            isVoted={submissionStates?.survivalVote?.submitted || mySurvivalVote !== null}
+            isLoading={loadingRoom}
+            error={submissionStates?.survivalVote?.error}
+            gameTimer={gameTimer}
+            isMobile={isMobile}
+          />
+        )
+
+      case 'WORD_GUESS':
+      case 'FINISHED':
+        return (
+          <GameResult
+            finalGameResult={finalGameResult}
+            players={players}
+            currentUser={currentUser}
+            playerRole={playerRole}
+            onRestartGame={onRestartGame}
+            onNavigateToLobby={() => window.location.href = '/lobby'}
+            isMobile={isMobile}
+          />
+        )
+
+      default:
+        return (
+          <Box sx={{ textAlign: 'center', p: 3 }}>
+            <Typography variant="body1" color="text.secondary">
+              게임 상태를 확인하는 중...
+            </Typography>
+          </Box>
+        )
+    }
+  }
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, width: '100%' }}>
+      {/* Message Queue for Narrator System */}
+      <MessageQueue
+        ref={messageQueueRef}
+        isMobile={isMobile}
+        position="left"
+        sx={{ width: '100%', maxWidth: 600 }}
+      />
+
+      {/* Keep existing GameModerator for compatibility */}
       <GameModerator
         gameStatus={gameStatus}
-        currentPlayer={players.find(p => p.id === effectiveCurrentTurnPlayerId)}
+        currentPlayer={currentTurnPlayer}
         timer={gameTimer}
       />
 
+      {/* Keep existing GameInfoDisplay for compatibility */}
       <GameInfoDisplay
         gameState={currentRoom?.gameState}
         gamePhase={currentRoom?.gamePhase}
@@ -66,134 +173,37 @@ const CenterStage = React.memo(function CenterStage({
         }}
       />
 
-      {gameStatus === 'WAITING' && isHost() && (
-        <Button
-          variant="contained"
-          size="large"
-          startIcon={<PlayIcon />}
-          onClick={onStartGame}
-          sx={{
-            mb: 2,
-            px: 4,
-            py: 1.5,
-            fontSize: '1.1rem',
-            backgroundColor: 'success.main',
-            '&:hover': { backgroundColor: 'success.dark' },
-          }}
-        >
-          게임 시작
-        </Button>
-      )}
-
-      {gameStatus !== 'WAITING' && (playerRole || assignedWord) && (
-        <Paper
-          sx={{
-            p: 2,
-            mb: 2,
-            backgroundColor: playerRole === 'LIAR' ? 'error.light' : 'primary.light',
-            color: 'white',
-            textAlign: 'center',
-            minWidth: isMobile ? 280 : 300,
-            width: '100%',
-            maxWidth: 400,
-          }}
-        >
-          <Typography variant="h6" gutterBottom>
-            {playerRole === 'LIAR' ? '🎭 라이어' : '👥 시민'}
-          </Typography>
-          <Typography variant="body1">
-            키워드: <strong>{assignedWord || '???'}</strong>
-          </Typography>
-          {currentRound > 0 && (
-            <Typography variant="body2" sx={{ mt: 1, opacity: 0.9 }}>
-              라운드 {currentRound}
-            </Typography>
-          )}
-        </Paper>
-      )}
-
-      {gameStatus !== 'WAITING' && gameTimer > 0 && (
-        <EnhancedGameTimer
-          gameTimer={gameTimer}
+      {/* Enhanced Timer for Active Game States */}
+      {gameStatus !== 'WAITING' && gameStatus !== 'FINISHED' && gameTimer > 0 && (
+        <CircularTimer
+          timeRemaining={gameTimer}
           maxTime={60}
-          gameStatus={gameStatus}
-          onTimeExpired={() => console.log('[DEBUG_LOG] Timer expired in CenterStage')}
           size={isMobile ? 100 : 140}
+          onTimeExpired={() => console.log('[DEBUG_LOG] Timer expired in CenterStage')}
+          isMobile={isMobile}
         />
       )}
 
-      {gameStatus === 'VOTING' && (
-        <Box sx={{ mb: 2, width: '100%' }}>
-          <InteractiveVotingSystem
-            players={players}
-            onVote={castVote}
-            disabled={!socketConnected}
-          />
-        </Box>
-      )}
-
-      {gameStatus === 'DEFENSE' && (
-        <Box sx={{ mb: 2, width: '100%' }}>
-          <DefenseComponent
-            gameTimer={gameTimer}
-            onSubmitDefense={onDefenseSubmit}
-            isSubmitted={submissionStates?.defense?.submitted}
-            isLoading={loadingRoom}
-            error={submissionStates?.defense?.error}
-            accusedPlayerId={accusedPlayerId}
-            currentUserId={currentUser?.id}
-            accusedPlayerName={players.find(p => p.id === accusedPlayerId)?.nickname}
-          />
-        </Box>
-      )}
-
-      {gameStatus === 'SURVIVAL_VOTING' && (
-        <Box sx={{ mb: 2, width: '100%' }}>
-          <SurvivalVotingComponent
-            gameTimer={gameTimer}
-            onCastSurvivalVote={onSurvivalVoteSubmit}
-            isVoted={submissionStates?.survivalVote?.submitted || mySurvivalVote !== null}
-            isLoading={loadingRoom}
-            error={submissionStates?.survivalVote?.error}
-            accusedPlayer={players.find(p => p.id === accusedPlayerId)}
-            votingProgress={survivalVotingProgress}
-            players={players}
-          />
-        </Box>
-      )}
-
-      {gameStatus === 'WORD_GUESS' && (
-        <Box sx={{ mb: 2, width: '100%' }}>
-          <WordGuessComponent
-            gameTimer={gameTimer}
-            onGuessWord={onWordGuessSubmit}
-            onRestartGame={onRestartGame}
-            isSubmitted={submissionStates?.wordGuess?.submitted}
-            isLoading={loadingRoom}
-            error={submissionStates?.wordGuess?.error}
-            playerRole={playerRole}
-            guessResult={wordGuessResult}
-            gameResult={finalGameResult}
-          />
-        </Box>
-      )}
-
-      {(gameStatus === 'SPEAKING' || gameStatus === 'HINT_PHASE') && (
-        <Box sx={{ mb: 2, width: '100%' }}>
-          {/* Keep the existing HintInputComponent usage through prop */}
-          {/* We pass onHintSubmit handler and state via props */}
-          {/* To avoid tight coupling, the actual component remains inside GameRoomPage or here? */}
-          {/* We keep it here to mimic original structure */}
-          {/* eslint-disable-next-line react/jsx-no-undef */}
-          <HintInputComponent
-            gameTimer={gameTimer}
-            onSubmitHint={onHintSubmit}
-            isSubmitted={submissionStates?.hint?.submitted}
-            isLoading={loadingRoom}
-            error={submissionStates?.hint?.error}
-          />
-        </Box>
-      )}
+      {/* Main Game Phase Component */}
+      <Box 
+        sx={{ 
+          width: '100%',
+          transition: 'all 0.5s ease-in-out',
+          animation: 'fadeInSlide 0.5s ease-out',
+          '@keyframes fadeInSlide': {
+            '0%': {
+              opacity: 0,
+              transform: 'translateY(20px)'
+            },
+            '100%': {
+              opacity: 1,
+              transform: 'translateY(0)'
+            }
+          }
+        }}
+      >
+        {renderGamePhase()}
+      </Box>
     </Box>
   )
 })

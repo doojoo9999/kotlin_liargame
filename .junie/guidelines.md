@@ -3,6 +3,12 @@
 이 문서는 코딩 에이전트 Junie가 본 프로젝트에서 안정적으로 개발/리팩토링을 수행하기 위한 규칙과 절차를 정의합니다.
 목표: 외부 API/동작/경로 안정성 유지, 작은 단위 작업, 일관된 구조, 자동 검증(빌드/린트/테스트).
 
+리팩토링 시 기존의 파일을 먼저 수정하세요.
+없을 경우 새로운 파일을 생성하세요.
+
+하나의 파일에서 너무 많은 책임과 역할을 갖게 하지 마세요.
+적절히 컴포넌트를 생성하여 분배하고 기존에 생성된 컴포넌트가 있는지 먼저 체크하세요.
+
 ## 1) 기술 스택 및 기본 규칙
 - FE: React 18, Vite 5, MUI v5, @tanstack/react-query v5, react-window, Zustand
 - 패키지 관리자: npm
@@ -101,5 +107,52 @@
 - “JSX 파싱 에러” → JSX는 .jsx에서만. .js에서는 React.createElement 사용.
 - “ENV/로그” → Vite 표준(import.meta.env) + logger 유틸.
 
----
-본 문서는 리포지토리 변경 시 업데이트하세요. 세부 규칙이 바뀌면 PR 템플릿과 ESLint 설정도 동기화하십시오.
+## 14) Composition-first 규칙(중요)
+
+- 금지: GameContext, apiClient, gameApi 등의 “코어” 파일에 직접 비즈니스 로직/JSX 대량 추가
+- 원칙:
+    1) 컨테이너(얇게) + 프리젠테이션(세분화)로 분리
+    2) 기존 컴포넌트/훅/서비스의 “조합으로 해결”을 우선 검토
+    3) 새 로직이 필요하면 “features/<도메인>/hooks|components|services”에 추가, 배럴(index.js[x])로만 외부 노출
+- 확장 포인트:
+    - 데이터: React Query 훅 또는 service 모듈에서 캡슐화 → 컨테이너에서 조합
+    - 상태: Zustand/Context는 “파사드 훅(useXxxFacade)”로만 접근
+    - 실시간: stomp client 래퍼 + useSocketEffects로 연결/구독/해제만 관리
+
+## 15) 파일 크기/복잡도 상한(자동 가드)
+
+- 컨테이너 컴포넌트
+    - max 200 lines, max 3 useEffect, cyclomatic complexity ≤ 10
+- 프리젠테이션 컴포넌트
+    - max 150 lines, 함수 1개당 50 lines 이하 권장
+- 훅/서비스
+    - max 200 lines, 관심사 단일(SRP). 혼합 시 내부 훅으로 분해
+
+## 16) Import/Barrel 정책(강제)
+
+- 외부 import는 alias + barrel(index)만 사용 (예: @components, @pages, @hooks)
+- 내부 경로(components/xxx/components/yyy.jsx 등) 직접 import 금지
+- JSX는 .jsx에서만. .js는 React.createElement 사용 또는 순수 로직만
+
+## 17) “코어 파일 수정” 제한
+
+- GameContext, apiClient, gameApi, socket client 등 코어는 “계약 변경” 금지
+- 필요한 경우:
+    - 어댑터/파사드 추가(예: useGameFacade, useRoomsService)
+    - 배럴에서 재노출만 허용
+    - 직접 수정이 꼭 필요하면 별도 태스크/리뷰로 분리
+
+## 18) Junie 작업 프롬프트 템플릿(조합-우선)
+
+역할: 기존 세분화 컴포넌트/훅/서비스를 “조합”하여 기능을 구현한다. 코어 파일 수정 금지.
+대상: <상대경로 또는 기능 설명>
+목표: <기능/수정 요약. 외부 API/경로/문구 변경 금지>
+지침:
+- 기존 컴포넌트/훅 검색 → 가능한 조합으로 구성
+- 필요한 경우 features/<domain>/* 아래에 새 컴포넌트/훅/서비스 추가 + 배럴로 노출
+- 컨테이너는 데이터 조립, 프리젠테이션은 UI. 파일 크기/복잡도 상한 준수
+- import/no-internal-modules 위반 금지(배럴만 사용)
+  DoD:
+- 외부 import 경로 불변, 배럴 경유, 빌드/린트 무경고
+- 파일 크기 상한 준수, 관심사 단일
+- 변경/신규 파일 목록 + 변경 요약 + 스모크 결과 제공

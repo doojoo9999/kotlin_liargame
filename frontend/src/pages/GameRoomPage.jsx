@@ -1,20 +1,5 @@
-import React, {useCallback, useEffect, useMemo, useState} from 'react'
-import {
-    Alert,
-    Box,
-    Button,
-    CircularProgress,
-    Container,
-    Dialog,
-    DialogActions,
-    DialogContent,
-    DialogTitle,
-    Typography,
-    useMediaQuery,
-    useTheme
-} from '@mui/material'
-import {useGame} from '../context/GameContext'
-import {useToast} from '../components/EnhancedToastSystem'
+import React, {useCallback, useEffect} from 'react'
+import {Alert, Box, CircularProgress, Container, Typography, useMediaQuery, useTheme} from '@mui/material'
 import VictoryAnimation from '../components/VictoryAnimation'
 import ResponsiveGameLayout from '../components/ResponsiveGameLayout'
 import AdaptiveGameLayout from '../components/AdaptiveGameLayout'
@@ -22,8 +7,7 @@ import LeftInfoPanel from '../components/LeftInfoPanel'
 import useGameLayout from '../hooks/useGameLayout'
 import useSystemMessages from '../hooks/useSystemMessages'
 import useGameGuidance from '../hooks/useGameGuidance'
-import GameResultScreen from '../components/GameResultScreen'
-import GameTutorialSystem, {ActionGuidance} from '../components/GameTutorialSystem'
+import {ActionGuidance} from '../components/GameTutorialSystem'
 import HeaderBar from './GameRoomPage/components/HeaderBar'
 import ChatPanel from './GameRoomPage/components/ChatPanel'
 import PlayersPanel from './GameRoomPage/components/PlayersPanel'
@@ -33,59 +17,21 @@ import useRoomConnectionEffect from './GameRoomPage/hooks/useRoomConnectionEffec
 import usePlayersDistribution from './GameRoomPage/hooks/usePlayersDistribution'
 import useRoomStateInfo from './GameRoomPage/hooks/useRoomStateInfo'
 import useSubmissionFlows from './GameRoomPage/hooks/useSubmissionFlows'
+import useGameStateManager from './GameRoomPage/hooks/useGameStateManager'
+import useUIStateManager from './GameRoomPage/hooks/useUIStateManager'
+import useRoomEventHandlers from './GameRoomPage/hooks/useRoomEventHandlers'
 
 
 const GameRoomPage = React.memo(() => {
     const theme = useTheme()
     const isMobile = useMediaQuery(theme.breakpoints.down('md'))
-    const {addToast} = useToast()
-
-
-    const [leaveDialogOpen, setLeaveDialogOpen] = useState(false)
-    const [speechBubbles, setSpeechBubbles] = useState({})
-    const [tutorialOpen, setTutorialOpen] = useState(false)
-    const [showGameResult, setShowGameResult] = useState(false)
-    const [newMessageCount, setNewMessageCount] = useState(0)
-
-    const {
-        currentRoom,
-        currentUser,
-        loading,
-        error,
-        socketConnected,
-        roomPlayers,
-        currentTurnPlayerId,
-        gameStatus,
-        gamePhase,
-        currentRound,
-        playerRole,
-        assignedWord,
-        gameTimer,
-        votingResults,
-        accusedPlayerId,
-        survivalVotingProgress,
-        mySurvivalVote,
-        wordGuessResult,
-        finalGameResult,
-        chatMessages,
-        sendChatMessage,
-        disconnectSocket,
-        connectToRoom,
-        leaveRoom,
-        navigateToLobby,
-        startGame,
-        castVote,
-        submitHint,
-        submitDefense,
-        castSurvivalVote,
-        guessWord
-    } = useGame()
-
-    const players = useMemo(() =>
-            roomPlayers.length > 0 ? roomPlayers : (currentRoom?.players || []),
-        [roomPlayers, currentRoom?.players]
-    )
-
+    // Extract game state management
+    const { gameState, gameActions } = useGameStateManager()
+    
+    // Extract UI state management  
+    const { uiState, uiActions } = useUIStateManager()
+    
+    // Extract submission flows (existing hook)
     const {
         submissionStates,
         handleHintSubmit,
@@ -94,237 +40,178 @@ const GameRoomPage = React.memo(() => {
         handleWordGuessSubmit,
         handleRestartGame,
     } = useSubmissionFlows({
-        gameStatus,
-        submitHint,
-        submitDefense,
-        castSurvivalVote,
-        guessWord,
-        startGame,
+        gameStatus: gameState.gameStatus,
+        submitHint: gameActions.submitHint,
+        submitDefense: gameActions.submitDefense,
+        castSurvivalVote: gameActions.castSurvivalVote,
+        guessWord: gameActions.guessWord,
+        startGame: gameActions.startGame,
     })
 
-    const handleRestartGameWithClear = useCallback(() => {
-        setSpeechBubbles({})
-        handleRestartGame()
-    }, [handleRestartGame])
+    // Extract event handlers
+    const eventHandlers = useRoomEventHandlers({ 
+        gameState, 
+        gameActions, 
+        uiActions 
+    })
 
+    // Enhanced restart handler that clears speech bubbles
+    const handleRestartGameWithClear = useCallback(() => {
+        uiActions.speechBubbles.clearSpeechBubbles()
+        handleRestartGame()
+    }, [handleRestartGame, uiActions.speechBubbles])
+
+    // Other hooks that depend on game state
     useGameLayout({
-        gameStatus,
-        playerCount: players.length,
+        gameStatus: gameState.gameStatus,
+        playerCount: gameState.players.length,
         enableTransitions: true
     })
 
     const systemMessages = useSystemMessages({
-        gameStatus,
+        gameStatus: gameState.gameStatus,
         maxMessages: 10000,
         enableAutoCleanup: true
     })
 
     useGameGuidance({
-        gameStatus,
-        currentUser,
-        currentTurnPlayerId,
-        players,
-        playerRole,
-        gameTimer,
-        accusedPlayerId,
+        gameStatus: gameState.gameStatus,
+        currentUser: gameState.currentUser,
+        currentTurnPlayerId: gameState.currentTurnPlayerId,
+        players: gameState.players,
+        playerRole: gameState.playerRole,
+        gameTimer: gameState.gameTimer,
+        accusedPlayerId: gameState.accusedPlayerId,
         hintSubmitted: submissionStates.hint.submitted,
         defenseSubmitted: submissionStates.defense.submitted,
         survivalVoteSubmitted: submissionStates.survivalVote.submitted,
         wordGuessSubmitted: submissionStates.wordGuess.submitted
     })
 
-    const handleSendChatMessage = useCallback((content) => {
-        if (!currentRoom?.gameNumber) {
-            addToast('채팅을 보낼 수 없습니다. 방 정보를 확인해주세요.', 'error')
-            return
-        }
-
-        if (!socketConnected) {
-            addToast('서버 연결이 끊어졌습니다. 재연결을 기다려주세요.', 'warning')
-            return
-        }
-
-        try {
-            sendChatMessage(currentRoom.gameNumber, content)
-        } catch (error) {
-            console.error('[ERROR] Failed to send chat message:', error)
-            addToast('메시지 전송에 실패했습니다.', 'error')
-        }
-    }, [currentRoom?.gameNumber, socketConnected, addToast, sendChatMessage])
-
-    const handleTimerExpired = useCallback(() => {
-        console.log('[DEBUG_LOG] Timer expired in GameRoomPage, current status:', gameStatus)
-    }, [gameStatus])
-
     useRoomConnectionEffect({
-        gameNumber: currentRoom?.gameNumber,
-        connectToRoom,
-        disconnectSocket,
-        addToast,
+        gameNumber: gameState.currentRoom?.gameNumber,
+        connectToRoom: gameActions.connectToRoom,
+        disconnectSocket: gameActions.disconnectSocket,
+        addToast: eventHandlers.addToast,
     })
 
     useEffect(() => {
-        if (socketConnected) {
+        if (gameState.socketConnected) {
             console.log('[DEBUG_LOG] WebSocket connected in GameRoomPage')
         } else {
             console.log('[DEBUG_LOG] WebSocket disconnected in GameRoomPage')
         }
-    }, [socketConnected])
+    }, [gameState.socketConnected])
 
-    const handleLeaveRoom = useCallback(async () => {
-        try {
-            if (currentRoom) {
-                await leaveRoom(currentRoom.gameNumber)
-            }
-            setLeaveDialogOpen(false)
-            navigateToLobby()
-        } catch (error) {
-            console.error('Failed to leave room:', error)
-            navigateToLobby()
-        }
-    }, [currentRoom, leaveRoom, navigateToLobby])
-
-    const handleStartGame = useCallback(() => {
-        console.log('[DEBUG_LOG] Host starting game')
-        startGame()
-    }, [startGame])
-
-    const handleAddFriend = useCallback((player) => {
-        if (!currentUser) {
-            addToast('로그인이 필요합니다.', 'info')
-            return
-        }
-        if (player?.nickname && player.nickname === currentUser?.nickname) {
-            addToast('본인은 친구로 추가할 수 없습니다.', 'warning')
-            return
-        }
-        addToast(`${player?.nickname || '플레이어'}님을 친구로 추가했어요. (준비 중)`, 'success')
-    }, [currentUser, addToast])
-
-    const handleReportPlayer = useCallback((player) => {
-        if (!player) return
-        addToast(`${player.nickname}님을 신고했습니다. (검토 예정)`, 'info')
-    }, [addToast])
-
-    const isHost = useCallback(() => {
-        if (!currentUser || !players.length) return false
-        const currentPlayer = players.find(p => p.nickname === currentUser.nickname)
-        return currentPlayer?.isHost || false
-    }, [currentUser, players])
-
-
-
-    const handlers = useMemo(() => ({
-        chat: { handleSendChatMessage },
+    // Organized handlers object for easy component prop passing
+    const handlers = {
+        chat: { 
+            handleSendChatMessage: eventHandlers.handleSendChatMessage 
+        },
         game: {
-            handleStartGame,
-            handleLeaveRoom,
+            handleStartGame: eventHandlers.handleStartGame,
+            handleLeaveRoom: eventHandlers.handleLeaveRoom,
             handleRestartGame: handleRestartGameWithClear,
             handleHintSubmit,
             handleDefenseSubmit,
             handleSurvivalVoteSubmit,
             handleWordGuessSubmit,
-            handleTimerExpired,
+            handleTimerExpired: eventHandlers.handleTimerExpired,
         },
-        player: { handleAddFriend, handleReportPlayer, isHost },
-    }), [
-        handleSendChatMessage,
-        handleStartGame,
-        handleLeaveRoom,
-        handleRestartGameWithClear,
-        handleHintSubmit,
-        handleDefenseSubmit,
-        handleSurvivalVoteSubmit,
-        handleWordGuessSubmit,
-        handleTimerExpired,
-        handleAddFriend,
-        handleReportPlayer,
-        isHost,
-    ])
+        player: { 
+            handleAddFriend: eventHandlers.handleAddFriend, 
+            handleReportPlayer: eventHandlers.handleReportPlayer, 
+            isHost: eventHandlers.isHost 
+        },
+        dialogs: {
+            handleOpenTutorial: eventHandlers.handleOpenTutorial,
+            handleOpenLeaveDialog: eventHandlers.handleOpenLeaveDialog
+        }
+    }
 
-    if (!currentRoom) {
+    if (!gameState.currentRoom) {
         return (
             <Container maxWidth="lg" sx={{py: 4}}>
                 <Alert severity="error">
                     방 정보를 불러올 수 없습니다. 로비로 돌아가세요.
                 </Alert>
-                <Button variant="contained" onClick={navigateToLobby} sx={{mt: 2}}>
+                <Button variant="contained" onClick={gameActions.navigateToLobby} sx={{mt: 2}}>
                     로비로 돌아가기
                 </Button>
             </Container>
         )
     }
 
-    const playerPositions = usePlayersDistribution(players)
+    const playerPositions = usePlayersDistribution(gameState.players)
 
-    const roomStateInfo = useRoomStateInfo(currentRoom.gameState)
+    const roomStateInfo = useRoomStateInfo(gameState.currentRoom.gameState)
 
-    const effectiveCurrentTurnPlayerId = currentTurnPlayerId || currentRoom.currentTurnPlayerId
+    const effectiveCurrentTurnPlayerId = gameState.currentTurnPlayerId || gameState.currentRoom.currentTurnPlayerId
 
     const gameInfoComponent = (
         <HeaderBar
-            currentRoom={currentRoom}
+            currentRoom={gameState.currentRoom}
             isMobile={isMobile}
             roomStateInfo={roomStateInfo}
-            playersCount={players.length}
-            maxPlayers={currentRoom.maxPlayers || currentRoom.gameParticipants || 8}
-            onOpenTutorial={() => setTutorialOpen(true)}
-            onOpenLeaveDialog={() => setLeaveDialogOpen(true)}
+            playersCount={gameState.players.length}
+            maxPlayers={gameState.currentRoom.maxPlayers || gameState.currentRoom.gameParticipants || 8}
+            onOpenTutorial={handlers.dialogs.handleOpenTutorial}
+            onOpenLeaveDialog={handlers.dialogs.handleOpenLeaveDialog}
         />
     )
 
     const chatComponent = useMemo(() => {
-        console.log('[DEBUG_LOG] ChatComponent - currentUser:', currentUser)
+        console.log('[DEBUG_LOG] ChatComponent - currentUser:', gameState.currentUser)
         return (
             <ChatPanel
-                messages={chatMessages}
-                currentUser={currentUser}
+                messages={gameState.chatMessages}
+                currentUser={gameState.currentUser}
                 onSendMessage={handlers.chat.handleSendChatMessage}
-                disabled={!socketConnected}
-                placeholder={!socketConnected ? '서버에 연결 중...' : '메시지를 입력하세요...'}
+                disabled={!gameState.socketConnected}
+                placeholder={!gameState.socketConnected ? '서버에 연결 중...' : '메시지를 입력하세요...'}
             />
         )
-    }, [chatMessages, currentUser, handlers.chat.handleSendChatMessage, socketConnected])
+    }, [gameState.chatMessages, gameState.currentUser, handlers.chat.handleSendChatMessage, gameState.socketConnected])
 
 
     const playersComponent = useMemo(() => (
         <PlayersPanel
-            players={players}
+            players={gameState.players}
             effectiveCurrentTurnPlayerId={effectiveCurrentTurnPlayerId}
-            currentUserNickname={currentUser?.nickname}
+            currentUserNickname={gameState.currentUser?.nickname}
             onAddFriend={handlers.player.handleAddFriend}
             onReportPlayer={handlers.player.handleReportPlayer}
         />
-    ), [players, effectiveCurrentTurnPlayerId, currentUser?.nickname, handlers.player.handleAddFriend, handlers.player.handleReportPlayer])
+    ), [gameState.players, effectiveCurrentTurnPlayerId, gameState.currentUser?.nickname, handlers.player.handleAddFriend, handlers.player.handleReportPlayer])
 
     const centerComponent = (
         <CenterStage
             isMobile={isMobile}
-            gameStatus={gameStatus}
-            players={players}
+            gameStatus={gameState.gameStatus}
+            players={gameState.players}
             effectiveCurrentTurnPlayerId={effectiveCurrentTurnPlayerId}
-            gameTimer={gameTimer}
-            currentRoom={currentRoom}
-            currentRound={currentRound}
-            assignedWord={assignedWord}
-            playerRole={playerRole}
+            gameTimer={gameState.gameTimer}
+            currentRoom={gameState.currentRoom}
+            currentRound={gameState.currentRound}
+            assignedWord={gameState.assignedWord}
+            playerRole={gameState.playerRole}
             isHost={handlers.player.isHost}
             onStartGame={handlers.game.handleStartGame}
-            castVote={castVote}
-            socketConnected={socketConnected}
+            castVote={gameActions.castVote}
+            socketConnected={gameState.socketConnected}
             onDefenseSubmit={handlers.game.handleDefenseSubmit}
             onSurvivalVoteSubmit={handlers.game.handleSurvivalVoteSubmit}
             onWordGuessSubmit={handlers.game.handleWordGuessSubmit}
             onRestartGame={handlers.game.handleRestartGame}
             onHintSubmit={handlers.game.handleHintSubmit}
             submissionStates={submissionStates}
-            loadingRoom={loading.room}
-            accusedPlayerId={accusedPlayerId}
-            currentUser={currentUser}
-            mySurvivalVote={mySurvivalVote}
-            survivalVotingProgress={survivalVotingProgress}
-            wordGuessResult={wordGuessResult}
-            finalGameResult={finalGameResult}
+            loadingRoom={gameState.loading.room}
+            accusedPlayerId={gameState.accusedPlayerId}
+            currentUser={gameState.currentUser}
+            mySurvivalVote={gameState.mySurvivalVote}
+            survivalVotingProgress={gameState.survivalVotingProgress}
+            wordGuessResult={gameState.wordGuessResult}
+            finalGameResult={gameState.finalGameResult}
         />
     )
 
@@ -332,20 +219,20 @@ const GameRoomPage = React.memo(() => {
         <AroundScreenPlayers
             playerPositions={playerPositions}
             effectiveCurrentTurnPlayerId={effectiveCurrentTurnPlayerId}
-            speechBubbles={speechBubbles}
+            speechBubbles={uiState.speechBubbles}
         />
     )
 
     return (
         <>
             <ActionGuidance
-                gameStatus={gameStatus}
-                isCurrentTurn={effectiveCurrentTurnPlayerId === currentUser?.id}
-                currentPlayer={players.find(p => p.id === effectiveCurrentTurnPlayerId)}
-                show={gameStatus !== 'WAITING'}
+                gameStatus={gameState.gameStatus}
+                isCurrentTurn={effectiveCurrentTurnPlayerId === gameState.currentUser?.id}
+                currentPlayer={gameState.players.find(p => p.id === effectiveCurrentTurnPlayerId)}
+                show={gameState.gameStatus !== 'WAITING'}
             />
 
-            {error.room && (
+            {gameState.error.room && (
                 <Alert
                     severity="error"
                     sx={{
@@ -357,7 +244,7 @@ const GameRoomPage = React.memo(() => {
                         maxWidth: isMobile ? 'calc(100vw - 32px)' : 400
                     }}
                 >
-                    {error.room}
+                    {gameState.error.room}
                 </Alert>
             )}
 

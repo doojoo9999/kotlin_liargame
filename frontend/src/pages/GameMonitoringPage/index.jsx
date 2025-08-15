@@ -1,5 +1,5 @@
-import React, { useCallback, useMemo } from 'react'
-import { Alert, CircularProgress, Container, Grid, Typography } from '@mui/material'
+import React, {useCallback, useMemo} from 'react'
+import {Alert, CircularProgress, Container, Grid, Typography} from '@mui/material'
 
 // Custom hooks
 import useAdminStats from './hooks/useAdminStats'
@@ -15,13 +15,13 @@ import PlayersList from './components/PlayersList'
 import ConnectionStatus from './components/ConnectionStatus'
 
 // Utils
-import { debugLog } from '../../utils/logger'
+import {debugLog} from '../../utils/logger'
 
 // TODO: Get API_BASE_URL from environment or config
 const API_BASE_URL =
     import.meta.env.VITE_API_BASE_URL ||
     (typeof window !== 'undefined' && window.API_BASE_URL) ||
-    'http://localhost:20021'
+    'http://119.201.51.128:20021'
 
 
 function GameMonitoringPage() {
