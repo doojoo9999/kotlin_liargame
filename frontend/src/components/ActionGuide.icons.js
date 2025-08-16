@@ -1,22 +1,22 @@
 /**
  * Icon mapping for ActionGuide component
- * Maps icon keys to MUI icon components
+ * Maps icon keys to lucide-react icon components
  */
 
 import {
     CheckCircle as CheckIcon,
-    Create as CreateIcon,
-    HowToVote as VoteIcon,
+    Clock as WaitIcon,
+    Edit as CreateIcon,
+    HelpCircle as QuizIcon,
     Keyboard as KeyboardIcon,
     Lightbulb as HintIcon,
-    PlayArrow as PlayIcon,
-    Quiz as QuizIcon,
-    Schedule as WaitIcon,
-    Security as DefenseIcon
-} from '@mui/icons-material'
+    Play as PlayIcon,
+    Shield as DefenseIcon,
+    Vote as VoteIcon
+} from 'lucide-react'
 
 /**
- * Maps icon keys to MUI icon React elements
+ * Maps icon keys to lucide-react icon React elements
  * Used by ActionGuide component to resolve iconKey strings to actual icons
  */
 export const actionIcons = {

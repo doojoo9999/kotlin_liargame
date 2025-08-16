@@ -1,7 +1,7 @@
 import React, {useEffect} from 'react'
 import Confetti from 'react-confetti'
 import {motion} from 'framer-motion'
-import {Box, Typography} from '@mui/material'
+import {Box, Typography} from '@components/ui'
 import {Sparkles, Trophy} from 'lucide-react'
 
 const VictoryAnimation = ({ show, winningTeam, onComplete }) => {

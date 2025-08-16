@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from 'react'
-import {Box, Button, LinearProgress, Paper, Typography} from '@mui/material'
-import {AccessTime as TimerIcon, Check as CheckIcon} from '@mui/icons-material'
+import {Box, Button, Paper, Typography} from '@components/ui'
+import {Check as CheckIcon, Clock as TimerIcon} from 'lucide-react'
 import {useGame} from '../context/GameContext'
 
 const SpeechControls = ({ isCurrentTurn, currentSpeaker }) => {
@@ -47,8 +47,8 @@ const SpeechControls = ({ isCurrentTurn, currentSpeaker }) => {
 
   if (!isCurrentTurn) {
     return (
-      <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'grey.100' }}>
-        <Typography variant="body1" color="text.secondary">
+      <Paper style={{ padding: 16, textAlign: 'center', backgroundColor: '#f5f5f5' }}>
+        <Typography variant="body1" style={{ color: '#666666' }}>
           {currentSpeaker ? `${currentSpeaker.nickname}님이 발언 중입니다...` : '다른 플레이어의 차례입니다'}
         </Typography>
       </Paper>
@@ -56,43 +56,46 @@ const SpeechControls = ({ isCurrentTurn, currentSpeaker }) => {
   }
 
   return (
-    <Paper sx={{ p: 3, bgcolor: 'primary.light', color: 'white' }}>
-      <Box sx={{ textAlign: 'center', mb: 2 }}>
-        <Typography variant="h6" sx={{ mb: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+    <Paper style={{ padding: 24, backgroundColor: '#90caf9', color: 'white' }}>
+      <Box style={{ textAlign: 'center', marginBottom: 16 }}>
+        <Typography variant="h6" style={{ marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
           <TimerIcon />
           당신의 발언 차례입니다
         </Typography>
         
-        <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 2 }}>
+        <Typography variant="h4" style={{ fontWeight: 'bold', marginBottom: 16 }}>
           {formatTime(speechTimer)}
         </Typography>
 
-        <LinearProgress 
-          variant="determinate" 
-          value={progressValue}
-          sx={{ 
-            height: 8, 
+        {/* Custom Progress Bar */}
+        <Box style={{
+          height: 8,
+          borderRadius: 4,
+          backgroundColor: 'rgba(255,255,255,0.3)',
+          width: '100%',
+          overflow: 'hidden'
+        }}>
+          <Box style={{
+            width: `${progressValue}%`,
+            height: '100%',
+            backgroundColor: speechTimer > 10 ? '#4caf50' : '#f44336',
             borderRadius: 4,
-            bgcolor: 'rgba(255,255,255,0.3)',
-            '& .MuiLinearProgress-bar': {
-              bgcolor: speechTimer > 10 ? 'success.main' : 'error.main'
-            }
-          }}
-        />
+            transition: 'width 0.3s ease'
+          }} />
+        </Box>
       </Box>
 
       <Button
         variant="contained"
-        color="success"
         size="large"
-        fullWidth
         startIcon={<CheckIcon />}
         onClick={handleCompleteSpeech}
         disabled={hasCompleted}
-        sx={{ 
-          bgcolor: 'success.main',
-          '&:hover': { bgcolor: 'success.dark' },
-          fontWeight: 'bold'
+        style={{ 
+          width: '100%',
+          backgroundColor: '#4caf50',
+          fontWeight: 'bold',
+          ...(hasCompleted ? { backgroundColor: '#81c784' } : {})
         }}
       >
         {hasCompleted ? '발언 완료됨' : '발언 완료'}

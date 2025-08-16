@@ -1,7 +1,7 @@
 import React from 'react'
-import { Box } from '@mui/material'
+import {Box} from '@components/ui'
 import ChatMessageList from '../../ChatMessageList'
-import { debugLog } from '../../../utils/logger'
+import {debugLog} from '../../../utils/logger'
 
 /**
  * ChatMessages component wrapper for ChatMessageList
@@ -24,12 +24,12 @@ const ChatMessages = React.memo(({
 
     return (
         <Box
-            sx={{
+            style={{
                 flex: 1,
                 display: 'flex',
                 flexDirection: 'column',
                 overflow: 'hidden',
-                p: isMobile ? 0.5 : 1
+                padding: isMobile ? '4px' : '8px'
             }}
         >
             <ChatMessageList

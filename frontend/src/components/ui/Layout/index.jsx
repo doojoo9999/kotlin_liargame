@@ -1,9 +1,9 @@
 // Layout components barrel export
+export { default as Box } from './Box.jsx'
+export { default as Grid } from './Grid.jsx'
 export {
-  Box,
   Container,
   Stack,
-  Grid,
   Center,
   Spacer
 } from './Layout.jsx'

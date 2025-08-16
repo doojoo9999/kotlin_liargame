@@ -18,20 +18,20 @@ export const useSocketEffects = (
   // Effect for managing WebSocket connection based on room state
   useEffect(() => {
     const handleSocketConnection = async () => {
-      if (currentRoom && !socketConnected) {
+      if (currentRoom?.gameNumber && !socketConnected) {
         try {
           console.log('[DEBUG_LOG] Connecting WebSocket for room:', currentRoom.gameNumber)
           setLoading('socket', true)
-          
+
           await connectWebSocket()
           dispatch({ type: ActionTypes.SET_SOCKET_CONNECTION, payload: true })
-          
+
           // Subscribe to game events
           subscribeToGameEvents(currentRoom.gameNumber, dispatch)
-          
+
           setLoading('socket', false)
           console.log('[DEBUG_LOG] WebSocket connected and subscriptions set up')
-          
+
         } catch (error) {
           console.error('[ERROR] Failed to connect WebSocket:', error)
           setError('socket', error.message)
@@ -40,24 +40,27 @@ export const useSocketEffects = (
       }
     }
 
-    handleSocketConnection()
-  }, [currentRoom, socketConnected, dispatch, setLoading, setError])
+    // Only run if we have a room and are not connected
+    if (currentRoom?.gameNumber && !socketConnected) {
+      handleSocketConnection()
+    }
+  }, [currentRoom?.gameNumber, socketConnected]) // Remove setLoading and setError from dependencies
 
   // Effect for room connection setup
   useEffect(() => {
     const setupRoomConnection = async () => {
-      if (currentRoom && socketConnected) {
+      if (currentRoom?.gameNumber && socketConnected) {
         try {
           console.log('[DEBUG_LOG] Setting up room connection for:', currentRoom.gameNumber)
-          
+
           await subscribeToRoomConnection(
             currentRoom.gameNumber, 
             dispatch, 
             loadChatHistory
           )
-          
+
           console.log('[DEBUG_LOG] Room connection setup completed')
-          
+
         } catch (error) {
           console.error('[ERROR] Failed to setup room connection:', error)
           setError('socket', error.message)
@@ -65,8 +68,11 @@ export const useSocketEffects = (
       }
     }
 
-    setupRoomConnection()
-  }, [currentRoom, socketConnected, dispatch, loadChatHistory, setError])
+    // Only run if we have both room and socket connection
+    if (currentRoom?.gameNumber && socketConnected) {
+      setupRoomConnection()
+    }
+  }, [currentRoom?.gameNumber, socketConnected]) // Remove dispatch, loadChatHistory, setError from dependencies
 
   // Effect for cleanup when component unmounts or room changes
   useEffect(() => {
@@ -84,11 +90,6 @@ export const useSocketEffects = (
     }
   }, []) // Empty dependency array for cleanup on unmount only
 
-  // Effect for handling socket connection state changes
-  useEffect(() => {
-    if (!socketConnected && currentRoom) {
-      console.log('[DEBUG_LOG] WebSocket disconnected while in room, may need reconnection')
-    }
-  }, [socketConnected, currentRoom])
+  // Remove this effect as it's not performing any action, just logging
 
 }

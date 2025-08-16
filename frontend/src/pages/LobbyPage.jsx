@@ -1,5 +1,5 @@
 import React from 'react'
-import {Alert, Container} from '@mui/material'
+import {Alert, Container} from '../components/ui'
 import {useGame} from '../context/GameContext'
 import useSubjectStore from '../stores/subjectStore'
 import {useSubjectsQuery} from '../hooks/useSubjectsQuery'
@@ -148,143 +148,155 @@ function LobbyPage() {
       />
 
       {/* Create Room Dialog */}
-      <CreateRoomDialog
-        open={createRoomOpen}
-        onClose={closeCreateRoomDialog}
-        subjects={subjects}
-        config={config}
-        currentUser={currentUser}
-        roomForm={roomForm}
-        onFormChange={handleRoomFormChange}
-        onSubmit={handleCreateRoom}
-        isLoading={createRoomMutation.isPending}
-      />
+      {createRoomOpen && (
+        <CreateRoomDialog
+          open={createRoomOpen}
+          onClose={closeCreateRoomDialog}
+          subjects={subjects}
+          config={config}
+          currentUser={currentUser}
+          roomForm={roomForm}
+          onFormChange={handleRoomFormChange}
+          onSubmit={handleCreateRoom}
+          isLoading={createRoomMutation.isPending}
+        />
+      )}
 
       {/* Join Room Dialog */}
-      <JoinRoomDialog
-        open={joinRoomOpen}
-        onClose={closeJoinRoomDialog}
-        selectedRoom={selectedRoom}
-        joinPassword={joinPassword}
-        onPasswordChange={setJoinPassword}
-        onSubmit={handleJoinRoom}
-        isLoading={joinRoomMutation.isPending}
-      />
+      {joinRoomOpen && (
+        <JoinRoomDialog
+          open={joinRoomOpen}
+          onClose={closeJoinRoomDialog}
+          selectedRoom={selectedRoom}
+          joinPassword={joinPassword}
+          onPasswordChange={setJoinPassword}
+          onSubmit={handleJoinRoom}
+          isLoading={joinRoomMutation.isPending}
+        />
+      )}
 
       {/* Logout Confirmation Dialog */}
-      <Dialog open={logoutDialogOpen} onClose={() => setLogoutDialogOpen(false)}>
-        <DialogTitle>로그아웃</DialogTitle>
-        <DialogContent>
-          <Typography>
-            정말로 로그아웃하시겠습니까?
-            {currentUser && (
-              <Box component="span" sx={{ display: 'block', mt: 1, fontWeight: 'medium' }}>
-                {currentUser.nickname}님의 세션이 종료됩니다.
-              </Box>
-            )}
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setLogoutDialogOpen(false)}>취소</Button>
-          <Button
-            onClick={handleLogout}
-            color="error"
-            variant="contained"
-          >
-            로그아웃
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {logoutDialogOpen && (
+        <Dialog open={logoutDialogOpen} onClose={() => setLogoutDialogOpen(false)}>
+          <DialogTitle>로그아웃</DialogTitle>
+          <DialogContent>
+            <Typography>
+              정말로 로그아웃하시겠습니까?
+              {currentUser && (
+                <Box component="span" sx={{ display: 'block', mt: 1, fontWeight: 'medium' }}>
+                  {currentUser.nickname}님의 세션이 종료됩니다.
+                </Box>
+              )}
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setLogoutDialogOpen(false)}>취소</Button>
+            <Button
+              onClick={handleLogout}
+              color="error"
+              variant="contained"
+            >
+              로그아웃
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
 
       {/* Add Content Dialog */}
-      <Dialog open={addContentOpen} onClose={() => setAddContentOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>주제/답안 추가</DialogTitle>
-        <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: 1 }}>
-            {/* Subject Addition Section */}
-            <Box>
-              <Typography variant="h6" gutterBottom>
-                새 주제 추가
-              </Typography>
-              <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-                <TextField
-                  label="주제 이름"
-                  value={contentForm.newSubject}
-                  onChange={(e) => handleContentFormChange('newSubject', e.target.value)}
-                  placeholder="예: 음식, 동물, 직업"
-                  fullWidth
-                />
-                <Button
-                  variant="contained"
-                  onClick={handleAddSubject}
-                  disabled={subjectLoading || !contentForm.newSubject.trim()}
-                  sx={{ minWidth: '100px' }}
-                >
-                  {subjectLoading ? <CircularProgress size={20} /> : '추가'}
-                </Button>
-              </Box>
-            </Box>
-
-            {/* Word Addition Section */}
-            <Box>
-              <Typography variant="h6" gutterBottom>
-                답안 추가
-              </Typography>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <FormControl fullWidth>
-                  <InputLabel>주제 선택</InputLabel>
-                  <Select
-                    value={contentForm.selectedSubject}
-                    onChange={(e) => handleContentFormChange('selectedSubject', e.target.value)}
-                    label="주제 선택"
-                    variant="outlined"
-                  >
-                    {subjects.map((subject) => (
-                      <MenuItem key={`room-${subject.id}-${subject.name}`} value={subject.id}>
-                        {subject.name}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                
+      {addContentOpen && (
+        <Dialog open={addContentOpen} onClose={() => setAddContentOpen(false)} maxWidth="sm" fullWidth>
+          <DialogTitle>주제/답안 추가</DialogTitle>
+          <DialogContent>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: 1 }}>
+              {/* Subject Addition Section */}
+              <Box>
+                <Typography variant="h6" gutterBottom>
+                  새 주제 추가
+                </Typography>
                 <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
                   <TextField
-                    label="답안"
-                    value={contentForm.newWord}
-                    onChange={(e) => handleContentFormChange('newWord', e.target.value)}
-                    placeholder="답안을 입력하세요"
+                    label="주제 이름"
+                    value={contentForm.newSubject}
+                    onChange={(e) => handleContentFormChange('newSubject', e.target.value)}
+                    placeholder="예: 음식, 동물, 직업"
                     fullWidth
-                    disabled={!contentForm.selectedSubject}
                   />
                   <Button
                     variant="contained"
-                    onClick={handleAddWord}
-                    disabled={subjectLoading || !contentForm.selectedSubject || !contentForm.newWord.trim()}
+                    onClick={handleAddSubject}
+                    disabled={subjectLoading || !contentForm.newSubject.trim()}
                     sx={{ minWidth: '100px' }}
                   >
                     {subjectLoading ? <CircularProgress size={20} /> : '추가'}
                   </Button>
                 </Box>
               </Box>
+
+              {/* Word Addition Section */}
+              <Box>
+                <Typography variant="h6" gutterBottom>
+                  답안 추가
+                </Typography>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <FormControl fullWidth>
+                    <InputLabel>주제 선택</InputLabel>
+                    <Select
+                      value={contentForm.selectedSubject}
+                      onChange={(e) => handleContentFormChange('selectedSubject', e.target.value)}
+                      label="주제 선택"
+                      variant="outlined"
+                    >
+                      {subjects.map((subject) => (
+                        <MenuItem key={`room-${subject.id}-${subject.name}`} value={subject.id}>
+                          {subject.name}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                  
+                  <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                    <TextField
+                      label="답안"
+                      value={contentForm.newWord}
+                      onChange={(e) => handleContentFormChange('newWord', e.target.value)}
+                      placeholder="답안을 입력하세요"
+                      fullWidth
+                      disabled={!contentForm.selectedSubject}
+                    />
+                    <Button
+                      variant="contained"
+                      onClick={handleAddWord}
+                      disabled={subjectLoading || !contentForm.selectedSubject || !contentForm.newWord.trim()}
+                      sx={{ minWidth: '100px' }}
+                    >
+                      {subjectLoading ? <CircularProgress size={20} /> : '추가'}
+                    </Button>
+                  </Box>
+                </Box>
+              </Box>
             </Box>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setAddContentOpen(false)}>닫기</Button>
-        </DialogActions>
-      </Dialog>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setAddContentOpen(false)}>닫기</Button>
+          </DialogActions>
+        </Dialog>
+      )}
 
       {/* Help Dialog */}
-      <HelpDialog
-        open={helpDialogOpen}
-        onClose={() => setHelpDialogOpen(false)}
-      />
+      {helpDialogOpen && (
+        <HelpDialog
+          open={helpDialogOpen}
+          onClose={() => setHelpDialogOpen(false)}
+        />
+      )}
 
       {/* Game Rules Dialog */}
-      <GameRulesDialog
-        open={gameRulesDialogOpen}
-        onClose={() => setGameRulesDialogOpen(false)}
-      />
+      {gameRulesDialogOpen && (
+        <GameRulesDialog
+          open={gameRulesDialogOpen}
+          onClose={() => setGameRulesDialogOpen(false)}
+        />
+      )}
 
       {/* Snackbar for notifications */}
       <SnackbarNotification

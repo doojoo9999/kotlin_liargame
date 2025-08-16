@@ -1,6 +1,6 @@
 import React, {useState} from 'react'
-import {Alert, Box, Button, Card, CardContent, Fade, LinearProgress, TextField, Typography} from '@mui/material'
-import {CheckCircle as CheckIcon, Send as SendIcon} from '@mui/icons-material'
+import {Alert, Box, Button, Card, CardContent, Input as TextField, Typography} from '@components/ui'
+import {CheckCircle as CheckIcon, Send as SendIcon} from 'lucide-react'
 
 const HintInputComponent = ({ 
   gameTimer, 

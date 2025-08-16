@@ -1,6 +1,88 @@
 import React, {useEffect, useRef, useState} from 'react'
-import {Box, Button, Chip, FormControlLabel, Grid, Paper, Slider, Switch, TextField, Typography} from '@mui/material'
+import {Box, Button, Chip, Grid, Input as TextField, Paper, Typography} from '@components/ui'
 import OptimizedEnhancedChatSystem from './OptimizedEnhancedChatSystem'
+import styled from 'styled-components'
+
+// Styled components for controls
+const ControlsContainer = styled(Paper)`
+  padding: 24px;
+  margin-bottom: 24px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+`
+
+const ControlRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+`
+
+const SliderContainer = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 200px;
+`
+
+const CustomSlider = styled.input`
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: #e0e0e0;
+  outline: none;
+  
+  &::-webkit-slider-thumb {
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #1976d2;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  }
+  
+  &::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #1976d2;
+    cursor: pointer;
+    border: none;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  }
+`
+
+const SwitchContainer = styled.label`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+`
+
+const CustomSwitch = styled.input`
+  position: relative;
+  width: 44px;
+  height: 24px;
+  appearance: none;
+  background: ${props => props.checked ? '#1976d2' : '#ccc'};
+  border-radius: 12px;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: ${props => props.checked ? '22px' : '2px'};
+    width: 20px;
+    height: 20px;
+    background: white;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+  }
+`
 
 // Mock user data for 10-person chat scenario
 const MOCK_USERS = [

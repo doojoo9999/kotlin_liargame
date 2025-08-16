@@ -1,32 +1,21 @@
 import React, {useState} from 'react'
+import {Box, Chip, List, ListItem, ListItemIcon, ListItemText, Typography} from './ui'
 import {
-    Badge,
-    Box,
-    Chip,
-    IconButton,
-    List,
-    ListItem,
-    ListItemIcon,
-    ListItemText,
-    Typography,
-    useTheme
-} from '@mui/material'
-import {
+    AlertCircle as ErrorIcon,
+    AlertTriangle as WarningIcon,
+    Bell as NotificationIcon,
     CheckCircle as SuccessIcon,
-    Close as CloseIcon,
-    EmojiEvents as TrophyIcon,
-    Error as ErrorIcon,
-    ExpandLess as CollapseIcon,
-    ExpandMore as ExpandIcon,
-    Games as GameIcon,
-    HowToVote as VoteIcon,
+    ChevronDown as ExpandIcon,
+    ChevronUp as CollapseIcon,
+    Gamepad2 as GameIcon,
+    HelpCircle as QuizIcon,
     Info as InfoIcon,
-    Notifications as NotificationIcon,
-    Person as PersonIcon,
-    Quiz as QuizIcon,
-    Security as DefenseIcon,
-    Warning as WarningIcon
-} from '@mui/icons-material'
+    Shield as DefenseIcon,
+    Trophy as TrophyIcon,
+    User as PersonIcon,
+    Vote as VoteIcon,
+    X as CloseIcon
+} from 'lucide-react'
 
 // System message types with styling configuration
 const MESSAGE_TYPES = {
@@ -129,7 +118,6 @@ const SystemNotifications = ({
   maxMessages = 1000,
   autoHideDelay = 10000 // 10 seconds for low priority messages
 }) => {
-  const theme = useTheme()
   const [expandedMessages, setExpandedMessages] = useState({})
   const [dismissedMessages, setDismissedMessages] = useState(new Set())
 
@@ -211,9 +199,9 @@ const SystemNotifications = ({
 
   if (processedMessages.length === 0) {
     return (
-      <Box sx={{ p: 2, textAlign: 'center' }}>
-        <NotificationIcon color="disabled" sx={{ fontSize: 48, mb: 1 }} />
-        <Typography variant="body2" color="text.secondary">
+      <Box $padding="16px" $textAlign="center">
+        <NotificationIcon size={48} style={{ color: 'rgba(0, 0, 0, 0.38)', marginBottom: '8px' }} />
+        <Typography variant="body2" style={{ color: 'rgba(0, 0, 0, 0.6)' }}>
           아직 시스템 알림이 없습니다
         </Typography>
       </Box>
@@ -221,34 +209,41 @@ const SystemNotifications = ({
   }
 
   return (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <Box $height="100%" $display="flex" $flexDirection="column">
       {/* Header */}
-      <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Typography variant="subtitle2" fontWeight="bold">
+      <Box $padding="16px" $borderBottom="1px solid rgba(0, 0, 0, 0.12)">
+        <Box $display="flex" $alignItems="center" $justifyContent="space-between">
+          <Typography variant="subtitle2" style={{ fontWeight: 'bold' }}>
             시스템 알림
           </Typography>
           {highPriorityCount > 0 && (
-            <Badge
-              badgeContent={highPriorityCount}
-              color="error"
-              sx={{
-                '& .MuiBadge-badge': {
-                  fontSize: '0.7rem',
-                  height: 16,
-                  minWidth: 16
-                }
-              }}
-            >
-              <NotificationIcon fontSize="small" />
-            </Badge>
+            <Box $position="relative" $display="inline-flex" $alignItems="center">
+              <NotificationIcon size={20} />
+              <Box
+                $position="absolute"
+                $top="-4px"
+                $right="-4px"
+                $backgroundColor="#f44336"
+                $color="white"
+                $borderRadius="50%"
+                $minWidth="16px"
+                $height="16px"
+                $fontSize="11px"
+                $display="flex"
+                $alignItems="center"
+                $justifyContent="center"
+                $fontWeight="bold"
+              >
+                {highPriorityCount}
+              </Box>
+            </Box>
           )}
         </Box>
       </Box>
 
       {/* Messages List */}
-      <Box sx={{ flex: 1, overflow: 'auto' }}>
-        <List dense sx={{ py: 0 }}>
+      <Box $flex="1" $overflow="auto">
+        <List style={{ padding: 0 }}>
           {processedMessages.map((message) => {
             const config = getMessageConfig(message.type)
             const isExpanded = expandedMessages[message.id]
@@ -257,18 +252,16 @@ const SystemNotifications = ({
             return (
               <React.Fragment key={message.id}>
                 <ListItem
-                  sx={{
-                    py: 1,
-                    px: 2,
-                    borderBottom: '1px solid',
-                    borderColor: 'divider',
+                  style={{
+                    padding: '8px 16px',
+                    borderBottom: '1px solid rgba(0, 0, 0, 0.12)',
                     backgroundColor: config.priority === 'high' 
-                      ? `${theme.palette[config.color].light}08`
+                      ? 'rgba(255, 0, 0, 0.02)'
                       : 'transparent',
-                    '&:hover': {
-                      backgroundColor: theme.palette.action.hover
-                    }
+                    cursor: 'pointer'
                   }}
+                  onMouseEnter={(e) => e.target.style.backgroundColor = 'rgba(0, 0, 0, 0.04)'}
+                  onMouseLeave={(e) => e.target.style.backgroundColor = config.priority === 'high' ? 'rgba(255, 0, 0, 0.02)' : 'transparent'}
                 >
                   <ListItemIcon sx={{ minWidth: 36 }}>
                     <Box

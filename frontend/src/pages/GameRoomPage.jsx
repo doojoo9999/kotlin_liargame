@@ -1,5 +1,7 @@
-import React, {useCallback, useEffect} from 'react'
-import {Alert, Box, CircularProgress, Container, Typography, useMediaQuery, useTheme} from '@mui/material'
+import React, {useCallback, useEffect, useState} from 'react'
+import {Alert, Box, CircularProgress, Typography} from '../components/ui'
+import {Alert as MantineAlert, Button as MantineButton, Container as MantineContainer, Stack} from '@mantine/core'
+import {motion} from 'framer-motion'
 import VictoryAnimation from '../components/VictoryAnimation'
 import ResponsiveGameLayout from '../components/ResponsiveGameLayout'
 import AdaptiveGameLayout from '../components/AdaptiveGameLayout'
@@ -23,8 +25,13 @@ import useRoomEventHandlers from './GameRoomPage/hooks/useRoomEventHandlers'
 
 
 const GameRoomPage = React.memo(() => {
-    const theme = useTheme()
-    const isMobile = useMediaQuery(theme.breakpoints.down('md'))
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
+    
+    useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth < 768)
+        window.addEventListener('resize', handleResize)
+        return () => window.removeEventListener('resize', handleResize)
+    }, [])
     // Extract game state management
     const { gameState, gameActions } = useGameStateManager()
     
@@ -131,14 +138,26 @@ const GameRoomPage = React.memo(() => {
 
     if (!gameState.currentRoom) {
         return (
-            <Container maxWidth="lg" sx={{py: 4}}>
-                <Alert severity="error">
-                    방 정보를 불러올 수 없습니다. 로비로 돌아가세요.
-                </Alert>
-                <Button variant="contained" onClick={gameActions.navigateToLobby} sx={{mt: 2}}>
-                    로비로 돌아가기
-                </Button>
-            </Container>
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+            >
+                <MantineContainer size="lg" style={{ paddingTop: '32px', paddingBottom: '32px' }}>
+                    <Stack gap="md">
+                        <MantineAlert color="red" variant="filled">
+                            방 정보를 불러올 수 없습니다. 로비로 돌아가세요.
+                        </MantineAlert>
+                        <MantineButton 
+                            variant="gradient" 
+                            gradient={{ from: 'blue', to: 'cyan' }}
+                            onClick={gameActions.navigateToLobby}
+                        >
+                            로비로 돌아가기
+                        </MantineButton>
+                    </Stack>
+                </MantineContainer>
+            </motion.div>
         )
     }
 
@@ -235,13 +254,13 @@ const GameRoomPage = React.memo(() => {
             {gameState.error.room && (
                 <Alert
                     severity="error"
-                    sx={{
+                    style={{
                         position: 'fixed',
-                        top: isMobile ? 120 : 140,
+                        top: isMobile ? '120px' : '140px',
                         left: '50%',
                         transform: 'translateX(-50%)',
                         zIndex: 999,
-                        maxWidth: isMobile ? 'calc(100vw - 32px)' : 400
+                        maxWidth: isMobile ? 'calc(100vw - 32px)' : '400px'
                     }}
                 >
                     {gameState.error.room}
@@ -323,7 +342,7 @@ const GameRoomPage = React.memo(() => {
                     <Typography>
                         정말로 방을 나가시겠습니까?
                         {currentRoom.gameState === 'IN_PROGRESS' && (
-                            <Box component="span" sx={{color: 'warning.main', display: 'block', mt: 1}}>
+                            <Box component="span" style={{color: '#ff9800', display: 'block', marginTop: '8px'}}>
                                 게임이 진행 중입니다. 나가면 게임에서 제외됩니다.
                             </Box>
                         )}

@@ -1,6 +1,6 @@
 import React from 'react'
 import {motion} from 'framer-motion'
-import {Avatar, Box, Typography} from '@mui/material'
+import {Box, PlayerAvatar, Typography} from '@components/ui'
 import {Crown, Mic} from 'lucide-react'
 
 const AnimatedPlayerProfile = ({ 
@@ -18,23 +18,20 @@ const AnimatedPlayerProfile = ({
       transition={{ duration: 0.3 }}
       whileHover={{ scale: 1.05 }}
     >
-      <Box sx={{ position: 'relative', textAlign: 'center' }}>
-        <Avatar
-          sx={{
-            width: size, 
-            height: size,
+      <Box style={{ position: 'relative', textAlign: 'center' }}>
+        <PlayerAvatar
+          nickname={player.nickname}
+          size={size <= 40 ? 'small' : size <= 80 ? 'medium' : 'large'}
+          role={playerRole === 'LIAR' ? 'liar' : 'citizen'}
+          isCurrentTurn={isCurrentTurn}
+          style={{
             border: `4px solid ${isCurrentTurn ? '#FFE66D' : 'transparent'}`,
-            background: playerRole === 'LIAR' 
-              ? 'linear-gradient(45deg, #FF4757, #FF6B7D)'
-              : 'linear-gradient(45deg, #5352ED, #7C7CE8)',
             boxShadow: isCurrentTurn 
               ? '0 0 20px rgba(255,230,109,0.6)' 
               : '0 4px 15px rgba(0,0,0,0.2)',
             transition: 'all 0.3s ease'
           }}
-        >
-          {player.nickname?.[0]?.toUpperCase()}
-        </Avatar>
+        />
         
         {/* 턴 표시 애니메이션 */}
         {isCurrentTurn && (
@@ -90,11 +87,11 @@ const AnimatedPlayerProfile = ({
         
         <Typography 
           variant="caption" 
-          sx={{ 
+          style={{ 
             display: 'block', 
-            mt: 1,
+            marginTop: '8px',
             fontWeight: isCurrentTurn ? 'bold' : 'normal',
-            color: isCurrentTurn ? '#FFE66D' : 'text.primary'
+            color: isCurrentTurn ? '#FFE66D' : 'rgba(0, 0, 0, 0.87)'
           }}
         >
           {player.nickname}

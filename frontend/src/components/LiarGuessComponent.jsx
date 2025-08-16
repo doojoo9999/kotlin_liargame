@@ -1,11 +1,6 @@
 import React, {useEffect, useState} from 'react'
-import {Alert, Avatar, Box, Button, Chip, LinearProgress, Paper, TextField, Typography} from '@mui/material'
-import {
-    CheckCircle as CompleteIcon,
-    Psychology as BrainIcon,
-    Send as SendIcon,
-    Timer as TimerIcon
-} from '@mui/icons-material'
+import {Alert, Box, Button, Chip, Input as TextField, Paper, PlayerAvatar as Avatar, Typography} from '@components/ui'
+import {Brain as BrainIcon, CheckCircle as CompleteIcon, Send as SendIcon, Timer as TimerIcon} from 'lucide-react'
 import {useGame} from '../stores/useGame'
 
 const LiarGuessComponent = ({ 

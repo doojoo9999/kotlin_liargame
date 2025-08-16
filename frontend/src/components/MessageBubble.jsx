@@ -1,5 +1,5 @@
 import React from 'react'
-import {Box} from '@mui/material'
+import {Box} from '@components/ui'
 import PropTypes from 'prop-types'
 import {getAnnouncementColors, getSystemMessageColors, getUserColorSet} from '../utils/colorUtils'
 import {

@@ -1,6 +1,5 @@
 import React from 'react'
 import styled from 'styled-components'
-import PropTypes from 'prop-types'
 
 // List Container
 const StyledList = styled.ul`
@@ -220,42 +219,3 @@ List.displayName = 'List'
 ListItem.displayName = 'ListItem'
 ListItemIcon.displayName = 'ListItemIcon'
 ListItemText.displayName = 'ListItemText'
-
-// PropTypes
-List.propTypes = {
-  children: PropTypes.node,
-  dense: PropTypes.bool,
-  disablePadding: PropTypes.bool,
-  component: PropTypes.elementType,
-  className: PropTypes.string,
-  sx: PropTypes.object
-}
-
-ListItem.propTypes = {
-  children: PropTypes.node,
-  button: PropTypes.bool,
-  dense: PropTypes.bool,
-  divider: PropTypes.bool,
-  selected: PropTypes.bool,
-  component: PropTypes.elementType,
-  onClick: PropTypes.func,
-  className: PropTypes.string,
-  sx: PropTypes.object
-}
-
-ListItemIcon.propTypes = {
-  children: PropTypes.node,
-  className: PropTypes.string,
-  sx: PropTypes.object
-}
-
-ListItemText.propTypes = {
-  primary: PropTypes.node,
-  secondary: PropTypes.node,
-  children: PropTypes.node,
-  dense: PropTypes.bool,
-  primaryTypographyProps: PropTypes.object,
-  secondaryTypographyProps: PropTypes.object,
-  className: PropTypes.string,
-  sx: PropTypes.object
-}

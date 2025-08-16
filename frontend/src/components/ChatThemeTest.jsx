@@ -1,20 +1,42 @@
 import React, {useState} from 'react'
-import {
-    Box,
-    Card,
-    CardContent,
-    createTheme,
-    FormControlLabel,
-    Grid,
-    Paper,
-    Switch,
-    ThemeProvider,
-    Typography
-} from '@mui/material'
-import {Brightness4 as DarkModeIcon, Brightness7 as LightModeIcon} from '@mui/icons-material'
+import {Box, Card, CardContent, Grid, Paper, Typography} from '@components/ui'
+import {Moon as DarkModeIcon, Sun as LightModeIcon} from 'lucide-react'
+import styled from 'styled-components'
 import OptimizedEnhancedChatSystem from './OptimizedEnhancedChatSystem'
 import {getAnnouncementColors, getSystemMessageColors, getUserColorSet} from '../utils/colorUtils'
-import {DARK_THEME_COLORS, getChatThemeVariant, LIGHT_THEME_COLORS} from '../styles/themeVariants'
+import {getChatThemeVariant} from '../styles/themeVariants'
+
+// Styled components to replace MUI FormControlLabel and Switch
+const FormControlLabel = styled.label`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  margin: 8px 0;
+`
+
+const Switch = styled.input.attrs({ type: 'checkbox' })`
+  position: relative;
+  width: 44px;
+  height: 24px;
+  appearance: none;
+  background: ${props => props.checked ? '#1976d2' : '#ccc'};
+  border-radius: 12px;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: ${props => props.checked ? '22px' : '2px'};
+    width: 20px;
+    height: 20px;
+    background: white;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+  }
+`
 
 // Sample users for theme testing
 const THEME_TEST_USERS = [
@@ -74,26 +96,6 @@ const THEME_TEST_MESSAGES = [
 const ChatThemeTest = () => {
   const [isDarkMode, setIsDarkMode] = useState(false)
   const [currentUser] = useState(THEME_TEST_USERS[0])
-
-  // Create theme based on mode
-  const theme = createTheme({
-    palette: {
-      mode: isDarkMode ? 'dark' : 'light',
-      ...(isDarkMode ? {
-        background: {
-          default: DARK_THEME_COLORS.background.primary,
-          paper: DARK_THEME_COLORS.background.paper
-        },
-        text: DARK_THEME_COLORS.text
-      } : {
-        background: {
-          default: LIGHT_THEME_COLORS.background.primary,
-          paper: LIGHT_THEME_COLORS.background.paper
-        },
-        text: LIGHT_THEME_COLORS.text
-      })
-    }
-  })
 
   const handleSendMessage = (content) => {
     console.log('[DEBUG_LOG] Theme test message sent:', content)

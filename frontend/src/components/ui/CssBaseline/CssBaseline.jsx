@@ -1,6 +1,7 @@
 import React from 'react'
 import {createGlobalStyle} from 'styled-components'
-import {colors, typography} from '@/styles'
+import colors from '@/styles/tokens/colors'
+import typography from '@/styles/tokens/typography'
 
 // Global CSS reset and base styles
 const GlobalStyles = createGlobalStyle`
@@ -131,12 +132,12 @@ const GlobalStyles = createGlobalStyle`
 
   /* Body */
   body {
-    font-family: ${typography.fontFamily.primary};
-    font-size: ${typography.fontSize.base};
-    font-weight: ${typography.fontWeight.normal};
-    line-height: ${typography.lineHeight.relaxed};
-    color: ${colors.text.primary};
-    background-color: ${colors.surface.primary};
+    font-family: ${() => typography.fontFamily.primary};
+    font-size: ${() => typography.fontSize.base};
+    font-weight: ${() => typography.fontWeight.normal};
+    line-height: ${() => typography.lineHeight.relaxed};
+    color: ${() => colors.text.primary};
+    background-color: ${() => colors.surface.primary};
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     overflow-x: hidden;
@@ -170,7 +171,7 @@ const GlobalStyles = createGlobalStyle`
 
   /* Links */
   a {
-    color: ${colors.primary.main};
+    color: ${colors.primary[500]};
     text-decoration: none;
     background-color: transparent;
   }
@@ -178,7 +179,7 @@ const GlobalStyles = createGlobalStyle`
   a:hover,
   a:focus {
     text-decoration: underline;
-    color: ${colors.primary.dark};
+    color: ${colors.primary[700]};
   }
 
   /* Images */
@@ -305,18 +306,18 @@ const GlobalStyles = createGlobalStyle`
 
   /* Selection */
   ::selection {
-    background-color: ${colors.primary.main}40;
+    background-color: ${colors.primary[500]}40;
     color: ${colors.text.primary};
   }
 
   ::-moz-selection {
-    background-color: ${colors.primary.main}40;
+    background-color: ${colors.primary[500]}40;
     color: ${colors.text.primary};
   }
 
   /* Focus styles */
   :focus {
-    outline: 2px solid ${colors.primary.main};
+    outline: 2px solid ${colors.primary[500]};
     outline-offset: 2px;
   }
 
@@ -325,7 +326,7 @@ const GlobalStyles = createGlobalStyle`
   }
 
   :focus-visible {
-    outline: 2px solid ${colors.primary.main};
+    outline: 2px solid ${colors.primary[500]};
     outline-offset: 2px;
   }
 

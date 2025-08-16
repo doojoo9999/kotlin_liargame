@@ -1,5 +1,5 @@
 import React from 'react'
-import {Avatar, Box, Card} from '@mui/material'
+import {Box, Card, PlayerAvatar as Avatar} from '@components/ui'
 import TypewriterText from './TypewriterText.jsx'
 
 const MESSAGE_CONFIGS = {

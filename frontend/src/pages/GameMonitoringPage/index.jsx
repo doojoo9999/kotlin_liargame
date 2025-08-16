@@ -1,5 +1,5 @@
 import React, {useCallback, useMemo} from 'react'
-import {Alert, CircularProgress, Container, Grid, Typography} from '@mui/material'
+import {Alert, Box, CircularProgress, Container, Typography} from '../../components/ui'
 
 // Custom hooks
 import useAdminStats from './hooks/useAdminStats'
@@ -131,14 +131,14 @@ function GameMonitoringPage() {
 
   if (isLoading) {
     return (
-      <Container maxWidth="lg" sx={{ mt: 4, mb: 4, display: 'flex', justifyContent: 'center' }}>
+      <Container maxWidth="lg" style={{ marginTop: '32px', marginBottom: '32px', display: 'flex', justifyContent: 'center' }}>
         <CircularProgress />
       </Container>
     )
   }
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+    <Container maxWidth="lg" style={{ marginTop: '32px', marginBottom: '32px' }}>
       <Typography variant="h4" gutterBottom>
         게임 모니터링
       </Typography>
@@ -151,7 +151,7 @@ function GameMonitoringPage() {
 
       {/* Error Display */}
       {hasError && (
-        <Alert severity="error" sx={{ mb: 3 }}>
+        <Alert severity="error" style={{ marginBottom: '24px' }}>
           {errorMessage?.message || errorMessage || '데이터를 불러오는데 실패했습니다.'}
         </Alert>
       )}
@@ -160,21 +160,21 @@ function GameMonitoringPage() {
       <StatsCards stats={stats} />
 
       {/* Main Content Grid */}
-      <Grid container spacing={3}>
+      <Box $display="flex" $gap="24px" $flexWrap="wrap">
         {/* Game Rooms Table */}
-        <Grid item xs={12} md={8}>
+        <Box $flex="2" $minWidth="400px">
           <GameRoomsTable
             gameRooms={gameRooms}
             getStatusColor={getStatusColor}
             getStatusText={getStatusText}
           />
-        </Grid>
+        </Box>
 
         {/* Players List */}
-        <Grid item xs={12} md={4}>
+        <Box $flex="1" $minWidth="300px">
           <PlayersList players={players} />
-        </Grid>
-      </Grid>
+        </Box>
+      </Box>
     </Container>
   )
 }

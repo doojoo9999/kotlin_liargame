@@ -1,7 +1,7 @@
 import React, {useEffect, useMemo, useRef} from 'react'
 import {useNavigate} from 'react-router-dom'
-import {Button, Dialog, DialogActions, DialogContent, DialogTitle, Link, Stack, Typography,} from '@mui/material'
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline'
+import {Button, Dialog, DialogActions, DialogContent, DialogTitle, Link, Stack, Typography} from '@components/ui'
+import {AlertTriangle as ErrorOutlineIcon} from 'lucide-react'
 import {useI18n} from '../i18n/i18n.jsx'
 import {Events, trackEvent} from '../utils/analytics'
 import {mapAuthCodeToUiPreset} from '../utils/authErrorMapping'
@@ -87,31 +87,31 @@ export default function LoginFailureDialog({
       fullWidth
       maxWidth="xs"
     >
-      <DialogTitle id={titleId} tabIndex={-1} ref={titleRef} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <ErrorOutlineIcon color="error" aria-hidden />
+      <DialogTitle id={titleId} tabIndex={-1} ref={titleRef} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <ErrorOutlineIcon color="#f44336" aria-hidden />
         {t('auth.failure.title')}
       </DialogTitle>
       <DialogContent dividers>
-        <Typography id={descId} component="p" sx={{ mb: 1 }}>
+        <Typography id={descId} style={{ marginBottom: 8 }}>
           {t(preset.subtitleKey)}
         </Typography>
         {errorMessage && (
-          <Typography component="p" color="text.secondary">
+          <Typography style={{ color: '#666666' }}>
             {errorMessage}
           </Typography>
         )}
         {allowAuto && !canceled && (
-          <Typography component="p" variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+          <Typography variant="body2" style={{ marginTop: 8, color: '#666666' }}>
             {t('auth.failure.secondary', { seconds: remaining })}
             {' '}
-            <Link component="button" type="button" onClick={() => cancel()} sx={{ ml: 1 }}>
+            <Link onClick={() => cancel()} style={{ marginLeft: 8, cursor: 'pointer' }}>
               {t('auth.failure.secondary.cancel')}
             </Link>
           </Typography>
         )}
       </DialogContent>
       <DialogActions>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ width: '100%', p: 1 }}>
+        <Stack style={{ width: '100%', padding: 8, gap: 8, flexDirection: 'row' }}>
           <Button onClick={() => onRetry.run?.() || onRetry()} variant="contained">{t('auth.failure.cta.retry')}</Button>
           <Button onClick={onHome} variant="outlined">{t('auth.failure.cta.home')}</Button>
           <Button onClick={onClose}>{t('auth.failure.cta.close')}</Button>

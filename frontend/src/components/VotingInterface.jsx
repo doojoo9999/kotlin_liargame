@@ -1,6 +1,5 @@
 import React, {useEffect, useState} from 'react'
 import {
-    Avatar,
     Box,
     Button,
     Chip,
@@ -9,11 +8,11 @@ import {
     DialogContent,
     DialogTitle,
     Grid,
-    LinearProgress,
     Paper,
+    PlayerAvatar as Avatar,
     Typography
-} from '@mui/material'
-import {CheckCircle as CheckIcon, Timer as TimerIcon} from '@mui/icons-material'
+} from '@components/ui'
+import {CheckCircle as CheckIcon, Timer as TimerIcon} from 'lucide-react'
 import {useGame} from '../context/GameContext'
 
 const VotingInterface = ({ players, votingTimeLimit = 60, gameNumber }) => {

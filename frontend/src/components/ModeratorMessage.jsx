@@ -1,12 +1,20 @@
 import React from 'react'
-import {Box, Fade, Typography} from '@mui/material'
-import {Campaign as CampaignIcon} from '@mui/icons-material'
+import {Box, Typography} from '@components/ui'
+import {Megaphone as CampaignIcon} from 'lucide-react'
+import styled from 'styled-components'
+
+// Styled component for fade animation
+const FadeContainer = styled.div`
+  opacity: ${props => props.$visible ? 1 : 0};
+  transition: opacity 0.8s ease-in-out;
+  pointer-events: ${props => props.$visible ? 'auto' : 'none'};
+`
 
 const ModeratorMessage = ({ message, visible = true }) => {
   return (
-    <Fade in={visible} timeout={800}>
+    <FadeContainer $visible={visible}>
       <Box
-        sx={{
+        style={{
           position: 'fixed',
           top: '20%',
           left: '50%',
@@ -22,17 +30,17 @@ const ModeratorMessage = ({ message, visible = true }) => {
           border: '3px solid #b71c1c'
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-          <CampaignIcon sx={{ fontSize: '2rem' }} />
-          <Typography variant="h5" fontWeight="bold">
+        <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+          <CampaignIcon size={32} />
+          <Typography variant="h5" style={{ fontWeight: 'bold' }}>
             사회자
           </Typography>
         </Box>
-        <Typography variant="h6" sx={{ mt: 2, fontWeight: 'medium' }}>
+        <Typography variant="h6" style={{ marginTop: '16px', fontWeight: 'medium' }}>
           {message}
         </Typography>
       </Box>
-    </Fade>
+    </FadeContainer>
   )
 }
 

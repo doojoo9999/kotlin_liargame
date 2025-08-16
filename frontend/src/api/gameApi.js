@@ -38,8 +38,17 @@ export const createRoom = async (roomData) => {
 }
 
 export const joinRoom = async (gameNumber, password = '') => {
-  const response = await apiClient.post('/game/join', { gameNumber, password })
-  return response.data
+  try {
+    console.log('[GAMEAPI] Sending join room request:', { gameNumber, password: password ? '***' : 'none' })
+    const response = await apiClient.post('/game/join', { gameNumber, password })
+    console.log('[GAMEAPI] Join room API response status:', response.status)
+    console.log('[GAMEAPI] Join room API response data:', JSON.stringify(response.data, null, 2))
+    return response.data
+  } catch (error) {
+    console.error('[GAMEAPI] Join room API failed:', error)
+    console.error('[GAMEAPI] Error response:', error.response?.data)
+    throw error
+  }
 }
 
 export const leaveRoom = async (data) => {
@@ -167,9 +176,9 @@ export const sendMessage = async (gameNumber, message) => {
   return response.data
 }
 
-export const getChatHistory = async (gameNumber, limit = 50) => {
+export const getChatHistory = async (gameNumber, limit = 50, retryCount = 0) => {
   try {
-    console.log('[DEBUG] Loading chat history for game:', gameNumber)
+    console.log('[DEBUG] Loading chat history for game:', gameNumber, 'retry:', retryCount)
 
     const response = await apiClient.get(`/chat/history`, {
       params: {
@@ -182,9 +191,24 @@ export const getChatHistory = async (gameNumber, limit = 50) => {
     return response.data || []
   } catch (error) {
     console.error('Failed to get chat history:', error)
+
     if (error.response?.status === 404) {
       return [] // 채팅 기록이 없으면 빈 배열 반환
     }
+
+    if (error.response?.status === 429 && retryCount < 3) {
+      // 429 에러 시 지수 백오프로 재시도
+      const delay = Math.pow(2, retryCount) * 1000 // 1초, 2초, 4초
+      console.warn(`[WARNING] Rate limited, retrying after ${delay}ms...`)
+      await new Promise(resolve => setTimeout(resolve, delay))
+      return getChatHistory(gameNumber, limit, retryCount + 1)
+    }
+
+    if (error.response?.status === 429) {
+      console.warn('[WARNING] Rate limit exceeded, returning empty chat history')
+      return [] // 최대 재시도 후에는 빈 배열 반환
+    }
+
     throw error
   }
 }

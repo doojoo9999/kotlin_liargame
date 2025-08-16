@@ -1,16 +1,16 @@
 import React from 'react'
-import {Avatar, Box, Card, CardContent, Chip, LinearProgress, Stack, Typography, useTheme} from '@mui/material'
+import {Box, Card, CardContent, Chip, Stack, Typography} from '@components/ui'
 import {
-    AccessTime as TimeIcon,
-    EmojiEvents as TrophyIcon,
-    Games as GamesIcon,
+    Brain as PsychologyIcon,
+    Clock as TimeIcon,
+    Eye as EyeIcon,
+    Gamepad2 as GamesIcon,
     Gavel as GavelIcon,
-    Person as PersonIcon,
-    Psychology as PsychologyIcon,
-    Quiz as QuizIcon,
-    Security as SecurityIcon,
-    Visibility as EyeIcon
-} from '@mui/icons-material'
+    HelpCircle as QuizIcon,
+    Shield as SecurityIcon,
+    Trophy as TrophyIcon,
+    User as PersonIcon
+} from 'lucide-react'
 
 const GameStatusCard = ({
   gameStatus = 'WAITING',

@@ -1,7 +1,6 @@
 import React from 'react'
-import {Avatar, Badge} from '@mui/material'
+import {PlayerAvatar} from '@components/ui'
 import PropTypes from 'prop-types'
-import {generateAvatarProps} from '../utils/avatarUtils'
 
 /**
  * Reusable UserAvatar component with consistent styling and behavior
@@ -17,52 +16,23 @@ function UserAvatar({
   additionalSx = {},
   ...otherProps
 }) {
-  // Generate base avatar props using centralized utility
-  const avatarProps = generateAvatarProps({
-    nickname,
-    userId,
-    avatarUrl,
-    size,
-    additionalSx: {
-      ...additionalSx,
-      // Add current turn styling if needed
-      ...(isCurrentTurn && {
-        border: '2px solid #ff9800',
-        boxShadow: '0 0 8px rgba(255, 152, 0, 0.4)'
-      })
-    }
-  })
-
-  // Merge with any additional props passed down
-  const finalAvatarProps = {
-    ...avatarProps,
-    ...otherProps
-  }
-
-  const avatarElement = <Avatar {...finalAvatarProps} />
-
-  // Wrap with Badge for online status if requested
-  if (showOnlineStatus) {
-    return (
-      <Badge
-        overlap="circular"
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-        badgeContent={
-          <div
-            style={{
-              width: size === 'small' ? 8 : size === 'large' ? 12 : 10,
-              height: size === 'small' ? 8 : size === 'large' ? 12 : 10,
-              borderRadius: '50%',
-              backgroundColor: '#4caf50',
-              border: '2px solid white'
-            }}
-          />
-        }
-      >
-        {avatarElement}
-      </Badge>
-    )
-  }
+  const avatarElement = (
+    <PlayerAvatar
+      nickname={nickname}
+      size={size}
+      isCurrentTurn={isCurrentTurn}
+      status={showOnlineStatus ? 'online' : 'offline'}
+      style={{
+        ...additionalSx,
+        // Add current turn styling if needed
+        ...(isCurrentTurn && {
+          border: '2px solid #ff9800',
+          boxShadow: '0 0 8px rgba(255, 152, 0, 0.4)'
+        })
+      }}
+      {...otherProps}
+    />
+  )
 
   return avatarElement
 }

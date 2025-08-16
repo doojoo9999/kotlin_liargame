@@ -1,6 +1,6 @@
 import React from 'react'
-import {Box, Button, Paper, Typography} from '@mui/material'
-import {PlayArrow as PlayIcon} from '@mui/icons-material'
+import {Box, Button, Paper, Typography} from '@components/ui'
+import {Play as PlayIcon} from 'lucide-react'
 
 const GameWaiting = React.memo(function GameWaiting({
   isHost,

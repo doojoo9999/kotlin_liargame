@@ -1,4 +1,4 @@
-import {createTheme} from '@mui/material/styles'
+// Note: MUI dependency removed - createTheme import eliminated
 
 // Responsive breakpoints configuration for adaptive layout
 export const RESPONSIVE_BREAKPOINTS = {

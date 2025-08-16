@@ -1,12 +1,12 @@
-import React, {useState} from 'react'
-import {Badge, Box, Collapse, Drawer, Fab, IconButton, Paper, useMediaQuery, useTheme} from '@mui/material'
+import React, {useEffect, useState} from 'react'
+import {Box, Paper} from './ui'
 import {
-    Chat as ChatIcon,
-    Close as CloseIcon,
-    ExpandLess as ExpandLessIcon,
-    ExpandMore as ExpandMoreIcon,
-    People as PeopleIcon
-} from '@mui/icons-material'
+    ChevronDown as ExpandMoreIcon,
+    ChevronUp as ExpandLessIcon,
+    MessageCircle as ChatIcon,
+    Users as PeopleIcon,
+    X as CloseIcon
+} from 'lucide-react'
 
 const ResponsiveGameLayout = ({
   children,
@@ -17,9 +17,18 @@ const ResponsiveGameLayout = ({
   newMessageCount = 0,
   players = []
 }) => {
-  const theme = useTheme()
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'))
-  const isTablet = useMediaQuery(theme.breakpoints.between('md', 'lg'))
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 960)
+  const [isTablet, setIsTablet] = useState(window.innerWidth >= 960 && window.innerWidth < 1280)
+  
+  useEffect(() => {
+    const handleResize = () => {
+      const width = window.innerWidth
+      setIsMobile(width < 960)
+      setIsTablet(width >= 960 && width < 1280)
+    }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
   
   const [chatDrawerOpen, setChatDrawerOpen] = useState(false)
   const [playersDrawerOpen, setPlayersDrawerOpen] = useState(false)

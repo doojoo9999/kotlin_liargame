@@ -1,6 +1,5 @@
 import React from 'react'
 import styled from 'styled-components'
-import PropTypes from 'prop-types'
 
 const StyledDivider = styled.hr`
   margin: 0;
@@ -125,16 +124,3 @@ export const Divider = React.forwardRef(({
 })
 
 Divider.displayName = 'Divider'
-
-Divider.propTypes = {
-  children: PropTypes.node,
-  orientation: PropTypes.oneOf(['horizontal', 'vertical']),
-  variant: PropTypes.oneOf(['fullWidth', 'inset', 'middle']),
-  flexItem: PropTypes.bool,
-  light: PropTypes.bool,
-  absolute: PropTypes.bool,
-  textAlign: PropTypes.oneOf(['center', 'left', 'right']),
-  component: PropTypes.elementType,
-  className: PropTypes.string,
-  sx: PropTypes.object
-}

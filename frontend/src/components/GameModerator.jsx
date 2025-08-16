@@ -1,6 +1,6 @@
 import React from 'react'
 import {motion} from 'framer-motion'
-import {Box, Paper, Typography} from '@mui/material'
+import {Box, Paper, Typography} from '@components/ui'
 import {MessageCircle, Shield, Timer, Vote} from 'lucide-react'
 
 const GameModerator = ({ gameStatus, currentPlayer, timer }) => {
@@ -75,7 +75,7 @@ const GameModerator = ({ gameStatus, currentPlayer, timer }) => {
           }}
         />
         
-        <Box display="flex" alignItems="center" justifyContent="center" gap={2}>
+        <Box style={{display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px'}}>
           {config.icon && (
             <motion.div
               animate={{ rotate: [0, 10, -10, 0] }}
@@ -97,7 +97,7 @@ const GameModerator = ({ gameStatus, currentPlayer, timer }) => {
             animate={{ scale: [0.8, 1.1, 0.8] }}
             transition={{ duration: 1, repeat: Infinity }}
           >
-            <Box display="flex" alignItems="center" justifyContent="center" gap={1} mt={2}>
+            <Box style={{display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '16px'}}>
               <Timer size={20} color={config.color} />
               <Typography variant="h6" sx={{ color: config.color }}>
                 {timer}초 남음

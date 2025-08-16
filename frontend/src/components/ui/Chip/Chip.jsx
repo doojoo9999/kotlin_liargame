@@ -1,6 +1,5 @@
 import React from 'react'
 import styled from 'styled-components'
-import PropTypes from 'prop-types'
 
 const StyledChip = styled.div`
   display: inline-flex;
@@ -186,19 +185,3 @@ export const Chip = React.forwardRef(({
 })
 
 Chip.displayName = 'Chip'
-
-Chip.propTypes = {
-  label: PropTypes.node,
-  variant: PropTypes.oneOf(['filled', 'outlined']),
-  color: PropTypes.oneOf(['default', 'primary', 'secondary', 'error', 'info', 'success', 'warning']),
-  size: PropTypes.oneOf(['small', 'medium']),
-  clickable: PropTypes.bool,
-  deletable: PropTypes.bool,
-  avatar: PropTypes.node,
-  icon: PropTypes.node,
-  deleteIcon: PropTypes.node,
-  onDelete: PropTypes.func,
-  onClick: PropTypes.func,
-  className: PropTypes.string,
-  sx: PropTypes.object
-}

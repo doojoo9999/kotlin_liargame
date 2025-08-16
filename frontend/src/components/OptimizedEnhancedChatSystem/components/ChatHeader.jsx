@@ -1,5 +1,5 @@
 import React from 'react'
-import { Box, Typography } from '@mui/material'
+import {Box, Typography} from '@components/ui'
 
 /**
  * ChatHeader component for displaying performance indicators
@@ -12,10 +12,10 @@ const ChatHeader = React.memo(({ shouldShowPanel, panelData }) => {
     }
 
     return (
-        <Box sx={{
-            p: 0.5,
-            bgcolor: 'warning.main',
-            color: 'warning.contrastText',
+        <Box style={{
+            padding: '4px',
+            backgroundColor: '#ff9800',
+            color: 'white',
             textAlign: 'center'
         }}>
             <Typography variant="caption">

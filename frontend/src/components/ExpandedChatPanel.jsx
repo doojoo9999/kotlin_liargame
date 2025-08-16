@@ -1,30 +1,17 @@
 import React, {useMemo, useState} from 'react'
+import {Box, Chip, Divider, Input as TextField, Typography} from './ui'
 import {
-    Badge,
-    Box,
-    Chip,
-    Divider,
-    IconButton,
-    InputAdornment,
-    Stack,
-    Tab,
-    Tabs,
-    TextField,
-    Typography,
-    useTheme
-} from '@mui/material'
-import {
-    Chat as ChatIcon,
-    EmojiEmotions as EmojiIcon,
-    Favorite as HeartIcon,
-    FilterList as FilterIcon,
-    Games as GameIcon,
+    Filter as FilterIcon,
+    Gamepad2 as GameIcon,
+    Heart as HeartIcon,
     Info as InfoIcon,
     Lightbulb as LightbulbIcon,
+    MessageCircle as ChatIcon,
     Send as SendIcon,
-    ThumbDown as ThumbDownIcon,
-    ThumbUp as ThumbUpIcon
-} from '@mui/icons-material'
+    Smile as EmojiIcon,
+    ThumbsDown as ThumbDownIcon,
+    ThumbsUp as ThumbUpIcon
+} from 'lucide-react'
 import OptimizedEnhancedChatSystem from './OptimizedEnhancedChatSystem'
 
 // Quick reaction emojis
@@ -57,7 +44,6 @@ const ExpandedChatPanel = ({
   players = [],
   systemMessages = []
 }) => {
-  const theme = useTheme()
   const [activeTab, setActiveTab] = useState(0)
   const [messageFilter, setMessageFilter] = useState('all')
   const [inputValue, setInputValue] = useState('')

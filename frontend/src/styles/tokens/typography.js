@@ -219,7 +219,14 @@ export const typography = {
     lineHeight: lineHeight.normal,
     letterSpacing: letterSpacing.normal,
     fontFamily: fontFamily.mono
-  }
+  },
+
+  // Include basic tokens for direct access
+  fontSize,
+  fontWeight,
+  lineHeight,
+  fontFamily,
+  letterSpacing
 }
 
 export default typography

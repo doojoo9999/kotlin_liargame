@@ -1,24 +1,12 @@
 import React, {useState} from 'react'
-import {
-    Alert,
-    Avatar,
-    Box,
-    Button,
-    Card,
-    CardContent,
-    Chip,
-    Fade,
-    LinearProgress,
-    Paper,
-    Typography
-} from '@mui/material'
+import {Alert, Box, Button, Card, CardContent, Chip, Paper, PlayerAvatar as Avatar, Typography} from '@components/ui'
 import {
     Gavel as GavelIcon,
-    HowToVote as VoteIcon,
-    Person as PersonIcon,
-    ThumbDown as ThumbDownIcon,
-    ThumbUp as ThumbUpIcon
-} from '@mui/icons-material'
+    ThumbsDown as ThumbDownIcon,
+    ThumbsUp as ThumbUpIcon,
+    User as PersonIcon,
+    Vote as VoteIcon
+} from 'lucide-react'
 
 const SurvivalVotingComponent = ({ 
   gameTimer, 

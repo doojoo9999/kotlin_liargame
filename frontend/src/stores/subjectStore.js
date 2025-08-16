@@ -290,6 +290,18 @@ const setupGlobalSubjectSubscription = async () => {
   
   if (isAuthenticated && !globalSubjectSubscription) {
     try {
+      // Check if gameStompClient is available and has the subscribe method
+      if (!gameStompClient || typeof gameStompClient.subscribe !== 'function') {
+        console.log('[DEBUG_LOG] GameStompClient not available or subscribe method not found, skipping subscription')
+        return
+      }
+
+      // Check if gameStompClient is connected (if it has a connection check method)
+      if (typeof gameStompClient.isClientConnected === 'function' && !gameStompClient.isClientConnected()) {
+        console.log('[DEBUG_LOG] GameStompClient not connected, skipping subscription')
+        return
+      }
+
       console.log('[DEBUG_LOG] Setting up global subject updates subscription')
       
       // Subscribe to global subject updates
@@ -302,23 +314,43 @@ const setupGlobalSubjectSubscription = async () => {
     } catch (error) {
       console.error('[DEBUG_LOG] Failed to set up global subject subscription:', error)
       
-      // Retry after a delay
-      setTimeout(() => {
-        const { isAuthenticated } = useAuthStore.getState()
-        if (isAuthenticated && !globalSubjectSubscription) {
-          console.log('[DEBUG_LOG] Retrying global subject subscription...')
-          setupGlobalSubjectSubscription()
+      // Only retry if it's a connection-related error, not a missing method error
+      if (error.message && !error.message.includes('is not a function')) {
+        // Retry after a delay with limited attempts
+        const retryAttempts = globalSubjectSubscription?.retryCount || 0
+        if (retryAttempts < 3) {
+          setTimeout(() => {
+            const { isAuthenticated } = useAuthStore.getState()
+            if (isAuthenticated && !globalSubjectSubscription) {
+              console.log('[DEBUG_LOG] Retrying global subject subscription... Attempt:', retryAttempts + 1)
+              globalSubjectSubscription = { retryCount: retryAttempts + 1 }
+              setupGlobalSubjectSubscription()
+            }
+          }, 10000) // Increase delay to 10 seconds
+        } else {
+          console.log('[DEBUG_LOG] Max retry attempts reached for global subject subscription')
         }
-      }, 5000)
+      }
     }
   }
 }
 
 const cleanupGlobalSubjectSubscription = () => {
   if (globalSubjectSubscription) {
-    console.log('[DEBUG_LOG] Cleaning up global subject subscription')
-    gameStompClient.unsubscribe('/topic/subjects')
-    globalSubjectSubscription = null
+    try {
+      console.log('[DEBUG_LOG] Cleaning up global subject subscription')
+      
+      // Check if gameStompClient is available and has the unsubscribe method
+      if (gameStompClient && typeof gameStompClient.unsubscribe === 'function') {
+        gameStompClient.unsubscribe('/topic/subjects')
+      } else {
+        console.log('[DEBUG_LOG] GameStompClient not available for cleanup, skipping unsubscribe')
+      }
+    } catch (error) {
+      console.error('[DEBUG_LOG] Error during global subject subscription cleanup:', error)
+    } finally {
+      globalSubjectSubscription = null
+    }
   }
 }
 

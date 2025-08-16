@@ -1,6 +1,34 @@
 import {useCallback, useEffect, useMemo, useState} from 'react'
-import {useMediaQuery, useTheme} from '@mui/material'
 import {LAYOUT_CONFIG} from '../components/AdaptiveGameLayout'
+
+// Custom responsive hook to replace MUI useMediaQuery
+const useResponsiveLayout = () => {
+  const [screenType, setScreenType] = useState(() => {
+    const width = window.innerWidth
+    if (width < 960) return 'mobile'
+    if (width < 1280) return 'tablet'
+    return 'desktop'
+  })
+
+  useEffect(() => {
+    const handleResize = () => {
+      const width = window.innerWidth
+      if (width < 960) setScreenType('mobile')
+      else if (width < 1280) setScreenType('tablet')
+      else setScreenType('desktop')
+    }
+
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  return {
+    isMobile: screenType === 'mobile',
+    isTablet: screenType === 'tablet',
+    isDesktop: screenType === 'desktop',
+    screenType
+  }
+}
 
 const useGameLayout = ({
   gameStatus = 'WAITING',
@@ -8,10 +36,7 @@ const useGameLayout = ({
   enableTransitions = true,
   customLayoutConfig = null
 }) => {
-  const theme = useTheme()
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'))
-  const isTablet = useMediaQuery(theme.breakpoints.between('md', 'lg'))
-  const isDesktop = useMediaQuery(theme.breakpoints.up('lg'))
+  const { isMobile, isTablet, isDesktop } = useResponsiveLayout()
 
   const [layoutState, setLayoutState] = useState({
     currentLayout: 'WAITING',

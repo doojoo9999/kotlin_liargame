@@ -1,14 +1,54 @@
-import React, { useRef } from 'react'
-import {
-    Box,
-    Divider,
-    IconButton,
-    InputAdornment,
-    TextField,
-    Typography
-} from '@mui/material'
-import { EmojiEmotions as EmojiIcon, Send as SendIcon } from '@mui/icons-material'
-import { getChatThemeVariant, THEME_TRANSITIONS } from '../../../styles/themeVariants'
+import React, {useRef} from 'react'
+import {Box, Button, Divider, Input as TextField, Typography} from '@components/ui'
+import {Send as SendIcon, Smile as EmojiIcon} from 'lucide-react'
+import styled from 'styled-components'
+import {getChatThemeVariant} from '../../../styles/themeVariants'
+
+// Styled components to replace MUI sx styling
+const InputContainer = styled(Box)`
+  padding: ${props => props.$isMobile ? '8px' : '16px'};
+  background-color: ${props => props.$backgroundColor || '#ffffff'};
+  transition: color 0.3s ease;
+`
+
+const InputWrapper = styled.div`
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+`
+
+const ButtonGroup = styled.div`
+  display: flex;
+  gap: 4px;
+  margin-left: 8px;
+`
+
+const IconButtonStyled = styled(Button)`
+  min-width: 32px;
+  width: 32px;
+  height: 32px;
+  padding: 4px;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+  
+  &:hover {
+    background-color: ${props => props.$isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'};
+    transform: scale(1.1);
+  }
+  
+  &:disabled {
+    opacity: 0.5;
+  }
+`
+
+const HelperTextContainer = styled(Box)`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+  padding: 0 8px;
+`
 
 /**
  * ChatInputBar component for text input, emoji, and send functionality
@@ -44,107 +84,67 @@ const ChatInputBar = React.memo(({
         onInputChange(e.target.value.slice(0, maxLength))
     }, [onInputChange, maxLength])
 
-    // Stable sx objects to prevent re-renders
-    const textFieldSx = React.useMemo(() => ({
-        '& .MuiOutlinedInput-root': {
-            backgroundColor: 'background.paper',
-            transition: THEME_TRANSITIONS.standard,
-            '&:hover': {
-                backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)'
-            },
-            '&.Mui-disabled': {
-                backgroundColor: 'action.disabledBackground',
-                '& .MuiOutlinedInput-notchedOutline': {
-                    borderColor: 'action.disabled'
-                }
-            }
-        }
+    // Theme-aware styling
+    const inputStyle = React.useMemo(() => ({
+        backgroundColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)',
+        transition: 'all 0.3s ease',
+        borderRadius: '8px',
+        padding: '12px',
+        minHeight: '40px',
+        resize: 'vertical',
+        flex: 1
     }), [isDarkMode])
-
-    const emojiButtonSx = React.useMemo(() => ({
-        transition: THEME_TRANSITIONS.standard,
-        '&:hover': {
-            backgroundColor: 'action.hover',
-            transform: 'scale(1.1)'
-        }
-    }), [])
-
-    const sendButtonSx = React.useMemo(() => ({
-        transition: THEME_TRANSITIONS.standard,
-        '&:hover': {
-            backgroundColor: 'primary.light',
-            transform: 'scale(1.1)'
-        },
-        '&:disabled': {
-            opacity: 0.5
-        }
-    }), [])
-
-    const inputBarSx = React.useMemo(() => ({
-        p: isMobile ? 1 : 2,
-        backgroundColor: chatTheme.message.background,
-        transition: THEME_TRANSITIONS.color
-    }), [isMobile, chatTheme.message.background])
 
     return (
         <>
             <Divider />
-            <Box sx={inputBarSx}>
-                <TextField
-                    ref={inputRef}
-                    fullWidth
-                    multiline
-                    maxRows={3}
-                    value={inputValue}
-                    onChange={handleInputChange}
-                    onKeyPress={handleKeyPress}
-                    placeholder={disabled ? "채팅이 비활성화되었습니다..." : placeholder}
-                    disabled={disabled}
-                    size={isMobile ? 'small' : 'medium'}
-                    autoFocus={!disabled}
-                    sx={textFieldSx}
-                    InputProps={{
-                        endAdornment: (
-                            <InputAdornment position="end">
-                                <Box sx={{ display: 'flex', gap: 0.5 }}>
-                                    {/* Emoji button */}
-                                    <IconButton
-                                        size="small"
-                                        onClick={onEmojiButtonClick}
-                                        disabled={disabled}
-                                        sx={emojiButtonSx}
-                                    >
-                                        <EmojiIcon />
-                                    </IconButton>
+            <InputContainer $isMobile={isMobile} $backgroundColor={chatTheme.message.background}>
+                <InputWrapper>
+                    <TextField
+                        ref={inputRef}
+                        value={inputValue}
+                        onChange={handleInputChange}
+                        onKeyPress={handleKeyPress}
+                        placeholder={disabled ? "채팅이 비활성화되었습니다..." : placeholder}
+                        disabled={disabled}
+                        autoFocus={!disabled}
+                        style={inputStyle}
+                    />
+                    
+                    <ButtonGroup>
+                        {/* Emoji button */}
+                        <IconButtonStyled
+                            onClick={onEmojiButtonClick}
+                            disabled={disabled}
+                            $isDarkMode={isDarkMode}
+                            aria-label="Add emoji"
+                        >
+                            <EmojiIcon size={16} />
+                        </IconButtonStyled>
 
-                                    {/* Send button */}
-                                    <IconButton
-                                        size="small"
-                                        onClick={handleSendClick}
-                                        disabled={disabled || !inputValue.trim()}
-                                        color="primary"
-                                        sx={sendButtonSx}
-                                    >
-                                        <SendIcon />
-                                    </IconButton>
-                                </Box>
-                            </InputAdornment>
-                        )
-                    }}
-                    helperText={
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Typography variant="caption" sx={{ opacity: 0.7 }}>
-                                {`${inputValue.length}/${maxLength}`}
-                            </Typography>
-                            {debugText && (
-                                <Typography variant="caption" sx={{ opacity: 0.5 }}>
-                                    {debugText}
-                                </Typography>
-                            )}
-                        </Box>
-                    }
-                />
-            </Box>
+                        {/* Send button */}
+                        <IconButtonStyled
+                            onClick={handleSendClick}
+                            disabled={disabled || !inputValue.trim()}
+                            $isDarkMode={isDarkMode}
+                            aria-label="Send message"
+                        >
+                            <SendIcon size={16} />
+                        </IconButtonStyled>
+                    </ButtonGroup>
+                </InputWrapper>
+                
+                <HelperTextContainer>
+                    <Typography variant="caption" style={{ opacity: 0.7 }}>
+                        {`${inputValue.length}/${maxLength}`}
+                    </Typography>
+                    {debugText && (
+                        <Typography variant="caption" style={{ opacity: 0.5 }}>
+                            {debugText}
+                        </Typography>
+                    )}
+                </HelperTextContainer>
+            </InputContainer>
         </>
     )
 })

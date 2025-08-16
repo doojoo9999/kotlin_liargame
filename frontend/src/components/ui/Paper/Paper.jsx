@@ -1,6 +1,5 @@
 import React from 'react'
 import styled from 'styled-components'
-import PropTypes from 'prop-types'
 
 const StyledPaper = styled.div`
   background-color: ${props => props.theme.colors?.background?.paper || '#ffffff'};
@@ -56,8 +55,17 @@ export const Paper = React.forwardRef(({
   className,
   sx,
   component = 'div',
-  ...props
+  ...otherProps
 }, ref) => {
+  // DOM에 전달하면 안되는 props 필터링
+  const { 
+    maxWidth,
+    minWidth,
+    maxHeight,
+    minHeight,
+    ...props 
+  } = otherProps
+
   return (
     <StyledPaper
       as={component}
@@ -66,7 +74,13 @@ export const Paper = React.forwardRef(({
       $square={square}
       $variant={variant}
       className={className}
-      style={sx}
+      style={{
+        ...sx,
+        ...(maxWidth && { maxWidth }),
+        ...(minWidth && { minWidth }),
+        ...(maxHeight && { maxHeight }),
+        ...(minHeight && { minHeight })
+      }}
       {...props}
     >
       {children}
@@ -75,13 +89,3 @@ export const Paper = React.forwardRef(({
 })
 
 Paper.displayName = 'Paper'
-
-Paper.propTypes = {
-  children: PropTypes.node,
-  elevation: PropTypes.number,
-  square: PropTypes.bool,
-  variant: PropTypes.oneOf(['elevation', 'outlined']),
-  className: PropTypes.string,
-  sx: PropTypes.object,
-  component: PropTypes.elementType
-}

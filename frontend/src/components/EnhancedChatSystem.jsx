@@ -1,28 +1,17 @@
 import React, {useEffect, useRef, useState} from 'react'
+import {Box, Button, Chip, Divider, Input as TextField, Paper, Typography} from '@components/ui'
 import {
-    Box,
-    Chip,
-    Divider,
-    Fade,
-    IconButton,
-    InputAdornment,
-    Menu,
-    Paper,
-    TextField,
-    Typography,
-    useMediaQuery,
-    useTheme
-} from '@mui/material'
-import {
+    AlertTriangle as WarningIcon,
     CheckCircle as SuccessIcon,
-    Computer as SystemIcon,
-    EmojiEmotions as EmojiIcon,
     Info as InfoIcon,
-    Person as PersonIcon,
+    Monitor as SystemIcon,
     Send as SendIcon,
-    Warning as WarningIcon
-} from '@mui/icons-material'
+    Smile as EmojiIcon,
+    User as PersonIcon
+} from 'lucide-react'
 import UserAvatar from './UserAvatar'
+import {useResponsiveLayout} from '../hooks/useGameLayout'
+import styled from 'styled-components'
 
 // Common emojis for the game
 const GAME_EMOJIS = [
@@ -42,6 +31,82 @@ export const MESSAGE_TYPES = {
   GAME_EVENT: 'game_event'
 }
 
+// Styled components for enhanced chat
+const ChatContainer = styled(Paper)`
+  height: 400px;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+`
+
+const MessagesContainer = styled.div`
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 3px;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 3px;
+  }
+`
+
+const InputContainer = styled.div`
+  padding: 16px;
+  border-top: 1px solid #e0e0e0;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+`
+
+const EmojiMenuContainer = styled.div`
+  position: absolute;
+  top: ${props => props.$top || 0}px;
+  left: ${props => props.$left || 0}px;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  z-index: 1300;
+  max-height: 200px;
+  width: ${props => props.$isMobile ? '280px' : '320px'};
+  display: ${props => props.$open ? 'block' : 'none'};
+`
+
+const EmojiGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 8px;
+  margin-top: 8px;
+`
+
+const EmojiButton = styled(Button)`
+  min-width: 32px;
+  height: 32px;
+  font-size: 1.2rem;
+  padding: 4px;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    transform: scale(1.2);
+    background-color: rgba(0, 0, 0, 0.04);
+  }
+`
+
 const EnhancedChatSystem = ({
   messages = [],
   currentUser,
@@ -50,8 +115,7 @@ const EnhancedChatSystem = ({
   placeholder = "메시지를 입력하세요...",
   maxLength = 200
 }) => {
-  const theme = useTheme()
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'))
+  const { isMobile } = useResponsiveLayout()
   
   const [inputValue, setInputValue] = useState('')
   const [emojiMenuAnchor, setEmojiMenuAnchor] = useState(null)

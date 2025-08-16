@@ -1,22 +1,34 @@
 import React from 'react'
-import { Box, Card, CardContent, Grid, Typography } from '@mui/material'
+import {Box, Card, CardContent, Grid, Typography} from '../../../components/ui'
 import {
-  Games as GamesIcon,
-  People as PeopleIcon,
-  Person as PersonIcon,
-  TrendingUp as TrendingUpIcon
-} from '@mui/icons-material'
+    Gamepad2 as GamesIcon,
+    TrendingUp as TrendingUpIcon,
+    User as PersonIcon,
+    Users as PeopleIcon
+} from 'lucide-react'
 
 const StatCard = React.memo(function StatCard({ icon, title, value, color }) {
+  const getColorValue = (colorName) => {
+    const colors = {
+      primary: '#667eea',
+      success: '#4caf50',
+      info: '#2196f3',
+      warning: '#ff9800'
+    }
+    return colors[colorName] || '#667eea'
+  }
+
   return (
     <Card>
       <CardContent>
-        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+        <Box $display="flex" $alignItems="center">
           {React.cloneElement(icon, { 
-            sx: { fontSize: 40, color: `${color}.main`, mr: 2 } 
+            size: 40, 
+            color: getColorValue(color),
+            style: { marginRight: '16px' }
           })}
           <Box>
-            <Typography color="textSecondary" gutterBottom>
+            <Typography style={{ color: 'rgba(0, 0, 0, 0.6)', marginBottom: '8px' }}>
               {title}
             </Typography>
             <Typography variant="h4">
@@ -62,16 +74,19 @@ const StatsCards = React.memo(function StatsCards({ stats }) {
   ]
 
   return (
-    <Grid container spacing={3} sx={{ mb: 4 }}>
+    <Grid 
+      $columns="repeat(auto-fit, minmax(250px, 1fr))" 
+      $gap="24px" 
+      style={{ marginBottom: '32px' }}
+    >
       {statsConfig.map((stat) => (
-        <Grid item xs={12} sm={6} md={3} key={stat.key}>
-          <StatCard
-            icon={stat.icon}
-            title={stat.title}
-            value={stat.value}
-            color={stat.color}
-          />
-        </Grid>
+        <StatCard
+          key={stat.key}
+          icon={stat.icon}
+          title={stat.title}
+          value={stat.value}
+          color={stat.color}
+        />
       ))}
     </Grid>
   )

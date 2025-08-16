@@ -1,6 +1,6 @@
 import React from 'react'
 import {motion} from 'framer-motion'
-import {Avatar, Box, Paper, Typography} from '@mui/material'
+import {Box, Paper, PlayerAvatar as Avatar, Typography} from '@components/ui'
 
 const AnimatedChatMessage = ({ message, isOwn, index }) => {
   return (
@@ -16,33 +16,32 @@ const AnimatedChatMessage = ({ message, isOwn, index }) => {
       whileHover={{ scale: 1.02 }}
     >
       <Box 
-        sx={{
+        style={{
           display: 'flex',
           justifyContent: isOwn ? 'flex-end' : 'flex-start',
-          mb: 1,
+          marginBottom: '8px',
           alignItems: 'flex-end',
-          gap: 1
+          gap: '8px'
         }}
       >
         {!isOwn && (
           <Avatar 
-            sx={{ 
-              width: 32, 
-              height: 32,
+            nickname={message.nickname}
+            style={{ 
+              width: '32px', 
+              height: '32px',
               background: 'linear-gradient(45deg, #4ECDC4, #44A08D)'
             }}
-          >
-            {message.nickname?.[0]}
-          </Avatar>
+          />
         )}
         
-        <Box sx={{ maxWidth: '70%' }}>
+        <Box style={{ maxWidth: '70%' }}>
           {!isOwn && (
             <Typography 
               variant="caption" 
-              sx={{ 
-                ml: 1, 
-                color: 'text.secondary',
+              style={{ 
+                marginLeft: '8px', 
+                color: '#666666',
                 fontWeight: 'bold'
               }}
             >
@@ -51,9 +50,8 @@ const AnimatedChatMessage = ({ message, isOwn, index }) => {
           )}
           
           <Paper 
-            sx={{
-              px: 2, 
-              py: 1,
+            style={{
+              padding: '8px 16px',
               background: isOwn 
                 ? 'linear-gradient(45deg, #FF6B6B, #FF8E8E)'
                 : 'rgba(255,255,255,0.1)',
@@ -67,7 +65,7 @@ const AnimatedChatMessage = ({ message, isOwn, index }) => {
           >
             <Typography 
               variant="body2" 
-              sx={{ 
+              style={{ 
                 color: 'white',
                 wordBreak: 'break-word'
               }}

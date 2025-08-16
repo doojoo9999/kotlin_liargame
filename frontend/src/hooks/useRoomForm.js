@@ -16,7 +16,7 @@ export const useRoomForm = ({ subjects = [], currentUser = null } = {}) => {
     password: '',
     selectedSubjectIds: [],
     hasPassword: false,
-    gameMode: 'LIAR_KNOWS' // 'LIAR_KNOWS' | 'LIAR_DIFFERENT_ANSWER'
+    gameMode: 'LIARS_KNOW' // 'LIARS_KNOW' | 'LIARS_DIFFERENT_WORD'
   })
 
   const [joinPassword, setJoinPassword] = useState('')
@@ -37,10 +37,14 @@ export const useRoomForm = ({ subjects = [], currentUser = null } = {}) => {
    * @param {any} value - New value for the field
    */
   const handleRoomFormChange = (field, value) => {
-    setRoomForm(prev => ({
-      ...prev,
-      [field]: value
-    }))
+    // 즉시 상태 업데이트를 위해 React.unstable_batchedUpdates 사용하지 않음
+    setRoomForm(prev => {
+      if (prev[field] === value) return prev // 값이 같으면 업데이트 하지 않음
+      return {
+        ...prev,
+        [field]: value
+      }
+    })
   }
 
   /**
@@ -54,7 +58,7 @@ export const useRoomForm = ({ subjects = [], currentUser = null } = {}) => {
       password: '',
       selectedSubjectIds: subjects.length > 0 ? [subjects[0]?.id].filter(Boolean) : [],
       hasPassword: false,
-      gameMode: 'LIAR_KNOWS'
+      gameMode: 'LIARS_KNOW'
     })
   }
 

@@ -1,6 +1,6 @@
 import React, {useMemo} from 'react'
-import {Box, CircularProgress, Typography} from '@mui/material'
-import {AccessTime as TimeIcon} from '@mui/icons-material'
+import {Box, CircularProgress, Typography} from '@components/ui'
+import {Clock as TimeIcon} from 'lucide-react'
 
 const CircularTimer = React.memo(function CircularTimer({
   timeRemaining = 0,

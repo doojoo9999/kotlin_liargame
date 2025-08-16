@@ -1,5 +1,5 @@
 import React from 'react'
-import { Box } from '@mui/material'
+import {Box} from '@components/ui'
 import AnimatedPlayerProfile from '../../../components/AnimatedPlayerProfile'
 import PlayerSpeechBubble from '../../../components/PlayerSpeechBubble'
 
@@ -11,18 +11,16 @@ const AroundScreenPlayers = React.memo(function AroundScreenPlayers({
   return (
     <>
       <Box
-        sx={{
-          position: 'absolute',
-          top: 20,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          display: 'flex',
-          gap: 2,
-          zIndex: 1,
-        }}
+        $position="absolute"
+        $top="20px"
+        $left="50%"
+        style={{ transform: 'translateX(-50%)' }}
+        $display="flex"
+        $gap="16px"
+        $zIndex="1"
       >
         {playerPositions.top.map((player) => (
-          <Box key={player.id} sx={{ position: 'relative' }}>
+          <Box key={player.id} $position="relative">
             <AnimatedPlayerProfile
               player={player}
               isCurrentTurn={effectiveCurrentTurnPlayerId === player.id}
@@ -36,19 +34,17 @@ const AroundScreenPlayers = React.memo(function AroundScreenPlayers({
       </Box>
 
       <Box
-        sx={{
-          position: 'absolute',
-          right: 20,
-          top: '50%',
-          transform: 'translateY(-50%)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 2,
-          zIndex: 1,
-        }}
+        $position="absolute"
+        $right="20px"
+        $top="50%"
+        style={{ transform: 'translateY(-50%)' }}
+        $display="flex"
+        $flexDirection="column"
+        $gap="16px"
+        $zIndex="1"
       >
         {playerPositions.right.map((player) => (
-          <Box key={player.id} sx={{ position: 'relative' }}>
+          <Box key={player.id} $position="relative">
             <AnimatedPlayerProfile
               player={player}
               isCurrentTurn={effectiveCurrentTurnPlayerId === player.id}
@@ -62,18 +58,16 @@ const AroundScreenPlayers = React.memo(function AroundScreenPlayers({
       </Box>
 
       <Box
-        sx={{
-          position: 'absolute',
-          bottom: 20,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          display: 'flex',
-          gap: 2,
-          zIndex: 1,
-        }}
+        $position="absolute"
+        $bottom="20px"
+        $left="50%"
+        style={{ transform: 'translateX(-50%)' }}
+        $display="flex"
+        $gap="16px"
+        $zIndex="1"
       >
         {playerPositions.bottom.map((player) => (
-          <Box key={player.id} sx={{ position: 'relative' }}>
+          <Box key={player.id} $position="relative">
             <AnimatedPlayerProfile
               player={player}
               isCurrentTurn={effectiveCurrentTurnPlayerId === player.id}
@@ -87,19 +81,17 @@ const AroundScreenPlayers = React.memo(function AroundScreenPlayers({
       </Box>
 
       <Box
-        sx={{
-          position: 'absolute',
-          left: 20,
-          top: '50%',
-          transform: 'translateY(-50%)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 2,
-          zIndex: 1,
-        }}
+        $position="absolute"
+        $left="20px"
+        $top="50%"
+        style={{ transform: 'translateY(-50%)' }}
+        $display="flex"
+        $flexDirection="column"
+        $gap="16px"
+        $zIndex="1"
       >
         {playerPositions.left.map((player) => (
-          <Box key={player.id} sx={{ position: 'relative' }}>
+          <Box key={player.id} $position="relative">
             <AnimatedPlayerProfile
               player={player}
               isCurrentTurn={effectiveCurrentTurnPlayerId === player.id}

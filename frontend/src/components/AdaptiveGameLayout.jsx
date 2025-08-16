@@ -1,5 +1,5 @@
-import React, {useMemo} from 'react'
-import {Box, useMediaQuery, useTheme} from '@mui/material'
+import React, {useEffect, useMemo, useState} from 'react'
+import {Box} from './ui'
 
 // Layout configuration for different game phases
 const LAYOUT_CONFIG = {
@@ -38,9 +38,18 @@ const AdaptiveGameLayout = ({
   className,
   ...props
 }) => {
-  const theme = useTheme()
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'))
-  const isTablet = useMediaQuery(theme.breakpoints.between('md', 'lg'))
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 960)
+  const [isTablet, setIsTablet] = useState(window.innerWidth >= 960 && window.innerWidth < 1280)
+
+  useEffect(() => {
+    const handleResize = () => {
+      const width = window.innerWidth
+      setIsMobile(width < 960)
+      setIsTablet(width >= 960 && width < 1280)
+    }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
   
   // Get layout ratios based on game status
   const layoutRatios = useMemo(() => {
@@ -50,20 +59,20 @@ const AdaptiveGameLayout = ({
 
   // Calculate transition timing
   const transitionTiming = useMemo(() => {
-    return theme.transitions.duration.standard
-  }, [theme.transitions.duration.standard])
+    return 300 // 300ms standard transition
+  }, [])
 
   // Mobile layout - vertical stacking
   if (isMobile) {
     return (
       <Box
         className={className}
-        sx={{
+        style={{
           height: '100vh',
           display: 'flex',
           flexDirection: 'column',
           transition: `all ${transitionTiming}ms ease-in-out`,
-          ...props.sx
+          ...props.style
         }}
         {...props}
       >

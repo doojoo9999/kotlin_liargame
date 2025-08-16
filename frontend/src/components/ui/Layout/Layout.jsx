@@ -89,25 +89,29 @@ const Box = styled.div`
 `
 
 // Container component
-const Container = styled.div`
-  width: 100%;
-  max-width: ${props => {
-    switch (props.$maxWidth) {
-      case 'xs': return '444px'
-      case 'sm': return '600px'
-      case 'md': return '960px'
-      case 'lg': return '1280px'
-      case 'xl': return '1920px'
-      default: return props.$maxWidth || '100%'
-    }
-  }};
-  margin: 0 auto;
-  padding: 0 ${spacing.md};
-  
-  ${props => props.$disableGutters && css`
-    padding: 0;
-  `}
+const Container = styled.div.withConfig({
+    shouldForwardProp: (prop) => prop !== 'maxWidth'
+})`
+    width: 100%;
+    max-width: ${props => {
+        const maxWidthValue = props.maxWidth || props.$maxWidth;
+        switch (maxWidthValue) {
+            case 'xs': return '444px'
+            case 'sm': return '600px'
+            case 'md': return '960px'
+            case 'lg': return '1280px'
+            case 'xl': return '1920px'
+            default: return maxWidthValue || '100%'
+        }
+    }};
+    margin: 0 auto;
+    padding: 0 ${spacing.md};
+
+    ${props => props.$disableGutters && css`
+        padding: 0;
+    `}
 `
+
 
 // Stack component for vertical/horizontal layouts
 const Stack = styled.div`

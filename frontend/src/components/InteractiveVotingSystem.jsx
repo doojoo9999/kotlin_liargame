@@ -1,8 +1,8 @@
 import React, {useState} from 'react'
 import {AnimatePresence, motion} from 'framer-motion'
-import {Avatar, Box, Button, Card, CardContent, Grid, Typography} from '@mui/material'
+import {Box, Button, Card, CardContent, Grid, PlayerAvatar as Avatar, Typography} from '@components/ui'
 import {Target, Vote} from 'lucide-react'
-import {useTheme} from '@mui/material/styles'
+import {useTheme} from '@styles'
 
 const InteractiveVotingSystem = ({ players, onVote, disabled = false }) => {
   const [selectedPlayer, setSelectedPlayer] = useState(null)

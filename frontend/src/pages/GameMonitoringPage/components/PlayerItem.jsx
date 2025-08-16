@@ -1,14 +1,24 @@
 import React from 'react'
-import { Avatar, ListItem, ListItemAvatar, ListItemText } from '@mui/material'
+import {ListItem, ListItemText} from '../../../components/ui'
 
 const PlayerItem = React.memo(function PlayerItem({ player }) {
   return (
     <ListItem>
-      <ListItemAvatar>
-        <Avatar sx={{ bgcolor: 'primary.main' }}>
-          {player.nickname?.charAt(0) || 'U'}
-        </Avatar>
-      </ListItemAvatar>
+      <div style={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        marginRight: '16px',
+        width: '40px',
+        height: '40px',
+        borderRadius: '50%',
+        backgroundColor: '#667eea',
+        color: 'white',
+        fontSize: '16px',
+        fontWeight: 'bold',
+        justifyContent: 'center'
+      }}>
+        {player.nickname?.charAt(0) || 'U'}
+      </div>
       <ListItemText
         primary={player.nickname || '익명'}
         secondary={`ID: ${player.id || 'N/A'} | 상태: ${player.status || '로비'}`}

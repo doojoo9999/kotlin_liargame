@@ -1,5 +1,5 @@
 import React from 'react'
-import {Alert, Snackbar} from '@mui/material'
+import {Alert, Snackbar} from '@components/ui'
 
 const SnackbarNotification = ({ open, message, severity, onClose }) => {
   return (
@@ -12,7 +12,7 @@ const SnackbarNotification = ({ open, message, severity, onClose }) => {
       <Alert 
         onClose={onClose} 
         severity={severity}
-        sx={{ width: '100%' }}
+        style={{ width: '100%' }}
       >
         {message}
       </Alert>
