@@ -1,12 +1,8 @@
-import React from 'react'
-import {Box, Button, Typography} from '@components/ui'
-import {
-    HelpCircle as HelpIcon,
-    Info as InfoIcon,
-    LogOut as LogoutIcon,
-    Plus as AddIcon,
-    RotateCcw as RefreshIcon
-} from 'lucide-react'
+import React from 'react';
+import {Box, Button, Typography} from '@components/ui';
+import {RotateCcw as RefreshIcon} from 'lucide-react';
+import {IconBook, IconDoorEnter, IconHelp, IconInfoCircle, IconLogout,} from '@tabler/icons-react';
+import {MotionMenuButton} from '../MotionMenuButton';
 
 /**
  * LobbyHeader component that displays the header section of the lobby
@@ -32,7 +28,7 @@ const LobbyHeader = ({
   onLogout
 }) => {
   return (
-    <Box style={{ marginBottom: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <Box style={{ marginBottom: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
       <Box>
         <Typography variant="h4" style={{ marginBottom: '8px' }}>
           라이어 게임 로비
@@ -43,54 +39,58 @@ const LobbyHeader = ({
           </Typography>
         )}
       </Box>
-      <Box style={{ display: 'flex', gap: '16px' }}>
+      <Box style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
         <Button
           variant="outlined"
-          startIcon={<RefreshIcon />}
+          startIcon={<RefreshIcon size={16} />}
           onClick={onRefreshRooms}
           disabled={loading?.rooms}
         >
           새로고침
         </Button>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
+        <MotionMenuButton
           onClick={onCreateRoom}
+          icon={IconDoorEnter}
+          gradient={{ from: 'indigo', to: 'cyan' }}
+          fullWidth={false}
         >
           방 만들기
-        </Button>
-        <Button
-          variant="outlined"
-          startIcon={<AddIcon />}
+        </MotionMenuButton>
+        <MotionMenuButton
           onClick={onAddContent}
+          icon={IconBook}
+          gradient={{ from: 'teal', to: 'lime', deg: 105 }}
+          fullWidth={false}
         >
           주제/답안 추가
-        </Button>
-        <Button
-          variant="outlined"
-          startIcon={<HelpIcon />}
+        </MotionMenuButton>
+        <MotionMenuButton
           onClick={onOpenHelp}
+          icon={IconHelp}
+          gradient={{ from: '#4dabf7', to: '#a5d8ff' }}
+          fullWidth={false}
         >
           도움말
-        </Button>
-        <Button
-          variant="outlined"
-          startIcon={<InfoIcon />}
+        </MotionMenuButton>
+        <MotionMenuButton
           onClick={onOpenGameRules}
+          icon={IconInfoCircle}
+          gradient={{ from: 'grape', to: 'pink' }}
+          fullWidth={false}
         >
           게임 방법
-        </Button>
-        <Button
-          variant="outlined"
-          color="error"
-          startIcon={<LogoutIcon />}
+        </MotionMenuButton>
+        <MotionMenuButton
           onClick={onLogout}
+          icon={IconLogout}
+          gradient={{ from: 'orange', to: 'red' }}
+          fullWidth={false}
         >
           로그아웃
-        </Button>
+        </MotionMenuButton>
       </Box>
     </Box>
-  )
-}
+  );
+};
 
-export default LobbyHeader
+export default LobbyHeader;

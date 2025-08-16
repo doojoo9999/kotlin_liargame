@@ -33,8 +33,6 @@ function LoginPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
 
-  const [snackbarOpen, setSnackbarOpen] = useState(false)
-  const [snackbarMessage, setSnackbarMessage] = useState('')
   const [showConfetti, setShowConfetti] = useState(false)
   const [windowSize, setWindowSize] = useState({
     width: window.innerWidth,
@@ -91,15 +89,11 @@ function LoginPage() {
       
       console.log('[DEBUG_LOG] Login successful')
       
-      // Stop confetti after 3 seconds and navigate
-      setTimeout(() => {
-        setShowConfetti(false)
-      }, 3000)
-      
-      // 로그인 성공 후 로비로 이동
+      // 성공 메시지와 축하 효과를 잠시 보여준 후 로비로 이동합니다.
+      // 페이지가 전환되면 Confetti 컴포넌트는 자동으로 unmount되므로 수동으로 숨기는 로직은 불필요합니다.
       setTimeout(() => {
         navigate('/lobby')
-      }, 1000) // 성공 메시지를 1초간 보여준 후 이동
+      }, 1500) // 1.5초 후 이동하여 사용자가 성공 피드백을 충분히 인지하도록 합니다.
     } catch (error) {
       console.error('[DEBUG] Login error caught:', error) // 추가
       console.error('[DEBUG_LOG] Login failed:', error)
@@ -137,21 +131,24 @@ function LoginPage() {
         overflow: 'hidden'
       }}
     >
-      <Suspense fallback={<Loader />}>
+      {/* 배경과 같은 비핵심 UI는 fallback을 null로 설정하여 불필요한 로더 표시를 방지합니다. */}
+      <Suspense fallback={null}>
         {/* Advanced Animated Background */}
         <AnimatedBackground />
         
         {/* Floating Gamepad Icons */}
         <FloatingGamepadIcons />
+      </Suspense>
 
-        {/* Confetti Celebration */}
-        {showConfetti && (
+      {/* Confetti Celebration */}
+      {showConfetti && (
+        <Suspense fallback={null}>
           <Confetti
             width={windowSize.width}
             height={windowSize.height}
             recycle={false}
-            numberOfPieces={300}
-            gravity={0.3}
+            numberOfPieces={200} // 성능 최적화를 위해 파티클 수 조정
+            gravity={0.2} // 좀 더 부드러운 효과를 위해 중력 조정
             colors={[
               '#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', 
               '#ffeaa7', '#fab1a0', '#fd79a8', '#e17055',
@@ -159,8 +156,8 @@ function LoginPage() {
             ]}
             style={{ position: 'fixed', top: 0, left: 0, zIndex: 1000 }}
           />
-        )}
-      </Suspense>
+        </Suspense>
+      )}
 
       <MotionContainer size="xl" style={{ position: 'relative', zIndex: 10, maxWidth: '580px', width: '95%' }}>
         <GlassmorphismCard style={{ padding: '48px 40px', margin: '24px' }}>
