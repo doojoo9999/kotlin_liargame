@@ -1,6 +1,5 @@
 import React, {useCallback, useState} from 'react'
 import {
-    Avatar,
     Box,
     Button,
     Card,
@@ -11,9 +10,10 @@ import {
     DialogContent,
     DialogTitle,
     Grid,
+    PlayerAvatar,
     Typography
-} from '@mui/material'
-import {CheckCircle as CheckIcon, HowToVote as VoteIcon, Person as PersonIcon} from '@mui/icons-material'
+} from '@components/ui'
+import {CheckCircle as CheckIcon, User as PersonIcon, Vote as VoteIcon} from 'lucide-react'
 
 const VotingPhase = React.memo(function VotingPhase({
   players = [],
@@ -170,7 +170,7 @@ const VotingPhase = React.memo(function VotingPhase({
                 )}
 
                 {/* Player Avatar */}
-                <Avatar
+                <PlayerAvatar
                   sx={{
                     width: 60,
                     height: 60,
@@ -181,7 +181,7 @@ const VotingPhase = React.memo(function VotingPhase({
                   }}
                 >
                   {player.nickname?.[0] || <PersonIcon />}
-                </Avatar>
+                </PlayerAvatar>
 
                 {/* Player Name */}
                 <Typography

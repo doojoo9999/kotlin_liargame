@@ -1,7 +1,5 @@
 import React, {useCallback, useState} from 'react'
 import {
-    Alert,
-    Avatar,
     Box,
     Button,
     Card,
@@ -10,11 +8,11 @@ import {
     DialogActions,
     DialogContent,
     DialogTitle,
-    LinearProgress,
-    TextField,
+    Input as TextField,
+    PlayerAvatar as Avatar,
     Typography
-} from '@mui/material'
-import {Gavel as DefenseIcon, Person as PersonIcon, Shield as ShieldIcon} from '@mui/icons-material'
+} from '@components/ui'
+import {Gavel as DefenseIcon, Shield as ShieldIcon, User as PersonIcon} from 'lucide-react'
 
 const MAX_DEFENSE_LENGTH = 200
 

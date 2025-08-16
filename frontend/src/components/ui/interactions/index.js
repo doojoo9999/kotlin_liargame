@@ -2,10 +2,8 @@
 // Centralized access to all interactive feedback systems
 
 // Re-export ripple effects from PlayerAvatar
-export {
-  useRipple,
-  AvatarEffects as InteractiveWrapper
-} from '../PlayerAvatar/AvatarEffects.jsx'
+export { useRipple } from '../PlayerAvatar/AvatarEffects.jsx'
+export { default as InteractiveWrapper } from '../PlayerAvatar/AvatarEffects.jsx'
 
 // Accessibility utilities
 export {
@@ -195,26 +193,20 @@ export const USAGE_EXAMPLES = {
       )
     }
   `,
-  
-  // Use existing Button component with interactions
+
   enhancedButton: `
-    import { Button } from '@/components/ui'
-    import { buttonInteractions } from '@/components/ui/interactions'
-    
+    import { Button } from '@/components/ui'    
     <Button 
       variant="primary"
-      {...buttonInteractions.gameButton}
-      feedbackState="success" // or 'error' or null
+      feedbackState="success" 
       feedbackDuration={1000}
     >
       Click Me
     </Button>
   `,
   
-  // Interactive wrapper for any element
   wrapper: `
     import { InteractiveWrapper } from '@/components/ui/interactions'
-    
     <InteractiveWrapper 
       enableRipple={true}
       effect="glow"

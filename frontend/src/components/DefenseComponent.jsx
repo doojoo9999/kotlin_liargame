@@ -1,11 +1,11 @@
 import React, {useEffect, useState} from 'react'
-import {Alert, Avatar, Box, Button, Chip, LinearProgress, Paper, TextField, Typography} from '@mui/material'
+import {Alert, Box, Button, Chip, Input as TextField, Paper, PlayerAvatar as Avatar, Typography} from '@components/ui'
 import {
     CheckCircle as CompleteIcon,
-    RecordVoiceOver as DefenseIcon,
+    MessageCircle as DefenseIcon,
     Send as SendIcon,
     Timer as TimerIcon
-} from '@mui/icons-material'
+} from 'lucide-react'
 import {useGame} from '../stores/useGame'
 
 const DefenseComponent = ({ 
@@ -137,18 +137,21 @@ const DefenseComponent = ({
           </Typography>
         </Box>
 
-        <LinearProgress 
-          variant="determinate" 
-          value={progressValue}
-          sx={{ 
-            height: 10, 
-            borderRadius: 5,
-            bgcolor: 'rgba(255,255,255,0.5)',
-            '& .MuiLinearProgress-bar': {
-              bgcolor: timeRemaining > 10 ? 'warning.main' : 'error.main'
-            }
-          }}
-        />
+        <Box style={{
+          height: '10px',
+          borderRadius: '5px',
+          backgroundColor: 'rgba(255,255,255,0.5)',
+          width: '100%',
+          overflow: 'hidden'
+        }}>
+          <Box style={{
+            width: `${progressValue}%`,
+            height: '100%',
+            backgroundColor: timeRemaining > 10 ? '#ff9800' : '#f44336',
+            borderRadius: '5px',
+            transition: 'width 0.3s ease'
+          }} />
+        </Box>
         
         <Typography variant="body2" sx={{ mt: 1, color: 'text.secondary' }}>
           당신을 변호할 마지막 기회입니다!

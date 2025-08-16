@@ -77,8 +77,8 @@ const StyledInput = styled.input`
   
   /* Floating label padding adjustment */
   ${props => props.$hasFloatingLabel && css`
-    padding-top: ${props.$size === 'large' ? '28px' : props.$size === 'small' ? '20px' : '24px'};
-    padding-bottom: ${props.$size === 'large' ? '12px' : props.$size === 'small' ? '8px' : '10px'};
+    padding-top: ${props.$size === 'large' ? '22px' : props.$size === 'small' ? '18px' : '20px'};
+    padding-bottom: ${props.$size === 'large' ? '18px' : props.$size === 'small' ? '10px' : '14px'};
   `}
   
   /* Focus state with glow effect */
@@ -133,8 +133,13 @@ const StyledInput = styled.input`
 const FloatingLabel = styled.label`
   position: absolute;
   left: ${spacing.md};
-  top: 50%;
-  transform: translateY(-50%);
+  top: ${props => {
+    // 입력 필드의 기본 높이 기준으로 중앙 계산
+    if (props.$size === 'large') return '28px';
+    if (props.$size === 'small') return '16px';
+    return '22px'; // medium size - 기본 padding 16px + border 2px + 여백 고려
+  }};
+  transform: none;
   font-size: 16px;
   color: ${colors.text.secondary};
   pointer-events: none;
@@ -368,4 +373,5 @@ const Input = memo(forwardRef(({
 
 Input.displayName = 'Input'
 
+export { Input }
 export default Input

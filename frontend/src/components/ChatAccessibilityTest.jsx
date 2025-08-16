@@ -6,27 +6,58 @@ import {
     Card,
     CardContent,
     Chip,
-    FormControlLabel,
     Grid,
     List,
     ListItem,
     ListItemIcon,
     ListItemText,
     Paper,
-    Switch,
     Typography
-} from '@mui/material'
+} from '@components/ui'
 import {
-    Accessible as AccessibleIcon,
+    Accessibility as AccessibleIcon,
+    AlertTriangle as WarningIcon,
     Check as CheckIcon,
-    Error as ErrorIcon,
+    Eye as VisibilityIcon,
     Keyboard as KeyboardIcon,
-    Visibility as VisibilityIcon,
-    VolumeUp as VolumeIcon,
-    Warning as WarningIcon
-} from '@mui/icons-material'
+    Volume2 as VolumeIcon,
+    X as ErrorIcon
+} from 'lucide-react'
+import styled from 'styled-components'
 import OptimizedEnhancedChatSystem from './OptimizedEnhancedChatSystem'
 import {getContrastRatio, getSystemMessageColors, getUserColorSet} from '../utils/colorUtils'
+
+// Styled components to replace MUI FormControlLabel and Switch
+const FormControlLabel = styled.label`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  margin: 8px 0;
+`
+
+const Switch = styled.input.attrs({ type: 'checkbox' })`
+  position: relative;
+  width: 44px;
+  height: 24px;
+  appearance: none;
+  background: ${props => props.checked ? '#1976d2' : '#ccc'};
+  border-radius: 12px;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: ${props => props.checked ? '22px' : '2px'};
+    width: 20px;
+    height: 20px;
+    background: white;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+  }
+`
 
 // Accessibility test data
 const ACCESSIBILITY_TEST_USERS = [
@@ -206,46 +237,40 @@ const ChatAccessibilityTest = () => {
   const passRate = totalTests > 0 ? Math.round((passedTests / totalTests) * 100) : 0
 
   return (
-    <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', p: 2 }}>
-      <Typography variant="h4" gutterBottom>
+    <Box style={{ height: '100vh', display: 'flex', flexDirection: 'column', padding: '16px' }}>
+      <Typography variant="h4" style={{ marginBottom: '16px' }}>
         채팅 접근성 테스트 (WCAG 2.1 AA)
       </Typography>
 
       {/* Accessibility Controls */}
-      <Paper sx={{ p: 2, mb: 2 }}>
+      <Paper style={{ padding: '16px', marginBottom: '16px' }}>
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} md={3}>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={isDarkMode}
-                  onChange={(e) => setIsDarkMode(e.target.checked)}
-                />
-              }
-              label="다크 모드"
-            />
+            <FormControlLabel>
+              <Switch
+                checked={isDarkMode}
+                onChange={(e) => setIsDarkMode(e.target.checked)}
+              />
+              <Typography>다크 모드</Typography>
+            </FormControlLabel>
           </Grid>
           <Grid item xs={12} md={3}>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={highContrast}
-                  onChange={(e) => setHighContrast(e.target.checked)}
-                />
-              }
-              label="고대비 모드"
-            />
+            <FormControlLabel>
+              <Switch
+                checked={highContrast}
+                onChange={(e) => setHighContrast(e.target.checked)}
+              />
+              <Typography>고대비 모드</Typography>
+            </FormControlLabel>
           </Grid>
           <Grid item xs={12} md={3}>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={screenReaderMode}
-                  onChange={(e) => setScreenReaderMode(e.target.checked)}
-                />
-              }
-              label="스크린 리더 모드"
-            />
+            <FormControlLabel>
+              <Switch
+                checked={screenReaderMode}
+                onChange={(e) => setScreenReaderMode(e.target.checked)}
+              />
+              <Typography>스크린 리더 모드</Typography>
+            </FormControlLabel>
           </Grid>
           <Grid item xs={12} md={3}>
             <Button 
@@ -259,20 +284,20 @@ const ChatAccessibilityTest = () => {
         </Grid>
       </Paper>
 
-      <Grid container spacing={2} sx={{ mb: 2 }}>
+      <Grid container spacing={2} style={{ marginBottom: '16px' }}>
         {/* Test Results Summary */}
         <Grid item xs={12} md={6}>
           <Card>
             <CardContent>
-              <Typography variant="h6" gutterBottom>
+              <Typography variant="h6" style={{ marginBottom: '16px' }}>
                 접근성 테스트 결과
               </Typography>
               
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                <Typography variant="h4" color={passRate >= 80 ? 'success.main' : 'warning.main'}>
+              <Box style={{ display: 'flex', alignItems: 'center', marginBottom: '16px' }}>
+                <Typography variant="h4" style={{ color: passRate >= 80 ? '#4caf50' : '#ff9800' }}>
                   {passRate}%
                 </Typography>
-                <Box sx={{ ml: 2 }}>
+                <Box style={{ marginLeft: '16px' }}>
                   <Typography variant="body2">
                     {passedTests}/{totalTests} 테스트 통과
                   </Typography>
@@ -373,7 +398,7 @@ const ChatAccessibilityTest = () => {
 
       {/* Accessibility Instructions */}
       {screenReaderMode && (
-        <Alert severity="info" sx={{ mb: 2 }}>
+        <Alert severity="info" style={{ marginBottom: '16px' }}>
           <Typography variant="body2">
             <strong>스크린 리더 사용자를 위한 안내:</strong><br />
             • Tab 키로 메시지 간 이동<br />
@@ -385,27 +410,24 @@ const ChatAccessibilityTest = () => {
       )}
 
       {/* Live Chat Demo with Accessibility */}
-      <Paper sx={{ 
+      <Paper style={{ 
         flex: 1, 
         display: 'flex', 
         flexDirection: 'column', 
         overflow: 'hidden',
-        ...(highContrast && {
-          border: '2px solid',
-          borderColor: 'text.primary',
-          backgroundColor: 'background.default'
-        })
+        border: highContrast ? '2px solid #000' : 'none',
+        backgroundColor: highContrast ? '#fff' : undefined
       }}>
-        <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
+        <Box style={{ padding: '16px', borderBottom: '1px solid #e0e0e0' }}>
           <Typography variant="h6">
             접근성 최적화 채팅 데모
           </Typography>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" style={{ color: '#666666' }}>
             스크린 리더, 키보드 네비게이션, 색상 대비 등 모든 접근성 기능이 적용된 채팅 시스템입니다.
           </Typography>
         </Box>
         
-        <Box ref={chatContainerRef} sx={{ flex: 1, overflow: 'hidden' }}>
+        <Box ref={chatContainerRef} style={{ flex: 1, overflow: 'hidden' }}>
           <OptimizedEnhancedChatSystem
             messages={ACCESSIBILITY_TEST_MESSAGES}
             currentUser={currentUser}

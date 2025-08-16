@@ -1,17 +1,17 @@
 import React from 'react'
-import {Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Typography} from '@mui/material'
+import {Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Typography} from '@components/ui'
 
 const GameRulesDialog = ({ open, onClose }) => {
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>게임 방법</DialogTitle>
       <DialogContent>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: 1 }}>
+        <Box style={{ display: 'flex', flexDirection: 'column', gap: '24px', paddingTop: '8px' }}>
           <Box>
-            <Typography variant="h6" gutterBottom color="primary">
+            <Typography variant="h6" style={{ marginBottom: '8px', color: '#1976d2' }}>
               🎯 게임 목표
             </Typography>
-            <Typography variant="body2" sx={{ mb: 2 }}>
+            <Typography variant="body2" style={{ marginBottom: '16px' }}>
               라이어 게임은 <strong>시민</strong>과 <strong>라이어</strong>로 나뉘어 진행되는 추리 게임입니다.<br/>
               • <strong>시민의 목표:</strong> 라이어를 찾아내기<br/>
               • <strong>라이어의 목표:</strong> 정체를 숨기고 주제를 맞히기
@@ -19,10 +19,10 @@ const GameRulesDialog = ({ open, onClose }) => {
           </Box>
 
           <Box>
-            <Typography variant="h6" gutterBottom color="primary">
+            <Typography variant="h6" style={{ marginBottom: '8px', color: '#1976d2' }}>
               📋 게임 진행 순서
             </Typography>
-            <Typography variant="body2" sx={{ mb: 2 }}>
+            <Typography variant="body2" style={{ marginBottom: '16px' }}>
               <strong>1. 역할 배정</strong><br/>
               • 한 명이 라이어로, 나머지는 시민으로 배정됩니다.<br/>
               • 시민들은 같은 단어를, 라이어는 다른 정보를 받습니다.<br/><br/>
@@ -39,10 +39,10 @@ const GameRulesDialog = ({ open, onClose }) => {
           </Box>
 
           <Box>
-            <Typography variant="h6" gutterBottom color="primary">
+            <Typography variant="h6" style={{ marginBottom: '8px', color: '#1976d2' }}>
               🏆 승리 조건
             </Typography>
-            <Typography variant="body2" sx={{ mb: 2 }}>
+            <Typography variant="body2" style={{ marginBottom: '16px' }}>
               <strong>시민 승리:</strong><br/>
               • 라이어를 정확히 찾아낸 경우<br/><br/>
               
@@ -53,10 +53,10 @@ const GameRulesDialog = ({ open, onClose }) => {
           </Box>
 
           <Box>
-            <Typography variant="h6" gutterBottom color="primary">
+            <Typography variant="h6" style={{ marginBottom: '8px', color: '#1976d2' }}>
               🎮 게임 모드
             </Typography>
-            <Typography variant="body2" sx={{ mb: 2 }}>
+            <Typography variant="body2" style={{ marginBottom: '16px' }}>
               <strong>1. 라이어가 자신이 라이어인 것을 아는 모드</strong><br/>
               • 라이어는 자신의 역할을 알고 있습니다.<br/>
               • 라이어는 "라이어" 표시를 보고 주제를 추측해야 합니다.<br/><br/>
@@ -68,7 +68,7 @@ const GameRulesDialog = ({ open, onClose }) => {
           </Box>
 
           <Box>
-            <Typography variant="h6" gutterBottom color="primary">
+            <Typography variant="h6" style={{ marginBottom: '8px', color: '#1976d2' }}>
               💡 게임 팁
             </Typography>
             <Typography variant="body2">
@@ -86,7 +86,7 @@ const GameRulesDialog = ({ open, onClose }) => {
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} color="primary" variant="contained">
+        <Button onClick={onClose} variant="contained">
           닫기
         </Button>
       </DialogActions>

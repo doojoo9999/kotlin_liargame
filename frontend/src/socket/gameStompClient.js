@@ -226,32 +226,38 @@ class GameStompClient {
                         return
                     }
 
-                    // Try to connect if not already connecting
-                    if (!this.isConnected && !this.isConnecting) {
-                        console.log('[DEBUG_LOG] Initiating connection for subscription to:', topic)
-                        await this.connect()
-                    }
-                    
-                    // Wait for connection to be established
-                    if (this.connectionPromise) {
-                        await this.connectionPromise
-                    }
-                    
-                    // Double-check connection state and subscription status
-                    if (this.isConnected && this.client && this.client.connected) {
-                        // Final check for duplicate subscription
-                        if (this.subscriptions.has(topic)) {
-                            clearTimeout(timeoutId)
-                            console.log('[DEBUG_LOG] Subscription created by another call for:', topic)
-                            resolve(this.subscriptions.get(topic))
-                            return
+                    try {
+                        // Try to connect if not already connecting
+                        if (!this.isConnected && !this.isConnecting) {
+                            console.log('[DEBUG_LOG] Initiating connection for subscription to:', topic)
+                            await this.connect()
                         }
-                        
+
+                        // Wait for connection to be established
+                        if (this.connectionPromise) {
+                            await this.connectionPromise
+                        }
+
+                        // Double-check connection state and subscription status
+                        if (this.isConnected && this.client && this.client.connected) {
+                            // Final check for duplicate subscription
+                            if (this.subscriptions.has(topic)) {
+                                clearTimeout(timeoutId)
+                                console.log('[DEBUG_LOG] Subscription created by another call for:', topic)
+                                resolve(this.subscriptions.get(topic))
+                                return
+                            }
+
+                            clearTimeout(timeoutId)
+                            const subscription = this._doSubscribe(topic, callback)
+                            resolve(subscription)
+                        } else {
+                            throw new Error('Failed to establish connection for subscription')
+                        }
+                    } catch (connectionError) {
                         clearTimeout(timeoutId)
-                        const subscription = this._doSubscribe(topic, callback)
-                        resolve(subscription)
-                    } else {
-                        throw new Error('Failed to establish connection for subscription')
+                        console.error('[DEBUG_LOG] Connection failed during subscription attempt:', connectionError)
+                        reject(connectionError)
                     }
                 } catch (error) {
                     clearTimeout(timeoutId)
@@ -364,4 +370,8 @@ class GameStompClient {
     }
 }
 
-export default GameStompClient
+// Create singleton instance
+const gameStompClient = new GameStompClient()
+
+export default gameStompClient
+export { GameStompClient }

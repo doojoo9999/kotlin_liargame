@@ -7,9 +7,9 @@ import {
     DialogActions,
     DialogContent,
     DialogTitle,
-    TextField,
+    Input as TextField,
     Typography
-} from '@mui/material'
+} from '@components/ui'
 
 const JoinRoomDialog = ({
   open,
@@ -25,11 +25,11 @@ const JoinRoomDialog = ({
       <DialogTitle>방 입장</DialogTitle>
       <DialogContent>
         {selectedRoom && (
-          <Box sx={{ pt: 1 }}>
-            <Typography variant="h6" gutterBottom>
+          <Box style={{ paddingTop: '8px' }}>
+            <Typography variant="h6" style={{ marginBottom: '8px' }}>
               {selectedRoom.title}
             </Typography>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
+            <Typography variant="body2" style={{ color: '#666666', marginBottom: '8px' }}>
               방장: {selectedRoom.host} | 인원: {selectedRoom.playerCount}/{selectedRoom.maxPlayers}
             </Typography>
             
@@ -39,8 +39,7 @@ const JoinRoomDialog = ({
                 type="password"
                 value={joinPassword}
                 onChange={(e) => onPasswordChange(e.target.value)}
-                fullWidth
-                sx={{ mt: 2 }}
+                style={{ width: '100%', marginTop: '16px' }}
                 required
               />
             )}

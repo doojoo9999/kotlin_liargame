@@ -2,6 +2,9 @@ import React from 'react'
 import {createBrowserRouter, Navigate, RouterProvider} from 'react-router-dom'
 import {Alert, Box, CircularProgress, CssBaseline} from './components/ui'
 import {ThemeProvider} from './styles'
+import {MantineProvider} from '@mantine/core'
+import '@mantine/core/styles.css'
+import {gameTheme} from './styles/gameTheme'
 import {GameProvider, useGame} from './context/GameContext'
 import LoginPage from './pages/LoginPage'
 import LobbyPageWithLoader from './pages/LobbyPageWithLoader'
@@ -195,11 +198,13 @@ function AppRouterWrapper({ children }) {
 
 function App() {
   return (
-    <ThemeProvider>
-      <CssBaseline>
-        <RouterProvider router={router} />
-      </CssBaseline>
-    </ThemeProvider>
+    <MantineProvider theme={gameTheme} defaultColorScheme="dark">
+      <ThemeProvider>
+        <CssBaseline>
+          <RouterProvider router={router} />
+        </CssBaseline>
+      </ThemeProvider>
+    </MantineProvider>
   )
 }
 

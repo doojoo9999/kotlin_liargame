@@ -1,12 +1,12 @@
 import React from 'react'
-import {Box, Button, Typography} from '@mui/material'
+import {Box, Button, Typography} from '@components/ui'
 import {
-    Add as AddIcon,
-    HelpOutline as HelpIcon,
-    InfoOutlined as InfoIcon,
-    Logout as LogoutIcon,
-    Refresh as RefreshIcon
-} from '@mui/icons-material'
+    HelpCircle as HelpIcon,
+    Info as InfoIcon,
+    LogOut as LogoutIcon,
+    Plus as AddIcon,
+    RotateCcw as RefreshIcon
+} from 'lucide-react'
 
 /**
  * LobbyHeader component that displays the header section of the lobby
@@ -32,18 +32,18 @@ const LobbyHeader = ({
   onLogout
 }) => {
   return (
-    <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <Box style={{ marginBottom: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
       <Box>
-        <Typography variant="h4" component="h1" gutterBottom>
+        <Typography variant="h4" style={{ marginBottom: '8px' }}>
           라이어 게임 로비
         </Typography>
         {currentUser && (
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" style={{ color: '#666666' }}>
             환영합니다, {currentUser.nickname}님!
           </Typography>
         )}
       </Box>
-      <Box sx={{ display: 'flex', gap: 2 }}>
+      <Box style={{ display: 'flex', gap: '16px' }}>
         <Button
           variant="outlined"
           startIcon={<RefreshIcon />}

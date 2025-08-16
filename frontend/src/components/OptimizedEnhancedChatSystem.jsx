@@ -1,16 +1,6 @@
 import React, {useEffect, useMemo, useRef, useState} from 'react'
-import {
-    Box,
-    Divider,
-    IconButton,
-    InputAdornment,
-    Menu,
-    TextField,
-    Typography,
-    useMediaQuery,
-    useTheme
-} from '@mui/material'
-import {EmojiEmotions as EmojiIcon, Send as SendIcon} from '@mui/icons-material'
+import {Box, Divider, Input as TextField, Typography} from './ui'
+import {Send as SendIcon, Smile as EmojiIcon} from 'lucide-react'
 import ChatMessageList from './ChatMessageList'
 import {useChatOptimization} from '../hooks/chat-optimization/useChatOptimization'
 import {getChatThemeVariant, THEME_TRANSITIONS} from '../styles/themeVariants'
@@ -68,9 +58,14 @@ const OptimizedEnhancedChatSystem = ({
                                          placeholder = "메시지를 입력하세요...",
                                          maxLength = 200
                                      }) => {
-    const theme = useTheme()
-    const isDarkMode = theme.palette.mode === 'dark'
-    const isMobile = useMediaQuery(theme.breakpoints.down('md'))
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 960)
+    const isDarkMode = false // Default to light mode since we removed theme
+    
+    useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth < 960)
+        window.addEventListener('resize', handleResize)
+        return () => window.removeEventListener('resize', handleResize)
+    }, [])
 
     const [inputValue, setInputValue] = useState('')
     const [emojiMenuAnchor, setEmojiMenuAnchor] = useState(null)

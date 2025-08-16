@@ -1,6 +1,7 @@
-import React, {useEffect, useState} from 'react'
-import {Alert, Box, Button, CircularProgress, Container, Paper, Snackbar, TextField, Typography} from '@mui/material'
-import {Login as LoginIcon, SportsEsports as GameIcon} from '@mui/icons-material'
+import React, {lazy, Suspense, useEffect, useState} from 'react'
+import {Alert, Box, Button, Container, Loader, Stack, Text, TextInput, Title} from '@mantine/core'
+import {IconDeviceGamepad2, IconLogin} from '@tabler/icons-react'
+import {motion} from 'framer-motion'
 import {useGame} from '../context/GameContext'
 import {useNavigate, useSearchParams} from 'react-router-dom'
 import {mapAuthCodeToUiPreset, mapHttpErrorToAuthCode} from '../utils/authErrorMapping'
@@ -9,14 +10,22 @@ import {Events, trackEvent} from '../utils/analytics'
 import {Controller, useForm} from 'react-hook-form'
 import {z} from 'zod'
 import {zodResolver} from '@hookform/resolvers/zod'
-import FadeInUp from '../components/animations/FadeInUp'
+import {notifications} from '@mantine/notifications'
+import {GlassmorphismCard} from '../components/GlassmorphismCard'
+
+const AnimatedBackground = lazy(() => import('../components/AnimatedBackground').then(module => ({ default: module.AnimatedBackground })));
+const FloatingGamepadIcons = lazy(() => import('../components/FloatingGamepadIcons').then(module => ({ default: module.FloatingGamepadIcons })));
+const Confetti = lazy(() => import('react-confetti'));
+
+
+const MotionContainer = motion.create(Container)
 
 const schema = z.object({
   nickname: z.string()
     .min(1, '닉네임을 입력해주세요.')
     .min(2, '닉네임은 최소 2글자 이상이어야 합니다.')
     .max(12, '닉네임은 최대 12글자까지 가능합니다.')
-    .refine((value) => !/[<>"'&]/.test(value), '닉네임에 특수문자는 사용할 수 없습니다.')
+    .refine((value) => !/[<>\"\'&]/.test(value), '닉네임에 특수문자는 사용할 수 없습니다.')
 })
 
 function LoginPage() {
@@ -26,10 +35,15 @@ function LoginPage() {
 
   const [snackbarOpen, setSnackbarOpen] = useState(false)
   const [snackbarMessage, setSnackbarMessage] = useState('')
+  const [showConfetti, setShowConfetti] = useState(false)
+  const [windowSize, setWindowSize] = useState({
+    width: window.innerWidth,
+    height: window.innerHeight
+  })
 
   const { control, handleSubmit, formState: { errors, isSubmitting }, setValue, watch } = useForm({
     resolver: zodResolver(schema),
-    mode: 'onBlur',
+    mode: 'onSubmit',
     defaultValues: { nickname: '' },
   })
 
@@ -43,18 +57,51 @@ function LoginPage() {
     if (safeReturnTo) persistReturnTo(safeReturnTo)
   }, [searchParams, setValue])
 
+  // Window resize handler for confetti
+  useEffect(() => {
+    const handleResize = () => {
+      setWindowSize({
+        width: window.innerWidth,
+        height: window.innerHeight
+      })
+    }
+
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
   const onSubmit = async (data) => {
+    console.log('[DEBUG] onSubmit called with data:', data) // 추가
     const trimmedNickname = data.nickname.trim()
+    console.log('[DEBUG] Trimmed nickname:', trimmedNickname) // 추가
 
     try {
       console.log('[DEBUG_LOG] Attempting login with nickname:', trimmedNickname)
       await login(trimmedNickname)
 
-      setSnackbarMessage(`${trimmedNickname}님, 환영합니다!`)
-      setSnackbarOpen(true)
+      // Trigger confetti celebration
+      setShowConfetti(true)
+      
+      notifications.show({
+        title: '🎉 로그인 성공!',
+        message: `${trimmedNickname}님, 환영합니다! 게임을 시작하세요! 🎮✨`,
+        color: 'green',
+        autoClose: 3000,
+      })
       
       console.log('[DEBUG_LOG] Login successful')
+      
+      // Stop confetti after 3 seconds and navigate
+      setTimeout(() => {
+        setShowConfetti(false)
+      }, 3000)
+      
+      // 로그인 성공 후 로비로 이동
+      setTimeout(() => {
+        navigate('/lobby')
+      }, 1000) // 성공 메시지를 1초간 보여준 후 이동
     } catch (error) {
+      console.error('[DEBUG] Login error caught:', error) // 추가
       console.error('[DEBUG_LOG] Login failed:', error)
 
       const errorCode = mapHttpErrorToAuthCode(error)
@@ -79,177 +126,282 @@ function LoginPage() {
     }
   }
 
-  const handleSnackbarClose = () => {
-    setSnackbarOpen(false)
-  }
-
   return (
     <Box
-      sx={{
+      style={{
         minHeight: '100vh',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        p: 2
+        position: 'relative',
+        overflow: 'hidden'
       }}
     >
-      <Container maxWidth="sm">
-        <FadeInUp delay={0.2}>
-          <Paper
-            elevation={8}
-            sx={{
-              p: 4,
-              borderRadius: 4,
-              textAlign: 'center',
-              background: 'rgba(255, 255, 255, 0.1)',
-              backdropFilter: 'blur(15px)',
-              border: '1px solid rgba(255, 255, 255, 0.2)'
-            }}
-          >
-          {/* Game Title and Icon */}
-          <Box sx={{ mb: 4 }}>
-            <GameIcon 
-              sx={{ 
-                fontSize: 64, 
-                color: 'primary.main', 
-                mb: 2 
-              }} 
-            />
-            <Typography 
-              variant="h3" 
-              component="h1" 
-              gutterBottom
-              sx={{ 
-                fontWeight: 'bold',
-                color: 'primary.main',
-                textShadow: '2px 2px 4px rgba(0,0,0,0.1)'
+      <Suspense fallback={<Loader />}>
+        {/* Advanced Animated Background */}
+        <AnimatedBackground />
+        
+        {/* Floating Gamepad Icons */}
+        <FloatingGamepadIcons />
+
+        {/* Confetti Celebration */}
+        {showConfetti && (
+          <Confetti
+            width={windowSize.width}
+            height={windowSize.height}
+            recycle={false}
+            numberOfPieces={300}
+            gravity={0.3}
+            colors={[
+              '#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', 
+              '#ffeaa7', '#fab1a0', '#fd79a8', '#e17055',
+              '#667eea', '#764ba2', '#f093fb'
+            ]}
+            style={{ position: 'fixed', top: 0, left: 0, zIndex: 1000 }}
+          />
+        )}
+      </Suspense>
+
+      <MotionContainer size="xl" style={{ position: 'relative', zIndex: 10, maxWidth: '580px', width: '95%' }}>
+        <GlassmorphismCard style={{ padding: '48px 40px', margin: '24px' }}>
+          {/* Game Title and Icon with Enhanced Animations */}
+          <Stack gap="xl" py="20px" m="48px">
+            <motion.div
+              initial={{ scale: 0, rotate: -180 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{ 
+                duration: 0.8, 
+                delay: 0.2,
+                type: "spring",
+                stiffness: 200
+              }}
+              whileHover={{ 
+                scale: 1.1,
+                rotate: [0, -10, 10, 0],
+                transition: { duration: 0.5 }
               }}
             >
-              라이어 게임
-            </Typography>
-            <Typography 
-              variant="h6" 
-              color="text.secondary"
-              sx={{ mb: 3 }}
+              <IconDeviceGamepad2 
+                size={80}
+                color="#ffffff"
+                style={{ 
+                  marginBottom: '16px'
+                }}
+              />
+            </motion.div>
+            
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.3 }}
             >
-              닉네임을 입력하고 게임을 시작하세요!
-            </Typography>
-          </Box>
+              <Title 
+                order={1}
+                style={{ 
+                  fontWeight: 'bold',
+                  color: '#ffffff',
+                  textShadow: '2px 2px 4px rgba(0,0,0,0.5)',
+                  marginBottom: '16px',
+                  fontSize: '2.5rem'
+                }}
+              >
+                라이어 게임
+              </Title>
+            </motion.div>
 
-          {/* Login Form */}
-          <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ mb: 3 }}>
-            <Controller
-              name="nickname"
-              control={control}
-              render={({ field }) => (
-                <TextField
-                  {...field}
-                  fullWidth
-                  label="닉네임"
-                  variant="outlined"
-                  error={!!errors.nickname}
-                  helperText={errors.nickname?.message || '2-12글자의 닉네임을 입력해주세요'}
-                  disabled={loading.auth}
-                  sx={{ 
-                    mb: 3,
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: 2,
-                      fontSize: '1.1rem'
-                    }
-                  }}
-                  inputProps={{
-                    maxLength: 12,
-                    autoComplete: 'username'
-                  }}
-                  autoFocus
-                />
-              )}
-            />
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.4 }}
+            >
+              <Text 
+                size="lg"
+                style={{ 
+                  color: '#cbd5e1',
+                  marginBottom: '24px',
+                  fontWeight: '500',
+                  fontSize: '1.2rem'
+                }}
+              >
+                닉네임을 입력하고 게임을 시작하세요! 🎮
+              </Text>
+            </motion.div>
+          </Stack>
+
+          {/* Enhanced Login Form */}
+          <motion.form
+            onSubmit={handleSubmit(onSubmit)}
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.5 }}
+          >
+            <Stack gap="3px" m="40px">
+              <Controller
+                name="nickname"
+                control={control}
+                render={({ field }) => (
+                  <TextInput
+                    {...field}
+                    label="닉네임"
+                    placeholder="2-12글자의 닉네임을 입력해주세요"
+                    error={errors.nickname?.message}
+                    disabled={loading.auth}
+                    maxLength={12}
+                    autoComplete="username"
+                    autoFocus
+                    size="lg"
+                    radius="md"
+                    styles={{
+                      input: {
+                        background: '#ffffff',
+                        border: '2px solid #e2e8f0',
+                        padding: '16px 20px',
+                        fontSize: '16px',
+                        color: '#2d3748',
+                        '&:focus': {
+                          borderColor: '#667eea'
+                        }
+                      },
+                      label: {
+                        color: '#ffffff',
+                        fontWeight: 500,
+                        marginBottom: '8px'
+                      }
+                    }}
+                  />
+                )}
+              />
 
               <Button
-                  type="submit"
-                  variant="contained"
-                  size="large"
-                  fullWidth
-                  startIcon={loading.auth ? <CircularProgress size={20} color="inherit" /> : <LoginIcon />}
-                  disabled={loading.auth || isSubmitting || !nicknameValue?.trim()}
-                  sx={{
-                      py: 1.5,
-                      fontSize: '1.1rem',
-                      fontWeight: 'bold',
-                      borderRadius: 2,
-                      textTransform: 'none',
-                      boxShadow: 3,
-                      '&:hover': {
-                          boxShadow: 6,
-                          transform: 'translateY(-2px)'
-                      },
-                      '&:disabled': {
-                          backgroundColor: 'grey.300'
-                      }
-                  }}
+                type="submit"
+                onClick={() => {
+                  console.log('[DEBUG] Button clicked')
+                  console.log('[DEBUG] Button disabled state:', loading.auth || isSubmitting || !nicknameValue?.trim())
+                  console.log('[DEBUG] Form state:', { loading: loading.auth, isSubmitting, nicknameValue, trimmed: nicknameValue?.trim() })
+                }}
+                disabled={loading.auth || isSubmitting || !nicknameValue?.trim()}
+                leftSection={loading.auth ? <Loader size={20} /> : <IconLogin size={20} />}
+                variant="gradient"
+                gradient={{ from: 'violet', to: 'cyan' }}
+                size="lg"
+                fullWidth
+                radius="md"
+                style={{
+                  fontSize: '1.1rem',
+                  fontWeight: 'bold',
+                  textTransform: 'none',
+                  padding: '16px 32px',
+                  marginTop: '8px'
+                }}
               >
-                  {loading.auth ? '접속 중...' : '게임 시작'}
+                {loading.auth ? '접속 중...' : '게임 시작'}
               </Button>
-          </Box>
+            </Stack>
+          </motion.form>
 
-          {/* Error Display */}
+          {/* Enhanced Error Display */}
           {error.auth && (
-            <Alert 
-              severity="error" 
-              sx={{ 
-                mb: 2,
-                borderRadius: 2,
-                '& .MuiAlert-message': {
-                  fontSize: '0.95rem'
-                }
-              }}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: -20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: -20 }}
+              transition={{ duration: 0.3, type: "spring" }}
             >
-              {error.auth}
-            </Alert>
+              <Alert 
+                color="red"
+                radius="md"
+                mb="md"
+                style={{
+                  background: 'rgba(255, 107, 107, 0.15)',
+                  backdropFilter: 'blur(10px)',
+                  border: '1px solid rgba(255, 107, 107, 0.3)',
+                  color: '#ff6b6b',
+                  textShadow: '0 0 10px rgba(255, 107, 107, 0.5)'
+                }}
+              >
+                {error.auth}
+              </Alert>
+            </motion.div>
           )}
 
-          {/* Game Instructions */}
-          <Box sx={{ mt: 4, p: 2, backgroundColor: 'grey.50', borderRadius: 2 }}>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              <strong>게임 방법:</strong>
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'left' }}>
-              • 플레이어 중 한 명이 라이어가 됩니다<br />
-              • 라이어를 제외한 모든 플레이어는 같은 주제를 받습니다<br />
-              • 라이어는 다른 주제나 가짜 키워드를 받습니다<br />
-              • 대화를 통해 라이어를 찾아내세요!
-            </Typography>
-          </Box>
-
-          {/* Version Info */}
-          <Typography 
-            variant="caption" 
-            color="text.disabled" 
-            sx={{ mt: 2, display: 'block' }}
+          {/* Enhanced Game Instructions */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.6 }}
           >
-            Liar Game v1.0 - Powered by React & Material-UI
-          </Typography>
-        </Paper>
-        </FadeInUp>
-      </Container>
+            <motion.div
+              style={{
+                padding: '24px',
+                marginTop: '40px',
+                borderRadius: '16px',
+                background: `
+                  linear-gradient(135deg, 
+                    rgba(255, 255, 255, 0.1) 0%, 
+                    rgba(255, 255, 255, 0.05) 100%
+                  )
+                `,
+                backdropFilter: 'blur(15px)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                textAlign: 'left'
+              }}
+              whileHover={{ 
+                scale: 1.02,
+                background: `
+                  linear-gradient(135deg, 
+                    rgba(255, 255, 255, 0.15) 0%, 
+                    rgba(255, 255, 255, 0.08) 100%
+                  )
+                `
+              }}
+              transition={{ duration: 0.3 }}
+            >
+              <Text 
+                fw="bold"
+                style={{ 
+                  color: 'rgba(255, 255, 255, 0.9)',
+                  marginBottom: '12px',
+                  fontSize: '16px',
+                  textShadow: '0 0 10px rgba(76, 236, 196, 0.3)'
+                }}
+              >
+                🎯 게임 방법:
+              </Text>
+              <Text 
+                size="sm"
+                style={{ 
+                  color: 'rgba(255, 255, 255, 0.8)',
+                  lineHeight: 1.8,
+                  fontSize: '14px'
+                }}
+              >
+                🎭 플레이어 중 한 명이 라이어가 됩니다<br />
+                📝 라이어를 제외한 모든 플레이어는 같은 주제를 받습니다<br />
+                🎪 라이어는 다른 주제나 가짜 키워드를 받습니다<br />
+                🕵️ 대화를 통해 라이어를 찾아내세요!
+              </Text>
+            </motion.div>
+          </motion.div>
 
-      {/* Snackbar for notifications */}
-      <Snackbar
-        open={snackbarOpen}
-        autoHideDuration={4000}
-        onClose={handleSnackbarClose}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-      >
-        <Alert 
-          onClose={handleSnackbarClose} 
-          severity={error.auth ? 'error' : 'success'}
-          sx={{ width: '100%' }}
-        >
-          {snackbarMessage}
-        </Alert>
-      </Snackbar>
+          {/* Enhanced Version Info */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5, delay: 0.7 }}
+          >
+            <Text 
+              size="xs"
+              style={{ 
+                color: 'rgba(255, 255, 255, 0.5)',
+                marginTop: '24px',
+                textAlign: 'center'
+              }}
+            >
+              ⚡ Liar Game v2.0 - Powered by Advanced Gaming UI ⚡
+            </Text>
+          </motion.div>
+        </GlassmorphismCard>
+      </MotionContainer>
     </Box>
   )
 }

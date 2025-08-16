@@ -1,5 +1,5 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react'
-import {Box, Typography} from '@mui/material'
+import {Box, Typography} from '@components/ui'
 
 const TYPING_SPEEDS = {
   info: 50,     // General messages (50ms/char)

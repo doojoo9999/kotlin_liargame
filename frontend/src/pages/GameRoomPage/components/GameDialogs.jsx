@@ -3,7 +3,7 @@
 // Handles leave dialog, tutorial dialog, and game result dialog
 
 import React from 'react'
-import {Button, Dialog, DialogActions, DialogContent, DialogTitle, Typography} from '@mui/material'
+import {Button, Dialog, DialogActions, DialogContent, DialogTitle, Typography} from '@components/ui'
 import GameResultScreen from '../../../components/GameResultScreen'
 import GameTutorialSystem from '../../../components/GameTutorialSystem'
 
@@ -26,8 +26,6 @@ const GameDialogs = React.memo(function GameDialogs({
         open={dialogs.leaveDialogOpen}
         onClose={dialogActions.closeLeaveDialog}
         aria-labelledby="leave-dialog-title"
-        maxWidth="sm"
-        fullWidth
       >
         <DialogTitle id="leave-dialog-title">
           게임방 나가기
@@ -36,21 +34,21 @@ const GameDialogs = React.memo(function GameDialogs({
           <Typography>
             정말로 게임방을 나가시겠습니까?
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+          <Typography variant="body2" style={{ color: 'rgba(0, 0, 0, 0.6)', marginTop: '8px' }}>
             게임 진행 중에 나가면 다른 플레이어들에게 영향을 줄 수 있습니다.
           </Typography>
         </DialogContent>
         <DialogActions>
           <Button 
             onClick={dialogActions.closeLeaveDialog}
-            color="primary"
+            variant="text"
           >
             취소
           </Button>
           <Button
             onClick={handleLeaveRoom}
-            color="error"
             variant="contained"
+            style={{ backgroundColor: '#f44336', color: 'white' }}
           >
             나가기
           </Button>

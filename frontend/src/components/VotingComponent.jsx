@@ -1,18 +1,6 @@
 import React, {useEffect, useState} from 'react'
-import {
-    Avatar,
-    Box,
-    Button,
-    Card,
-    CardContent,
-    Chip,
-    Fade,
-    Grid,
-    LinearProgress,
-    Paper,
-    Typography
-} from '@mui/material'
-import {CheckCircle as CheckIcon, HowToVote as VoteIcon, Timer as TimerIcon} from '@mui/icons-material'
+import {Box, Button, Card, CardContent, Chip, Paper, Typography} from '../ui'
+import {CheckCircle as CheckIcon, Timer as TimerIcon, Vote as VoteIcon} from 'lucide-react'
 import {useGame} from '../context/GameContext'
 
 const VotingComponent = ({ 
@@ -88,35 +76,43 @@ const VotingComponent = ({
   const gridSize = getGridSize(votableePlayers.length)
 
   return (
-    <Paper sx={{ p: 3, bgcolor: 'warning.light', borderRadius: 3 }}>
+    <Paper style={{ padding: '24px', backgroundColor: '#fff3e0', borderRadius: '24px' }}>
       {/* Voting Header */}
-      <Box sx={{ textAlign: 'center', mb: 3 }}>
-        <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'warning.dark', mb: 2 }}>
+      <Box $textAlign="center" $marginBottom="24px">
+        <Typography variant="h4" style={{ fontWeight: 'bold', color: '#e65100', marginBottom: '16px' }}>
           🗳️ 라이어를 지목해 주세요
         </Typography>
         
         {/* Timer */}
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, mb: 2 }}>
-          <TimerIcon color="error" />
-          <Typography variant="h5" color="error.main" fontWeight="bold">
+        <Box $display="flex" $alignItems="center" $justifyContent="center" $gap="16px" $marginBottom="16px">
+          <TimerIcon size={24} style={{ color: '#f44336' }} />
+          <Typography variant="h5" style={{ color: '#f44336', fontWeight: 'bold' }}>
             {formatTime(gameTimer)}
           </Typography>
         </Box>
 
         {/* Progress Bar */}
-        <LinearProgress 
-          variant="determinate" 
-          value={(votingProgress.voted / votingProgress.total) * 100}
-          sx={{ 
-            height: 10, 
-            borderRadius: 5,
-            bgcolor: 'rgba(255,255,255,0.5)',
-            mb: 1,
-            '& .MuiLinearProgress-bar': {
-              bgcolor: 'success.main'
-            }
+        <Box
+          style={{
+            width: '100%',
+            height: '10px', 
+            borderRadius: '5px',
+            backgroundColor: 'rgba(255,255,255,0.5)',
+            marginBottom: '8px',
+            position: 'relative',
+            overflow: 'hidden'
           }}
-        />
+        >
+          <Box
+            style={{
+              height: '100%',
+              width: `${(votingProgress.voted / votingProgress.total) * 100}%`,
+              backgroundColor: '#4caf50',
+              borderRadius: '5px',
+              transition: 'width 0.3s ease-in-out'
+            }}
+          />
+        </Box>
         
         <Typography variant="body1" sx={{ color: 'text.secondary' }}>
           투표 완료: {votingProgress.voted} / {votingProgress.total}명

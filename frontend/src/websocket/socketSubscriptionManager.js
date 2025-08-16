@@ -39,9 +39,17 @@ export const subscribeToRoomConnection = (gameNumber, dispatch, loadChatHistory)
     try {
       console.log('[DEBUG_LOG] Setting up room connection subscriptions for game:', gameNumber)
       
-      // Load chat history before WebSocket connection
+      // Try to load chat history, but don't let it block room connection
       console.log('[DEBUG_LOG] Loading chat history before WebSocket connection')
-      await loadChatHistory(gameNumber)
+      try {
+        await loadChatHistory(gameNumber)
+      } catch (historyError) {
+        console.warn('[WARNING] Failed to load chat history, but continuing with room connection:', historyError.message)
+        // Don't block room connection if chat history fails
+        if (historyError.message?.includes('429') || historyError.response?.status === 429) {
+          console.log('[DEBUG_LOG] Rate limit detected, skipping chat history for now')
+        }
+      }
       
       // Set up real-time chat subscription
       gameStompClient.subscribeToGameChat(gameNumber, (message) => {

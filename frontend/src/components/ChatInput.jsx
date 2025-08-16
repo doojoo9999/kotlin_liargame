@@ -1,6 +1,6 @@
 import {useState} from 'react'
-import {Box, IconButton, TextField} from '@mui/material'
-import SendIcon from '@mui/icons-material/Send'
+import {Box, Button, Input as TextField} from '@components/ui'
+import {Send as SendIcon} from 'lucide-react'
 import PropTypes from 'prop-types'
 
 /**
@@ -31,31 +31,33 @@ function ChatInput({ onSendMessage }) {
   }
 
   return (
-    <Box sx={{ 
+    <Box style={{ 
       display: 'flex', 
       alignItems: 'center',
-      p: 1,
-      borderTop: 1,
-      borderColor: 'divider'
+      padding: '8px',
+      borderTop: '1px solid #e0e0e0'
     }}>
       <TextField
-        fullWidth
-        variant="outlined"
         placeholder="Type a message..."
-        size="small"
         value={message}
         onChange={handleInputChange}
         onKeyPress={handleKeyPress}
-        sx={{ mr: 1 }}
+        style={{ marginRight: '8px', flex: 1 }}
       />
-      <IconButton 
-        color="primary" 
+      <Button 
         onClick={handleSendMessage}
         disabled={!message.trim()}
         aria-label="send message"
+        style={{
+          minWidth: '40px',
+          padding: '8px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}
       >
-        <SendIcon />
-      </IconButton>
+        <SendIcon size={20} />
+      </Button>
     </Box>
   )
 }

@@ -1,4 +1,5 @@
 import {validateFormData} from '../utils/roomUtils'
+import {useNavigate} from 'react-router-dom'
 
 /**
  * Custom hook for room-related business logic
@@ -25,6 +26,7 @@ export const useRoomActions = ({
   closeLogoutDialog,
   currentUser
 }) => {
+  const navigate = useNavigate()
   /**
    * Handle room creation
    * @param {Object} roomForm - Room form data
@@ -48,6 +50,8 @@ export const useRoomActions = ({
         closeCreateRoomDialog()
         showSnackbar('방이 성공적으로 생성되었습니다.', 'success')
         resetRoomForm()
+        // Navigate to game room after successful creation
+        navigate('/game')
       },
       onError: (error) => {
         console.error('Failed to create room:', error)

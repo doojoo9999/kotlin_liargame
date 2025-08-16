@@ -1,12 +1,12 @@
 import React, {useEffect, useState} from 'react'
-import {Avatar, Box, Button, Card, Chip, Divider, Grid, Typography} from '@mui/material'
+import {Box, Button, Card, Chip, Divider, Grid, Typography} from '@components/ui'
 import {
     CheckCircle as SuccessIcon,
-    EmojiEvents as TrophyIcon,
     Home as HomeIcon,
-    Person as PersonIcon,
-    Refresh as RestartIcon
-} from '@mui/icons-material'
+    RotateCcw as RestartIcon,
+    Trophy as TrophyIcon,
+    User as PersonIcon
+} from 'lucide-react'
 
 const GameResult = React.memo(function GameResult({
   finalGameResult,

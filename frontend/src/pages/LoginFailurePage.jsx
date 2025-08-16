@@ -1,13 +1,17 @@
 import React, {useEffect, useMemo, useRef} from 'react'
 import {Link as RouterLink, useNavigate, useSearchParams} from 'react-router-dom'
-import {Alert, Box, Button, Container, Link, Paper, Stack, Typography} from '@mui/material'
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline'
+import {Alert, Anchor, Box, Button, Container, Group, Paper, Stack, Text, Title} from '@mantine/core'
+import {IconAlertCircle} from '@tabler/icons-react'
+import {motion} from 'framer-motion'
 import {useI18n} from '../i18n/i18n.jsx'
 import {Events, trackEvent} from '../utils/analytics'
 import {mapAuthCodeToUiPreset} from '../utils/authErrorMapping'
 import {useRedirectCountdown} from '../hooks/useRedirectCountdown'
 import {persistReturnTo, sanitizeReturnTo} from '../utils/redirect'
 import useDebouncedCallback from '../hooks/useDebouncedCallback'
+
+const MotionContainer = motion.create(Container)
+const MotionPaper = motion.create(Paper)
 
 function parseIntSafe(value, fallback) {
   const n = parseInt(value, 10)
@@ -81,84 +85,137 @@ export default function LoginFailurePage() {
   const subtitleKey = preset.subtitleKey
 
   return (
-    <Box sx={{
-      minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'background.default' : '#f7f9fc',
-      p: 2
-    }}>
-      <Container maxWidth="sm">
-        <Paper elevation={3} sx={{ p: 4, borderRadius: 3 }} role="region" aria-labelledby="auth-failure-title" aria-describedby="auth-failure-desc">
-          <Stack spacing={3}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <ErrorOutlineIcon color="error" sx={{ fontSize: 40 }} aria-hidden />
-              <Typography
-                id="auth-failure-title"
-                ref={titleRef}
-                tabIndex={-1}
-                component="h1"
-                variant="h4"
-                sx={{ fontWeight: 700 }}
-              >
-                {t('auth.failure.title')}
-              </Typography>
-            </Box>
+    <Box 
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'linear-gradient(135deg, #f7f9fc 0%, #e3f2fd 100%)',
+        padding: '16px'
+      }}
+    >
+      <MotionContainer size="sm">
+        <MotionPaper
+          initial={{ opacity: 0, y: 50 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+          shadow="lg"
+          p="xl"
+          radius="xl"
+          role="region" 
+          aria-labelledby="auth-failure-title" 
+          aria-describedby="auth-failure-desc"
+          style={{
+            background: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(10px)',
+            border: '1px solid rgba(0, 0, 0, 0.1)'
+          }}
+        >
+          <Stack gap="xl">
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+            >
+              <Group gap="md" align="center">
+                <IconAlertCircle size={40} color="#f44336" aria-hidden />
+                <Title
+                  id="auth-failure-title"
+                  ref={titleRef}
+                  tabIndex={-1}
+                  order={1}
+                  fw={700}
+                >
+                  {t('auth.failure.title')}
+                </Title>
+              </Group>
+            </motion.div>
 
-            <Box>
-              <Typography id="auth-failure-desc" component="p" variant="body1">
-                {t(subtitleKey)}
-              </Typography>
-              {errorMessage && (
-                <Alert severity="info" sx={{ mt: 1 }}>
-                  {errorMessage}
-                </Alert>
-              )}
-            </Box>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.3 }}
+            >
+              <Stack gap="xs">
+                <Text id="auth-failure-desc" size="md">
+                  {t(subtitleKey)}
+                </Text>
+                {errorMessage && (
+                  <Alert color="blue" variant="light" mt="xs">
+                    {errorMessage}
+                  </Alert>
+                )}
+              </Stack>
+            </motion.div>
 
             {allowAuto && !canceled && (
-              <Typography component="p" variant="body2" color="text.secondary">
-                {t('auth.failure.secondary', { seconds: remaining })}
-                {' '}
-                <Link component="button" type="button" onClick={() => cancel()} sx={{ ml: 1 }}>
-                  {t('auth.failure.secondary.cancel')}
-                </Link>
-              </Typography>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.5, delay: 0.4 }}
+              >
+                <Text size="sm" c="dimmed">
+                  {t('auth.failure.secondary', { seconds: remaining })}
+                  {' '}
+                  <Anchor 
+                    component="button" 
+                    type="button" 
+                    onClick={() => cancel()}
+                    style={{ marginLeft: '8px' }}
+                  >
+                    {t('auth.failure.secondary.cancel')}
+                  </Anchor>
+                </Text>
+              </motion.div>
             )}
 
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} useFlexGap>
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={() => onRetry.run?.() || onRetry()}
-                autoFocus
-              >
-                {t('auth.failure.cta.retry')}
-              </Button>
-              <Button variant="outlined" onClick={onHome}>
-                {t('auth.failure.cta.home')}
-              </Button>
-            </Stack>
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.5 }}
+            >
+              <Group gap="md">
+                <Button
+                  variant="gradient"
+                  gradient={{ from: 'blue', to: 'cyan' }}
+                  onClick={() => onRetry.run?.() || onRetry()}
+                  autoFocus
+                >
+                  {t('auth.failure.cta.retry')}
+                </Button>
+                <Button variant="outline" onClick={onHome}>
+                  {t('auth.failure.cta.home')}
+                </Button>
+              </Group>
+            </motion.div>
 
-            <Stack direction="row" spacing={2} sx={{ mt: 1 }}>
-              <Link
-                component={RouterLink}
-                to="/login?mode=forgot"
-                onClick={() => trackEvent(Events.ForgotPasswordClicked, { page: 'LoginFailurePage' })}
-              >
-                {t('auth.failure.help.forgot')}
-              </Link>
-              <Link
-                href="mailto:support@example.com"
-                onClick={() => trackEvent(Events.UiClick, { componentId: 'link-contact', action: 'click', page: 'LoginFailurePage' })}
-              >
-                {t('auth.failure.help.contact')}
-              </Link>
-            </Stack>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5, delay: 0.6 }}
+            >
+              <Group gap="md" mt="xs">
+                <Anchor
+                  component={RouterLink}
+                  to="/login?mode=forgot"
+                  onClick={() => trackEvent(Events.ForgotPasswordClicked, { page: 'LoginFailurePage' })}
+                  size="sm"
+                >
+                  {t('auth.failure.help.forgot')}
+                </Anchor>
+                <Anchor
+                  href="mailto:support@example.com"
+                  onClick={() => trackEvent(Events.UiClick, { componentId: 'link-contact', action: 'click', page: 'LoginFailurePage' })}
+                  size="sm"
+                >
+                  {t('auth.failure.help.contact')}
+                </Anchor>
+              </Group>
+            </motion.div>
           </Stack>
-        </Paper>
-      </Container>
+        </MotionPaper>
+      </MotionContainer>
     </Box>
   )
 }

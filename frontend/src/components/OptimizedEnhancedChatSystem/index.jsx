@@ -1,6 +1,6 @@
-import React, { useState, useCallback, useMemo } from 'react'
-import { Box, useMediaQuery, useTheme } from '@mui/material'
-import { getChatThemeVariant, THEME_TRANSITIONS } from '../../styles/themeVariants'
+import React, {useCallback, useMemo, useState} from 'react'
+import {Box} from '@components/ui'
+import {useResponsiveLayout} from '../../hooks/useGameLayout'
 
 // Components
 import ChatHeader from './components/ChatHeader'
@@ -9,9 +9,9 @@ import ChatInputBar from './components/ChatInputBar'
 import EmojiMenu from './components/EmojiMenu'
 
 // Hooks
-import { useOptimizedChatSync } from './hooks/useOptimizedChatSync'
-import { useEmojiMenu } from './hooks/useEmojiMenu'
-import { useChatPerfPanel } from './hooks/useChatPerfPanel'
+import {useOptimizedChatSync} from './hooks/useOptimizedChatSync'
+import {useEmojiMenu} from './hooks/useEmojiMenu'
+import {useChatPerfPanel} from './hooks/useChatPerfPanel'
 
 /**
  * OptimizedEnhancedChatSystem - Refactored modular chat component
@@ -25,9 +25,8 @@ const OptimizedEnhancedChatSystem = ({
     placeholder = "메시지를 입력하세요...",
     maxLength = 200
 }) => {
-    const theme = useTheme()
-    const isDarkMode = theme.palette.mode === 'dark'
-    const isMobile = useMediaQuery(theme.breakpoints.down('md'))
+    const { isMobile } = useResponsiveLayout()
+    const isDarkMode = false // Default to light mode, can be made configurable later
 
     // Local input state
     const [inputValue, setInputValue] = useState('')
@@ -78,22 +77,21 @@ const OptimizedEnhancedChatSystem = ({
         setInputValue(value)
     }, [])
 
-    // Stable main container sx object
-    const mainContainerSx = useMemo(() => ({
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        bgcolor: 'background.default',
-        transition: THEME_TRANSITIONS.color
-    }), [])
-
     // Log performance data (development mode only)
     React.useEffect(() => {
         logPerformanceData
     }, [logPerformanceData])
 
+    const containerStyle = useMemo(() => ({
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        backgroundColor: '#ffffff',
+        transition: 'color 0.3s ease'
+    }), [])
+
     return (
-        <Box sx={mainContainerSx}>
+        <Box style={containerStyle}>
             {/* Performance indicator header */}
             <ChatHeader 
                 shouldShowPanel={shouldShowPanel}

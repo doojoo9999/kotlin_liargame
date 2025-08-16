@@ -1,20 +1,6 @@
 import React, {useEffect, useState} from 'react'
-import {
-    Alert,
-    Avatar,
-    Box,
-    Button,
-    Chip,
-    Dialog,
-    DialogActions,
-    DialogContent,
-    DialogTitle,
-    Grid,
-    LinearProgress,
-    Paper,
-    Typography
-} from '@mui/material'
-import {Clear as KillIcon, Favorite as SpareIcon, Timer as TimerIcon} from '@mui/icons-material'
+import {Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Paper, Typography} from '../ui'
+import {Heart as SpareIcon, Timer as TimerIcon, X as KillIcon} from 'lucide-react'
 import {useGame} from '../stores/useGame'
 
 const FinalJudgmentComponent = ({ 
@@ -100,15 +86,15 @@ const FinalJudgmentComponent = ({
   const progressValue = ((votingTimeLimit - timeRemaining) / votingTimeLimit) * 100
 
   return (
-    <Paper sx={{ p: 4, bgcolor: 'warning.light', borderRadius: 3 }}>
+    <Paper style={{ padding: '32px', backgroundColor: '#fff3e0', borderRadius: '24px' }}>
       {/* 헤더 */}
-      <Box sx={{ textAlign: 'center', mb: 4 }}>
-        <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'warning.dark', mb: 2 }}>
+      <Box $textAlign="center" $marginBottom="32px">
+        <Typography variant="h4" style={{ fontWeight: 'bold', color: '#e65100', marginBottom: '16px' }}>
           ⚖️ 최종 판결
         </Typography>
         
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, mb: 2 }}>
-          <TimerIcon color="error" />
+        <Box $display="flex" $alignItems="center" $justifyContent="center" $gap="16px" $marginBottom="16px">
+          <TimerIcon size={24} style={{ color: '#f44336' }} />
           <Typography 
             variant="h5" 
             color={timeRemaining <= 10 ? 'error.main' : 'text.primary'} 

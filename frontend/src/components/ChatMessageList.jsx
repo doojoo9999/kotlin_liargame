@@ -1,6 +1,6 @@
 import React, {useCallback, useMemo, useRef} from 'react'
 import {FixedSizeList as List} from 'react-window'
-import {Box, useTheme} from '@mui/material'
+import {Box} from './ui'
 import PropTypes from 'prop-types'
 import {getChatListStyles} from '../styles/chatStyles'
 import {flattenGroups, groupMessages} from './chat-message-list/utils/chatGrouping'
@@ -19,7 +19,6 @@ function ChatMessageList({
   onScrollToBottom,
   className
 }) {
-  const theme = useTheme()
   const listRef = useRef(null)
   const containerRef = useRef(null)
   
@@ -90,22 +89,23 @@ function ChatMessageList({
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    color: 'text.secondary'
+    color: 'rgba(0, 0, 0, 0.6)'
   }), [containerStyles, numericHeight])
   
   const emptyContentStyles = useMemo(() => ({
     textAlign: 'center', 
-    py: 4
+    paddingTop: '32px',
+    paddingBottom: '32px'
   }), [])
   
   const emptyIconStyles = useMemo(() => ({
-    fontSize: 48, 
-    mb: 2, 
+    fontSize: '48px', 
+    marginBottom: '16px', 
     opacity: 0.5
   }), [])
   
   const emptyTextStyles = useMemo(() => ({
-    fontSize: 14, 
+    fontSize: '14px', 
     opacity: 0.7
   }), [])
   

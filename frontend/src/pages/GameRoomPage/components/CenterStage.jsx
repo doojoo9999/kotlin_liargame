@@ -1,5 +1,5 @@
 import React from 'react'
-import {Box} from '@mui/material'
+import {Box, Typography} from '@components/ui'
 import GameModerator from '../../../components/GameModerator'
 import GameInfoDisplay from '../../../components/GameInfoDisplay'
 import {MessageQueue, useMessageQueue} from '../../../components/GameNarrator'
@@ -126,8 +126,8 @@ const CenterStage = React.memo(function CenterStage({
 
       default:
         return (
-          <Box sx={{ textAlign: 'center', p: 3 }}>
-            <Typography variant="body1" color="text.secondary">
+          <Box $textAlign="center" $padding="24px">
+            <Typography variant="body1" style={{ color: 'rgba(0, 0, 0, 0.6)' }}>
               게임 상태를 확인하는 중...
             </Typography>
           </Box>
@@ -136,13 +136,13 @@ const CenterStage = React.memo(function CenterStage({
   }
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, width: '100%' }}>
+    <Box $display="flex" $flexDirection="column" $alignItems="center" $gap="16px" $width="100%">
       {/* Message Queue for Narrator System */}
       <MessageQueue
         ref={messageQueueRef}
         isMobile={isMobile}
         position="left"
-        sx={{ width: '100%', maxWidth: 600 }}
+        style={{ width: '100%', maxWidth: '600px' }}
       />
 
       {/* Keep existing GameModerator for compatibility */}
@@ -186,22 +186,24 @@ const CenterStage = React.memo(function CenterStage({
 
       {/* Main Game Phase Component */}
       <Box 
-        sx={{ 
-          width: '100%',
+        $width="100%"
+        style={{ 
           transition: 'all 0.5s ease-in-out',
-          animation: 'fadeInSlide 0.5s ease-out',
-          '@keyframes fadeInSlide': {
-            '0%': {
-              opacity: 0,
-              transform: 'translateY(20px)'
-            },
-            '100%': {
-              opacity: 1,
-              transform: 'translateY(0)'
-            }
-          }
+          animation: 'fadeInSlide 0.5s ease-out'
         }}
       >
+        <style>{`
+          @keyframes fadeInSlide {
+            0% {
+              opacity: 0;
+              transform: translateY(20px);
+            }
+            100% {
+              opacity: 1;
+              transform: translateY(0);
+            }
+          }
+        `}</style>
         {renderGamePhase()}
       </Box>
     </Box>

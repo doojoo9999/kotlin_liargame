@@ -116,6 +116,8 @@ const useRoomStore = create(
         
         get().fetchRooms()
         
+        console.log('[DEBUG_LOG] Room creation completed, ready for navigation:', createdRoom.gameNumber)
+
         return createdRoom
       } catch (error) {
         console.error('Failed to create room:', error)
@@ -129,22 +131,41 @@ const useRoomStore = create(
 
     joinRoom: async (gameNumber, password = '') => {
       try {
+        console.log('[ROOMSTORE] Starting joinRoom for game:', gameNumber, 'with password:', password ? '***' : 'none')
+
         set(state => ({ 
           loading: { ...state.loading, room: true },
           error: { ...state.error, room: null }
         }))
 
+        console.log('[ROOMSTORE] Calling gameApi.joinRoom...')
         const response = await gameApi.joinRoom(gameNumber, password)
+        console.log('[ROOMSTORE] Raw API response:', JSON.stringify(response, null, 2))
+
+        // Normalize the room data
+        const normalizedRoom = {
+          gameNumber: response.gameNumber || gameNumber,
+          title: response.title || response.gameName || `방 #${gameNumber}`,
+          maxPlayers: response.maxPlayers || response.gameParticipants || 8,
+          currentPlayers: response.currentPlayers || response.playerCount || 1,
+          state: response.state || response.gameState || 'WAITING',
+          players: response.players || [],
+          ...response
+        }
+
+        console.log('[ROOMSTORE] Normalized room data:', JSON.stringify(normalizedRoom, null, 2))
 
         set(state => ({
-          currentRoom: response,
+          currentRoom: normalizedRoom,
           currentPage: 'room',
           loading: { ...state.loading, room: false }
         }))
 
-        return response
+        console.log('[ROOMSTORE] Room join completed successfully, returning:', normalizedRoom.gameNumber)
+        return normalizedRoom
       } catch (error) {
-        console.error('Failed to join room:', error)
+        console.error('[ROOMSTORE] Failed to join room:', error)
+        console.error('[ROOMSTORE] Error details:', error.message, error.response?.data)
         set(state => ({
           error: { ...state.error, room: '방 입장에 실패했습니다.' },
           loading: { ...state.loading, room: false }

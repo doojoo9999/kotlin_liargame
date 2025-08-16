@@ -9,11 +9,10 @@ import {
     DialogActions,
     DialogContent,
     DialogTitle,
-    LinearProgress,
-    TextField,
+    Input as TextField,
     Typography
-} from '@mui/material'
-import {Send as SendIcon, Timer as TimerIcon, Warning as WarningIcon} from '@mui/icons-material'
+} from '@components/ui'
+import {AlertTriangle as WarningIcon, Send as SendIcon, Timer as TimerIcon} from 'lucide-react'
 
 const FORBIDDEN_WORDS = ['라이어', '라이어게임']
 const MAX_HINT_LENGTH = 100
@@ -182,20 +181,22 @@ const HintPhase = React.memo(function HintPhase({
             </Typography>
             
             {hint.length > 0 && (
-              <LinearProgress
-                variant="determinate"
-                value={(hint.length / MAX_HINT_LENGTH) * 100}
-                sx={{
-                  width: 100,
-                  height: 6,
+              <Box sx={{ 
+                width: 100, 
+                height: 6, 
+                borderRadius: 3, 
+                backgroundColor: 'grey.200',
+                overflow: 'hidden',
+                position: 'relative'
+              }}>
+                <Box sx={{
+                  width: `${Math.min((hint.length / MAX_HINT_LENGTH) * 100, 100)}%`,
+                  height: '100%',
+                  backgroundColor: isOverLimit ? 'error.main' : 'primary.main',
                   borderRadius: 3,
-                  backgroundColor: 'grey.200',
-                  '& .MuiLinearProgress-bar': {
-                    backgroundColor: isOverLimit ? 'error.main' : 'primary.main',
-                    borderRadius: 3
-                  }
-                }}
-              />
+                  transition: 'width 0.3s ease'
+                }} />
+              </Box>
             )}
           </Box>
 

@@ -1,17 +1,17 @@
 import React, {createContext, useContext, useEffect, useState} from 'react'
-import {Alert, AlertTitle, Box, IconButton, Slide, Typography, useMediaQuery, useTheme} from '@mui/material'
+import {Alert, Box, Typography} from '@components/ui'
 import {
+    AlertCircle as ErrorIcon,
+    AlertTriangle as WarningIcon,
     CheckCircle as SuccessIcon,
-    Close as CloseIcon,
-    Error as ErrorIcon,
-    ExitToApp as LeaveIcon,
     Info as InfoIcon,
-    Person as PlayerIcon,
-    PlayArrow as GameStartIcon,
-    Warning as WarningIcon,
+    LogOut as LeaveIcon,
+    Play as GameStartIcon,
+    User as PlayerIcon,
     Wifi as ConnectedIcon,
-    WifiOff as DisconnectedIcon
-} from '@mui/icons-material'
+    WifiOff as DisconnectedIcon,
+    X as CloseIcon
+} from 'lucide-react'
 
 // Toast Context
 const ToastContext = createContext()
@@ -47,8 +47,13 @@ export const SYSTEM_MESSAGE_TYPES = {
 
 const ToastProvider = ({ children }) => {
   const [toasts, setToasts] = useState([])
-  const theme = useTheme()
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'))
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768)
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   const addToast = (message, type = TOAST_TYPES.INFO, options = {}) => {
     const id = Date.now() + Math.random()
@@ -156,15 +161,15 @@ const ToastProvider = ({ children }) => {
 const ToastContainer = ({ toasts, onRemove, isMobile }) => {
   return (
     <Box
-      sx={{
+      style={{
         position: 'fixed',
-        top: isMobile ? 80 : 100,
-        right: isMobile ? 16 : 24,
+        top: isMobile ? '80px' : '100px',
+        right: isMobile ? '16px' : '24px',
         zIndex: 10000,
         display: 'flex',
         flexDirection: 'column',
-        gap: 1,
-        maxWidth: isMobile ? 'calc(100vw - 32px)' : 400,
+        gap: '8px',
+        maxWidth: isMobile ? 'calc(100vw - 32px)' : '400px',
         width: '100%'
       }}
     >
@@ -226,50 +231,64 @@ const ToastItem = ({ toast, onRemove, index, isMobile }) => {
   }
 
   return (
-    <Slide
-      direction="left"
-      in={show}
-      timeout={300}
-      style={{ transitionDelay: `${index * 100}ms` }}
+    <div
+      style={{
+        transform: show ? 'translateX(0)' : 'translateX(100%)',
+        opacity: show ? 1 : 0,
+        transition: 'all 300ms ease-in-out',
+        transitionDelay: `${index * 100}ms`
+      }}
     >
       <Alert
         severity={getSeverity()}
         icon={getIcon()}
         action={
-          <IconButton
+          <button
             aria-label="close"
-            color="inherit"
-            size="small"
             onClick={handleClose}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: '4px',
+              borderRadius: '4px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
           >
-            <CloseIcon fontSize="inherit" />
-          </IconButton>
+            <CloseIcon size={16} />
+          </button>
         }
-        sx={{
+        style={{
           width: '100%',
           boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
           backdropFilter: 'blur(10px)',
-          border: '1px solid rgba(255,255,255,0.2)',
-          '& .MuiAlert-message': {
-            width: '100%'
-          }
+          border: '1px solid rgba(255,255,255,0.2)'
         }}
       >
         {toast.title && (
-          <AlertTitle sx={{ fontWeight: 'bold', fontSize: isMobile ? '0.9rem' : '1rem' }}>
+          <Typography 
+            variant="h6" 
+            style={{ 
+              fontWeight: 'bold', 
+              fontSize: isMobile ? '0.9rem' : '1rem',
+              marginBottom: '4px'
+            }}
+          >
             {toast.title}
-          </AlertTitle>
+          </Typography>
         )}
         <Typography variant={isMobile ? 'body2' : 'body1'}>
           {toast.message}
         </Typography>
         {toast.action && (
-          <Box sx={{ mt: 1 }}>
+          <Box style={{ marginTop: '8px' }}>
             {toast.action}
           </Box>
         )}
       </Alert>
-    </Slide>
+    </div>
   )
 }
 

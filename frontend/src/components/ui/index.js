@@ -40,7 +40,7 @@ export {
 } from './Layout'
 
 // Feedback components
-export { Alert, CircularProgress } from './Feedback'
+export { Alert, CircularProgress, Snackbar } from './Feedback'
 
 // Global styles
 export { CssBaseline } from './CssBaseline'
@@ -59,6 +59,29 @@ export { List, ListItem, ListItemIcon, ListItemText } from './List'
 
 // Divider
 export { Divider } from './Divider'
+
+// Link
+export { Link } from './Link'
+
+// Table components
+export {
+  Table,
+  TableContainer,
+  TableHead,
+  TableBody,
+  TableRow,
+  TableCell,
+  TableHeaderCell
+} from './Table'
+
+// Dialog components
+export {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  DialogContentText
+} from './Dialog'
 
 // Micro-interactions system
 export {

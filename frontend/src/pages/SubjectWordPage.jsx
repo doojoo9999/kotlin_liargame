@@ -11,8 +11,7 @@ import {
     DialogContentText,
     DialogTitle,
     Divider,
-    Grid,
-    IconButton,
+    Input as TextField,
     Paper,
     Snackbar,
     Table,
@@ -21,10 +20,9 @@ import {
     TableContainer,
     TableHead,
     TableRow,
-    TextField,
     Typography
-} from '@mui/material'
-import {Add as AddIcon, Delete as DeleteIcon, Quiz as QuizIcon, Subject as SubjectIcon} from '@mui/icons-material'
+} from '../components/ui'
+import {BookOpen as SubjectIcon, FileQuestion as QuizIcon, Plus as AddIcon, Trash2 as DeleteIcon} from 'lucide-react'
 import {useQuery} from '@tanstack/react-query'
 import apiClient from '../api/apiClient'
 
@@ -208,8 +206,8 @@ function SubjectWordPage() {
 
   if (loading) {
     return (
-      <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-        <Typography variant="h4" gutterBottom>
+      <Container maxWidth="lg" style={{ marginTop: '32px', marginBottom: '32px' }}>
+        <Typography variant="h4" style={{ marginBottom: '16px' }}>
           주제/답안 관리
         </Typography>
         <Typography>데이터를 불러오는 중...</Typography>
@@ -218,30 +216,33 @@ function SubjectWordPage() {
   }
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      <Typography variant="h4" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-        <QuizIcon sx={{ color: '#ff6b6b' }} />
-        주제/답안 관리
-      </Typography>
+    <Container maxWidth="lg" style={{ marginTop: '32px', marginBottom: '32px' }}>
+      <Box $display="flex" $alignItems="center" $gap="16px" $marginBottom="16px">
+        <QuizIcon size={24} style={{ color: '#ff6b6b' }} />
+        <Typography variant="h4">
+          주제/답안 관리
+        </Typography>
+      </Box>
 
-      <Grid container spacing={4}>
+      <Box $display="flex" $flexDirection="row" $gap="32px" $flexWrap="wrap">
         {/* Subject Management Section */}
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 3 }}>
-            <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <SubjectIcon />
-              주제 관리
-            </Typography>
+        <Box $flex="1" $minWidth="300px">
+          <Paper style={{ padding: '24px' }}>
+            <Box $display="flex" $alignItems="center" $gap="8px" $marginBottom="16px">
+              <SubjectIcon size={20} />
+              <Typography variant="h6">
+                주제 관리
+              </Typography>
+            </Box>
             
             {/* Add Subject Form */}
-            <Box component="form" onSubmit={handleSubjectSubmit} sx={{ mb: 3 }}>
+            <Box component="form" onSubmit={handleSubjectSubmit} $marginBottom="24px">
               <TextField
-                fullWidth
                 label="새 주제"
                 value={subjectForm.content}
                 onChange={(e) => setSubjectForm({ content: e.target.value })}
                 disabled={subjectLoading}
-                sx={{ mb: 2 }}
+                style={{ marginBottom: '16px', width: '100%' }}
                 placeholder="예: 동물, 음식, 영화 등"
               />
               <Button
@@ -249,13 +250,13 @@ function SubjectWordPage() {
                 variant="contained"
                 startIcon={<AddIcon />}
                 disabled={subjectLoading || !subjectForm.content.trim()}
-                sx={{ backgroundColor: '#ff6b6b', '&:hover': { backgroundColor: '#ee5a24' } }}
+                style={{ backgroundColor: '#ff6b6b' }}
               >
                 {subjectLoading ? '추가 중...' : '주제 추가'}
               </Button>
             </Box>
 
-            <Divider sx={{ mb: 2 }} />
+            <Divider style={{ marginBottom: '16px' }} />
 
             {/* Subjects List */}
             <Typography variant="subtitle1" gutterBottom>
@@ -263,12 +264,12 @@ function SubjectWordPage() {
             </Typography>
             
             {subjects.length === 0 ? (
-              <Typography color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
+              <Typography style={{ color: 'rgba(0, 0, 0, 0.6)', textAlign: 'center', padding: '16px 0' }}>
                 등록된 주제가 없습니다.
               </Typography>
             ) : (
               <TableContainer>
-                <Table size="small">
+                <Table>
                   <TableHead>
                     <TableRow>
                       <TableCell>주제</TableCell>
@@ -288,13 +289,14 @@ function SubjectWordPage() {
                             />
                           </TableCell>
                           <TableCell align="center">
-                            <IconButton
-                                color="error"
+                            <Button
+                                variant="text"
                                 onClick={() => openDeleteDialog('subject', subject.id, subject.content)}
                                 size="small"
+                                style={{ color: '#f44336', minWidth: '32px', padding: '4px' }}
                             >
-                              <DeleteIcon />
-                            </IconButton>
+                              <DeleteIcon size={16} />
+                            </Button>
                           </TableCell>
                         </TableRow>
                     ))}
@@ -303,34 +305,34 @@ function SubjectWordPage() {
               </TableContainer>
             )}
           </Paper>
-        </Grid>
+        </Box>
 
         {/* Word Management Section */}
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 3 }}>
-            <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <QuizIcon />
-              답안 관리
-            </Typography>
+        <Box $flex="1" $minWidth="300px">
+          <Paper style={{ padding: '24px' }}>
+            <Box $display="flex" $alignItems="center" $gap="8px" $marginBottom="16px">
+              <QuizIcon size={20} />
+              <Typography variant="h6">
+                답안 관리
+              </Typography>
+            </Box>
             
             {/* Add Word Form */}
-            <Box component="form" onSubmit={handleWordSubmit} sx={{ mb: 3 }}>
+            <Box component="form" onSubmit={handleWordSubmit} $marginBottom="24px">
               <TextField
-                fullWidth
                 label="주제"
                 value={wordForm.subject}
                 onChange={(e) => setWordForm({ ...wordForm, subject: e.target.value })}
                 disabled={wordLoading}
-                sx={{ mb: 2 }}
+                style={{ marginBottom: '16px', width: '100%' }}
                 placeholder="답안이 속할 주제를 입력하세요"
               />
               <TextField
-                fullWidth
                 label="답안"
                 value={wordForm.word}
                 onChange={(e) => setWordForm({ ...wordForm, word: e.target.value })}
                 disabled={wordLoading}
-                sx={{ mb: 2 }}
+                style={{ marginBottom: '16px', width: '100%' }}
                 placeholder="예: 사자, 호랑이, 코끼리 등"
               />
               <Button
@@ -338,13 +340,13 @@ function SubjectWordPage() {
                 variant="contained"
                 startIcon={<AddIcon />}
                 disabled={wordLoading || !wordForm.subject.trim() || !wordForm.word.trim()}
-                sx={{ backgroundColor: '#ff6b6b', '&:hover': { backgroundColor: '#ee5a24' } }}
+                style={{ backgroundColor: '#ff6b6b' }}
               >
                 {wordLoading ? '추가 중...' : '답안 추가'}
               </Button>
             </Box>
 
-            <Divider sx={{ mb: 2 }} />
+            <Divider style={{ marginBottom: '16px' }} />
 
             {/* Words List */}
             <Typography variant="subtitle1" gutterBottom>
@@ -352,12 +354,12 @@ function SubjectWordPage() {
             </Typography>
             
             {words.length === 0 ? (
-              <Typography color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
+              <Typography style={{ color: 'rgba(0, 0, 0, 0.6)', textAlign: 'center', padding: '16px 0' }}>
                 등록된 답안이 없습니다.
               </Typography>
             ) : (
-              <TableContainer sx={{ maxHeight: 400 }}>
-                <Table size="small" stickyHeader>
+              <TableContainer style={{ maxHeight: '400px' }}>
+                <Table>
                   <TableHead>
                     <TableRow>
                       <TableCell>주제</TableCell>
@@ -377,13 +379,14 @@ function SubjectWordPage() {
                         </TableCell>
                         <TableCell>{word.content}</TableCell>
                         <TableCell align="center">
-                          <IconButton
-                            color="error"
+                          <Button
+                            variant="text"
                             onClick={() => openDeleteDialog('word', word.id, word.content)}
                             size="small"
+                            style={{ color: '#f44336', minWidth: '32px', padding: '4px' }}
                           >
-                            <DeleteIcon />
-                          </IconButton>
+                            <DeleteIcon size={16} />
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -392,8 +395,8 @@ function SubjectWordPage() {
               </TableContainer>
             )}
           </Paper>
-        </Grid>
-      </Grid>
+        </Box>
+      </Box>
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteDialog.open} onClose={closeDeleteDialog}>
@@ -424,7 +427,7 @@ function SubjectWordPage() {
         <Alert 
           onClose={handleSnackbarClose} 
           severity={snackbar.severity}
-          sx={{ width: '100%' }}
+          style={{ width: '100%' }}
         >
           {snackbar.message}
         </Alert>

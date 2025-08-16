@@ -1,5 +1,5 @@
 import {useEffect, useState} from 'react';
-import {Box, Typography} from '@mui/material';
+import {Box, Typography} from '@components/ui';
 import PropTypes from 'prop-types';
 
 /**
@@ -41,101 +41,118 @@ function PlayerSpeechBubble({ message, position, duration, show, onHide }) {
           bottom: '100%',
           left: '50%',
           transform: 'translateX(-50%)',
-          marginBottom: '10px',
-          '&::after': {
-            content: '""',
-            position: 'absolute',
-            top: '100%',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            border: '8px solid transparent',
-            borderTopColor: 'rgba(255, 152, 0, 0.9)',
-          }
+          marginBottom: '10px'
         };
       case 'right':
         return {
           left: '100%',
           top: '50%',
           transform: 'translateY(-50%)',
-          marginLeft: '10px',
-          '&::after': {
-            content: '""',
-            position: 'absolute',
-            right: '100%',
-            top: '50%',
-            transform: 'translateY(-50%)',
-            border: '8px solid transparent',
-            borderRightColor: 'rgba(255, 152, 0, 0.9)',
-          }
+          marginLeft: '10px'
         };
       case 'bottom':
         return {
           top: '100%',
           left: '50%',
           transform: 'translateX(-50%)',
-          marginTop: '10px',
-          '&::after': {
-            content: '""',
-            position: 'absolute',
-            bottom: '100%',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            border: '8px solid transparent',
-            borderBottomColor: 'rgba(255, 152, 0, 0.9)',
-          }
+          marginTop: '10px'
         };
       case 'left':
         return {
           right: '100%',
           top: '50%',
           transform: 'translateY(-50%)',
-          marginRight: '10px',
-          '&::after': {
-            content: '""',
-            position: 'absolute',
-            left: '100%',
-            top: '50%',
-            transform: 'translateY(-50%)',
-            border: '8px solid transparent',
-            borderLeftColor: 'rgba(255, 152, 0, 0.9)',
-          }
+          marginRight: '10px'
         };
       default:
         return {
           top: '100%',
           left: '50%',
           transform: 'translateX(-50%)',
-          marginTop: '10px',
-          '&::after': {
-            content: '""',
-            position: 'absolute',
-            bottom: '100%',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            border: '8px solid transparent',
-            borderBottomColor: 'rgba(255, 152, 0, 0.9)',
-          }
+          marginTop: '10px'
+        };
+    }
+  };
+
+  const getArrowStyles = () => {
+    const arrowColor = 'rgba(255, 152, 0, 0.9)';
+    switch (position) {
+      case 'top':
+        return {
+          position: 'absolute',
+          top: '100%',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: 0,
+          height: 0,
+          border: '8px solid transparent',
+          borderTopColor: arrowColor,
+        };
+      case 'right':
+        return {
+          position: 'absolute',
+          right: '100%',
+          top: '50%',
+          transform: 'translateY(-50%)',
+          width: 0,
+          height: 0,
+          border: '8px solid transparent',
+          borderRightColor: arrowColor,
+        };
+      case 'bottom':
+        return {
+          position: 'absolute',
+          bottom: '100%',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: 0,
+          height: 0,
+          border: '8px solid transparent',
+          borderBottomColor: arrowColor,
+        };
+      case 'left':
+        return {
+          position: 'absolute',
+          left: '100%',
+          top: '50%',
+          transform: 'translateY(-50%)',
+          width: 0,
+          height: 0,
+          border: '8px solid transparent',
+          borderLeftColor: arrowColor,
+        };
+      default:
+        return {
+          position: 'absolute',
+          bottom: '100%',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: 0,
+          height: 0,
+          border: '8px solid transparent',
+          borderBottomColor: arrowColor,
         };
     }
   };
 
   return (
     <Box
-      sx={{
+      style={{
         position: 'absolute',
         maxWidth: '150px',
         padding: '8px 12px',
         backgroundColor: 'rgba(255, 152, 0, 0.9)',
         color: 'white',
         borderRadius: '12px',
-        boxShadow: 2,
+        boxShadow: '0 3px 6px rgba(0,0,0,0.16), 0 3px 6px rgba(0,0,0,0.23)',
         zIndex: 10,
         ...getPositionStyles(),
       }}
     >
-      <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
+      <Typography variant="body2" style={{ fontWeight: '500' }}>
         {message}
       </Typography>
+      <div style={getArrowStyles()} />
     </Box>
   );
 }

@@ -1,32 +1,18 @@
 import React, {useEffect, useState} from 'react'
+import {Box, Button, Card, CardContent, Chip, Divider, Grid, Paper, Typography} from '@components/ui'
 import {
-    Avatar,
-    Box,
-    Button,
-    Card,
-    CardContent,
-    Chip,
-    Divider,
-    Fade,
-    Grid,
-    Paper,
-    Slide,
-    Typography,
-    useMediaQuery,
-    useTheme,
-    Zoom
-} from '@mui/material'
-import {
-    EmojiEvents as TrophyIcon,
-    Group as CitizenIcon,
+    Brain as LiarIcon,
     Home as HomeIcon,
-    Psychology as LiarIcon,
-    RestartAlt as RestartIcon
-} from '@mui/icons-material'
-import {keyframes} from '@mui/system'
+    RotateCcw as RestartIcon,
+    Trophy as TrophyIcon,
+    Users as CitizenIcon
+} from 'lucide-react'
+import {useTheme} from '@styles'
+import {useResponsiveLayout} from '../hooks/useGameLayout'
+import styled from 'styled-components'
 
-// Animation keyframes
-const revealAnimation = keyframes`
+// Animation keyframes using styled-components
+const revealAnimation = `
   0% {
     transform: rotateY(0deg);
     background: linear-gradient(45deg, #2196F3, #21CBF3);
@@ -40,7 +26,7 @@ const revealAnimation = keyframes`
   }
 `
 
-const sparkleAnimation = keyframes`
+const sparkleAnimation = `
   0%, 100% {
     opacity: 0;
     transform: scale(0);
@@ -48,6 +34,82 @@ const sparkleAnimation = keyframes`
   50% {
     opacity: 1;
     transform: scale(1);
+  }
+`
+
+// Styled components for animations
+const FadeWrapper = styled.div`
+  opacity: ${props => props.$show ? 1 : 0};
+  transform: translateY(${props => props.$show ? 0 : '20px'});
+  transition: all 0.3s ease-in-out;
+`
+
+const SlideWrapper = styled.div`
+  transform: translateX(${props => props.$show ? 0 : '100%'});
+  transition: transform 0.3s ease-in-out;
+`
+
+const ZoomWrapper = styled.div`
+  transform: scale(${props => props.$show ? 1 : 0.8});
+  opacity: ${props => props.$show ? 1 : 0};
+  transition: all 0.3s ease-in-out;
+`
+
+// Main layout styled components
+const FullscreenOverlay = styled(Box)`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: ${props => props.$isMobile ? '8px' : '16px'};
+`
+
+const ResultPaper = styled(Paper)`
+  max-width: ${props => props.$isMobile ? '100%' : '800px'};
+  width: 100%;
+  max-height: 90vh;
+  overflow: auto;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  position: relative;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+`
+
+const ContentContainer = styled(Box)`
+  padding: ${props => props.$isMobile ? '8px' : '16px'};
+`
+
+const SparkleBox = styled(Box)`
+  position: absolute;
+  top: ${props => props.$top}%;
+  left: ${props => props.$left}%;
+  width: 8px;
+  height: 8px;
+  background: gold;
+  border-radius: 50%;
+  animation: sparkleAnimation 2s infinite;
+  animation-delay: ${props => props.$delay}s;
+  
+  @keyframes sparkleAnimation {
+    ${sparkleAnimation}
+  }
+`
+
+const AnimatedAvatarContainer = styled(Box)`
+  display: inline-block;
+  animation: ${props => props.$showAnimation ? `revealAnimation 2s ease-in-out` : 'none'};
+  border-radius: 50%;
+  padding: 4px;
+  
+  @keyframes revealAnimation {
+    ${revealAnimation}
   }
 `
 
@@ -62,7 +124,7 @@ const GameResultScreen = ({
   showAnimation = true
 }) => {
   const theme = useTheme()
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'))
+  const { isMobile } = useResponsiveLayout()
   
   const [showLiarReveal, setShowLiarReveal] = useState(false)
   const [showResults, setShowResults] = useState(false)
@@ -119,57 +181,23 @@ const GameResultScreen = ({
   }
 
   return (
-    <Box
-      sx={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        bgcolor: 'rgba(0, 0, 0, 0.9)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 9999,
-        p: isMobile ? 2 : 4
-      }}
-    >
-      <Paper
-        elevation={24}
-        sx={{
-          maxWidth: isMobile ? '100%' : 800,
-          width: '100%',
-          maxHeight: '90vh',
-          overflow: 'auto',
-          borderRadius: 4,
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-          color: 'white',
-          position: 'relative'
-        }}
-      >
+    <FullscreenOverlay $isMobile={isMobile}>
+      <ResultPaper $isMobile={isMobile}>
         {/* Sparkle Effects */}
         {showLiarReveal && (
           <>
             {[...Array(6)].map((_, i) => (
-              <Box
+              <SparkleBox
                 key={i}
-                sx={{
-                  position: 'absolute',
-                  top: `${20 + i * 15}%`,
-                  left: `${10 + i * 15}%`,
-                  width: 8,
-                  height: 8,
-                  bgcolor: 'gold',
-                  borderRadius: '50%',
-                  animation: `${sparkleAnimation} 2s infinite`,
-                  animationDelay: `${i * 0.3}s`
-                }}
+                $top={20 + i * 15}
+                $left={10 + i * 15}
+                $delay={i * 0.3}
               />
             ))}
           </>
         )}
 
-        <Box sx={{ p: isMobile ? 2 : 4 }}>
+        <ContentContainer $isMobile={isMobile}>
           {/* Game Over Title */}
           <Fade in timeout={1000}>
             <Typography
@@ -367,9 +395,9 @@ const GameResultScreen = ({
               </Box>
             </Box>
           </Fade>
-        </Box>
-      </Paper>
-    </Box>
+        </ContentContainer>
+      </ResultPaper>
+    </FullscreenOverlay>
   )
 }
 

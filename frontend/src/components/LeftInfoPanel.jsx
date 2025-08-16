@@ -1,5 +1,5 @@
 import React from 'react'
-import {Box, Divider, Typography, useTheme} from '@mui/material'
+import {Box, Divider, Typography} from './ui'
 import GameStatusCard from './GameStatusCard'
 import ActionGuide from './ActionGuide'
 import SystemNotifications from './SystemNotifications'
@@ -26,8 +26,6 @@ const LeftInfoPanel = ({
   onDismissNotification,
   maxHeight
 }) => {
-  const theme = useTheme()
-
   // Calculate panel sections based on available space and content priority
   const getSectionHeights = () => {
     switch (gameStatus) {
@@ -78,39 +76,30 @@ const LeftInfoPanel = ({
 
   return (
     <Box
-      sx={{
-        height: maxHeight || '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        backgroundColor: theme.palette.background.paper,
-        borderRight: 1,
-        borderColor: 'divider',
-        overflow: 'hidden'
-      }}
+      $height={maxHeight || '100%'}
+      $display="flex"
+      $flexDirection="column"
+      $backgroundColor="#ffffff"
+      $borderRight="1px solid rgba(0, 0, 0, 0.12)"
+      $overflow="hidden"
     >
       {/* Header */}
       <Box
-        sx={{
-          p: 2,
-          borderBottom: 1,
-          borderColor: 'divider',
-          backgroundColor: theme.palette.primary.main,
-          color: theme.palette.primary.contrastText
-        }}
+        $padding="16px"
+        $borderBottom="1px solid rgba(0, 0, 0, 0.12)"
+        $backgroundColor="#667eea"
+        $color="white"
       >
-        <Typography variant="h6" component="div" sx={{ fontWeight: 'bold' }}>
+        <Typography variant="h6" component="div" style={{ fontWeight: 'bold' }}>
           게임 정보
         </Typography>
       </Box>
 
       {/* Game Status Card Section */}
       <Box
-        sx={{
-          height: sectionHeights.gameStatus,
-          overflow: 'auto',
-          borderBottom: 1,
-          borderColor: 'divider'
-        }}
+        $height={sectionHeights.gameStatus}
+        $overflow="auto"
+        $borderBottom="1px solid rgba(0, 0, 0, 0.12)"
       >
         <GameStatusCard
           gameStatus={gameStatus}
@@ -131,12 +120,9 @@ const LeftInfoPanel = ({
 
       {/* Action Guide Section */}
       <Box
-        sx={{
-          height: sectionHeights.actionGuide,
-          overflow: 'auto',
-          borderBottom: 1,
-          borderColor: 'divider'
-        }}
+        $height={sectionHeights.actionGuide}
+        $overflow="auto"
+        $borderBottom="1px solid rgba(0, 0, 0, 0.12)"
       >
         <ActionGuide
           gameStatus={gameStatus}
@@ -158,12 +144,10 @@ const LeftInfoPanel = ({
 
       {/* System Notifications Section */}
       <Box
-        sx={{
-          height: sectionHeights.notifications,
-          overflow: 'auto',
-          flex: 1,
-          minHeight: 0
-        }}
+        $height={sectionHeights.notifications}
+        $overflow="auto"
+        $flex="1"
+        $minHeight="0"
       >
         <SystemNotifications
           messages={systemMessages}

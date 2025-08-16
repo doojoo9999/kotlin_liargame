@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react'
-import {Alert, Box, Button, Paper, Typography, useMediaQuery, useTheme} from '@mui/material'
+import {Alert, Box, Button, Paper, Typography} from './ui'
 import ChatMessageList from './ChatMessageList'
 import ChatInput from './ChatInput'
 import {useGame} from '../context/GameContext'
@@ -7,9 +7,15 @@ import {useChatOptimization} from '../hooks/chat-optimization/useChatOptimizatio
 import {getChatThemeVariant, THEME_TRANSITIONS} from '../styles/themeVariants'
 
 function OptimizedChatWindow() {
-  const theme = useTheme()
-  const isDarkMode = theme.palette.mode === 'dark'
-  const isXs = useMediaQuery(theme.breakpoints.down('sm'))
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 600)
+  const isDarkMode = false // Default to light mode since we removed theme
+  const isXs = isMobile
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 600)
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
   
   const {
     chatMessages,
@@ -79,15 +85,15 @@ function OptimizedChatWindow() {
 
   if (!gameNumber) {
     return (
-      <Paper sx={{ 
-        p: 2, 
+      <Paper style={{ 
+        padding: '16px', 
         height: '100%', 
         display: 'flex', 
         alignItems: 'center', 
         justifyContent: 'center',
-        transition: THEME_TRANSITIONS.standard
+        transition: 'all 0.3s ease'
       }}>
-        <Typography color="error" variant="body2">
+        <Typography variant="body2" style={{ color: '#f44336' }}>
           채팅을 사용할 수 없습니다. 방 정보를 확인해주세요.
         </Typography>
       </Paper>
@@ -96,15 +102,15 @@ function OptimizedChatWindow() {
 
   if (!socketConnected) {
     return (
-      <Paper sx={{ 
-        p: 2, 
+      <Paper style={{ 
+        padding: '16px', 
         height: '100%', 
         display: 'flex', 
         alignItems: 'center', 
         justifyContent: 'center',
-        transition: THEME_TRANSITIONS.standard
+        transition: 'all 0.3s ease'
       }}>
-        <Typography color="info" variant="body2">
+        <Typography variant="body2" style={{ color: '#2196f3' }}>
           채팅 연결 중...
         </Typography>
       </Paper>
@@ -142,24 +148,23 @@ function OptimizedChatWindow() {
   return (
     <Paper
       elevation={3}
-      sx={{
+      style={{
         width: '100%',
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
-        borderRadius: 4,
-        backgroundColor: chatTheme.message.background,
+        borderRadius: '32px',
+        backgroundColor: '#ffffff',
         overflow: 'hidden',
-        transition: THEME_TRANSITIONS.color
+        transition: 'all 0.3s ease'
       }}
     >
       {/* Chat header */}
-      <Box sx={{
-        p: isXs ? 1.5 : 2,
-        borderBottom: 1,
-        borderColor: 'divider',
-        backgroundColor: 'primary.light',
-        transition: THEME_TRANSITIONS.standard
+      <Box style={{
+        padding: isXs ? '12px' : '16px',
+        borderBottom: '1px solid rgba(0, 0, 0, 0.12)',
+        backgroundColor: '#667eea',
+        transition: 'all 0.3s ease'
       }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant={isXs ? "subtitle1" : "h6"} color="white">

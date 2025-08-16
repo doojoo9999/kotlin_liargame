@@ -1,6 +1,5 @@
 import React from 'react'
 import styled from 'styled-components'
-import PropTypes from 'prop-types'
 
 const StyledTypography = styled.div`
   margin: 0;
@@ -142,23 +141,3 @@ export const Typography = React.forwardRef(({
 })
 
 Typography.displayName = 'Typography'
-
-Typography.propTypes = {
-  variant: PropTypes.oneOf([
-    'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-    'subtitle1', 'subtitle2',
-    'body1', 'body2',
-    'caption', 'overline'
-  ]),
-  color: PropTypes.oneOf([
-    'inherit', 'primary', 'secondary', 'textPrimary', 'textSecondary',
-    'error', 'warning', 'info', 'success'
-  ]),
-  align: PropTypes.oneOf(['inherit', 'left', 'center', 'right', 'justify']),
-  gutterBottom: PropTypes.bool,
-  noWrap: PropTypes.bool,
-  component: PropTypes.elementType,
-  children: PropTypes.node,
-  className: PropTypes.string,
-  sx: PropTypes.object
-}

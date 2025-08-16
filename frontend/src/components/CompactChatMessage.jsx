@@ -1,5 +1,5 @@
-import React from 'react'
-import {Avatar, Box, Typography, useMediaQuery, useTheme} from '@mui/material'
+import React, {useEffect, useState} from 'react'
+import {Box, Typography} from './ui'
 import PropTypes from 'prop-types'
 import {getUserColorSet} from '../utils/colorUtils'
 import {
@@ -46,9 +46,24 @@ const getAvatarText = (name) => {
 }
 
 function CompactChatMessage({ message, currentUserId, isDarkMode = false }) {
-  const theme = useTheme()
-  const isXs = useMediaQuery(theme.breakpoints.down('sm'))
-  const isHighContrast = useMediaQuery('(prefers-contrast: high)')
+  const [isXs, setIsXs] = useState(window.innerWidth < 600)
+  const [isHighContrast, setIsHighContrast] = useState(false)
+  
+  useEffect(() => {
+    const handleResize = () => setIsXs(window.innerWidth < 600)
+    const handleContrastChange = (e) => setIsHighContrast(e.matches)
+    
+    const mediaQuery = window.matchMedia('(prefers-contrast: high)')
+    setIsHighContrast(mediaQuery.matches)
+    
+    window.addEventListener('resize', handleResize)
+    mediaQuery.addEventListener('change', handleContrastChange)
+    
+    return () => {
+      window.removeEventListener('resize', handleResize)
+      mediaQuery.removeEventListener('change', handleContrastChange)
+    }
+  }, [])
   
   const responsiveOverrides = getResponsiveOverrides(isXs ? 'xs' : 'sm')
   
@@ -74,7 +89,7 @@ function CompactChatMessage({ message, currentUserId, isDarkMode = false }) {
     
     return (
       <Box
-        sx={{
+        style={{
           width: '100%',
           display: 'flex',
           justifyContent: 'center',
@@ -85,7 +100,7 @@ function CompactChatMessage({ message, currentUserId, isDarkMode = false }) {
         aria-label={`System message: ${message.content}`}
       >
         <Box
-          sx={{
+          style={{
             ...systemStyles,
             ...highContrastOverrides,
             ...(responsiveOverrides.padding && {
@@ -94,7 +109,7 @@ function CompactChatMessage({ message, currentUserId, isDarkMode = false }) {
           }}
         >
           <Typography
-            sx={{
+            style={{
               ...contentStyles,
               ...(responsiveOverrides.fontSize && {
                 fontSize: responsiveOverrides.fontSize.message

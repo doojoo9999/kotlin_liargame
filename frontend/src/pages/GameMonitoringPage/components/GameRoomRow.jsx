@@ -1,5 +1,5 @@
 import React from 'react'
-import { Chip, TableCell, TableRow } from '@mui/material'
+import {Chip, TableCell, TableRow} from '../../../components/ui'
 
 const GameRoomRow = React.memo(function GameRoomRow({ 
   room, 

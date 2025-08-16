@@ -1,8 +1,13 @@
 import React, {useState} from 'react'
-import {Alert, Box, Button, CircularProgress, Container, Paper, Snackbar, TextField, Typography} from '@mui/material'
-import {AdminPanelSettings as AdminIcon, Login as LoginIcon} from '@mui/icons-material'
+import {Box, Button, Container, Loader, Paper, PasswordInput, Stack, Text, Title} from '@mantine/core'
+import {IconLogin, IconShield} from '@tabler/icons-react'
+import {motion} from 'framer-motion'
 import {useNavigate} from 'react-router-dom'
 import apiClient from '../api/apiClient'
+import {notifications} from '@mantine/notifications'
+
+const MotionContainer = motion.create(Container)
+const MotionPaper = motion.create(Paper)
 
 function AdminLoginPage() {
   const navigate = useNavigate()
@@ -10,9 +15,6 @@ function AdminLoginPage() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [validationError, setValidationError] = useState('')
-  const [snackbarOpen, setSnackbarOpen] = useState(false)
-  const [snackbarMessage, setSnackbarMessage] = useState('')
-  const [snackbarSeverity, setSnackbarSeverity] = useState('error')
 
   const handlePasswordChange = (event) => {
     const value = event.target.value
@@ -52,9 +54,12 @@ function AdminLoginPage() {
       localStorage.setItem('isUserAdmin', 'true')
       localStorage.setItem('userData', JSON.stringify({ isAdmin: true }))
       
-      setSnackbarMessage('관리자 로그인 성공!')
-      setSnackbarSeverity('success')
-      setSnackbarOpen(true)
+      notifications.show({
+        title: '관리자 로그인 성공!',
+        message: '관리자 대시보드로 이동합니다 🛡️',
+        color: 'green',
+        autoClose: 3000,
+      })
       
       console.log('[DEBUG_LOG] Admin login successful')
       
@@ -75,9 +80,12 @@ function AdminLoginPage() {
         errorMessage = error.response.data.message
       }
       
-      setSnackbarMessage(errorMessage)
-      setSnackbarSeverity('error')
-      setSnackbarOpen(true)
+      notifications.show({
+        title: '로그인 실패',
+        message: errorMessage,
+        color: 'red',
+        autoClose: 5000,
+      })
     } finally {
       setLoading(false)
     }
@@ -89,155 +97,143 @@ function AdminLoginPage() {
     }
   }
 
-  const handleSnackbarClose = () => {
-    setSnackbarOpen(false)
-  }
-
   return (
     <Box
-      sx={{
+      style={{
         minHeight: '100vh',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         background: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)',
-        p: 2
+        padding: '16px'
       }}
     >
-      <Container maxWidth="sm">
-        <Paper
-          elevation={8}
-          sx={{
-            p: 4,
-            borderRadius: 4,
+      <MotionContainer size="sm">
+        <MotionPaper
+          initial={{ opacity: 0, y: 50 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+          shadow="xl"
+          p="xl"
+          radius="xl"
+          style={{
             textAlign: 'center',
             backgroundColor: 'rgba(255, 255, 255, 0.95)',
-            backdropFilter: 'blur(10px)'
+            backdropFilter: 'blur(10px)',
+            border: '1px solid rgba(255, 107, 107, 0.3)'
           }}
         >
           {/* Admin Title and Icon */}
-          <Box sx={{ mb: 4 }}>
-            <AdminIcon 
-              sx={{ 
-                fontSize: 64, 
-                color: '#ff6b6b', 
-                mb: 2 
-              }} 
-            />
-            <Typography 
-              variant="h3" 
-              component="h1" 
-              gutterBottom
-              sx={{ 
-                fontWeight: 'bold',
-                color: '#ff6b6b',
-                textShadow: '2px 2px 4px rgba(0,0,0,0.1)'
-              }}
+          <Stack gap="md" mb="xl">
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
             >
-              관리자 페이지
-            </Typography>
-            <Typography 
-              variant="h6" 
-              color="text.secondary"
-              sx={{ mb: 3 }}
+              <IconShield 
+                size={64}
+                color="#ff6b6b"
+                style={{ marginBottom: '16px' }}
+              />
+            </motion.div>
+            
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.3 }}
             >
-              관리자 비밀번호를 입력하세요
-            </Typography>
-          </Box>
+              <Title 
+                order={1}
+                style={{ 
+                  fontWeight: 'bold',
+                  color: '#ff6b6b',
+                  textShadow: '2px 2px 4px rgba(0,0,0,0.1)',
+                  marginBottom: '16px'
+                }}
+              >
+                관리자 페이지
+              </Title>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.4 }}
+            >
+              <Text 
+                size="lg"
+                style={{ 
+                  color: 'rgba(0, 0, 0, 0.6)',
+                  marginBottom: '24px'
+                }}
+              >
+                관리자 비밀번호를 입력하세요
+              </Text>
+            </motion.div>
+          </Stack>
 
           {/* Login Form */}
-          <Box component="form" onSubmit={handleSubmit} sx={{ mb: 3 }}>
-            <TextField
-              fullWidth
-              label="관리자 비밀번호"
-              type="password"
-              variant="outlined"
-              value={password}
-              onChange={handlePasswordChange}
-              onKeyPress={handleKeyPress}
-              error={!!validationError}
-              helperText={validationError || '관리자 비밀번호를 입력해주세요'}
-              disabled={loading}
-              sx={{ 
-                mb: 3,
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: 2,
-                  fontSize: '1.1rem'
-                }
-              }}
-              inputProps={{
-                autoComplete: 'current-password'
-              }}
-              autoFocus
-            />
+          <motion.form
+            onSubmit={handleSubmit}
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.5 }}
+          >
+            <Stack gap="lg" mb="lg">
+              <PasswordInput
+                label="관리자 비밀번호"
+                placeholder="관리자 비밀번호를 입력해주세요"
+                value={password}
+                onChange={handlePasswordChange}
+                onKeyPress={handleKeyPress}
+                error={validationError}
+                disabled={loading}
+                size="lg"
+                radius="md"
+                autoComplete="current-password"
+                autoFocus
+                style={{ width: '100%' }}
+              />
 
-            <Button
-              type="submit"
-              variant="contained"
-              size="large"
-              fullWidth
-              startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <LoginIcon />}
-              disabled={loading || !password.trim()}
-              sx={{
-                py: 1.5,
-                fontSize: '1.1rem',
-                fontWeight: 'bold',
-                borderRadius: 2,
-                textTransform: 'none',
-                boxShadow: 3,
-                backgroundColor: '#ff6b6b',
-                '&:hover': {
-                  backgroundColor: '#ee5a24',
-                  boxShadow: 6,
-                  transform: 'translateY(-2px)'
-                },
-                '&:disabled': {
-                  backgroundColor: 'grey.300'
-                }
-              }}
-            >
-              {loading ? '접속 중...' : '관리자 페이지 접속'}
-            </Button>
-          </Box>
+              <Button
+                type="submit"
+                variant="gradient"
+                gradient={{ from: 'red', to: 'orange' }}
+                size="lg"
+                disabled={loading || !password.trim()}
+                leftSection={loading ? <Loader size={20} /> : <IconLogin size={20} />}
+                fullWidth
+                radius="md"
+                style={{
+                  fontSize: '1.1rem',
+                  fontWeight: 'bold',
+                  textTransform: 'none'
+                }}
+              >
+                {loading ? '접속 중...' : '관리자 페이지 접속'}
+              </Button>
+            </Stack>
+          </motion.form>
 
           {/* Back to Main */}
-          <Button
-            variant="text"
-            onClick={() => navigate('/')}
-            sx={{
-              color: 'text.secondary',
-              textTransform: 'none',
-              '&:hover': {
-                backgroundColor: 'rgba(0,0,0,0.04)'
-              }
-            }}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5, delay: 0.6 }}
           >
-            메인 페이지로 돌아가기
-          </Button>
-        </Paper>
-      </Container>
-
-      {/* Snackbar for notifications */}
-      <Snackbar
-        open={snackbarOpen}
-        autoHideDuration={4000}
-        onClose={handleSnackbarClose}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-      >
-        <Alert 
-          onClose={handleSnackbarClose} 
-          severity={snackbarSeverity}
-          sx={{ 
-            width: '100%',
-            borderRadius: 2,
-            '& .MuiAlert-message': {
-              fontSize: '0.95rem'
-            }
-          }}
-        >
-          {snackbarMessage}
-        </Alert>
-      </Snackbar>
+            <Button
+              variant="subtle"
+              color="gray"
+              onClick={() => navigate('/')}
+              style={{
+                textTransform: 'none'
+              }}
+            >
+              메인 페이지로 돌아가기
+            </Button>
+          </motion.div>
+        </MotionPaper>
+      </MotionContainer>
     </Box>
   )
 }

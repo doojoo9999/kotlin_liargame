@@ -1,5 +1,5 @@
 import {useEffect, useRef} from 'react'
-import {Alert, Box, Button, List, Paper, Typography} from '@mui/material'
+import {Alert, Box, Button, List, Paper, Typography} from '@components/ui'
 import ChatMessage from './ChatMessage'
 import ChatInput from './ChatInput'
 import {useGame} from '../context/GameContext'
@@ -22,8 +22,8 @@ function ChatWindow() {
 
   if (!gameNumber) {
     return (
-        <Paper sx={{ p: 2, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Typography color="error" variant="body2">
+        <Paper style={{ padding: '16px', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Typography variant="body2" style={{ color: '#f44336' }}>
             채팅을 사용할 수 없습니다. 방 정보를 확인해주세요.
           </Typography>
         </Paper>
@@ -32,8 +32,8 @@ function ChatWindow() {
 
   if (!socketConnected) {
     return (
-        <Paper sx={{ p: 2, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Typography color="info" variant="body2">
+        <Paper style={{ padding: '16px', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Typography variant="body2" style={{ color: '#2196f3' }}>
             채팅 연결 중...
           </Typography>
         </Paper>
@@ -82,34 +82,33 @@ function ChatWindow() {
 
   return (
       <Paper
-          elevation={3}
-          sx={{
+          style={{
             width: '100%',
             height: '100%',
             display: 'flex',
             flexDirection: 'column',
-            borderRadius: 4,
+            borderRadius: '16px',
             backgroundColor: 'rgba(255, 255, 255, 0.9)',
-            overflow: 'hidden'
+            overflow: 'hidden',
+            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
           }}
       >
         {/* Chat header */}
-        <Box sx={{
-          p: 2,
-          borderBottom: 1,
-          borderColor: 'divider',
-          backgroundColor: 'primary.light'
+        <Box style={{
+          padding: '16px',
+          borderBottom: '1px solid #e0e0e0',
+          backgroundColor: '#90caf9'
         }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6" color="white">
+          <Box style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="h6" style={{ color: 'white' }}>
               Game Chat {gameNumber ? `#${gameNumber}` : ''}
             </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               {/* 디버그 버튼들 */}
               <Button 
                 size="small" 
                 variant="outlined" 
-                sx={{ color: 'white', borderColor: 'white', fontSize: '10px' }}
+                style={{ color: 'white', borderColor: 'white', fontSize: '10px' }}
                 onClick={() => {
                   if (currentRoom?.gameNumber) {
                     console.log('[DEBUG] Manual chat history reload triggered')
@@ -123,7 +122,7 @@ function ChatWindow() {
               <Button 
                 size="small" 
                 variant="outlined" 
-                sx={{ color: 'white', borderColor: 'white', fontSize: '10px' }}
+                style={{ color: 'white', borderColor: 'white', fontSize: '10px' }}
                 onClick={() => {
                   console.log('[DEBUG] Current chat state:', chatMessages)
                   console.log('[DEBUG] Socket connected:', socketConnected)
@@ -133,14 +132,14 @@ function ChatWindow() {
                 상태확인
               </Button>
               <Box
-                  sx={{
-                    width: 8,
-                    height: 8,
+                  style={{
+                    width: '8px',
+                    height: '8px',
                     borderRadius: '50%',
-                    backgroundColor: socketConnected ? 'success.main' : 'error.main'
+                    backgroundColor: socketConnected ? '#4caf50' : '#f44336'
                   }}
               />
-              <Typography variant="caption" color="white">
+              <Typography variant="caption" style={{ color: 'white' }}>
                 {socketConnected ? '연결됨' : '연결 끊김'}
               </Typography>
             </Box>
@@ -149,34 +148,34 @@ function ChatWindow() {
 
         {/* Connection Error Alert */}
         {error.socket && (
-            <Alert severity="error" sx={{ m: 1 }}>
+            <Alert severity="error" style={{ margin: '8px' }}>
               {error.socket}
             </Alert>
         )}
 
         {/* No currentRoom warning */}
         {!currentRoom && (
-            <Alert severity="warning" sx={{ m: 1 }}>
+            <Alert severity="warning" style={{ margin: '8px' }}>
               방 정보를 불러오는 중입니다...
             </Alert>
         )}
 
         {/* Chat messages area */}
-        <Box sx={{
+        <Box style={{
           flexGrow: 1,
           overflowY: 'auto',
           display: 'flex',
           flexDirection: 'column',
-          p: 1
+          padding: '8px'
         }}>
-          <List sx={{ width: '100%' }}>
+          <List style={{ width: '100%' }}>
             {chatMessages.length === 0 ? (
-                <Box sx={{
+                <Box style={{
                   display: 'flex',
                   justifyContent: 'center',
                   alignItems: 'center',
                   height: '100%',
-                  color: 'text.secondary'
+                  color: '#666666'
                 }}>
                   <Typography variant="body2">
                     {socketConnected ? '채팅을 시작해보세요!' : 'WebSocket에 연결 중...'}

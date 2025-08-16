@@ -1,8 +1,8 @@
 import React from 'react'
 import {motion} from 'framer-motion'
-import {Box, CircularProgress, Typography} from '@mui/material'
+import {Box, CircularProgress, Typography} from '@components/ui'
 import {AlertTriangle, Clock} from 'lucide-react'
-import {useTheme} from '@mui/material/styles'
+import {useTheme} from '@styles'
 
 const EnhancedGameTimer = ({ 
   gameTimer, 

@@ -1,5 +1,5 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react'
-import {Box, Fade} from '@mui/material'
+import {Box} from '@components/ui'
 import NarratorBubble from './NarratorBubble.jsx'
 
 const MAX_QUEUE_SIZE = 5
@@ -152,29 +152,32 @@ const MessageQueue = React.memo(function MessageQueue({
     >
       {/* Displayed Messages */}
       {displayedMessages.map((message, index) => (
-        <Fade
+        <Box
           key={message.id}
-          in={true}
-          timeout={500}
-          style={{
-            transitionDelay: `${index * 100}ms`
+          sx={{ 
+            mb: 1,
+            opacity: 0,
+            animation: `fadeInMessage 0.5s ease-in-out forwards`,
+            animationDelay: `${index * 100}ms`,
+            '@keyframes fadeInMessage': {
+              '0%': { opacity: 0, transform: 'translateY(10px)' },
+              '100%': { opacity: 1, transform: 'translateY(0)' }
+            }
           }}
         >
-          <Box sx={{ mb: 1 }}>
-            <NarratorBubble
-              message={message.text}
-              category={message.category}
-              icon={message.icon}
-              effects={message.effects}
-              position={position}
-              isMobile={isMobile}
-              onComplete={() => handleMessageComplete(message.id)}
-              onSkip={() => handleMessageSkip(message.id)}
-              variant={message.variant}
-              clickToSkip={message.clickToSkip !== false}
-            />
-          </Box>
-        </Fade>
+          <NarratorBubble
+            message={message.text}
+            category={message.category}
+            icon={message.icon}
+            effects={message.effects}
+            position={position}
+            isMobile={isMobile}
+            onComplete={() => handleMessageComplete(message.id)}
+            onSkip={() => handleMessageSkip(message.id)}
+            variant={message.variant}
+            clickToSkip={message.clickToSkip !== false}
+          />
+        </Box>
       ))}
 
       {/* Queue Status (Debug - can be removed) */}

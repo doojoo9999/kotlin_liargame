@@ -1,14 +1,14 @@
 import React from 'react'
 import {
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Typography
-} from '@mui/material'
+    Paper,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableRow,
+    Typography
+} from '../../../components/ui'
 import GameRoomRow from './GameRoomRow'
 
 const GameRoomsTable = React.memo(function GameRoomsTable({
@@ -17,8 +17,8 @@ const GameRoomsTable = React.memo(function GameRoomsTable({
   getStatusText
 }) {
   return (
-    <Paper sx={{ p: 3 }}>
-      <Typography variant="h6" gutterBottom>
+    <Paper style={{ padding: '24px' }}>
+      <Typography variant="h6" style={{ marginBottom: '16px' }}>
         실시간 게임방 목록
       </Typography>
       <TableContainer>

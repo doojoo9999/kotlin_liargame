@@ -1,4 +1,4 @@
-import React from 'react'
+import React, {memo} from 'react'
 import {
     Box,
     Button,
@@ -11,10 +11,9 @@ import {
     TableContainer,
     TableHead,
     TableRow,
-    Tooltip,
     Typography
-} from '@mui/material'
-import {Lock as LockIcon, Login as LoginIcon, People as PeopleIcon, PlayArrow as PlayIcon} from '@mui/icons-material'
+} from '@components/ui'
+import {Lock as LockIcon, LogIn as LoginIcon, Play as PlayIcon, Users as PeopleIcon} from 'lucide-react'
 import {getRoomStateColor, getRoomStateText} from '../../utils/roomUtils'
 
 /**
@@ -35,9 +34,9 @@ const RoomListTable = ({
   onRefreshRooms
 }) => {
   return (
-    <Paper sx={{ width: '100%', overflow: 'hidden' }}>
+    <Paper style={{ width: '100%', overflow: 'hidden' }}>
       <TableContainer>
-        <Table stickyHeader>
+        <Table>
           <TableHead>
             <TableRow>
               <TableCell>방 제목</TableCell>
@@ -52,17 +51,17 @@ const RoomListTable = ({
           <TableBody>
             {loading?.rooms ? (
               <TableRow>
-                <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={7} align="center" style={{ padding: '32px 16px' }}>
                   <CircularProgress />
-                  <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                  <Typography variant="body2" style={{ color: '#666666', marginTop: '8px' }}>
                     방 목록을 불러오는 중...
                   </Typography>
                 </TableCell>
               </TableRow>
             ) : error?.rooms ? (
               <TableRow>
-                <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
-                  <Typography variant="body1" color="error" sx={{ mb: 2 }}>
+                <TableCell colSpan={7} align="center" style={{ padding: '32px 16px' }}>
+                  <Typography variant="body1" style={{ color: '#f44336', marginBottom: '16px' }}>
                     {error.rooms}
                   </Typography>
                   <Button variant="outlined" onClick={onRefreshRooms}>
@@ -72,14 +71,14 @@ const RoomListTable = ({
               </TableRow>
             ) : !Array.isArray(roomList) ? (
               <TableRow>
-                <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
-                  <Typography variant="body1" color="error" sx={{ mb: 2 }}>
+                <TableCell colSpan={7} align="center" style={{ padding: '32px 16px' }}>
+                  <Typography variant="body1" style={{ color: '#f44336', marginBottom: '16px' }}>
                     데이터 형식 오류가 발생했습니다. 페이지를 새로고침해주세요.
                   </Typography>
                   <Button 
                     variant="outlined" 
-                    onClick={() => window.location.reload()} 
-                    sx={{ mt: 1 }}
+                    onClick={() => window.location.reload()}
+                    style={{ marginTop: '8px' }}
                   >
                     새로고침
                   </Button>
@@ -87,24 +86,24 @@ const RoomListTable = ({
               </TableRow>
             ) : roomList.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
-                  <Typography variant="body1" color="text.secondary">
+                <TableCell colSpan={7} align="center" style={{ padding: '32px 16px' }}>
+                  <Typography variant="body1" style={{ color: '#666666' }}>
                     생성된 방이 없습니다.
                   </Typography>
                 </TableCell>
               </TableRow>
             ) : (
               roomList.map((room) => (
-                <TableRow key={room.gameNumber} hover>
+                <TableRow key={room.gameNumber}>
                   <TableCell>
-                    <Typography variant="subtitle1" fontWeight="medium">
+                    <Typography variant="subtitle1" style={{ fontWeight: 'medium' }}>
                       {room.title}
                     </Typography>
                   </TableCell>
                   <TableCell>{room.host}</TableCell>
                   <TableCell align="center">
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
-                      <PeopleIcon fontSize="small" />
+                    <Box style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                      <PeopleIcon size={16} />
                       {room.playerCount || room.currentPlayers || 0}/{room.maxPlayers}
                     </Box>
                   </TableCell>
@@ -132,9 +131,7 @@ const RoomListTable = ({
                   </TableCell>
                   <TableCell align="center">
                     {room.hasPassword && (
-                      <Tooltip title="비밀방">
-                        <LockIcon fontSize="small" color="action" />
-                      </Tooltip>
+                      <LockIcon size={16} title="비밀방" style={{ color: '#757575' }} />
                     )}
                   </TableCell>
                   <TableCell align="center">
@@ -162,4 +159,4 @@ const RoomListTable = ({
   )
 }
 
-export default RoomListTable
+export default memo(RoomListTable)

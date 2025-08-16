@@ -1,107 +1,316 @@
-import React from 'react'
-import {
-    Box,
-    Button,
-    CircularProgress,
-    Dialog,
-    DialogActions,
-    DialogContent,
-    DialogTitle,
-    FormControl,
-    InputLabel,
-    MenuItem,
-    Select,
-    TextField,
-    Typography
-} from '@mui/material'
+import {useState} from 'react'
+import {Button, Group, Modal, Select, Stack, Text, TextInput} from '@mantine/core'
+import {IconBook, IconBulb, IconPlus} from '@tabler/icons-react'
+import {motion} from 'framer-motion'
+import {notifications} from '@mantine/notifications'
 
-const AddContentDialog = ({
-  open,
-  onClose,
-  subjects,
-  contentForm,
-  onFormChange,
-  onAddSubject,
-  onAddWord,
-  isLoading = false
-}) => {
+export function AddContentDialog({ 
+  opened, 
+  onClose, 
+  subjects = [],
+  addSubject,
+  addWord 
+}) {
+  // 상태 관리
+  const [activeTab, setActiveTab] = useState('subject') // 'subject' | 'word'
+  const [subjectName, setSubjectName] = useState('')
+  const [selectedSubject, setSelectedSubject] = useState('')
+  const [wordText, setWordText] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  // 핸들러 함수들
+  const handleAddSubject = async () => {
+    if (!subjectName.trim()) return
+
+    try {
+      setLoading(true)
+      await addSubject(subjectName.trim())
+      setSubjectName('')
+      
+      notifications.show({
+        title: '성공!',
+        message: '새 주제가 추가되었습니다.',
+        color: 'green',
+        autoClose: 3000
+      })
+    } catch (error) {
+      notifications.show({
+        title: '오류',
+        message: '주제 추가에 실패했습니다.',
+        color: 'red',
+        autoClose: 3000
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleAddWord = async () => {
+    if (!selectedSubject || !wordText.trim()) return
+
+    try {
+      setLoading(true)
+      await addWord(selectedSubject, wordText.trim())
+      setWordText('')
+      
+      notifications.show({
+        title: '성공!',
+        message: '새 답안이 추가되었습니다.',
+        color: 'green',
+        autoClose: 3000
+      })
+    } catch (error) {
+      notifications.show({
+        title: '오류',
+        message: '답안 추가에 실패했습니다.',
+        color: 'red',
+        autoClose: 3000
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // LoginPage-consistent input field styles
+  const inputStyles = {
+    label: { 
+      color: 'white', 
+      marginBottom: '8px',
+      fontSize: '14px',
+      fontWeight: 500
+    },
+    input: {
+      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+      borderColor: 'rgba(255, 255, 255, 0.3)',
+      borderRadius: '8px',
+      color: 'white',
+      fontSize: '14px',
+      padding: '12px 16px',
+      height: '48px',
+      '&::placeholder': { 
+        color: 'rgba(255, 255, 255, 0.5)' 
+      },
+      '&:focus': {
+        borderColor: '#667eea',
+        boxShadow: '0 0 0 2px rgba(102, 126, 234, 0.2)'
+      }
+    }
+  }
+
+  const canSubmit = activeTab === 'subject' ? subjectName.trim() : selectedSubject && wordText.trim()
+
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>주제/답안 추가</DialogTitle>
-      <DialogContent>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: 1 }}>
-          {/* Subject Addition Section */}
-          <Box>
-            <Typography variant="h6" gutterBottom>
-              새 주제 추가
-            </Typography>
-            <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-              <TextField
-                label="주제 이름"
-                value={contentForm.newSubject}
-                onChange={(e) => onFormChange('newSubject', e.target.value)}
-                placeholder="예: 음식, 동물, 직업"
-                fullWidth
-              />
-              <Button
-                variant="contained"
-                onClick={onAddSubject}
-                disabled={isLoading || !contentForm.newSubject.trim()}
-                sx={{ minWidth: '100px' }}
-              >
-                {isLoading ? <CircularProgress size={20} /> : '추가'}
-              </Button>
-            </Box>
-          </Box>
+    <Modal
+      opened={opened}
+      onClose={onClose}
+      title="🎮 콘텐츠 추가"
+      centered
+      size="md"
+      styles={{
+        content: {
+          background: 'rgba(45, 55, 72, 0.95)',
+          borderRadius: '24px',
+          padding: '40px 32px',
+          backdropFilter: 'blur(20px)',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          color: 'white',
+          width: '580px',
+          maxWidth: '580px',
+          minWidth: '580px'
+        },
+        header: {
+          backgroundColor: 'transparent',
+          borderBottom: 'none',
+          padding: '0 0 24px 0'
+        },
+        title: {
+          color: 'white',
+          fontSize: '20px',
+          fontWeight: 'bold',
+          textAlign: 'center'
+        }
+      }}
+    >
+      <Stack gap="24px">
+        {/* LoginPage-consistent gradient tab buttons */}
+        <Group grow mb="32px">
+          <motion.div
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            <Button
+              variant={activeTab === 'subject' ? 'gradient' : 'outline'}
+              gradient={{ from: 'violet', to: 'purple' }}
+              leftSection={<IconBook size={16} />}
+              onClick={() => setActiveTab('subject')}
+              size="md"
+              fullWidth
+              styles={{
+                root: {
+                  height: '48px',
+                  borderColor: 'rgba(255, 255, 255, 0.3)',
+                  color: activeTab === 'subject' ? 'white' : 'rgba(255, 255, 255, 0.8)',
+                  fontSize: '14px',
+                  fontWeight: 500
+                }
+              }}
+            >
+              📚 새 주제 추가
+            </Button>
+          </motion.div>
 
-          {/* Word Addition Section */}
-          <Box>
-            <Typography variant="h6" gutterBottom>
-              답안 추가
-            </Typography>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <FormControl fullWidth>
-                <InputLabel>주제 선택</InputLabel>
-                <Select
-                  value={contentForm.selectedSubject}
-                  onChange={(e) => onFormChange('selectedSubject', e.target.value)}
-                  label="주제 선택"
-                  variant="outlined"
-                >
-                  {subjects.map((subject) => (
-                    <MenuItem key={`room-${subject.id}-${subject.name}`} value={subject.id}>
-                      {subject.name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+          <motion.div
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            <Button
+              variant={activeTab === 'word' ? 'gradient' : 'outline'}
+              gradient={{ from: 'cyan', to: 'teal' }}
+              leftSection={<IconBulb size={16} />}
+              onClick={() => setActiveTab('word')}
+              size="md"
+              fullWidth
+              styles={{
+                root: {
+                  height: '48px',
+                  borderColor: 'rgba(255, 255, 255, 0.3)',
+                  color: activeTab === 'word' ? 'white' : 'rgba(255, 255, 255, 0.8)',
+                  fontSize: '14px',
+                  fontWeight: 500
+                }
+              }}
+            >
+              💡 답안 추가
+            </Button>
+          </motion.div>
+        </Group>
+
+        {/* Enhanced description text */}
+        <Text 
+          size="sm" 
+          c="dimmed" 
+          ta="center"
+          style={{ 
+            backgroundColor: 'rgba(255, 255, 255, 0.05)',
+            padding: '12px',
+            borderRadius: '8px',
+            border: '1px solid rgba(255, 255, 255, 0.1)'
+          }}
+        >
+          {activeTab === 'subject' 
+            ? '🎯 게임에서 사용할 새로운 주제 카테고리를 만들어보세요!'
+            : '📝 기존 주제에 다양한 답안을 추가해서 게임을 더 재미있게 만들어보세요!'
+          }
+        </Text>
+
+        {/* 새 주제 추가 탭 */}
+        {activeTab === 'subject' && (
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <Stack gap="20px">
+              <TextInput
+                label="주제 이름"
+                placeholder="예: 음식, 동물, 영화 등..."
+                value={subjectName}
+                onChange={(e) => setSubjectName(e.target.value)}
+                styles={inputStyles}
+                size="md"
+              />
               
-              <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-                <TextField
-                  label="답안"
-                  value={contentForm.newWord}
-                  onChange={(e) => onFormChange('newWord', e.target.value)}
-                  placeholder="답안을 입력하세요"
-                  fullWidth
-                  disabled={!contentForm.selectedSubject}
-                />
-                <Button
-                  variant="contained"
-                  onClick={onAddWord}
-                  disabled={isLoading || !contentForm.selectedSubject || !contentForm.newWord.trim()}
-                  sx={{ minWidth: '100px' }}
-                >
-                  {isLoading ? <CircularProgress size={20} /> : '추가'}
-                </Button>
-              </Box>
-            </Box>
-          </Box>
-        </Box>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>닫기</Button>
-      </DialogActions>
-    </Dialog>
+              <Button
+                leftSection={<IconPlus size={16} />}
+                disabled={!canSubmit || loading}
+                loading={loading}
+                onClick={handleAddSubject}
+                variant="gradient"
+                gradient={{ from: 'violet', to: 'purple' }}
+                size="md"
+                fullWidth
+                styles={{
+                  root: {
+                    height: '48px',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    marginTop: '16px'
+                  }
+                }}
+              >
+                ✨ 주제 추가
+              </Button>
+            </Stack>
+          </motion.div>
+        )}
+
+        {/* 답안 추가 탭 */}
+        {activeTab === 'word' && (
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <Stack gap="20px">
+              <Select
+                label="주제 선택"
+                placeholder="주제를 선택하세요"
+                data={subjects.map(s => ({ value: s.id.toString(), label: s.name }))}
+                value={selectedSubject}
+                onChange={setSelectedSubject}
+                searchable
+                size="md"
+                styles={{
+                  ...inputStyles,
+                  dropdown: {
+                    backgroundColor: 'rgba(45, 55, 72, 0.95)',
+                    borderColor: 'rgba(255, 255, 255, 0.1)',
+                    backdropFilter: 'blur(20px)'
+                  },
+                  option: {
+                    color: 'white',
+                    backgroundColor: 'transparent',
+                    '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' },
+                    '&[data-selected]': { backgroundColor: 'rgba(102, 126, 234, 0.3)' }
+                  }
+                }}
+              />
+              
+              <TextInput
+                label="답안"
+                placeholder="새로운 답안을 입력하세요..."
+                value={wordText}
+                onChange={(e) => setWordText(e.target.value)}
+                disabled={!selectedSubject}
+                styles={inputStyles}
+                size="md"
+              />
+              
+              <Button
+                leftSection={<IconPlus size={16} />}
+                disabled={!canSubmit || loading}
+                loading={loading}
+                onClick={handleAddWord}
+                variant="gradient"
+                gradient={{ from: 'cyan', to: 'teal' }}
+                size="md"
+                fullWidth
+                styles={{
+                  root: {
+                    height: '48px',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    marginTop: '16px'
+                  }
+                }}
+              >
+                💫 답안 추가
+              </Button>
+            </Stack>
+          </motion.div>
+        )}
+      </Stack>
+    </Modal>
   )
 }
 

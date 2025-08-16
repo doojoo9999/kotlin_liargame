@@ -1,6 +1,6 @@
 import React, {useEffect, useRef, useState} from 'react'
-import {Alert, Box, CircularProgress, Fade, Typography} from '@mui/material'
-import {Timer as TimerIcon, Warning as WarningIcon} from '@mui/icons-material'
+import {Alert, Box, CircularProgress, Typography} from '@components/ui'
+import {AlertTriangle as WarningIcon, Timer as TimerIcon} from 'lucide-react'
 
 const GameTimerComponent = ({ 
   gameTimer, 

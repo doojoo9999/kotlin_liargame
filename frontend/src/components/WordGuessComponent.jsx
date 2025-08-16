@@ -1,12 +1,89 @@
 import React, {useState} from 'react'
-import {Alert, Box, Button, Card, CardContent, Fade, LinearProgress, Paper, TextField, Typography} from '@mui/material'
+import {Alert, Box, Button, Card, CardContent, Input as TextField, Paper, Typography} from '@components/ui'
 import {
-    Cancel as CancelIcon,
     CheckCircle as CheckIcon,
-    EmojiObjects as BulbIcon,
-    HourglassEmpty as WaitIcon,
-    Send as SendIcon
-} from '@mui/icons-material'
+    Clock as WaitIcon,
+    Lightbulb as BulbIcon,
+    Send as SendIcon,
+    X as CancelIcon
+} from 'lucide-react'
+import styled from 'styled-components'
+
+// Styled components for animations
+const FadeWrapper = styled.div`
+  opacity: 1;
+  animation: fadeIn 0.3s ease-in-out;
+  
+  @keyframes fadeIn {
+    0% {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+`
+
+const ResultCard = styled(Card)`
+  min-width: 500px;
+  background-color: ${props => props.$isLiarWin ? '#f44336' : '#4caf50'};
+  color: white;
+  border: 3px solid ${props => props.$isLiarWin ? '#d32f2f' : '#388e3c'};
+  box-shadow: ${props => props.$isLiarWin ? '0 0 30px rgba(244, 67, 54, 0.7)' : '0 0 30px rgba(76, 175, 80, 0.7)'};
+`
+
+const GuessResultCard = styled(Card)`
+  min-width: 500px;
+  background-color: ${props => props.$correct ? '#4caf50' : '#f44336'};
+  color: white;
+  border: 3px solid ${props => props.$correct ? '#388e3c' : '#d32f2f'};
+`
+
+const WaitingPaper = styled(Paper)`
+  min-width: 500px;
+  padding: 32px;
+  text-align: center;
+  background-color: #2196f3;
+  color: white;
+  border: 2px solid #1976d2;
+`
+
+const LiarCard = styled(Card)`
+  min-width: 500px;
+  background-color: #f44336;
+  color: white;
+  border: 3px solid #d32f2f;
+  box-shadow: 0 0 20px rgba(244, 67, 54, 0.5);
+  animation: pulse 2s infinite;
+  
+  @keyframes pulse {
+    0%, 100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.02);
+    }
+  }
+`
+
+const ProgressBar = styled.div`
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  background-color: rgba(255, 255, 255, 0.3);
+  overflow: hidden;
+  margin-top: 16px;
+`
+
+const ProgressFill = styled.div`
+  height: 100%;
+  background-color: white;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+  width: ${props => props.$progress}%;
+`
 
 const WordGuessComponent = ({ 
   gameTimer, 
@@ -72,44 +149,35 @@ const WordGuessComponent = ({
   if (gameResult) {
     const isLiarWin = gameResult.winner === 'LIAR'
     return (
-      <Fade in={true}>
-        <Card 
-          sx={{ 
-            minWidth: 500,
-            backgroundColor: isLiarWin ? 'error.main' : 'success.main',
-            color: 'white',
-            border: '3px solid',
-            borderColor: isLiarWin ? 'error.dark' : 'success.dark',
-            boxShadow: `0 0 30px ${isLiarWin ? 'rgba(244, 67, 54, 0.7)' : 'rgba(76, 175, 80, 0.7)'}`
-          }}
-        >
-          <CardContent sx={{ textAlign: 'center', py: 4 }}>
-            <Typography variant="h3" sx={{ mb: 2 }}>
+      <FadeWrapper>
+        <ResultCard $isLiarWin={isLiarWin}>
+          <CardContent style={{ textAlign: 'center', padding: '32px' }}>
+            <Typography variant="h3" style={{ marginBottom: '16px' }}>
               {isLiarWin ? '🎭' : '👥'}
             </Typography>
-            <Typography variant="h4" gutterBottom sx={{ fontWeight: 'bold' }}>
+            <Typography variant="h4" style={{ fontWeight: 'bold', marginBottom: '8px' }}>
               {gameResult.winner === 'LIAR' ? '라이어 승리!' : '시민 승리!'}
             </Typography>
-            <Typography variant="h6" sx={{ mb: 3, opacity: 0.9 }}>
+            <Typography variant="h6" style={{ marginBottom: '24px', opacity: 0.9 }}>
               {gameResult.message}
             </Typography>
             
             {guessResult && (
               <Paper 
-                sx={{ 
-                  p: 2, 
-                  mb: 3, 
+                style={{ 
+                  padding: '16px', 
+                  marginBottom: '24px', 
                   backgroundColor: 'rgba(255,255,255,0.1)',
                   border: '2px solid rgba(255,255,255,0.3)'
                 }}
               >
-                <Typography variant="body1" sx={{ color: 'white' }}>
+                <Typography variant="body1" style={{ color: 'white' }}>
                   추리한 단어: <strong>{guessResult.guessedWord}</strong>
                 </Typography>
-                <Typography variant="body1" sx={{ color: 'white' }}>
+                <Typography variant="body1" style={{ color: 'white' }}>
                   정답: <strong>{guessResult.actualWord}</strong>
                 </Typography>
-                <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)', mt: 1 }}>
+                <Typography variant="body2" style={{ color: 'rgba(255,255,255,0.8)', marginTop: '8px' }}>
                   {guessResult.correct ? '정답입니다!' : '틀렸습니다!'}
                 </Typography>
               </Paper>
@@ -119,145 +187,104 @@ const WordGuessComponent = ({
               variant="contained"
               size="large"
               onClick={onRestartGame}
-              sx={{
-                py: 1.5,
-                px: 4,
+              style={{
+                padding: '12px 32px',
                 fontSize: '1.1rem',
                 fontWeight: 'bold',
                 backgroundColor: 'white',
-                color: isLiarWin ? 'error.main' : 'success.main',
-                '&:hover': {
-                  backgroundColor: 'grey.100'
-                }
+                color: isLiarWin ? '#f44336' : '#4caf50'
               }}
             >
               다시 게임하기
             </Button>
           </CardContent>
-        </Card>
-      </Fade>
+        </ResultCard>
+      </FadeWrapper>
     )
   }
 
   // Show guess result if submitted
   if (isSubmitted && guessResult) {
     return (
-      <Fade in={true}>
-        <Card 
-          sx={{ 
-            minWidth: 500,
-            backgroundColor: guessResult.correct ? 'success.main' : 'error.main',
-            color: 'white',
-            border: '3px solid',
-            borderColor: guessResult.correct ? 'success.dark' : 'error.dark'
-          }}
-        >
-          <CardContent sx={{ textAlign: 'center', py: 3 }}>
+      <FadeWrapper>
+        <GuessResultCard $correct={guessResult.correct}>
+          <CardContent style={{ textAlign: 'center', padding: '24px' }}>
             {guessResult.correct ? (
-              <CheckIcon sx={{ fontSize: 64, mb: 2 }} />
+              <CheckIcon size={64} style={{ marginBottom: '16px' }} />
             ) : (
-              <CancelIcon sx={{ fontSize: 64, mb: 2 }} />
+              <CancelIcon size={64} style={{ marginBottom: '16px' }} />
             )}
-            <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold' }}>
+            <Typography variant="h5" style={{ fontWeight: 'bold', marginBottom: '8px' }}>
               {guessResult.correct ? '정답입니다!' : '틀렸습니다!'}
             </Typography>
-            <Typography variant="body1" sx={{ mb: 1 }}>
+            <Typography variant="body1" style={{ marginBottom: '8px' }}>
               추리한 단어: <strong>{guessResult.guessedWord}</strong>
             </Typography>
-            <Typography variant="body1" sx={{ mb: 2 }}>
+            <Typography variant="body1" style={{ marginBottom: '16px' }}>
               정답: <strong>{guessResult.actualWord}</strong>
             </Typography>
-            <Typography variant="body2" sx={{ opacity: 0.9 }}>
+            <Typography variant="body2" style={{ opacity: 0.9 }}>
               게임 결과를 집계하는 중...
             </Typography>
           </CardContent>
-        </Card>
-      </Fade>
+        </GuessResultCard>
+      </FadeWrapper>
     )
   }
 
   // Show waiting message for citizens
   if (!isLiar) {
     return (
-      <Fade in={true}>
-        <Paper 
-          sx={{ 
-            minWidth: 500,
-            p: 4,
-            textAlign: 'center',
-            backgroundColor: 'info.main',
-            color: 'white',
-            border: '2px solid',
-            borderColor: 'info.dark'
-          }}
-        >
-          <WaitIcon sx={{ fontSize: 64, mb: 2 }} />
-          <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold' }}>
+      <FadeWrapper>
+        <WaitingPaper>
+          <WaitIcon size={64} style={{ marginBottom: '16px' }} />
+          <Typography variant="h5" style={{ fontWeight: 'bold', marginBottom: '8px' }}>
             🎭 최종 추리 단계
           </Typography>
-          <Typography variant="body1" sx={{ mb: 2 }}>
+          <Typography variant="body1" style={{ marginBottom: '16px' }}>
             라이어가 단어를 추리하는 중입니다...
           </Typography>
-          <Typography variant="body2" sx={{ opacity: 0.9, mb: 3 }}>
+          <Typography variant="body2" style={{ opacity: 0.9, marginBottom: '24px' }}>
             라이어가 정답을 맞히면 라이어 승리, 틀리면 시민 승리입니다
           </Typography>
           
           {gameTimer > 0 && (
-            <Box sx={{ mt: 3 }}>
-              <Typography variant="h4" color="inherit" sx={{ mb: 1 }}>
+            <Box style={{ marginTop: '24px' }}>
+              <Typography variant="h4" style={{ marginBottom: '8px' }}>
                 {gameTimer}초
               </Typography>
-              <LinearProgress 
-                variant="determinate" 
-                value={getProgressValue()}
-                sx={{ 
-                  height: 8, 
-                  borderRadius: 4,
-                  backgroundColor: 'rgba(255,255,255,0.3)',
-                  '& .MuiLinearProgress-bar': {
-                    backgroundColor: 'white'
-                  }
-                }}
-              />
+              <ProgressBar>
+                <ProgressFill $progress={getProgressValue()} />
+              </ProgressBar>
             </Box>
           )}
-        </Paper>
-      </Fade>
+        </WaitingPaper>
+      </FadeWrapper>
     )
   }
 
   // Show word guessing interface for liar
   return (
-    <Fade in={true}>
-      <Card 
-        sx={{ 
-          minWidth: 500,
-          backgroundColor: 'error.main',
-          color: 'white',
-          border: '3px solid',
-          borderColor: 'error.dark',
-          boxShadow: '0 0 20px rgba(244, 67, 54, 0.5)',
-          animation: 'pulse 2s infinite'
-        }}
-      >
+    <FadeWrapper>
+      <LiarCard>
         <CardContent>
           {/* Header */}
-          <Box sx={{ textAlign: 'center', mb: 3 }}>
-            <BulbIcon sx={{ fontSize: 48, mb: 1 }} />
-            <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold' }}>
+          <Box style={{ textAlign: 'center', marginBottom: '24px' }}>
+            <BulbIcon size={48} style={{ marginBottom: '8px' }} />
+            <Typography variant="h5" style={{ fontWeight: 'bold', marginBottom: '8px' }}>
               🎭 최종 기회!
             </Typography>
-            <Typography variant="body1" sx={{ opacity: 0.9 }}>
+            <Typography variant="body1" style={{ opacity: 0.9 }}>
               단어를 맞혀서 승리하세요!
             </Typography>
           </Box>
 
           {/* Timer Display */}
           {gameTimer > 0 && (
-            <Box sx={{ textAlign: 'center', mb: 3 }}>
+            <Box style={{ textAlign: 'center', marginBottom: '24px' }}>
               <Typography 
                 variant="h3" 
-                sx={{ 
+                style={{ 
                   fontWeight: 'bold',
                   textShadow: '2px 2px 4px rgba(0,0,0,0.3)',
                   color: 'white'
@@ -265,88 +292,61 @@ const WordGuessComponent = ({
               >
                 {gameTimer}초
               </Typography>
-              <LinearProgress 
-                variant="determinate" 
-                value={getProgressValue()}
-                sx={{ 
-                  mt: 1, 
-                  height: 8, 
-                  borderRadius: 4,
-                  backgroundColor: 'rgba(255,255,255,0.3)',
-                  '& .MuiLinearProgress-bar': {
-                    backgroundColor: 'white'
-                  }
-                }}
-              />
+              <ProgressBar style={{ marginTop: '8px' }}>
+                <ProgressFill $progress={getProgressValue()} />
+              </ProgressBar>
             </Box>
           )}
 
           {/* Error Display */}
           {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
+            <Alert severity="error" style={{ marginBottom: '16px' }}>
               {error}
             </Alert>
           )}
 
           {/* Instructions */}
           <Paper 
-            sx={{ 
-              p: 2, 
-              mb: 3, 
+            style={{ 
+              padding: '16px', 
+              marginBottom: '24px', 
               backgroundColor: 'rgba(255,255,255,0.1)',
               border: '2px solid rgba(255,255,255,0.3)'
             }}
           >
-            <Typography variant="body1" sx={{ color: 'white', textAlign: 'center' }}>
+            <Typography variant="body1" style={{ color: 'white', textAlign: 'center' }}>
               💡 <strong>힌트:</strong> 게임 중 들었던 모든 힌트를 종합해서 단어를 추리하세요!
             </Typography>
           </Paper>
 
           {/* Word Input */}
-          <Box sx={{ mb: 2 }}>
+          <Box style={{ marginBottom: '16px' }}>
             <TextField
-              fullWidth
-              variant="outlined"
               placeholder="단어를 입력하세요..."
               value={guessedWord}
               onChange={handleWordChange}
               onKeyPress={handleKeyPress}
               disabled={isLoading || isSubmitting}
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  backgroundColor: 'rgba(255,255,255,0.9)',
-                  fontSize: '1.2rem',
-                  '& fieldset': {
-                    borderColor: 'rgba(255,255,255,0.5)',
-                    borderWidth: 2
-                  },
-                  '&:hover fieldset': {
-                    borderColor: 'white'
-                  },
-                  '&.Mui-focused fieldset': {
-                    borderColor: 'white',
-                    borderWidth: 3
-                  }
-                },
-                '& .MuiInputBase-input': {
-                  color: 'black',
-                  fontSize: '1.2rem',
-                  textAlign: 'center',
-                  fontWeight: 'bold'
-                }
+              style={{
+                width: '100%',
+                backgroundColor: 'rgba(255,255,255,0.9)',
+                fontSize: '1.2rem',
+                textAlign: 'center',
+                fontWeight: 'bold',
+                borderRadius: '4px'
               }}
             />
             
             {/* Character Counter */}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
-              <Typography variant="body2" sx={{ opacity: 0.8 }}>
+            <Box style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px' }}>
+              <Typography variant="body2" style={{ opacity: 0.8 }}>
                 마지막 기회입니다. 신중하게!
               </Typography>
               <Typography 
                 variant="body2" 
-                sx={{ 
+                style={{ 
                   opacity: 0.8,
-                  color: guessedWord.length > 15 ? 'warning.light' : 'inherit'
+                  color: guessedWord.length > 15 ? '#ffeb3b' : 'inherit'
                 }}
               >
                 {guessedWord.length}/20
@@ -356,25 +356,18 @@ const WordGuessComponent = ({
 
           {/* Submit Button */}
           <Button
-            fullWidth
             variant="contained"
             size="large"
             startIcon={isSubmitting ? null : <SendIcon />}
             onClick={handleSubmit}
             disabled={!guessedWord.trim() || isLoading || isSubmitting}
-            sx={{
-              py: 1.5,
+            style={{
+              width: '100%',
+              padding: '12px',
               fontSize: '1.2rem',
               fontWeight: 'bold',
               backgroundColor: 'white',
-              color: 'error.main',
-              '&:hover': {
-                backgroundColor: 'grey.100'
-              },
-              '&:disabled': {
-                backgroundColor: 'rgba(255,255,255,0.3)',
-                color: 'rgba(255,255,255,0.5)'
-              }
+              color: '#f44336'
             }}
           >
             {isSubmitting ? '추리 중...' : '단어 추리하기'}
@@ -383,19 +376,19 @@ const WordGuessComponent = ({
           {/* Warning */}
           <Typography 
             variant="body2" 
-            sx={{ 
-              mt: 2, 
+            style={{ 
+              marginTop: '16px', 
               textAlign: 'center', 
               opacity: 0.8,
               fontStyle: 'italic',
-              color: 'warning.light'
+              color: '#ffeb3b'
             }}
           >
             ⚠️ 한 번만 추리할 수 있습니다!
           </Typography>
         </CardContent>
-      </Card>
-    </Fade>
+      </LiarCard>
+    </FadeWrapper>
   )
 }
 

@@ -1,5 +1,5 @@
 import React from 'react'
-import {ListItem, ListItemText, Typography} from '@mui/material'
+import {ListItem, ListItemText, Typography} from './ui'
 import PropTypes from 'prop-types'
 
 function ChatMessage({ message }) {
@@ -7,14 +7,14 @@ function ChatMessage({ message }) {
 
     if (message.isSystem) {
         return (
-            <ListItem sx={{ py: 0.5 }}>
+            <ListItem style={{ paddingTop: '4px', paddingBottom: '4px' }}>
                 <ListItemText
                     disableTypography
                     primary={
                         <Typography
                             variant="body1"
-                            sx={{
-                                color: 'primary.main',
+                            style={{
+                                color: '#667eea',
                                 fontWeight: 'medium',
                                 textAlign: 'center',
                                 fontStyle: 'italic'
@@ -31,17 +31,17 @@ function ChatMessage({ message }) {
     const senderName = message.playerNickname || message.sender || '익명'
 
     return (
-        <ListItem sx={{ py: 0.5 }}>
+        <ListItem style={{ paddingTop: '4px', paddingBottom: '4px' }}>
             <ListItemText
                 disableTypography
                 primary={
                     <Typography variant="body1">
                         <Typography
                             component="span"
-                            sx={{
+                            style={{
                                 fontWeight: 'bold',
-                                color: 'secondary.main',
-                                mr: 1
+                                color: '#764ba2',
+                                marginRight: '8px'
                             }}
                         >
                             {senderName}:

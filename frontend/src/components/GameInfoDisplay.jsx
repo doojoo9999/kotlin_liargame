@@ -1,4 +1,4 @@
-import {Box, Paper, Typography} from '@mui/material'
+import {Box, Paper, Typography} from '@components/ui'
 import PropTypes from 'prop-types'
 
 function GameInfoDisplay({ gameInfo }) {
