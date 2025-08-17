@@ -1,65 +1,86 @@
-import {useEffect, useRef} from 'react'
+import {useCallback} from 'react';
+import {useNotifications} from "@mantine/notifications";
+import {IconCheck, IconX} from "@tabler/icons-react";
 
 /**
  * Custom hook for content-related business logic
  * @param {Object} dependencies - Required dependencies
  * @param {Function} dependencies.addSubject - Add subject function
- * @param {Function} dependencies.addWord - Add word function  
- * @param {Function} dependencies.showSnackbar - Show snackbar function
+ * @param {Function} dependencies.addWord - Add word function
  * @param {Array} dependencies.subjects - Available subjects array
  * @returns {Object} Object containing content action functions
  */
 export const useContentActions = ({
   addSubject,
   addWord,
-  showSnackbar,
-  subjects = []
+  subjects = [],
 }) => {
-  const subjectsInitialized = useRef(false)
-  const prevSubjectCount = useRef(0)
-
-  // Monitor subjects changes and show notification for new subjects
-  useEffect(() => {
-    if (subjects.length > prevSubjectCount.current && prevSubjectCount.current > 0) {
-      const newSubject = subjects[subjects.length - 1]
-      showSnackbar(`새로운 주제 "${newSubject.name}"가 추가되었습니다!`, 'info')
-    }
-    
-    prevSubjectCount.current = subjects.length
-  }, [subjects.length, showSnackbar])
+  const notifications = useNotifications();
 
   /**
    * Handle adding a new subject
    * @param {string} newSubject - New subject name
    * @param {Function} resetNewSubject - Function to reset new subject field
    */
-  const handleAddSubject = async (newSubject, resetNewSubject) => {
+  const handleAddSubject = useCallback(async (newSubject, resetNewSubject) => {
     if (!newSubject.trim()) {
-      showSnackbar('주제를 입력해주세요.', 'error')
-      return
+      notifications.show({
+        title: '입력 오류',
+        message: '주제를 입력해주세요.',
+        color: 'orange',
+        icon: <IconX size={18} />,
+      });
+      return;
     }
 
-    // Check if subject already exists (safe object access)
     const existingSubject = subjects.find(s =>
       s &&
       s.name &&
       typeof s.name === 'string' &&
       s.name.toLowerCase() === newSubject.trim().toLowerCase()
-    )
+    );
     if (existingSubject) {
-      showSnackbar('이미 존재하는 주제입니다.', 'error')
-      return
+      notifications.show({
+        title: '중복 오류',
+        message: '이미 존재하는 주제입니다.',
+        color: 'orange',
+        icon: <IconX size={18} />,
+      });
+      return;
     }
 
     try {
-      await addSubject(newSubject.trim())
-      showSnackbar('주제가 성공적으로 추가되었습니다.', 'success')
-      resetNewSubject()
+      const subjectName = newSubject.trim();
+      await addSubject(subjectName);
+      notifications.show({
+        title: '성공',
+        message: `주제 '${subjectName}'이(가) 성공적으로 추가되었습니다.`,
+        color: 'teal',
+        icon: <IconCheck size={18} />,
+        styles: (theme) => ({
+          root: { backgroundColor: 'rgba(0, 0, 0, 0.3)', backdropFilter: 'blur(10px)', border: `1px solid ${theme.colors.teal[6]}` },
+          title: { color: theme.white },
+          description: { color: theme.colors.gray[3] },
+          closeButton: { color: theme.white },
+        }),
+      });
+      if (resetNewSubject) resetNewSubject();
     } catch (error) {
-      console.error('Failed to add subject:', error)
-      showSnackbar('주제 추가에 실패했습니다.', 'error')
+      const errorMessage = error.response?.data?.message || '주제 추가에 실패했습니다.';
+      notifications.show({
+        title: '오류 발생',
+        message: errorMessage,
+        color: 'red',
+        icon: <IconX size={18} />,
+        styles: (theme) => ({
+          root: { backgroundColor: 'rgba(0, 0, 0, 0.3)', backdropFilter: 'blur(10px)', border: `1px solid ${theme.colors.red[6]}` },
+          title: { color: theme.white },
+          description: { color: theme.colors.gray[3] },
+          closeButton: { color: theme.white },
+        }),
+      });
     }
-  }
+  }, [addSubject, subjects, notifications]);
 
   /**
    * Handle adding a new word to a subject
@@ -67,32 +88,39 @@ export const useContentActions = ({
    * @param {string} newWord - New word to add
    * @param {Function} resetNewWord - Function to reset new word field
    */
-  const handleAddWord = async (selectedSubject, newWord, resetNewWord) => {
-    if (!selectedSubject) {
-      showSnackbar('주제를 선택해주세요.', 'error')
-      return
-    }
-
-    if (!newWord.trim()) {
-      showSnackbar('답안을 입력해주세요.', 'error')
-      return
-    }
-
+  const handleAddWord = useCallback(async (selectedSubject, newWord, resetNewWord) => {
     try {
-      const selectedSubjectName = subjects.find(s => s.id === selectedSubject)?.name
-      if (!selectedSubjectName) {
-        showSnackbar('선택한 주제를 찾을 수 없습니다.', 'error')
-        return
-      }
-      
-      await addWord(selectedSubjectName, newWord.trim())
-      showSnackbar('답안이 성공적으로 추가되었습니다.', 'success')
-      resetNewWord()
+      const wordName = newWord.trim();
+      await addWord(selectedSubject, wordName);
+      notifications.show({
+        title: '성공',
+        message: `단어 '${wordName}'이(가) 성공적으로 추가되었습니다.`,
+        color: 'teal',
+        icon: <IconCheck size={18} />,
+        styles: (theme) => ({
+          root: { backgroundColor: 'rgba(0, 0, 0, 0.3)', backdropFilter: 'blur(10px)', border: `1px solid ${theme.colors.teal[6]}` },
+          title: { color: theme.white },
+          description: { color: theme.colors.gray[3] },
+          closeButton: { color: theme.white },
+        }),
+      });
+      if (resetNewWord) resetNewWord();
     } catch (error) {
-      console.error('Failed to add word:', error)
-      showSnackbar('답안 추가에 실패했습니다.', 'error')
+      const errorMessage = error.response?.data?.message || '단어 추가에 실패했습니다.';
+      notifications.show({
+        title: '오류 발생',
+        message: errorMessage,
+        color: 'red',
+        icon: <IconX size={18} />,
+        styles: (theme) => ({
+          root: { backgroundColor: 'rgba(0, 0, 0, 0.3)', backdropFilter: 'blur(10px)', border: `1px solid ${theme.colors.red[6]}` },
+          title: { color: theme.white },
+          description: { color: theme.colors.gray[3] },
+          closeButton: { color: theme.white },
+        }),
+      });
     }
-  }
+  }, [addWord, notifications]);
 
   return {
     handleAddSubject,

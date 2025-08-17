@@ -78,7 +78,7 @@ function LobbyPage() {
 
   const { roomForm, joinPassword, handleRoomFormChange, setJoinPassword, setDefaultTitle } = useRoomForm({ subjects, currentUser });
   const { contentForm, handleContentFormChange } = useContentForm();
-  const { handleAddSubject, handleAddWord } = useContentActions({ addSubject, addWord, showSnackbar, subjects });
+  const { handleAddSubject, handleAddWord } = useContentActions({ addSubject, addWord, subjects });
 
   const handleCreateRoom = async () => {
     try {
@@ -165,7 +165,7 @@ function LobbyPage() {
           onConfirm={handleLogout}
           currentUser={currentUser}
         />
-        {addContentOpen && <AddContentDialog opened={addContentOpen} onClose={closeAddContentDialog} subjects={subjects} addSubject={addSubject} addWord={addWord} loading={subjectLoading} />}
+        {addContentOpen && <AddContentDialog opened={addContentOpen} onClose={closeAddContentDialog} subjects={subjects} addSubject={handleAddSubject} addWord={handleAddWord} loading={subjectLoading} />}
         {helpDialogOpen && <HelpDialog open={helpDialogOpen} onClose={closeHelpDialog} />}
         {gameRulesDialogOpen && <GameRulesDialog open={gameRulesDialogOpen} onClose={closeGameRulesDialog} />}
         <SnackbarNotification open={snackbar.open} message={snackbar.message} severity={snackbar.severity} onClose={hideSnackbar} />

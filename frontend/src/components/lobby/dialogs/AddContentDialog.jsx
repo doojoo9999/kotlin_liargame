@@ -2,7 +2,6 @@ import {useState} from 'react'
 import {Button, Group, Modal, Select, Stack, Text, TextInput} from '@mantine/core'
 import {IconBook, IconBulb, IconPlus} from '@tabler/icons-react'
 import {motion} from 'framer-motion'
-import {notifications} from '@mantine/notifications'
 
 export function AddContentDialog({ 
   opened, 
@@ -16,59 +15,16 @@ export function AddContentDialog({
   const [subjectName, setSubjectName] = useState('')
   const [selectedSubject, setSelectedSubject] = useState('')
   const [wordText, setWordText] = useState('')
-  const [loading, setLoading] = useState(false)
 
   // 핸들러 함수들
   const handleAddSubject = async () => {
     if (!subjectName.trim()) return
-
-    try {
-      setLoading(true)
-      await addSubject(subjectName.trim())
-      setSubjectName('')
-      
-      notifications.show({
-        title: '성공!',
-        message: '새 주제가 추가되었습니다.',
-        color: 'green',
-        autoClose: 3000
-      })
-    } catch (error) {
-      notifications.show({
-        title: '오류',
-        message: '주제 추가에 실패했습니다.',
-        color: 'red',
-        autoClose: 3000
-      })
-    } finally {
-      setLoading(false)
-    }
+    await addSubject(subjectName.trim(), () => setSubjectName(''))
   }
 
   const handleAddWord = async () => {
     if (!selectedSubject || !wordText.trim()) return
-
-    try {
-      setLoading(true)
-      await addWord(selectedSubject, wordText.trim())
-      setWordText('')
-      
-      notifications.show({
-        title: '성공!',
-        message: '새 답안이 추가되었습니다.',
-        color: 'green',
-        autoClose: 3000
-      })
-    } catch (error) {
-      notifications.show({
-        title: '오류',
-        message: '답안 추가에 실패했습니다.',
-        color: 'red',
-        autoClose: 3000
-      })
-    } finally {
-      setLoading(false)
-    }
+    await addWord(selectedSubject, wordText.trim(), () => setWordText(''))
   }
 
   // LoginPage-consistent input field styles
@@ -222,8 +178,7 @@ export function AddContentDialog({
               
               <Button
                 leftSection={<IconPlus size={16} />}
-                disabled={!canSubmit || loading}
-                loading={loading}
+                disabled={!canSubmit}
                 onClick={handleAddSubject}
                 variant="gradient"
                 gradient={{ from: 'violet', to: 'purple' }}
