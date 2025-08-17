@@ -161,8 +161,11 @@ export const addSubject = async (name) => {
 
 export const addWord = async (subject, word) => {
   try {
-    console.log('[DEBUG] Adding word via API:', { subject, word })
-    const response = await apiClient.post('/words/applyw', { subject, word })
+    const subjectStr = typeof subject === 'string'
+      ? subject
+      : (subject?.name || subject?.content || subject?.label || String(subject))
+    console.log('[DEBUG] Adding word via API:', { subject: subjectStr, word })
+    const response = await apiClient.post('/words/applyw', { subject: subjectStr, word })
     console.log('[DEBUG] Add word API response:', response.data)
 
     return response.data

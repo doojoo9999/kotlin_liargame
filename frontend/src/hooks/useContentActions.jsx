@@ -1,4 +1,4 @@
-import {useCallback} from 'react';
+import React, {useCallback} from 'react';
 import {IconCheck, IconX} from "@tabler/icons-react";
 
 /**
@@ -116,18 +116,16 @@ export const useContentActions = ({
         }
 
         try {
-            // [API CONTRACT FIX] Create an explicit payload object that matches the backend DTO.
-            const payload = {
-                subjectId: Number(selectedSubject), // Ensure the ID is a number.
-                word: newWord.trim()
-            };
+            // Ensure subject is a string name/content as required by backend
+            const subjectName = typeof selectedSubject === 'string'
+                ? selectedSubject
+                : (selectedSubject?.name || selectedSubject?.content || selectedSubject?.label || String(selectedSubject));
 
-            // The `addWord` function (from props) must now be able to handle a single payload object.
-            await addWord(payload);
+            await addWord(subjectName.trim(), newWord.trim());
 
             showNotification({
                 title: '성공',
-                message: `단어 '${payload.word}'이(가) 성공적으로 추가되었습니다.`,
+                message: `단어 '${newWord.trim()}'이(가) 성공적으로 추가되었습니다.`,
                 color: 'teal',
                 icon: <IconCheck size={18} />,
                 styles: (theme) => ({

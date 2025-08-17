@@ -236,9 +236,6 @@ const CreateRoomDialog = ({
               },
               option: {
                 color: 'white',
-                '&[data-selected]': {
-                  backgroundColor: '#4ecdc4'
-                },
                 '&:hover': {
                   backgroundColor: 'rgba(255, 255, 255, 0.1)'
                 }
