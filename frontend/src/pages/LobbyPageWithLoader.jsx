@@ -1,7 +1,7 @@
-import React, {useEffect, useRef, useState} from 'react'
+import React, {lazy, Suspense, useEffect, useRef, useState} from 'react'
 import {useLoaderData} from 'react-router-dom'
-import {ActionIcon, Alert, Box, Button, Container, Grid, Group, Loader, Stack, Text, Title} from '@mantine/core'
-import {IconDeviceGamepad2, IconHelp, IconLogout, IconPlus, IconRefresh} from '@tabler/icons-react'
+import {ActionIcon, Alert, Box, Container, Grid, Group, Loader, Stack, Text, Title} from '@mantine/core'
+import {IconBook, IconDeviceGamepad2, IconHelp, IconLogout, IconPlus, IconRefresh} from '@tabler/icons-react'
 import {AnimatePresence, motion} from 'framer-motion'
 import {GameRoomCard} from '../components/GameRoomCard'
 import {GameLoader} from '../components/GameLoader'
@@ -14,9 +14,15 @@ import LogoutDialog from '../components/lobby/dialogs/LogoutDialog'
 import CreateRoomDialog from '../components/lobby/dialogs/CreateRoomDialog'
 import JoinRoomDialog from '../components/lobby/dialogs/JoinRoomDialog'
 import AddContentDialog from '../components/lobby/dialogs/AddContentDialog'
+// Import custom animated components
+import {MotionMenuButton} from '../components/MotionMenuButton'
 
 const MotionContainer = motion.create(Container)
 const MotionGrid = motion.create(Grid)
+
+// --- 성능 최적화를 위해 무거운 컴포넌트 지연 로딩 ---
+const AnimatedBackground = lazy(() => import('../components/AnimatedBackground').then(module => ({ default: module.AnimatedBackground })));
+const FloatingGamepadIcons = lazy(() => import('../components/FloatingGamepadIcons').then(module => ({ default: module.FloatingGamepadIcons })));
 
 function LobbyPageWithLoader() {
   // Get preloaded data from router loader
@@ -177,15 +183,20 @@ function LobbyPageWithLoader() {
 
   // Initialize subjects with preloaded data
   useEffect(() => {
-    if (preloadedSubjects && !subjectsInitialized.current) {
-      // Use preloaded subjects data if available
-      subjectsInitialized.current = true
-    } else if (!subjects || subjects.length === 0) {
-      // Fallback to fetching if no preloaded data
-      fetchSubjects()
+    // This effect now correctly handles initialization to prevent infinite loops.
+    // It runs only if subjects have not been initialized yet.
+    if (subjectsInitialized.current) {
+      return; // Stop if already initialized.
     }
-  }, [preloadedSubjects, subjects, fetchSubjects])
 
+    // If the store is empty and there's no preloaded data, then fetch.
+    if ((!subjects || subjects.length === 0) && (!preloadedSubjects || preloadedSubjects.length === 0)) {
+      console.log('[DEBUG_LOG] No subjects found in store or preloader. Fetching from API...');
+      fetchSubjects();
+    }
+    subjectsInitialized.current = true; // Mark as initialized to prevent any future re-fetches by this effect.
+  }, [preloadedSubjects, subjects, fetchSubjects]); // Dependencies are kept for correctness, but the logic inside prevents re-runs.
+  
   // Show loader errors if any
   const hasLoaderErrors = loaderErrors?.rooms || loaderErrors?.subjects
 
@@ -222,12 +233,24 @@ function LobbyPageWithLoader() {
   }
   
   return (
-    <Box style={{ 
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+    <Box style={{
+      minHeight: '100vh', 
+      position: 'relative', 
+      overflow: 'hidden',
+      display: 'flex',
+      alignItems: 'flex-start', // 콘텐츠를 상단에 정렬
+      justifyContent: 'center'
     }}>
-      <MotionContainer size="xl" py="xl">
-        {/* Show loader errors if any */}
+      {/* --- 살아 숨 쉬는 동적 배경 적용 --- */}
+      <Suspense fallback={null}>
+        <AnimatedBackground />
+        <FloatingGamepadIcons />
+      </Suspense>
+
+      <MotionContainer size="xl" py="xl" style={{ zIndex: 10, width: '100%' }}>
+        {/* 
+          Show loader errors if any 
+        */}
         {hasLoaderErrors && (
           <Alert color="red" mb="md">
             {loaderErrors.rooms && `방 목록 로드 오류: ${loaderErrors.rooms}. `}
@@ -242,15 +265,15 @@ function LobbyPageWithLoader() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <Group justify="space-between" mb="xl">
+          <Group justify="space-between" align="center">
             <Stack gap="xs">
               <Group gap="sm">
-                <IconDeviceGamepad2 size={32} color="#ffffff" />
+                <IconDeviceGamepad2 size={40} color="#ffffff" />
                 <Title 
-                  order={1} 
+                  order={1}
                   style={{ 
                     color: '#ffffff', 
-                    textShadow: '2px 2px 8px rgba(0, 0, 0, 0.7)',
+                    textShadow: '2px 2px 10px rgba(0, 0, 0, 0.8)',
                     fontWeight: 'bold'
                   }}
                 >
@@ -261,100 +284,57 @@ function LobbyPageWithLoader() {
                 size="lg"
                 style={{ 
                   color: 'rgba(255, 255, 255, 0.95)',
-                  textShadow: '1px 1px 4px rgba(0, 0, 0, 0.6)',
+                  textShadow: '1px 1px 6px rgba(0, 0, 0, 0.7)',
                   fontWeight: 500
                 }}
               >
                 안녕하세요, {currentUser?.nickname}님! 🎮
               </Text>
             </Stack>
-
-            <Group gap="sm">
+            <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
               <ActionIcon 
                 size="lg" 
                 variant="gradient" 
                 gradient={{ from: 'cyan', to: 'violet' }}
-                onClick={() => {
-                  try {
-                    console.log('[DEBUG_LOG] Refresh button clicked')
-                    fetchRooms?.()
-                  } catch (error) {
-                    console.error('[ERROR] Refresh button click failed:', error)
-                  }
-                }}
+                onClick={() => fetchRooms?.()}
                 disabled={loading.rooms}
+                radius="md"
               >
-                <IconRefresh size={18} />
+                <IconRefresh size={20} />
               </ActionIcon>
-              
-              <Button 
-                leftSection={<IconPlus size={16} />}
-                variant="gradient" 
-                gradient={{ from: 'orange', to: 'red' }}
-                size="md"
-                onClick={() => {
-                  try {
-                    console.log('[DEBUG_LOG] Create room button clicked')
-                    setCreateRoomOpen?.(true)
-                  } catch (error) {
-                    console.error('[ERROR] Create room button click failed:', error)
-                  }
-                }}
-              >
-                방 만들기
-              </Button>
+            </motion.div>
+          </Group>
+        </motion.div>
 
-              <Button
-                variant="outline"
-                color="gray"
-                size="md"
-                leftSection={<IconHelp size={16} />}
-                onClick={() => {
-                  try {
-                    console.log('[DEBUG_LOG] Help button clicked')
-                    setHelpDialogOpen?.(true)
-                  } catch (error) {
-                    console.error('[ERROR] Help button click failed:', error)
-                  }
-                }}
-              >
-                도움말
-              </Button>
-
-              <Button
-                variant="gradient"
-                gradient={{ from: 'cyan', to: 'teal' }}
-                size="md"
-                leftSection={<IconPlus size={16} />}
-                onClick={() => {
-                  try {
-                    console.log('[DEBUG_LOG] Add content button clicked')
-                    setAddContentOpen(true)
-                  } catch (error) {
-                    console.error('[ERROR] Add content button click failed:', error)
-                  }
-                }}
-              >
-                콘텐츠 추가
-              </Button>
-
-              <Button
-                variant="outline"
-                color="gray"
-                size="md"
-                leftSection={<IconLogout size={16} />}
-                onClick={() => {
-                  try {
-                    console.log('[DEBUG_LOG] Logout button clicked')
-                    setLogoutDialogOpen?.(true)
-                  } catch (error) {
-                    console.error('[ERROR] Logout button click failed:', error)
-                  }
-                }}
-              >
-                로그아웃
-              </Button>
-            </Group>
+        {/* --- 플로팅 커맨드 센터 (Floating Command Center) --- */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+          style={{
+            background: 'rgba(255, 255, 255, 0.1)',
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
+            padding: '12px', // 패딩을 줄여 더 컴팩트하게
+            borderRadius: '16px',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            marginBottom: '2rem',
+            marginTop: '1rem'
+          }}
+        >
+          <Group justify="center" gap="md">
+            <MotionMenuButton size="medium" onClick={() => setCreateRoomOpen?.(true)} icon={IconPlus} gradient={{ from: 'orange', to: 'red' }}>
+              방 만들기
+            </MotionMenuButton>
+            <MotionMenuButton size="medium" onClick={() => setAddContentOpen(true)} icon={IconBook} gradient={{ from: 'teal', to: 'lime', deg: 105 }}>
+              콘텐츠 추가
+            </MotionMenuButton>
+            <MotionMenuButton size="medium" onClick={() => setHelpDialogOpen?.(true)} icon={IconHelp} gradient={{ from: 'blue', to: 'cyan' }}>
+              도움말
+            </MotionMenuButton>
+            <MotionMenuButton size="medium" onClick={() => setLogoutDialogOpen?.(true)} icon={IconLogout} gradient={{ from: 'grape', to: 'pink' }}>
+              로그아웃
+            </MotionMenuButton>
           </Group>
         </motion.div>
 
@@ -367,7 +347,7 @@ function LobbyPageWithLoader() {
               exit={{ opacity: 0 }}
               style={{ textAlign: 'center', padding: '4rem' }}
             >
-              <Loader size="xl" variant="bars" />
+              <Loader size="xl" variant="bars" color="white" />
               <Text mt="md" c="white">방 목록을 불러오는 중...</Text>
             </motion.div>
           ) : (

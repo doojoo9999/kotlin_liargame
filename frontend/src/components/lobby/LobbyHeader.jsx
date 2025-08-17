@@ -1,22 +1,9 @@
 import React from 'react';
-import {Box, Button, Typography} from '@components/ui';
-import {RotateCcw as RefreshIcon} from 'lucide-react';
-import {IconBook, IconDoorEnter, IconHelp, IconInfoCircle, IconLogout,} from '@tabler/icons-react';
+import {motion} from 'framer-motion';
+import {ActionIcon, Box, Group, Typography} from '@mantine/core';
+import {IconBook, IconDeviceGamepad2, IconHelp, IconLogout, IconPlus, IconRefresh,} from '@tabler/icons-react';
 import {MotionMenuButton} from '../MotionMenuButton';
 
-/**
- * LobbyHeader component that displays the header section of the lobby
- * @param {Object} props - Component props
- * @param {Object} props.currentUser - Current user object
- * @param {Object} props.loading - Loading states object
- * @param {Function} props.onRefreshRooms - Function to refresh room list
- * @param {Function} props.onCreateRoom - Function to open create room dialog
- * @param {Function} props.onAddContent - Function to open add content dialog
- * @param {Function} props.onOpenHelp - Function to open help dialog
- * @param {Function} props.onOpenGameRules - Function to open game rules dialog
- * @param {Function} props.onLogout - Function to open logout dialog
- * @returns {JSX.Element} LobbyHeader component
- */
 const LobbyHeader = ({
   currentUser,
   loading,
@@ -24,72 +11,95 @@ const LobbyHeader = ({
   onCreateRoom,
   onAddContent,
   onOpenHelp,
-  onOpenGameRules,
   onLogout
 }) => {
   return (
-    <Box style={{ marginBottom: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-      <Box>
-        <Typography variant="h4" style={{ marginBottom: '8px' }}>
-          라이어 게임 로비
-        </Typography>
-        {currentUser && (
-          <Typography variant="body2" style={{ color: '#666666' }}>
-            환영합니다, {currentUser.nickname}님!
-          </Typography>
-        )}
-      </Box>
-      <Box style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
-        <Button
-          variant="outlined"
-          startIcon={<RefreshIcon size={16} />}
-          onClick={onRefreshRooms}
-          disabled={loading?.rooms}
-        >
-          새로고침
-        </Button>
-        <MotionMenuButton
-          onClick={onCreateRoom}
-          icon={IconDoorEnter}
-          gradient={{ from: 'indigo', to: 'cyan' }}
-          fullWidth={false}
-        >
-          방 만들기
-        </MotionMenuButton>
-        <MotionMenuButton
-          onClick={onAddContent}
-          icon={IconBook}
-          gradient={{ from: 'teal', to: 'lime', deg: 105 }}
-          fullWidth={false}
-        >
-          주제/답안 추가
-        </MotionMenuButton>
-        <MotionMenuButton
-          onClick={onOpenHelp}
-          icon={IconHelp}
-          gradient={{ from: '#4dabf7', to: '#a5d8ff' }}
-          fullWidth={false}
-        >
-          도움말
-        </MotionMenuButton>
-        <MotionMenuButton
-          onClick={onOpenGameRules}
-          icon={IconInfoCircle}
-          gradient={{ from: 'grape', to: 'pink' }}
-          fullWidth={false}
-        >
-          게임 방법
-        </MotionMenuButton>
-        <MotionMenuButton
-          onClick={onLogout}
-          icon={IconLogout}
-          gradient={{ from: 'orange', to: 'red' }}
-          fullWidth={false}
-        >
-          로그아웃
-        </MotionMenuButton>
-      </Box>
-    </Box>
+    <motion.div
+      initial={{ opacity: 0, y: -50 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, ease: 'easeOut' }}
+      style={{
+        padding: '1rem 1.5rem',
+        background: 'rgba(255, 255, 255, 0.1)',
+        backdropFilter: 'blur(10px)',
+        borderRadius: '16px',
+        border: '1px solid rgba(255, 255, 255, 0.2)',
+        boxShadow: '0 4px 30px rgba(0, 0, 0, 0.1)',
+        marginBottom: '2rem',
+        width: '100%',
+      }}
+    >
+      <Group justify="space-between" align="center">
+        <Box>
+            <Group gap="sm">
+                <IconDeviceGamepad2 size={32} color="#ffffff" style={{ filter: 'drop-shadow(2px 2px 8px rgba(0, 0, 0, 0.7))' }} />
+                <Typography
+                    component="h1"
+                    variant="h4"
+                    style={{
+                        color: '#ffffff',
+                        fontWeight: 'bold',
+                        textShadow: '2px 2px 8px rgba(0, 0, 0, 0.7)',
+                    }}
+                >
+                    게임 로비
+                </Typography>
+            </Group>
+            {currentUser && (
+            <Typography style={{ color: 'rgba(255, 255, 255, 0.9)' }}>
+                환영합니다, {currentUser.nickname}님!
+            </Typography>
+            )}
+        </Box>
+
+        <Group gap="md">
+            <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
+                <ActionIcon
+                    size="lg"
+                    variant="gradient"
+                    gradient={{ from: 'cyan', to: 'violet' }}
+                    onClick={onRefreshRooms}
+                    disabled={loading?.rooms}
+                    radius="md"
+                >
+                    <IconRefresh size={20} />
+                </ActionIcon>
+            </motion.div>
+            <MotionMenuButton
+                onClick={onCreateRoom}
+                icon={IconPlus}
+                gradient={{ from: 'orange', to: 'red' }}
+                fullWidth={false}
+            >
+                방 만들기
+            </MotionMenuButton>
+            <MotionMenuButton
+                onClick={onAddContent}
+                icon={IconBook}
+                gradient={{ from: 'teal', to: 'lime', deg: 105 }}
+                fullWidth={false}
+            >
+                콘텐츠 추가
+            </MotionMenuButton>
+            <MotionMenuButton
+                onClick={onOpenHelp}
+                icon={IconHelp}
+                gradient={{ from: 'blue', to: 'cyan' }}
+                fullWidth={false}
+            >
+                도움말
+            </MotionMenuButton>
+            <MotionMenuButton
+                onClick={onLogout}
+                icon={IconLogout}
+                gradient={{ from: 'grape', to: 'pink' }}
+                fullWidth={false}
+            >
+                로그아웃
+            </MotionMenuButton>
+        </Group>
+      </Group>
+    </motion.div>
   );
 };
 

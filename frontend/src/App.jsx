@@ -7,7 +7,7 @@ import '@mantine/core/styles.css'
 import {gameTheme} from './styles/gameTheme'
 import {GameProvider, useGame} from './context/GameContext'
 import LoginPage from './pages/LoginPage'
-import LobbyPageWithLoader from './pages/LobbyPageWithLoader'
+import LobbyPage from './pages/LobbyPage'
 import GameRoomPage from './pages/GameRoomPage'
 import AdminLoginPage from './pages/AdminLoginPage'
 import AdminDashboard from './pages/AdminDashboard'
@@ -146,7 +146,7 @@ const router = createBrowserRouter([
               <WebSocketMessageHandler>
                 <AppRouterWrapper>
                   <ProtectedRoute>
-                    <LobbyPageWithLoader />
+                    <LobbyPage />
                   </ProtectedRoute>
                 </AppRouterWrapper>
               </WebSocketMessageHandler>
