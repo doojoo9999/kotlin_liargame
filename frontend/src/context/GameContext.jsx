@@ -35,13 +35,19 @@ const GameProvider = ({ children }) => {
     currentRoom, 
     socketConnected, 
     gameTimer,
-    loadChatHistory,
     setLoading,
     setError,
     connectSocket,
     disconnectSocket,
     clearChatMessages,
-    login
+    login,
+    // Actions to be passed to useSocketEffects
+    loadChatHistory,
+    setGameState,
+    setPlayers,
+    addChatMessage,
+    setVoteState,
+    setLiar
   } = zustandStore
 
   /**
@@ -113,7 +119,15 @@ const GameProvider = ({ children }) => {
     dispatch,
     setLoading,
     setError,
-    loadChatHistory
+    {
+      loadChatHistory,
+      setGameState,
+      setPlayers,
+      addChatMessage,
+      setVoteState,
+      setLiar,
+      clearChatMessages
+    }
   )
 
   if (import.meta.env.DEV) {
