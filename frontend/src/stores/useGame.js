@@ -200,6 +200,7 @@ export const useGame = () => {
     // State - Auth
     currentUser,
     isAuthenticated,
+    user: currentUser,
 
     // State - Room
     roomList,

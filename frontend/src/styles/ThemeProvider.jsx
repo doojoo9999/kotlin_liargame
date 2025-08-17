@@ -1,51 +1,34 @@
 import React from 'react'
-import {createGlobalStyle, ThemeProvider as StyledThemeProvider} from 'styled-components'
+import PropTypes from 'prop-types'
+import {createGlobalStyle, ThemeProvider as StyledThemeProvider, useTheme as useStyledTheme} from 'styled-components'
 import {colors} from './tokens/colors'
 import {responsiveSpacing, semanticSpacing, spacing} from './tokens/spacing'
-import {fontFamily, fontSize, fontWeight, letterSpacing, lineHeight, typography} from './tokens/typography'
-import {coloredShadows, semanticShadows, shadows, transitionShadows} from './tokens/shadows'
+import {typography} from './tokens/typography'
+import {coloredShadows, semanticShadows, shadows} from './tokens/shadows'
 import {borderRadius, cornerRadius, responsiveBorderRadius, semanticBorderRadius} from './tokens/borderRadius'
-import {animations, duration, easing, keyframes, semanticTransitions, transition} from './tokens/animations'
+import {animations, semanticTransitions} from './tokens/animations'
 
-// Unified theme object
 const theme = {
-  // Colors
   colors,
-  
-  // Spacing
   spacing,
   semanticSpacing,
   responsiveSpacing,
-  
-  // Typography
   typography,
-  fontFamily,
-  fontWeight,
-  fontSize,
-  lineHeight,
-  letterSpacing,
-  
-  // Shadows
+  // Compatibility aliases for components referencing typography tokens at root
+  fontFamily: typography.fontFamily,
+  fontSize: typography.fontSize,
+  lineHeight: typography.lineHeight,
+  letterSpacing: typography.letterSpacing,
+  fontWeight: typography.fontWeight, // alias for components expecting root fontWeight
   shadows,
   semanticShadows,
   coloredShadows,
-  transitionShadows,
-  
-  // Border radius
   borderRadius,
   semanticBorderRadius,
   responsiveBorderRadius,
   cornerRadius,
-  
-  // Animations
-  duration,
-  easing,
-  transition,
-  semanticTransitions,
-  keyframes,
   animations,
-  
-  // Breakpoints for responsive design
+  semanticTransitions,
   breakpoints: {
     mobile: '320px',
     tablet: '768px',
@@ -53,7 +36,6 @@ const theme = {
     wide: '1440px'
   },
   
-  // Media queries
   media: {
     mobile: '@media (max-width: 767px)',
     tablet: '@media (min-width: 768px) and (max-width: 1023px)',
@@ -62,47 +44,11 @@ const theme = {
   }
 }
 
-// Global styles with keyframes injection
-const GlobalStyle = createGlobalStyle`
-  /* Inject keyframes */
-  ${theme.keyframes.pulse}
-  ${theme.keyframes.bounce}
-  ${theme.keyframes.shake}
-  ${theme.keyframes.fadeIn}
-  ${theme.keyframes.slideUp}
-  ${theme.keyframes.scaleIn}
-  ${theme.keyframes.game.cardFlip}
-  ${theme.keyframes.game.countdownPulse}
-  ${theme.keyframes.game.typing}
-  
-  /* Base styles */
+const ResetStyles = createGlobalStyle`
   * {
     box-sizing: border-box;
   }
   
-  html {
-    font-size: 16px; /* Base font size for rem calculations */
-  }
-  
-  body {
-    margin: 0;
-    padding: 0;
-    font-family: ${theme.fontFamily.primary};
-    font-size: ${theme.fontSize.base};
-    font-weight: ${theme.fontWeight.normal};
-    line-height: ${theme.lineHeight.normal};
-    color: ${theme.colors.text.primary};
-    background-color: ${theme.colors.background.default};
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
-  
-  /* Smooth scrolling */
-  html {
-    scroll-behavior: smooth;
-  }
-  
-  /* Remove default button styles */
   button {
     border: none;
     background: none;
@@ -112,7 +58,6 @@ const GlobalStyle = createGlobalStyle`
     margin: 0;
   }
   
-  /* Remove default input styles */
   input, textarea, select {
     font-family: inherit;
     font-size: inherit;
@@ -123,164 +68,108 @@ const GlobalStyle = createGlobalStyle`
     margin: 0;
   }
   
-  /* Remove default link styles */
   a {
     color: inherit;
     text-decoration: none;
   }
   
-  /* Remove default list styles */
   ul, ol {
     list-style: none;
     padding: 0;
     margin: 0;
   }
   
-  /* Remove default heading margins */
   h1, h2, h3, h4, h5, h6 {
     margin: 0;
     font-weight: inherit;
+    font-size: inherit;
   }
   
-  /* Remove default paragraph margins */
   p {
     margin: 0;
   }
+`
+
+const BaseStyles = createGlobalStyle`
+  html {
+    font-size: 16px; /* Base font size for rem calculations */
+    scroll-behavior: smooth;
+    overflow-x: hidden;
+  }
   
-  /* Focus outline for accessibility */
+  body {
+    margin: 0;
+    padding: 0;
+    font-family: ${({ theme }) => (theme?.typography?.fontFamily?.primary) || 'system-ui, -apple-system, Segoe UI, Roboto, Noto Sans KR, sans-serif'};
+    font-size: ${({ theme }) => (theme?.typography?.body?.fontSize) || (theme?.typography?.body1?.fontSize) || '1rem'};
+    font-weight: ${({ theme }) => (theme?.typography?.body?.fontWeight) || (theme?.typography?.body1?.fontWeight) || 400};
+    line-height: ${({ theme }) => (theme?.typography?.body?.lineHeight) || (theme?.typography?.body1?.lineHeight) || 1.5};
+    color: ${({ theme }) => theme.colors.text.primary};
+    background-color: ${({ theme }) => theme.colors.background.default};
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+  }
+`
+
+const AccessibilityStyles = createGlobalStyle`
   :focus-visible {
-    outline: 2px solid ${theme.colors.border.focus};
+    outline: 2px solid ${({ theme }) => theme.colors.border.focus};
     outline-offset: 2px;
   }
   
-  /* Disable outline for mouse users */
   :focus:not(:focus-visible) {
     outline: none;
   }
-  
-  /* Custom scrollbar for webkit browsers */
+`
+
+const CustomScrollbarStyles = createGlobalStyle`
   ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
   }
   
   ::-webkit-scrollbar-track {
-    background: ${theme.colors.surface.secondary};
-    border-radius: ${theme.borderRadius.full};
+    background: ${({ theme }) => theme.colors.surface.secondary};
+    border-radius: ${({ theme }) => theme.borderRadius.full};
   }
   
   ::-webkit-scrollbar-thumb {
-    background: ${theme.colors.border.secondary};
-    border-radius: ${theme.borderRadius.full};
+    background: ${({ theme }) => theme.colors.border.secondary};
+    border-radius: ${({ theme }) => theme.borderRadius.full};
     
     &:hover {
-      background: ${theme.colors.text.tertiary};
+      background: ${({ theme }) => theme.colors.text.tertiary};
     }
-  }
-  
-  /* Selection color */
-  ::selection {
-    background-color: ${theme.colors.primary[100]};
-    color: ${theme.colors.primary[800]};
-  }
-  
-  /* Prevent horizontal scrolling */
-  html, body {
-    overflow-x: hidden;
-  }
-  
-  /* Game-specific global styles */
-  .game-container {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-  }
-  
-  .game-background {
-    background: linear-gradient(
-      135deg,
-      ${theme.colors.background.default} 0%,
-      ${theme.colors.background.elevated} 100%
-    );
-    min-height: 100vh;
-  }
-  
-  /* Utility classes */
-  .sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
-  }
-  
-  .no-scroll {
-    overflow: hidden;
-  }
-  
-  /* Animation utility classes */
-  .animate-pulse {
-    animation: ${theme.animations.pulse};
-  }
-  
-  .animate-bounce {
-    animation: ${theme.animations.bounce};
-  }
-  
-  .animate-shake {
-    animation: ${theme.animations.shake};
-  }
-  
-  .animate-fade-in {
-    animation: ${theme.animations.fadeIn};
-  }
-  
-  .animate-slide-up {
-    animation: ${theme.animations.slideUp};
-  }
-  
-  .animate-scale-in {
-    animation: ${theme.animations.scaleIn};
-  }
-  
-  /* Game animation utility classes */
-  .animate-card-flip {
-    animation: ${theme.animations.game.cardFlip};
-  }
-  
-  .animate-countdown-pulse {
-    animation: ${theme.animations.game.countdownPulse};
-  }
-  
-  .animate-typing {
-    animation: ${theme.animations.game.typing};
   }
 `
 
-// ThemeProvider component
+const SelectionStyles = createGlobalStyle`
+  ::selection {
+    background-color: ${({ theme }) => theme.colors.primary[100]};
+    color: ${({ theme }) => theme.colors.primary[800]};
+  }
+`
+
 export const ThemeProvider = ({ children }) => {
   return (
     <StyledThemeProvider theme={theme}>
-      <GlobalStyle />
+      <ResetStyles />
+      <BaseStyles />
+      <AccessibilityStyles />
+      <CustomScrollbarStyles />
+      <SelectionStyles />
       {children}
     </StyledThemeProvider>
   )
 }
 
-export default ThemeProvider
-
-// Hook for accessing theme in components
-export const useTheme = () => {
-  const theme = React.useContext(StyledThemeProvider.ThemeContext)
-  if (!theme) {
-    throw new Error('useTheme must be used within a ThemeProvider')
-  }
-  return theme
+ThemeProvider.propTypes = {
+  children: PropTypes.node.isRequired,
 }
 
-// Export theme object for direct access
+export default ThemeProvider
+
+export const useTheme = useStyledTheme
+
 export { theme }

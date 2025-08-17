@@ -4,7 +4,7 @@ import * as gameApi from '../api/gameApi'
 import gameStompClient from '../socket/gameStompClient'
 
 const useAuthStore = create(
-  subscribeWithSelector((set, get) => ({
+  subscribeWithSelector((set) => ({
     // State
     currentUser: null,
     isAuthenticated: false,
@@ -16,10 +16,29 @@ const useAuthStore = create(
       try {
         set({ loading: true, error: null })
 
-        const result = await gameApi.login(nickname)
+        let result
+        try {
+          result = await gameApi.login(nickname)
+        } catch (err) {
+          // If server rejects with 400 (e.g., legacy endpoint not accepting this payload),
+          // try to create/register the user as a fallback to keep the app usable.
+          if (err?.response?.status === 400) {
+            // Try to create/register the user, then retry login to establish session
+            result = await gameApi.addUser(nickname, null)
+            try {
+              await gameApi.login(nickname)
+            } catch (loginErr) {
+              // If login still fails after registration, continue with created user data
+              console.warn('[AUTH] Login after registration failed, proceeding without session:', loginErr)
+            }
+          } else {
+            throw err
+          }
+        }
         const userData = {
           id: result.userId,
-          nickname: nickname
+          nickname: nickname,
+          role: 'user'
         }
         
         localStorage.setItem('userData', JSON.stringify(userData))
@@ -71,8 +90,11 @@ const useAuthStore = create(
         const userData = localStorage.getItem('userData')
         if (userData) {
           const parsedUserData = JSON.parse(userData)
+          const normalizedUserData = parsedUserData && typeof parsedUserData === 'object'
+            ? { role: 'user', ...parsedUserData }
+            : { role: 'user' }
           set({ 
-            currentUser: parsedUserData, 
+            currentUser: normalizedUserData, 
             isAuthenticated: true 
           })
           console.log('User restored from localStorage:', parsedUserData)

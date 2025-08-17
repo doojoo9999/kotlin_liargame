@@ -13,9 +13,13 @@ export function mapHttpErrorToAuthCode(error) {
   if (error.code === 'ERR_NETWORK') return AuthErrorCodes.NETWORK_ERROR
 
   const status = error.response?.status
+  const serverMessage = error.response?.data?.message || error.response?.data?.error || ''
+  const msg = typeof serverMessage === 'string' ? serverMessage : ''
+  const isDuplicateNickname = msg.includes('이미 사용 중') || msg.includes('이미 사용중') || msg.includes('비인증 닉네임')
+
   switch (status) {
     case 400:
-      return AuthErrorCodes.INVALID_CREDENTIALS
+      return isDuplicateNickname ? AuthErrorCodes.DUPLICATE_NICKNAME : AuthErrorCodes.INVALID_CREDENTIALS
     case 401:
       return AuthErrorCodes.INVALID_CREDENTIALS
     case 403:
@@ -25,7 +29,7 @@ export function mapHttpErrorToAuthCode(error) {
     case 500:
     case 502:
     case 503:
-      return AuthErrorCodes.SERVER_ERROR
+      return isDuplicateNickname ? AuthErrorCodes.DUPLICATE_NICKNAME : AuthErrorCodes.SERVER_ERROR
     default:
       return error.message?.toLowerCase().includes('network')
         ? AuthErrorCodes.NETWORK_ERROR
