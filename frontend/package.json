@@ -12,7 +12,7 @@
     "@hookform/resolvers": "^5.2.1",
     "@mantine/core": "^7.3.2",
     "@mantine/hooks": "^7.3.2",
-    "@mantine/notifications": "^7.3.2",
+    "@mantine/notifications": "^7.10.1",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-progress": "^1.1.7",
     "@radix-ui/react-tooltip": "^1.2.8",

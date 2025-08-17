@@ -4,6 +4,7 @@ import {Alert, Box, CircularProgress, CssBaseline} from './components/ui'
 import {ThemeProvider} from './styles'
 import {MantineProvider} from '@mantine/core'
 import '@mantine/core/styles.css'
+import {Notifications} from '@mantine/notifications'
 import {gameTheme} from './styles/gameTheme'
 import {GameProvider, useGame} from './context/GameContext'
 import LoginPage from './pages/LoginPage'
@@ -201,6 +202,7 @@ function App() {
     <MantineProvider theme={gameTheme} defaultColorScheme="dark">
       <ThemeProvider>
         <CssBaseline>
+            <Notifications position="bottom-right" zIndex={2000} />
           <RouterProvider router={router} />
         </CssBaseline>
       </ThemeProvider>
