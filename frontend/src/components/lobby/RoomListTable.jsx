@@ -1,4 +1,5 @@
 import React, {memo} from 'react'
+import PropTypes from 'prop-types'
 import {
     Box,
     Button,
@@ -157,6 +158,37 @@ const RoomListTable = ({
       </TableContainer>
     </Paper>
   )
+}
+
+RoomListTable.propTypes = {
+  roomList: PropTypes.arrayOf(
+    PropTypes.shape({
+      gameNumber: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+      title: PropTypes.string,
+      host: PropTypes.string,
+      playerCount: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+      currentPlayers: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+      maxPlayers: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+      subjects: PropTypes.arrayOf(PropTypes.string),
+      subject: PropTypes.string,
+      state: PropTypes.string,
+      hasPassword: PropTypes.bool,
+    })
+  ),
+  loading: PropTypes.shape({
+    rooms: PropTypes.bool,
+  }),
+  error: PropTypes.shape({
+    rooms: PropTypes.oneOfType([PropTypes.string, PropTypes.node]),
+  }),
+  onJoinRoom: PropTypes.func.isRequired,
+  onRefreshRooms: PropTypes.func.isRequired,
+}
+
+RoomListTable.defaultProps = {
+  roomList: [],
+  loading: { rooms: false },
+  error: { rooms: null },
 }
 
 export default memo(RoomListTable)

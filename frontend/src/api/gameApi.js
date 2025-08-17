@@ -1,14 +1,17 @@
 import apiClient from './apiClient'
 
 export const login = async (nickname) => {
+  // Send JSON payload as expected by Spring controller
   const response = await apiClient.post('/auth/login', { nickname })
   return response.data
 }
 
-
-
 export const addUser = async (nickname, profileImgUrl) => {
-  const response = await apiClient.post('/user/add', { nickname, profileImgUrl })
+  // Send JSON with non-null profileImgUrl (empty string default) to satisfy Kotlin non-null param
+  const response = await apiClient.post('/user/add', {
+    nickname,
+    profileImgUrl: profileImgUrl ?? ''
+  })
   return response.data
 }
 

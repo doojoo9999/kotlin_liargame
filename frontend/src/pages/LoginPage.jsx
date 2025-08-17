@@ -89,11 +89,8 @@ function LoginPage() {
       
       console.log('[DEBUG_LOG] Login successful')
       
-      // 성공 메시지와 축하 효과를 잠시 보여준 후 로비로 이동합니다.
-      // 페이지가 전환되면 Confetti 컴포넌트는 자동으로 unmount되므로 수동으로 숨기는 로직은 불필요합니다.
-      setTimeout(() => {
-        navigate('/lobby')
-      }, 1500) // 1.5초 후 이동하여 사용자가 성공 피드백을 충분히 인지하도록 합니다.
+      // 로그인 성공 시 즉시 로비로 이동 (디자인 유지, 히스토리 치환)
+      navigate('/lobby', { replace: true })
     } catch (error) {
       console.error('[DEBUG] Login error caught:', error) // 추가
       console.error('[DEBUG_LOG] Login failed:', error)
@@ -394,7 +391,7 @@ function LoginPage() {
                 textAlign: 'center'
               }}
             >
-              ⚡ Liar Game v2.0 - Powered by Advanced Gaming UI ⚡
+              ⚡ Liar Game v2.0 - for Stellive ⚡
             </Text>
           </motion.div>
         </GlassmorphismCard>

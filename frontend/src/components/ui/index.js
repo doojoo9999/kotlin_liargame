@@ -46,7 +46,7 @@ export { Alert, CircularProgress, Snackbar } from './Feedback'
 export { CssBaseline } from './CssBaseline'
 
 // Typography
-export { Typography } from './Typography'
+export { Typography, Text, Title } from './Typography'
 
 // Paper
 export { Paper } from './Paper'
