@@ -8,7 +8,8 @@ export function AddContentDialog({
   onClose, 
   subjects = [],
   addSubject,
-  addWord 
+  addWord,
+  loading
 }) {
   // 상태 관리
   const [activeTab, setActiveTab] = useState('subject') // 'subject' | 'word'
@@ -226,7 +227,7 @@ export function AddContentDialog({
                     color: 'white',
                     backgroundColor: 'transparent',
                     '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' },
-                    '&[data-selected]': { backgroundColor: 'rgba(102, 126, 234, 0.3)' }
+                    ['&[data-selected]']: { backgroundColor: 'rgba(102, 126, 234, 0.3)' }
                   }
                 }}
               />

@@ -1,95 +1,132 @@
-import {useEffect} from 'react'
-import {connectWebSocket, disconnectWebSocket} from '../websocket/socketConnectionManager.js'
-import {subscribeToGameEvents, subscribeToRoomConnection} from '../websocket/socketSubscriptionManager.js'
-import {ActionTypes} from '../state/gameActions.js'
+import {useEffect, useRef} from 'react';
+import {Client} from '@stomp/stompjs';
+import SockJS from 'sockjs-client';
+import {useGame as useGameZustand} from '../stores/useGame';
+import {debugLog} from '../utils/logger';
+import config from '../config/environment';
 
-// Socket Effects Hook
-// This module handles WebSocket-related useEffect logic
-
+/**
+ * A hook to manage WebSocket side effects for the game.
+ * This hook encapsulates all StompJS logic, including connection, subscription, and disconnection.
+ * It interacts directly with the Zustand store to update the application state.
+ *
+ * @param {object} currentRoom - The current room object from the Zustand store.
+ * @param {boolean} socketConnected - The current socket connection status from the Zustand store.
+ * @param {function} dispatch - The dispatch function from GameContext for compatibility.
+ * @param {function} setLoading - The setLoading action from the Zustand store.
+ * @param {function} setError - The setError action from the Zustand store.
+ * @param {function} loadChatHistory - The loadChatHistory action from the Zustand store.
+ */
 export const useSocketEffects = (
-  currentRoom, 
-  socketConnected, 
-  dispatch, 
-  setLoading, 
-  setError,
-  loadChatHistory
+    currentRoom,
+    socketConnected,
+    dispatch,
+    setLoading,
+    setError,
+    loadChatHistory
 ) => {
-  
-  // Effect for managing WebSocket connection based on room state
-  useEffect(() => {
-    const handleSocketConnection = async () => {
-      if (currentRoom?.gameNumber && !socketConnected) {
-        try {
-          console.log('[DEBUG_LOG] Connecting WebSocket for room:', currentRoom.gameNumber)
-          setLoading('socket', true)
+    const clientRef = useRef(null);
 
-          await connectWebSocket()
-          dispatch({ type: ActionTypes.SET_SOCKET_CONNECTION, payload: true })
+    const { setGameState, setPlayers, addChatMessage, setVoteState, setLiar, clearChatMessages } = useGameZustand.getState();
 
-          // Subscribe to game events
-          subscribeToGameEvents(currentRoom.gameNumber, dispatch)
+    useEffect(() => {
+        const connect = () => {
+            debugLog('Attempting to connect WebSocket...');
+            setLoading('socket', true);
 
-          setLoading('socket', false)
-          console.log('[DEBUG_LOG] WebSocket connected and subscriptions set up')
+            const socket = new SockJS(`${config.websocketUrl}`);
+            const stompClient = new Client({
+                webSocketFactory: () => socket,
+                reconnectDelay: 5000,
+                debug: (str) => {
+                    if (import.meta.env.DEV) {
+                        // console.log(new Date(), str);
+                    }
+                },
+                onConnect: () => {
+                    debugLog(`WebSocket connected. Subscribing to topics for room: ${currentRoom.id}`);
+                    dispatch({ type: 'SET_SOCKET_CONNECTION', payload: true });
+                    setLoading('socket', false);
 
-        } catch (error) {
-          console.error('[ERROR] Failed to connect WebSocket:', error)
-          setError('socket', error.message)
-          setLoading('socket', false)
+                    // --- Centralized Public Subscriptions ---
+                    stompClient.subscribe(`/topic/game/${currentRoom.id}`, (message) => {
+                        const gameState = JSON.parse(message.body);
+                        debugLog('Received game state update:', gameState);
+                        setGameState(gameState);
+                    });
+
+                    stompClient.subscribe(`/topic/game/${currentRoom.id}/players`, (message) => {
+                        const players = JSON.parse(message.body);
+                        debugLog('Received players update:', players);
+                        setPlayers(players);
+                    });
+
+                    stompClient.subscribe(`/topic/chat/${currentRoom.id}`, (message) => {
+                        const chatMessage = JSON.parse(message.body);
+                        debugLog('Received chat message:', chatMessage);
+                        addChatMessage(chatMessage);
+                    });
+
+                    // [SECURITY CRITICAL] Subscribe to a private, user-specific queue.
+                    // The '/user' prefix is handled by the STOMP broker to route messages to this specific session.
+                    stompClient.subscribe('/user/queue/private', (message) => {
+                        const privateData = JSON.parse(message.body);
+                        debugLog('Received private message:', privateData);
+
+                        // Handle different types of private messages
+                        switch (privateData.type) {
+                            case 'LIAR_REVEAL':
+                                setLiar(privateData.payload);
+                                break;
+                            case 'VOTE_STATE_UPDATE':
+                                setVoteState(privateData.payload);
+                                break;
+                            // Add other private message types here in the future (e.g., SECRET_WORD)
+                            default:
+                                debugLog(`Unknown private message type: ${privateData.type}`);
+                        }
+                    });
+
+                    // Send a message to notify the backend that this client has joined.
+                    const token = localStorage.getItem('accessToken');
+                    stompClient.publish({
+                        destination: `/app/game/${currentRoom.id}/join`,
+                        headers: { Authorization: `Bearer ${token}` },
+                    });
+
+                    // Load initial data
+                    loadChatHistory(currentRoom.id);
+                },
+                onStompError: (frame) => {
+                    console.error('Broker reported error: ' + frame.headers['message']);
+                    console.error('Additional details: ' + frame.body);
+                    setError('socket', '웹소켓 연결에 실패했습니다. 페이지를 새로고침 해주세요.');
+                    setLoading('socket', false);
+                    dispatch({ type: 'SET_SOCKET_CONNECTION', payload: false });
+                },
+            });
+
+            stompClient.activate();
+            clientRef.current = stompClient;
+        };
+
+        const disconnect = () => {
+            if (clientRef.current && clientRef.current.active) {
+                debugLog('Deactivating WebSocket client.');
+                clientRef.current.deactivate();
+                clientRef.current = null;
+                dispatch({ type: 'SET_SOCKET_CONNECTION', payload: false });
+                clearChatMessages();
+            }
+        };
+
+        if (currentRoom && currentRoom.id && !socketConnected) {
+            connect();
         }
-      }
-    }
 
-    // Only run if we have a room and are not connected
-    if (currentRoom?.gameNumber && !socketConnected) {
-      handleSocketConnection()
-    }
-  }, [currentRoom?.gameNumber, socketConnected]) // Remove setLoading and setError from dependencies
-
-  // Effect for room connection setup
-  useEffect(() => {
-    const setupRoomConnection = async () => {
-      if (currentRoom?.gameNumber && socketConnected) {
-        try {
-          console.log('[DEBUG_LOG] Setting up room connection for:', currentRoom.gameNumber)
-
-          await subscribeToRoomConnection(
-            currentRoom.gameNumber, 
-            dispatch, 
-            loadChatHistory
-          )
-
-          console.log('[DEBUG_LOG] Room connection setup completed')
-
-        } catch (error) {
-          console.error('[ERROR] Failed to setup room connection:', error)
-          setError('socket', error.message)
-        }
-      }
-    }
-
-    // Only run if we have both room and socket connection
-    if (currentRoom?.gameNumber && socketConnected) {
-      setupRoomConnection()
-    }
-  }, [currentRoom?.gameNumber, socketConnected]) // Remove dispatch, loadChatHistory, setError from dependencies
-
-  // Effect for cleanup when component unmounts or room changes
-  useEffect(() => {
-    return () => {
-      if (socketConnected) {
-        console.log('[DEBUG_LOG] Cleaning up WebSocket connection')
-        try {
-          disconnectWebSocket()
-          dispatch({ type: ActionTypes.SET_SOCKET_CONNECTION, payload: false })
-          dispatch({ type: ActionTypes.CLEAR_CHAT_MESSAGES })
-        } catch (error) {
-          console.error('[ERROR] Failed to cleanup WebSocket:', error)
-        }
-      }
-    }
-  }, []) // Empty dependency array for cleanup on unmount only
-
-  // Remove this effect as it's not performing any action, just logging
-
-}
+        return () => {
+            debugLog('Running cleanup for useSocketEffects.');
+            disconnect();
+        };
+    }, [currentRoom, socketConnected, dispatch, setLoading, setError, loadChatHistory]);
+};
