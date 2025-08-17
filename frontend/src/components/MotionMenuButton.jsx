@@ -11,18 +11,39 @@ import {Button} from '@mantine/core';
  * @param {React.ElementType} props.icon - The icon component to display.
   * @param {object} props.gradient - The gradient configuration for the button background.
   * @param {boolean} [props.fullWidth=true] - Whether the button should take up the full width.
+  * @param {'large' | 'medium'} [props.size='large'] - The size of the button.
   */
- export const MotionMenuButton = ({ children, onClick, icon: Icon, gradient, fullWidth = true }) => {
-   const buttonStyles = {
-     height: '60px',
-     fontSize: '1.2rem',
-     fontWeight: 'bold',
-     textTransform: 'none',
-     borderRadius: '12px', // Softer corners for a modern look
-     boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)', // Deeper shadow for a floating effect
-     transition: 'all 0.3s ease-in-out',
-     letterSpacing: '1px', // Increased letter spacing for clarity
-   };
+ export const MotionMenuButton = ({ children, onClick, icon: Icon, gradient, fullWidth = false, size = 'large' }) => {
+  const sizeStyles = {
+    large: {
+      height: '60px',
+      fontSize: '1.2rem',
+      padding: '0 2rem',
+      borderRadius: '12px',
+      iconSize: 24,
+    },
+    medium: {
+      height: '42px',
+      fontSize: '0.9rem',
+      padding: '0 1.25rem',
+      borderRadius: '10px',
+      iconSize: 18,
+    },
+  };
+
+  const currentSize = sizeStyles[size] || sizeStyles.large;
+
+  const buttonStyles = {
+    height: currentSize.height,
+    fontSize: currentSize.fontSize,
+    padding: currentSize.padding,
+    fontWeight: 'bold',
+    textTransform: 'none',
+    borderRadius: currentSize.borderRadius,
+    boxShadow: '0 4px 15px rgba(0, 0, 0, 0.2)',
+    transition: 'all 0.3s ease-in-out',
+    letterSpacing: '0.5px',
+  };
  
    return (
      <motion.div
@@ -37,7 +58,7 @@ import {Button} from '@mantine/core';
          variant="gradient"
          gradient={gradient}
          style={buttonStyles}
-         leftSection={Icon ? <Icon size={24} stroke={1.5} /> : null}
+         leftSection={Icon ? <Icon size={currentSize.iconSize} stroke={1.5} /> : null}
        >
          {children}
        </Button>

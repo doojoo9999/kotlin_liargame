@@ -1,29 +1,40 @@
-import React from 'react'
-import {Alert, Container} from '../components/ui'
-import {useGame} from '../context/GameContext'
-import useSubjectStore from '../stores/subjectStore'
-import {useSubjectsQuery} from '../hooks/useSubjectsQuery'
-import config from '../config/environment'
-import {useCreateRoom, useJoinRoom} from '../mutations/roomMutations'
+// --- ARCHITECTURE FIX: Force overwrite on 2024-05-21 to resolve persistent import errors ---
+import React, {lazy, Suspense, useEffect} from 'react';
+import {
+    Alert,
+    Box,
+    Button,
+    Container,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogTitle,
+    Typography
+} from '@mantine/core';
+import {useGame} from '../context/GameContext';
+import useSubjectStore from '../stores/subjectStore';
+import config from '../config/environment';
 
-// Import separated components
-import LobbyHeader from '../components/lobby/LobbyHeader'
-import RoomListTable from '../components/lobby/RoomListTable'
-import HelpDialog from '../components/lobby/dialogs/HelpDialog'
-import GameRulesDialog from '../components/lobby/dialogs/GameRulesDialog'
-import CreateRoomDialog from '../components/lobby/dialogs/CreateRoomDialog'
-import JoinRoomDialog from '../components/lobby/dialogs/JoinRoomDialog'
-import SnackbarNotification from '../components/lobby/SnackbarNotification'
+// Correctly imported components
+import LobbyHeader from '../components/lobby/LobbyHeader';
+import RoomListTable from '../components/lobby/RoomListTable';
+import HelpDialog from '../components/lobby/dialogs/HelpDialog';
+import GameRulesDialog from '../components/lobby/dialogs/GameRulesDialog';
+import CreateRoomDialog from '../components/lobby/dialogs/CreateRoomDialog';
+import JoinRoomDialog from '../components/lobby/dialogs/JoinRoomDialog';
+import SnackbarNotification from '../components/lobby/SnackbarNotification';
+import AddContentDialog from '../components/lobby/dialogs/AddContentDialog';
 
-// Import custom hooks
-import {useSnackbar} from '../hooks/useSnackbar'
-import {useLobbyDialogs} from '../hooks/useLobbyDialogs'
-import {useRoomForm} from '../hooks/useRoomForm'
-import {useContentForm} from '../hooks/useContentForm'
-import {useRoomActions} from '../hooks/useRoomActions'
-import {useContentActions} from '../hooks/useContentActions'
+// Correctly imported custom hooks
+import {useSnackbar} from '../hooks/useSnackbar';
+import {useLobbyDialogs} from '../hooks/useLobbyDialogs';
+import {useRoomForm} from '../hooks/useRoomForm';
+import {useContentForm} from '../hooks/useContentForm';
+import {useContentActions} from '../hooks/useContentActions';
 
-// Import utility functions
+// Lazy load heavy visual components
+const AnimatedBackground = lazy(() => import('../components/AnimatedBackground'));
+const FloatingGamepadIcons = lazy(() => import('../components/FloatingGamepadIcons'));
 
 function LobbyPage() {
   const {
@@ -34,27 +45,24 @@ function LobbyPage() {
     fetchRooms,
     createRoom,
     joinRoom,
-    logout
-  } = useGame()
+    logout,
+    navigateToRoom
+  } = useGame();
 
-  // Mutation hooks
-  const createRoomMutation = useCreateRoom()
-  const joinRoomMutation = useJoinRoom()
-
-  // Use React Query for subjects data - modern server state management
   const {
-    data: subjects = [],
-    isLoading: subjectLoading,
-    error: subjectError,
-    refetch: refetchSubjects
-  } = useSubjectsQuery()
-  
-  // Keep store for mutations (addSubject, addWord) until Sprint 4
-  const { addSubject, addWord } = useSubjectStore()
+    subjects,
+    loading: subjectLoading,
+    fetchSubjects,
+    addSubject,
+    addWord
+  } = useSubjectStore();
 
+  useEffect(() => {
+    fetchRooms();
+    fetchSubjects();
+  }, [fetchRooms, fetchSubjects]);
 
-  // Custom hooks for state management
-  const { snackbar, showSnackbar, hideSnackbar } = useSnackbar()
+  const { snackbar, showSnackbar, hideSnackbar } = useSnackbar();
   const {
     createRoomOpen,
     joinRoomOpen,
@@ -75,238 +83,108 @@ function LobbyPage() {
     closeHelpDialog,
     openGameRulesDialog,
     closeGameRulesDialog
-  } = useLobbyDialogs()
+  } = useLobbyDialogs();
 
-  const {
-    roomForm,
-    joinPassword,
-    handleRoomFormChange,
-    setJoinPassword,
-    resetRoomForm,
-    setDefaultTitle,
-    getRoomData,
-    resetJoinPassword
-  } = useRoomForm({ subjects, currentUser })
+  const { roomForm, joinPassword, handleRoomFormChange, setJoinPassword, setDefaultTitle } = useRoomForm({ subjects, currentUser });
+  const { contentForm, handleContentFormChange } = useContentForm();
+  const { handleAddSubject, handleAddWord } = useContentActions({ addSubject, addWord, showSnackbar, subjects });
 
-  const {
-    contentForm,
-    handleContentFormChange,
-    resetNewSubject,
-    resetNewWord,
-    isSubjectValid,
-    isWordValid
-  } = useContentForm()
+  const handleCreateRoom = async () => {
+    try {
+      const roomToCreate = { ...roomForm, title: roomForm.title || `${currentUser?.nickname || '플레이어'}의 방` };
+      const newRoom = await createRoom(roomToCreate);
+      closeCreateRoomDialog();
+      showSnackbar('방이 성공적으로 생성되었습니다.', 'success');
+      if (newRoom && newRoom.id) {
+        navigateToRoom(newRoom.id);
+      }
+    } catch (e) {
+      console.error("Failed to create room", e);
+      showSnackbar(e.message || '방 생성에 실패했습니다.', 'error');
+    }
+  };
 
-  // Business logic hooks
-  const { handleCreateRoom, handleJoinRoom, handleLogout, handleOpenCreateRoom } = useRoomActions({
-    createRoomMutation,
-    joinRoomMutation,
-    logout,
-    fetchRooms,
-    showSnackbar,
-    closeCreateRoomDialog,
-    closeJoinRoomDialog,
-    closeLogoutDialog,
-    currentUser
-  })
+  const handleJoinRoom = async (roomToJoin) => {
+    try {
+      if (roomToJoin.hasPassword) {
+        openJoinRoomDialog(roomToJoin);
+      } else {
+        await joinRoom(roomToJoin.id);
+      }
+    } catch (e) {
+      console.error("Failed to join room", e);
+      showSnackbar(e.message || '방 입장에 실패했습니다.', 'error');
+    }
+  };
 
-  const { handleAddSubject, handleAddWord } = useContentActions({
-    addSubject,
-    addWord,
-    showSnackbar,
-    subjects
-  })
+  const handleJoinRoomWithPassword = async () => {
+    try {
+      await joinRoom(selectedRoom.id, joinPassword);
+      closeJoinRoomDialog();
+    } catch (e) {
+      console.error("Failed to join room with password", e);
+      showSnackbar(e.message || '방 입장에 실패했습니다.', 'error');
+    }
+  };
+
+  const handleLogout = () => {
+    logout();
+    closeLogoutDialog();
+  };
+
+  const handleOpenCreateRoom = () => {
+    setDefaultTitle();
+    openCreateRoomDialog();
+  };
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
-      {/* Header */}
-      <LobbyHeader
-        currentUser={currentUser}
-        loading={loading}
-        onRefreshRooms={fetchRooms}
-        onCreateRoom={handleOpenCreateRoom}
-        onAddContent={openAddContentDialog}
-        onOpenHelp={openHelpDialog}
-        onOpenGameRules={openGameRulesDialog}
-        onLogout={openLogoutDialog}
-      />
-
-      {/* Error Alert */}
-      {error.rooms && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {error.rooms}
-        </Alert>
-      )}
-
-      {/* Room List */}
-      <RoomListTable
-        roomList={roomList}
-        loading={loading}
-        error={error}
-        onJoinRoom={openJoinRoomDialog}
-        onRefreshRooms={fetchRooms}
-      />
-
-      {/* Create Room Dialog */}
-      {createRoomOpen && (
-        <CreateRoomDialog
-          open={createRoomOpen}
-          onClose={closeCreateRoomDialog}
-          subjects={subjects}
-          config={config}
+    <Box sx={{ minHeight: '100vh', position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: '2rem' }}>
+      <Suspense fallback={null}>
+        <AnimatedBackground />
+        <FloatingGamepadIcons />
+      </Suspense>
+      
+      <Container maxWidth="lg" sx={{ py: 4, zIndex: 10, width: '100%' }}>
+        <LobbyHeader
           currentUser={currentUser}
-          roomForm={roomForm}
-          onFormChange={handleRoomFormChange}
-          onSubmit={handleCreateRoom}
-          isLoading={createRoomMutation.isPending}
+          loading={loading}
+          onRefreshRooms={fetchRooms}
+          onCreateRoom={handleOpenCreateRoom}
+          onAddContent={openAddContentDialog}
+          onOpenHelp={openHelpDialog}
+          onOpenGameRules={openGameRulesDialog}
+          onLogout={openLogoutDialog}
         />
-      )}
 
-      {/* Join Room Dialog */}
-      {joinRoomOpen && (
-        <JoinRoomDialog
-          open={joinRoomOpen}
-          onClose={closeJoinRoomDialog}
-          selectedRoom={selectedRoom}
-          joinPassword={joinPassword}
-          onPasswordChange={setJoinPassword}
-          onSubmit={handleJoinRoom}
-          isLoading={joinRoomMutation.isPending}
+        {error.rooms && <Alert title="Error" color="red" sx={{ mb: 3 }}>{error.rooms}</Alert>}
+
+        <RoomListTable
+          roomList={roomList}
+          loading={loading.rooms}
+          error={error.rooms}
+          onJoinRoom={handleJoinRoom}
+          onRefreshRooms={fetchRooms}
         />
-      )}
 
-      {/* Logout Confirmation Dialog */}
-      {logoutDialogOpen && (
-        <Dialog open={logoutDialogOpen} onClose={() => setLogoutDialogOpen(false)}>
-          <DialogTitle>로그아웃</DialogTitle>
-          <DialogContent>
-            <Typography>
-              정말로 로그아웃하시겠습니까?
-              {currentUser && (
-                <Box component="span" sx={{ display: 'block', mt: 1, fontWeight: 'medium' }}>
-                  {currentUser.nickname}님의 세션이 종료됩니다.
-                </Box>
-              )}
-            </Typography>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setLogoutDialogOpen(false)}>취소</Button>
-            <Button
-              onClick={handleLogout}
-              color="error"
-              variant="contained"
-            >
-              로그아웃
-            </Button>
-          </DialogActions>
-        </Dialog>
-      )}
-
-      {/* Add Content Dialog */}
-      {addContentOpen && (
-        <Dialog open={addContentOpen} onClose={() => setAddContentOpen(false)} maxWidth="sm" fullWidth>
-          <DialogTitle>주제/답안 추가</DialogTitle>
-          <DialogContent>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: 1 }}>
-              {/* Subject Addition Section */}
-              <Box>
-                <Typography variant="h6" gutterBottom>
-                  새 주제 추가
-                </Typography>
-                <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-                  <TextField
-                    label="주제 이름"
-                    value={contentForm.newSubject}
-                    onChange={(e) => handleContentFormChange('newSubject', e.target.value)}
-                    placeholder="예: 음식, 동물, 직업"
-                    fullWidth
-                  />
-                  <Button
-                    variant="contained"
-                    onClick={handleAddSubject}
-                    disabled={subjectLoading || !contentForm.newSubject.trim()}
-                    sx={{ minWidth: '100px' }}
-                  >
-                    {subjectLoading ? <CircularProgress size={20} /> : '추가'}
-                  </Button>
-                </Box>
-              </Box>
-
-              {/* Word Addition Section */}
-              <Box>
-                <Typography variant="h6" gutterBottom>
-                  답안 추가
-                </Typography>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <FormControl fullWidth>
-                    <InputLabel>주제 선택</InputLabel>
-                    <Select
-                      value={contentForm.selectedSubject}
-                      onChange={(e) => handleContentFormChange('selectedSubject', e.target.value)}
-                      label="주제 선택"
-                      variant="outlined"
-                    >
-                      {subjects.map((subject) => (
-                        <MenuItem key={`room-${subject.id}-${subject.name}`} value={subject.id}>
-                          {subject.name}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                  
-                  <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-                    <TextField
-                      label="답안"
-                      value={contentForm.newWord}
-                      onChange={(e) => handleContentFormChange('newWord', e.target.value)}
-                      placeholder="답안을 입력하세요"
-                      fullWidth
-                      disabled={!contentForm.selectedSubject}
-                    />
-                    <Button
-                      variant="contained"
-                      onClick={handleAddWord}
-                      disabled={subjectLoading || !contentForm.selectedSubject || !contentForm.newWord.trim()}
-                      sx={{ minWidth: '100px' }}
-                    >
-                      {subjectLoading ? <CircularProgress size={20} /> : '추가'}
-                    </Button>
-                  </Box>
-                </Box>
-              </Box>
-            </Box>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setAddContentOpen(false)}>닫기</Button>
-          </DialogActions>
-        </Dialog>
-      )}
-
-      {/* Help Dialog */}
-      {helpDialogOpen && (
-        <HelpDialog
-          open={helpDialogOpen}
-          onClose={() => setHelpDialogOpen(false)}
-        />
-      )}
-
-      {/* Game Rules Dialog */}
-      {gameRulesDialogOpen && (
-        <GameRulesDialog
-          open={gameRulesDialogOpen}
-          onClose={() => setGameRulesDialogOpen(false)}
-        />
-      )}
-
-      {/* Snackbar for notifications */}
-      <SnackbarNotification
-        open={snackbar.open}
-        message={snackbar.message}
-        severity={snackbar.severity}
-        onClose={handleCloseSnackbar}
-      />
-    </Container>
-  )
+        {createRoomOpen && <CreateRoomDialog open={createRoomOpen} onClose={closeCreateRoomDialog} subjects={subjects} config={config} currentUser={currentUser} roomForm={roomForm} onFormChange={handleRoomFormChange} onSubmit={handleCreateRoom} isLoading={loading.room} />}
+        {joinRoomOpen && <JoinRoomDialog open={joinRoomOpen} onClose={closeJoinRoomDialog} selectedRoom={selectedRoom} joinPassword={joinPassword} onPasswordChange={setJoinPassword} onSubmit={handleJoinRoomWithPassword} isLoading={loading.room} />}
+        {logoutDialogOpen && (
+          <Dialog open={logoutDialogOpen} onClose={closeLogoutDialog}>
+            <DialogTitle>로그아웃</DialogTitle>
+            <DialogContent><Typography>정말로 로그아웃하시겠습니까?</Typography></DialogContent>
+            <DialogActions>
+              <Button onClick={closeLogoutDialog}>취소</Button>
+              <Button onClick={handleLogout} color="red" variant="filled">로그아웃</Button>
+            </DialogActions>
+          </Dialog>
+        )}
+        {addContentOpen && <AddContentDialog opened={addContentOpen} onClose={closeAddContentDialog} subjects={subjects} addSubject={addSubject} addWord={addWord} loading={subjectLoading} />}
+        {helpDialogOpen && <HelpDialog open={helpDialogOpen} onClose={closeHelpDialog} />}
+        {gameRulesDialogOpen && <GameRulesDialog open={gameRulesDialogOpen} onClose={closeGameRulesDialog} />}
+        <SnackbarNotification open={snackbar.open} message={snackbar.message} severity={snackbar.severity} onClose={hideSnackbar} />
+      </Container>
+    </Box>
+  );
 }
 
-export default LobbyPage
+export default LobbyPage;
