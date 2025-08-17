@@ -1,6 +1,6 @@
 import React from 'react';
 import {motion} from 'framer-motion';
-import {ActionIcon, Box, Group, Typography} from '@mantine/core';
+import {ActionIcon, Box, Group, Text, Title} from '@mantine/core';
 import {IconBook, IconDeviceGamepad2, IconHelp, IconLogout, IconPlus, IconRefresh,} from '@tabler/icons-react';
 import {MotionMenuButton} from '../MotionMenuButton';
 
@@ -32,23 +32,22 @@ const LobbyHeader = ({
       <Group justify="space-between" align="center">
         <Box>
             <Group gap="sm">
-                <IconDeviceGamepad2 size={32} color="#ffffff" style={{ filter: 'drop-shadow(2px 2px 8px rgba(0, 0, 0, 0.7))' }} />
-                <Typography
-                    component="h1"
-                    variant="h4"
+                <IconDeviceGamepad2 size={32} color="#ffffff" style={{ filter: 'drop-shadow(0 0 8px rgba(0,0,0,0.5))' }} />
+                <Title
+                    order={2}
                     style={{
                         color: '#ffffff',
                         fontWeight: 'bold',
-                        textShadow: '2px 2px 8px rgba(0, 0, 0, 0.7)',
+                        textShadow: '0 2px 4px rgba(0, 0, 0, 0.5)',
                     }}
                 >
                     게임 로비
-                </Typography>
+                </Title>
             </Group>
             {currentUser && (
-            <Typography style={{ color: 'rgba(255, 255, 255, 0.9)' }}>
+            <Text c="gray.2" fz="sm" mt={4}>
                 환영합니다, {currentUser.nickname}님!
-            </Typography>
+            </Text>
             )}
         </Box>
 

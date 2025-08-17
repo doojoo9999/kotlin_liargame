@@ -1,16 +1,6 @@
 // --- ARCHITECTURE FIX: Force overwrite on 2024-05-21 to resolve persistent import errors ---
 import React, {lazy, Suspense, useEffect} from 'react';
-import {
-    Alert,
-    Box,
-    Button,
-    Container,
-    Dialog,
-    DialogActions,
-    DialogContent,
-    DialogTitle,
-    Typography
-} from '@mantine/core';
+import {Alert, Box, Container} from '@mantine/core';
 import {useGame} from '../context/GameContext';
 import useSubjectStore from '../stores/subjectStore';
 import config from '../config/environment';
@@ -23,6 +13,7 @@ import GameRulesDialog from '../components/lobby/dialogs/GameRulesDialog';
 import CreateRoomDialog from '../components/lobby/dialogs/CreateRoomDialog';
 import JoinRoomDialog from '../components/lobby/dialogs/JoinRoomDialog';
 import SnackbarNotification from '../components/lobby/SnackbarNotification';
+import LogoutDialog from '../components/lobby/dialogs/LogoutDialog';
 import AddContentDialog from '../components/lobby/dialogs/AddContentDialog';
 
 // Correctly imported custom hooks
@@ -33,8 +24,8 @@ import {useContentForm} from '../hooks/useContentForm';
 import {useContentActions} from '../hooks/useContentActions';
 
 // Lazy load heavy visual components
-const AnimatedBackground = lazy(() => import('../components/AnimatedBackground'));
-const FloatingGamepadIcons = lazy(() => import('../components/FloatingGamepadIcons'));
+const AnimatedBackground = lazy(() => import('../components/AnimatedBackground').then(module => ({ default: module.AnimatedBackground })));
+const FloatingGamepadIcons = lazy(() => import('../components/FloatingGamepadIcons').then(module => ({ default: module.FloatingGamepadIcons })));
 
 function LobbyPage() {
   const {
@@ -138,13 +129,13 @@ function LobbyPage() {
   };
 
   return (
-    <Box sx={{ minHeight: '100vh', position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: '2rem' }}>
+    <Box style={{ minHeight: '100vh', position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: '2rem' }}>
       <Suspense fallback={null}>
         <AnimatedBackground />
         <FloatingGamepadIcons />
       </Suspense>
       
-      <Container maxWidth="lg" sx={{ py: 4, zIndex: 10, width: '100%' }}>
+      <Container size="lg" style={{ py: 4, zIndex: 10, width: '100%' }}>
         <LobbyHeader
           currentUser={currentUser}
           loading={loading}
@@ -156,7 +147,7 @@ function LobbyPage() {
           onLogout={openLogoutDialog}
         />
 
-        {error.rooms && <Alert title="Error" color="red" sx={{ mb: 3 }}>{error.rooms}</Alert>}
+        {error.rooms && <Alert title="Error" color="red" style={{ marginBottom: '1.5rem' }}>{error.rooms}</Alert>}
 
         <RoomListTable
           roomList={roomList}
@@ -168,16 +159,12 @@ function LobbyPage() {
 
         {createRoomOpen && <CreateRoomDialog open={createRoomOpen} onClose={closeCreateRoomDialog} subjects={subjects} config={config} currentUser={currentUser} roomForm={roomForm} onFormChange={handleRoomFormChange} onSubmit={handleCreateRoom} isLoading={loading.room} />}
         {joinRoomOpen && <JoinRoomDialog open={joinRoomOpen} onClose={closeJoinRoomDialog} selectedRoom={selectedRoom} joinPassword={joinPassword} onPasswordChange={setJoinPassword} onSubmit={handleJoinRoomWithPassword} isLoading={loading.room} />}
-        {logoutDialogOpen && (
-          <Dialog open={logoutDialogOpen} onClose={closeLogoutDialog}>
-            <DialogTitle>로그아웃</DialogTitle>
-            <DialogContent><Typography>정말로 로그아웃하시겠습니까?</Typography></DialogContent>
-            <DialogActions>
-              <Button onClick={closeLogoutDialog}>취소</Button>
-              <Button onClick={handleLogout} color="red" variant="filled">로그아웃</Button>
-            </DialogActions>
-          </Dialog>
-        )}
+        <LogoutDialog
+          open={logoutDialogOpen}
+          onClose={closeLogoutDialog}
+          onConfirm={handleLogout}
+          currentUser={currentUser}
+        />
         {addContentOpen && <AddContentDialog opened={addContentOpen} onClose={closeAddContentDialog} subjects={subjects} addSubject={addSubject} addWord={addWord} loading={subjectLoading} />}
         {helpDialogOpen && <HelpDialog open={helpDialogOpen} onClose={closeHelpDialog} />}
         {gameRulesDialogOpen && <GameRulesDialog open={gameRulesDialogOpen} onClose={closeGameRulesDialog} />}

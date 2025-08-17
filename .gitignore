@@ -52,6 +52,6 @@ out/
 /firebaseaccoutkey.json
 
 ## ai ##
-
 .junie/**
 .aiassistant/**
+prompt.md
