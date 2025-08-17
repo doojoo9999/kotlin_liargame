@@ -1,7 +1,6 @@
 import {useEffect, useRef} from 'react';
 import {Client} from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
-import {useGame as useGameZustand} from '../stores/useGame';
 import {debugLog} from '../utils/logger';
 import config from '../config/environment';
 
@@ -15,7 +14,7 @@ import config from '../config/environment';
  * @param {function} dispatch - The dispatch function from GameContext for compatibility.
  * @param {function} setLoading - The setLoading action from the Zustand store.
  * @param {function} setError - The setError action from the Zustand store.
- * @param {function} loadChatHistory - The loadChatHistory action from the Zustand store.
+ * @param {object} actions - An object containing all necessary actions from the Zustand store.
  */
 export const useSocketEffects = (
     currentRoom,
@@ -23,11 +22,19 @@ export const useSocketEffects = (
     dispatch,
     setLoading,
     setError,
-    loadChatHistory
+    actions
 ) => {
     const clientRef = useRef(null);
 
-    const { setGameState, setPlayers, addChatMessage, setVoteState, setLiar, clearChatMessages } = useGameZustand.getState();
+    const {
+        loadChatHistory,
+        setGameState,
+        setPlayers,
+        addChatMessage,
+        setVoteState,
+        setLiar,
+        clearChatMessages
+    } = actions;
 
     useEffect(() => {
         const connect = () => {
@@ -128,5 +135,13 @@ export const useSocketEffects = (
             debugLog('Running cleanup for useSocketEffects.');
             disconnect();
         };
-    }, [currentRoom, socketConnected, dispatch, setLoading, setError, loadChatHistory]);
+    }, [
+        currentRoom,
+        socketConnected,
+        dispatch,
+        setLoading,
+        setError,
+        loadChatHistory, // Kept for dependency tracking if needed, though actions object is now used
+        actions
+    ]);
 };

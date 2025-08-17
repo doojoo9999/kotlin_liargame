@@ -1,5 +1,6 @@
 import React from 'react'
-import {createBrowserRouter, Navigate, RouterProvider} from 'react-router-dom'
+import PropTypes from 'prop-types'
+import {createBrowserRouter, Navigate, Outlet, RouterProvider} from 'react-router-dom'
 import {Alert, Box, CircularProgress, CssBaseline} from './components/ui'
 import {ThemeProvider} from './styles'
 import {MantineProvider} from '@mantine/core'
@@ -18,9 +19,23 @@ import LoginFailurePage from './pages/LoginFailurePage'
 import {I18nProvider} from './i18n/i18n.jsx'
 import {lobbyLoader} from './loaders/lobbyLoader'
 
+/**
+ * 애플리케이션의 핵심 프로바이더와 인증 상태를 관리하는 레이아웃 컴포넌트.
+ * 이 컴포넌트 하위의 모든 자식 라우트는 GameContext와 I18nContext에 접근할 수 있습니다.
+ */
+function AppLayout() {
+  return (
+    <I18nProvider>
+      <GameProvider>
+        <Outlet />
+      </GameProvider>
+    </I18nProvider>
+  )
+}
 
-function ProtectedRoute({ children }) {
-  const { isAuthenticated, loading } = useGame()
+
+function ProtectedRoute({ allowedRoles = ['user', 'admin'] }) {
+  const { isAuthenticated, user, loading } = useGame()
 
   if (loading.auth) {
     return (
@@ -38,103 +53,71 @@ function ProtectedRoute({ children }) {
     )
   }
 
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />
+  const isAuthorized = isAuthenticated && user && allowedRoles.includes(user.role)
+
+  if (!isAuthorized) {
+    // 관리자 페이지 접근 실패 시 관리자 로그인 페이지로, 그 외에는 일반 로그인 페이지로 이동
+    const redirectTo = allowedRoles.includes('admin') && allowedRoles.length === 1 ? '/admin/login' : '/login'
+    return <Navigate to={redirectTo} replace />
   }
 
-  return children
+  return <Outlet /> // children 대신 Outlet을 렌더링하여 중첩 라우트를 표시
 }
 
-function AdminProtectedRoute({ children }) {
-  const isUserAdmin = localStorage.getItem('isUserAdmin') === 'true'
-
-  if (!isUserAdmin) {
-    return <Navigate to="/admin/login" replace />
-  }
-
-  return children
+ProtectedRoute.propTypes = {
+  allowedRoles: PropTypes.arrayOf(PropTypes.oneOf(['user', 'admin'])),
 }
-
 
 // Create router configuration
 const router = createBrowserRouter([
   {
     path: '/login',
-    element: (
-      <I18nProvider>
-        <GameProvider>
-          <LoginPage />
-        </GameProvider>
-      </I18nProvider>
-    ),
+    element: <LoginPage />, // AppLayout 외부에 있어 GameProvider가 필요 없음
     errorElement: <RouteErrorBoundary />
   },
   {
     path: '/auth/login-failed',
-    element: (
-      <I18nProvider>
-        <GameProvider>
-          <LoginFailurePage />
-        </GameProvider>
-      </I18nProvider>
-    ),
+    element: <LoginFailurePage />,
     errorElement: <RouteErrorBoundary />
   },
   {
     path: '/admin/login',
-    element: (
-      <I18nProvider>
-        <GameProvider>
-          <AdminLoginPage />
-        </GameProvider>
-      </I18nProvider>
-    ),
-    errorElement: <RouteErrorBoundary />
-  },
-  {
-    path: '/admin',
-    element: (
-      <I18nProvider>
-        <GameProvider>
-          <AdminProtectedRoute>
-            <AdminDashboard />
-          </AdminProtectedRoute>
-        </GameProvider>
-      </I18nProvider>
-    ),
-    errorElement: <RouteErrorBoundary />
-  },
-  {
-    path: '/lobby',
-    element: (
-      <I18nProvider>
-        <GameProvider>
-          <ProtectedRoute>
-            <LobbyPage />
-          </ProtectedRoute>
-        </GameProvider>
-      </I18nProvider>
-    ),
-    loader: lobbyLoader,
-    errorElement: <RouteErrorBoundary />
-  },
-  {
-    path: '/game',
-    element: (
-      <I18nProvider>
-        <GameProvider>
-          <ProtectedRoute>
-            <GameRoomPage />
-          </ProtectedRoute>
-        </GameProvider>
-      </I18nProvider>
-    ),
+    element: <AdminLoginPage />,
     errorElement: <RouteErrorBoundary />
   },
   {
     path: '/',
-    element: <Navigate to="/lobby" replace />,
-    errorElement: <RouteErrorBoundary />
+    element: <AppLayout />, // 모든 앱의 공통 레이아웃 및 프로바이더
+    errorElement: <RouteErrorBoundary />,
+    children: [
+      {
+        element: <ProtectedRoute allowedRoles={['admin']} />,
+        children: [
+          {
+            path: 'admin',
+            element: <AdminDashboard />,
+          },
+        ],
+      },
+      {
+        element: <ProtectedRoute allowedRoles={['user', 'admin']} />,
+        children: [
+          {
+            index: true, // 기본 경로 (/)를 /lobby로 리디렉션
+            element: <Navigate to="/lobby" replace />,
+          },
+          {
+            path: 'lobby',
+            element: <LobbyPage />,
+            loader: lobbyLoader,
+          },
+          {
+            path: 'game',
+            element: <GameRoomPage />,
+          },
+        ],
+      },
+    ],
   },
   {
     path: '*',
