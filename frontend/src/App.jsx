@@ -16,7 +16,6 @@ import AdminDashboard from './pages/AdminDashboard'
 import ErrorBoundary from './components/ErrorBoundary'
 import RouteErrorBoundary from './components/RouteErrorBoundary'
 import LoginFailurePage from './pages/LoginFailurePage'
-import {I18nProvider} from './i18n/i18n.jsx'
 import {lobbyLoader} from './loaders/lobbyLoader'
 
 /**
@@ -24,13 +23,11 @@ import {lobbyLoader} from './loaders/lobbyLoader'
  * 이 컴포넌트 하위의 모든 자식 라우트는 GameContext와 I18nContext에 접근할 수 있습니다.
  */
 function AppLayout() {
-  return (
-    <I18nProvider>
-      <GameProvider>
-        <Outlet />
-      </GameProvider>
-    </I18nProvider>
-  )
+    return (
+        <GameProvider>
+            <Outlet />
+        </GameProvider>
+    );
 }
 
 
