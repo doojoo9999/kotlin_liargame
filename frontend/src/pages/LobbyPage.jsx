@@ -12,12 +12,10 @@ import HelpDialog from '../components/lobby/dialogs/HelpDialog';
 import GameRulesDialog from '../components/lobby/dialogs/GameRulesDialog';
 import CreateRoomDialog from '../components/lobby/dialogs/CreateRoomDialog';
 import JoinRoomDialog from '../components/lobby/dialogs/JoinRoomDialog';
-import SnackbarNotification from '../components/lobby/SnackbarNotification';
 import LogoutDialog from '../components/lobby/dialogs/LogoutDialog';
 import AddContentDialog from '../components/lobby/dialogs/AddContentDialog';
 
 // Correctly imported custom hooks
-import {useSnackbar} from '../hooks/useSnackbar';
 import {useLobbyDialogs} from '../hooks/useLobbyDialogs';
 import {useRoomForm} from '../hooks/useRoomForm';
 import {useContentForm} from '../hooks/useContentForm';
@@ -53,7 +51,6 @@ function LobbyPage() {
     fetchSubjects();
   }, [fetchRooms, fetchSubjects]);
 
-  const { snackbar, showSnackbar, hideSnackbar } = useSnackbar();
   const {
     createRoomOpen,
     joinRoomOpen,
@@ -85,13 +82,13 @@ function LobbyPage() {
       const roomToCreate = { ...roomForm, title: roomForm.title || `${currentUser?.nickname || '플레이어'}의 방` };
       const newRoom = await createRoom(roomToCreate);
       closeCreateRoomDialog();
-      showSnackbar('방이 성공적으로 생성되었습니다.', 'success');
+      //showSnackbar('방이 성공적으로 생성되었습니다.', 'success');
       if (newRoom && newRoom.id) {
         navigateToRoom(newRoom.id);
       }
     } catch (e) {
       console.error("Failed to create room", e);
-      showSnackbar(e.message || '방 생성에 실패했습니다.', 'error');
+      //showSnackbar(e.message || '방 생성에 실패했습니다.', 'error');
     }
   };
 
@@ -104,7 +101,7 @@ function LobbyPage() {
       }
     } catch (e) {
       console.error("Failed to join room", e);
-      showSnackbar(e.message || '방 입장에 실패했습니다.', 'error');
+      //showSnackbar(e.message || '방 입장에 실패했습니다.', 'error');
     }
   };
 
