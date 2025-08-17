@@ -1,6 +1,7 @@
 // --- ARCHITECTURE FIX: Force overwrite on 2024-05-21 to resolve persistent import errors ---
 import React, {lazy, Suspense, useEffect} from 'react';
 import {Alert, Box, Container} from '@mantine/core';
+import {useNotifications} from '@mantine/notifications';
 import {useGame} from '../context/GameContext';
 import useSubjectStore from '../stores/subjectStore';
 import config from '../config/environment';
@@ -19,7 +20,7 @@ import AddContentDialog from '../components/lobby/dialogs/AddContentDialog';
 import {useLobbyDialogs} from '../hooks/useLobbyDialogs';
 import {useRoomForm} from '../hooks/useRoomForm';
 import {useContentForm} from '../hooks/useContentForm';
-import {useContentActions} from '../hooks/useContentActions';
+import {useContentActions} from '../hooks/useContentActions.jsx';
 
 // Lazy load heavy visual components
 const AnimatedBackground = lazy(() => import('../components/AnimatedBackground').then(module => ({ default: module.AnimatedBackground })));
@@ -45,6 +46,8 @@ function LobbyPage() {
     addSubject,
     addWord
   } = useSubjectStore();
+
+  const notifications = useNotifications();
 
   useEffect(() => {
     fetchRooms();
@@ -75,7 +78,7 @@ function LobbyPage() {
 
   const { roomForm, joinPassword, handleRoomFormChange, setJoinPassword, setDefaultTitle } = useRoomForm({ subjects, currentUser });
   const { contentForm, handleContentFormChange } = useContentForm();
-  const { handleAddSubject, handleAddWord } = useContentActions({ addSubject, addWord, subjects });
+  const { handleAddSubject, handleAddWord } = useContentActions({ addSubject, addWord, subjects, notifications });
 
   const handleCreateRoom = async () => {
     try {
@@ -88,7 +91,11 @@ function LobbyPage() {
       }
     } catch (e) {
       console.error("Failed to create room", e);
-      //showSnackbar(e.message || '방 생성에 실패했습니다.', 'error');
+      notifications.show({
+        title: '오류',
+        message: e.message || '방 생성에 실패했습니다.',
+        color: 'red',
+      });
     }
   };
 
@@ -101,7 +108,11 @@ function LobbyPage() {
       }
     } catch (e) {
       console.error("Failed to join room", e);
-      //showSnackbar(e.message || '방 입장에 실패했습니다.', 'error');
+      notifications.show({
+        title: '오류',
+        message: e.message || '방 입장에 실패했습니다.',
+        color: 'red',
+      });
     }
   };
 
@@ -111,7 +122,11 @@ function LobbyPage() {
       closeJoinRoomDialog();
     } catch (e) {
       console.error("Failed to join room with password", e);
-      showSnackbar(e.message || '방 입장에 실패했습니다.', 'error');
+      notifications.show({
+        title: '오류',
+        message: e.message || '방 입장에 실패했습니다.',
+        color: 'red',
+      });
     }
   };
 
@@ -165,7 +180,6 @@ function LobbyPage() {
         {addContentOpen && <AddContentDialog opened={addContentOpen} onClose={closeAddContentDialog} subjects={subjects} addSubject={handleAddSubject} addWord={handleAddWord} loading={subjectLoading} />}
         {helpDialogOpen && <HelpDialog open={helpDialogOpen} onClose={closeHelpDialog} />}
         {gameRulesDialogOpen && <GameRulesDialog open={gameRulesDialogOpen} onClose={closeGameRulesDialog} />}
-        <SnackbarNotification open={snackbar.open} message={snackbar.message} severity={snackbar.severity} onClose={hideSnackbar} />
       </Container>
     </Box>
   );

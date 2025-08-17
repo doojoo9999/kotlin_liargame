@@ -14,7 +14,6 @@ import AdminLoginPage from './pages/AdminLoginPage'
 import AdminDashboard from './pages/AdminDashboard'
 import ErrorBoundary from './components/ErrorBoundary'
 import RouteErrorBoundary from './components/RouteErrorBoundary'
-import ToastProvider, {WebSocketMessageHandler} from './components/EnhancedToastSystem'
 import LoginFailurePage from './pages/LoginFailurePage'
 import {I18nProvider} from './i18n/i18n.jsx'
 import {lobbyLoader} from './loaders/lobbyLoader'
@@ -63,17 +62,9 @@ const router = createBrowserRouter([
     path: '/login',
     element: (
       <I18nProvider>
-        <ErrorBoundary>
-          <ToastProvider>
-            <GameProvider>
-              <WebSocketMessageHandler>
-                <AppRouterWrapper>
-                  <LoginPage />
-                </AppRouterWrapper>
-              </WebSocketMessageHandler>
-            </GameProvider>
-          </ToastProvider>
-        </ErrorBoundary>
+        <GameProvider>
+          <LoginPage />
+        </GameProvider>
       </I18nProvider>
     ),
     errorElement: <RouteErrorBoundary />
@@ -82,17 +73,9 @@ const router = createBrowserRouter([
     path: '/auth/login-failed',
     element: (
       <I18nProvider>
-        <ErrorBoundary>
-          <ToastProvider>
-            <GameProvider>
-              <WebSocketMessageHandler>
-                <AppRouterWrapper>
-                  <LoginFailurePage />
-                </AppRouterWrapper>
-              </WebSocketMessageHandler>
-            </GameProvider>
-          </ToastProvider>
-        </ErrorBoundary>
+        <GameProvider>
+          <LoginFailurePage />
+        </GameProvider>
       </I18nProvider>
     ),
     errorElement: <RouteErrorBoundary />
@@ -101,17 +84,9 @@ const router = createBrowserRouter([
     path: '/admin/login',
     element: (
       <I18nProvider>
-        <ErrorBoundary>
-          <ToastProvider>
-            <GameProvider>
-              <WebSocketMessageHandler>
-                <AppRouterWrapper>
-                  <AdminLoginPage />
-                </AppRouterWrapper>
-              </WebSocketMessageHandler>
-            </GameProvider>
-          </ToastProvider>
-        </ErrorBoundary>
+        <GameProvider>
+          <AdminLoginPage />
+        </GameProvider>
       </I18nProvider>
     ),
     errorElement: <RouteErrorBoundary />
@@ -120,19 +95,11 @@ const router = createBrowserRouter([
     path: '/admin',
     element: (
       <I18nProvider>
-        <ErrorBoundary>
-          <ToastProvider>
-            <GameProvider>
-              <WebSocketMessageHandler>
-                <AppRouterWrapper>
-                  <AdminProtectedRoute>
-                    <AdminDashboard />
-                  </AdminProtectedRoute>
-                </AppRouterWrapper>
-              </WebSocketMessageHandler>
-            </GameProvider>
-          </ToastProvider>
-        </ErrorBoundary>
+        <GameProvider>
+          <AdminProtectedRoute>
+            <AdminDashboard />
+          </AdminProtectedRoute>
+        </GameProvider>
       </I18nProvider>
     ),
     errorElement: <RouteErrorBoundary />
@@ -141,19 +108,11 @@ const router = createBrowserRouter([
     path: '/lobby',
     element: (
       <I18nProvider>
-        <ErrorBoundary>
-          <ToastProvider>
-            <GameProvider>
-              <WebSocketMessageHandler>
-                <AppRouterWrapper>
-                  <ProtectedRoute>
-                    <LobbyPage />
-                  </ProtectedRoute>
-                </AppRouterWrapper>
-              </WebSocketMessageHandler>
-            </GameProvider>
-          </ToastProvider>
-        </ErrorBoundary>
+        <GameProvider>
+          <ProtectedRoute>
+            <LobbyPage />
+          </ProtectedRoute>
+        </GameProvider>
       </I18nProvider>
     ),
     loader: lobbyLoader,
@@ -163,19 +122,11 @@ const router = createBrowserRouter([
     path: '/game',
     element: (
       <I18nProvider>
-        <ErrorBoundary>
-          <ToastProvider>
-            <GameProvider>
-              <WebSocketMessageHandler>
-                <AppRouterWrapper>
-                  <ProtectedRoute>
-                    <GameRoomPage />
-                  </ProtectedRoute>
-                </AppRouterWrapper>
-              </WebSocketMessageHandler>
-            </GameProvider>
-          </ToastProvider>
-        </ErrorBoundary>
+        <GameProvider>
+          <ProtectedRoute>
+            <GameRoomPage />
+          </ProtectedRoute>
+        </GameProvider>
       </I18nProvider>
     ),
     errorElement: <RouteErrorBoundary />
@@ -192,18 +143,13 @@ const router = createBrowserRouter([
   }
 ])
 
-// Wrapper component to provide routing context
-function AppRouterWrapper({ children }) {
-  return children
-}
-
 function App() {
   return (
     <MantineProvider theme={gameTheme} defaultColorScheme="dark">
       <ThemeProvider>
         <CssBaseline>
             <Notifications position="bottom-right" zIndex={2000} />
-          <RouterProvider router={router} />
+          <ErrorBoundary><RouterProvider router={router} /></ErrorBoundary>
         </CssBaseline>
       </ThemeProvider>
     </MantineProvider>
