@@ -1,4 +1,5 @@
-import {useState} from 'react'
+import React, {useState} from 'react'
+import PropTypes from 'prop-types'
 import {Button, Group, Modal, Select, Stack, Text, TextInput} from '@mantine/core'
 import {IconBook, IconBulb, IconPlus} from '@tabler/icons-react'
 import {motion} from 'framer-motion'
@@ -211,7 +212,7 @@ export function AddContentDialog({
               <Select
                 label="주제 선택"
                 placeholder="주제를 선택하세요"
-                data={subjects.map(s => ({ value: s.id.toString(), label: s.name }))}
+                data={subjects.map(s => ({ value: (s.name || s.content), label: (s.name || s.content) }))}
                 value={selectedSubject}
                 onChange={setSelectedSubject}
                 searchable
@@ -226,8 +227,7 @@ export function AddContentDialog({
                   option: {
                     color: 'white',
                     backgroundColor: 'transparent',
-                    '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' },
-                    ['&[data-selected]']: { backgroundColor: 'rgba(102, 126, 234, 0.3)' }
+                    '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' }
                   }
                 }}
               />
@@ -268,6 +268,24 @@ export function AddContentDialog({
       </Stack>
     </Modal>
   )
+}
+
+AddContentDialog.propTypes = {
+  opened: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  subjects: PropTypes.arrayOf(PropTypes.shape({
+    id: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    name: PropTypes.string,
+    content: PropTypes.string,
+  })),
+  addSubject: PropTypes.func.isRequired,
+  addWord: PropTypes.func.isRequired,
+  loading: PropTypes.bool,
+}
+
+AddContentDialog.defaultProps = {
+  subjects: [],
+  loading: false,
 }
 
 export default AddContentDialog
