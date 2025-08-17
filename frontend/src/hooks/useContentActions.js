@@ -89,9 +89,18 @@ export const useContentActions = ({
    * @param {Function} resetNewWord - Function to reset new word field
    */
   const handleAddWord = useCallback(async (selectedSubject, newWord, resetNewWord) => {
-    try {
+      if (!selectedSubject) {
+          notifications.show({ title: '선택 오류', message: '주제를 선택해주세요.', color: 'orange', icon: <IconX size={18} /> });
+          return;
+      }
+      if (!newWord.trim()) {
+          notifications.show({ title: '입력 오류', message: '답안을 입력해주세요.', color: 'orange', icon: <IconX size={18} /> });
+          return;
+      }
+
+      try {
       const wordName = newWord.trim();
-      await addWord(selectedSubject, wordName);
+      await addWord({ subjectId: selectedSubject, wordName });
       notifications.show({
         title: '성공',
         message: `단어 '${wordName}'이(가) 성공적으로 추가되었습니다.`,
