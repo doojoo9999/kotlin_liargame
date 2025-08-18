@@ -1,122 +1,92 @@
-import React, {useEffect, useState} from 'react'
-import styled, {css, keyframes} from 'styled-components'
-import {animations, borderRadius, colors, spacing} from '@/styles'
+import React from 'react'
+import { Snackbar as MantineSnackbar, createStyles } from '@mantine/core'
+import { IconCheck, IconX, IconInfoCircle, IconAlertTriangle } from '@tabler/icons-react'
 
-// Animation keyframes
-const slideIn = keyframes`
-  from {
-    transform: translateY(-100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-`
+const useStyles = createStyles((theme, { variant, position }) => ({
+  snackbar: {
+    transition: 'all 0.3s ease',
+    
+    // Custom position variants
+    ...(position === 'top' && {
+      top: theme.spacing.md,
+    }),
+    ...(position === 'bottom' && {
+      bottom: theme.spacing.md,
+    }),
+  },
 
-const slideOut = keyframes`
-  from {
-    transform: translateY(0);
-    opacity: 1;
-  }
-  to {
-    transform: translateY(-100%);
-    opacity: 0;
-  }
-`
+  // Game-specific variants
+  game: {
+    background: `linear-gradient(135deg, ${theme.colors.gray[0]}, ${theme.colors.gray[1]})`,
+    border: `2px solid ${theme.colors.gray[3]}`,
+    borderRadius: theme.radius.lg,
+  },
 
-const SnackbarContainer = styled.div`
-  position: fixed;
-  top: ${spacing.lg};
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 1400;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-  
-  ${props => props.$anchorOrigin?.vertical === 'bottom' && css`
-    top: auto;
-    bottom: ${spacing.lg};
-  `}
-  
-  ${props => props.$anchorOrigin?.horizontal === 'left' && css`
-    left: ${spacing.lg};
-    transform: translateX(0);
-  `}
-  
-  ${props => props.$anchorOrigin?.horizontal === 'right' && css`
-    left: auto;
-    right: ${spacing.lg};
-    transform: translateX(0);
-  `}
-`
+  victory: {
+    background: `linear-gradient(135deg, ${theme.colors.green[0]}, ${theme.colors.green[1]})`,
+    border: `2px solid ${theme.colors.green[4]}`,
+    color: theme.colors.green[8],
+  },
 
-const SnackbarContent = styled.div`
-  background-color: ${colors.surface.primary};
-  border-radius: ${borderRadius.medium};
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
-  pointer-events: auto;
-  max-width: 500px;
-  min-width: 300px;
-  
-  ${props => props.$isVisible ? css`
-    animation: ${slideIn} ${animations.duration.medium} ${animations.easing.easeOut} forwards;
-  ` : css`
-    animation: ${slideOut} ${animations.duration.medium} ${animations.easing.easeIn} forwards;
-  `}
-`
+  defeat: {
+    background: `linear-gradient(135deg, ${theme.colors.red[0]}, ${theme.colors.red[1]})`,
+    border: `2px solid ${theme.colors.red[4]}`,
+    color: theme.colors.red[8],
+  },
+}))
 
-const Snackbar = ({
-  open = false,
-  autoHideDuration = 6000,
-  onClose,
-  children,
-  anchorOrigin = { vertical: 'top', horizontal: 'center' },
-  ...props
+// Snackbar component
+export const Snackbar = ({ 
+  children, 
+  severity = 'info',
+  variant = 'default',
+  position = 'bottom',
+  className = '',
+  ...props 
 }) => {
-  const [isVisible, setIsVisible] = useState(false)
-  const [shouldRender, setShouldRender] = useState(false)
+  const { classes, cx } = useStyles({ variant, position })
 
-  useEffect(() => {
-    if (open) {
-      setShouldRender(true)
-      // Small delay to trigger animation
-      const timer = setTimeout(() => setIsVisible(true), 10)
-      return () => clearTimeout(timer)
-    } else {
-      setIsVisible(false)
-      // Wait for animation to complete before removing from DOM
-      const timer = setTimeout(() => setShouldRender(false), 300)
-      return () => clearTimeout(timer)
+  // Map severity to Mantine color and icon
+  const getSeverityProps = () => {
+    switch (severity) {
+      case 'success':
+        return {
+          color: 'green',
+          icon: <IconCheck size={16} />,
+        }
+      case 'error':
+        return {
+          color: 'red',
+          icon: <IconX size={16} />,
+        }
+      case 'warning':
+        return {
+          color: 'yellow',
+          icon: <IconAlertTriangle size={16} />,
+        }
+      case 'info':
+      default:
+        return {
+          color: 'blue',
+          icon: <IconInfoCircle size={16} />,
+        }
     }
-  }, [open])
-
-  useEffect(() => {
-    if (open && autoHideDuration && autoHideDuration > 0) {
-      const timer = setTimeout(() => {
-        onClose?.()
-      }, autoHideDuration)
-      
-      return () => clearTimeout(timer)
-    }
-  }, [open, autoHideDuration, onClose])
-
-  if (!shouldRender) {
-    return null
   }
+
+  const severityProps = getSeverityProps()
 
   return (
-    <SnackbarContainer
-      $anchorOrigin={anchorOrigin}
+    <MantineSnackbar
+      className={cx(className, classes.snackbar)}
+      color={severityProps.color}
+      icon={severityProps.icon}
       {...props}
     >
-      <SnackbarContent $isVisible={isVisible}>
-        {children}
-      </SnackbarContent>
-    </SnackbarContainer>
+      {children}
+    </MantineSnackbar>
   )
 }
+
+Snackbar.displayName = 'Snackbar'
 
 export default Snackbar

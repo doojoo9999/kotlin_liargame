@@ -1,99 +1,46 @@
-// UI Components barrel export
-// Design system components entry point
+// UI Components barrel export - Mantine 기반
 
-// Button components
-export { Button } from './Button'
+// Button
+export { default as Button } from './Button/Button.jsx'
 
-// Card components
-export { 
-  Card, 
-  CardHeader, 
-  CardContent, 
-  CardFooter, 
-  CardTitle, 
-  CardDescription 
-} from './Card'
+// Card
+export { default as Card } from './Card/Card.jsx'
+export { CardHeader, CardContent, CardFooter, CardTitle, CardDescription } from './Card/Card.jsx'
 
-// PlayerAvatar system
-export {
-  PlayerAvatar,
-  AvatarStatusDot,
-  AvatarBadge,
-  AvatarEffects,
-  GlowEffect,
-  ShakeEffect,
-  BounceEffect,
-  FadeInEffect
-} from './PlayerAvatar'
-
-// Input components
-export { Input } from './Input'
-
-// Layout components
-export {
-  Box,
-  Container,
-  Stack,
-  Grid,
-  Center,
-  Spacer
-} from './Layout'
-
-// Feedback components
-export { Alert, CircularProgress, Snackbar } from './Feedback'
-
-// Global styles
-export { CssBaseline } from './CssBaseline'
+// Input
+export { default as Input } from './Input/Input.jsx'
 
 // Typography
-export { Typography, Text, Title } from './Typography'
+export { default as Typography, Text, Title } from './Typography/Typography.jsx'
+
+// Layout
+export { default as Box, Container, Stack, Grid, Center, Spacer } from './Layout/Layout.jsx'
+
+// Feedback
+export { default as Alert } from './Feedback/Alert.jsx'
+export { default as CircularProgress } from './Feedback/CircularProgress.jsx'
+export { default as Snackbar } from './Feedback/Snackbar.jsx'
+
+// Dialog
+export { default as Dialog, DialogTitle, DialogContent, DialogActions, DialogContentText } from './Dialog/Dialog.jsx'
 
 // Paper
-export { Paper } from './Paper'
+export { default as Paper } from './Paper/Paper.jsx'
 
 // Chip
-export { Chip } from './Chip'
+export { default as Chip } from './Chip/Chip.jsx'
 
-// List components
-export { List, ListItem, ListItemIcon, ListItemText } from './List'
+// List
+export { default as List, ListItem, ListItemIcon, ListItemText } from './List/List.jsx'
 
-// Divider
-export { Divider } from './Divider'
+// Table
+export { default as Table, TableHead, TableBody, TableRow, TableCell, TableHeader } from './Table/Table.jsx'
 
 // Link
-export { Link } from './Link'
+export { default as Link } from './Link/Link.jsx'
 
-// Table components
-export {
-  Table,
-  TableContainer,
-  TableHead,
-  TableBody,
-  TableRow,
-  TableCell,
-  TableHeaderCell
-} from './Table'
+// Divider
+export { default as Divider } from './Divider/Divider.jsx'
 
-// Dialog components
-export {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  DialogContentText
-} from './Dialog'
-
-// Micro-interactions system
-export {
-  useRipple,
-  InteractiveWrapper,
-  microInteractions,
-  keyframes,
-  buttonInteractions,
-  inputInteractions
-} from './interactions'
-
-// TODO: Add more components as they are implemented
-// export { Modal } from './Modal'
-// export { Badge } from './Badge'
-// export { Progress } from './Progress'
+// CssBaseline
+export { default as CssBaseline } from './CssBaseline/CssBaseline.jsx'

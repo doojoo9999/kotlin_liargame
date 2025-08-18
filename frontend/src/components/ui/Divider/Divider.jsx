@@ -1,126 +1,104 @@
 import React from 'react'
-import styled from 'styled-components'
+import { Divider as MantineDivider, createStyles } from '@mantine/core'
 
-const StyledDivider = styled.hr`
-  margin: 0;
-  flex-shrink: 0;
-  border-width: 0;
-  border-style: solid;
-  border-color: ${props => props.theme.colors?.divider || 'rgba(0, 0, 0, 0.12)'};
-  
-  ${props => {
-    if (props.$orientation === 'vertical') {
-      return `
-        border-right-width: thin;
-        height: 100%;
-        width: 0;
-        ${props.$flexItem ? 'align-self: stretch;' : ''}
-      `;
-    } else {
-      return `
-        border-bottom-width: thin;
-        width: 100%;
-        height: 0;
-      `;
-    }
-  }}
-  
-  ${props => props.$variant === 'fullWidth' && `
-    width: 100%;
-  `}
-  
-  ${props => props.$variant === 'inset' && `
-    margin-left: 72px;
-  `}
-  
-  ${props => props.$variant === 'middle' && `
-    margin-left: 16px;
-    margin-right: 16px;
-  `}
-  
-  ${props => props.$light && `
-    border-color: ${props.theme.colors?.divider || 'rgba(0, 0, 0, 0.08)'};
-  `}
-  
-  ${props => props.$absolute && `
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-  `}
-`
+const useStyles = createStyles((theme, { variant, size, color, orientation }) => ({
+  divider: {
+    transition: 'all 0.2s ease',
+    
+    // Custom size variants
+    ...(size === 'thin' && {
+      borderWidth: '1px',
+    }),
+    ...(size === 'thick' && {
+      borderWidth: '3px',
+    }),
+  },
 
-const StyledDividerWithChildren = styled.div`
-  display: flex;
-  white-space: nowrap;
-  text-align: center;
-  border: 0;
-  margin: 0;
-  
-  &::before,
-  &::after {
-    position: relative;
-    width: 100%;
-    border-top: thin solid ${props => props.theme.colors?.divider || 'rgba(0, 0, 0, 0.12)'};
-    top: 50%;
-    content: "";
-    transform: translateY(50%);
-  }
-`
+  // Game-specific variants
+  game: {
+    borderColor: theme.colors.blue[4],
+    '&::before': {
+      borderColor: theme.colors.blue[4],
+    },
+  },
 
-const StyledDividerContent = styled.span`
-  display: inline-block;
-  padding-left: 16px;
-  padding-right: 16px;
-  font-size: 0.875rem;
-  color: ${props => props.theme.colors?.text?.secondary || 'rgba(0, 0, 0, 0.6)'};
-`
+  section: {
+    borderColor: theme.colors.gray[4],
+    '&::before': {
+      borderColor: theme.colors.gray[4],
+    },
+  },
 
-export const Divider = React.forwardRef(({
-  children,
+  victory: {
+    borderColor: theme.colors.green[4],
+    '&::before': {
+      borderColor: theme.colors.green[4],
+    },
+  },
+
+  defeat: {
+    borderColor: theme.colors.red[4],
+    '&::before': {
+      borderColor: theme.colors.red[4],
+    },
+  },
+}))
+
+// Divider component
+export const Divider = ({ 
+  children, 
+  variant = 'default',
+  size = 'md',
+  color,
   orientation = 'horizontal',
-  variant = 'fullWidth',
-  flexItem = false,
-  light = false,
-  absolute = false,
-  textAlign = 'center',
-  component = 'hr',
-  className,
-  sx,
-  ...props
-}, ref) => {
-  // If children are provided, render as text divider
-  if (children) {
-    return (
-      <StyledDividerWithChildren
-        ref={ref}
-        role="separator"
-        className={className}
-        style={sx}
-        {...props}
-      >
-        <StyledDividerContent>
-          {children}
-        </StyledDividerContent>
-      </StyledDividerWithChildren>
-    )
+  className = '',
+  ...props 
+}) => {
+  const { classes, cx } = useStyles({ variant, size, color, orientation })
+
+  // Map size to Mantine size
+  const getMantineSize = () => {
+    switch (size) {
+      case 'thin':
+        return 'xs'
+      case 'thick':
+        return 'lg'
+      default:
+        return 'md'
+    }
+  }
+
+  // Map variant to color
+  const getVariantColor = () => {
+    if (color) return color
+    
+    switch (variant) {
+      case 'game':
+        return 'blue'
+      case 'section':
+        return 'gray'
+      case 'victory':
+        return 'green'
+      case 'defeat':
+        return 'red'
+      default:
+        return 'gray'
+    }
   }
 
   return (
-    <StyledDivider
-      as={component}
-      ref={ref}
-      role="separator"
-      $orientation={orientation}
-      $variant={variant}
-      $flexItem={flexItem}
-      $light={light}
-      $absolute={absolute}
-      className={className}
-      style={sx}
+    <MantineDivider
+      className={cx(className, classes.divider)}
+      size={getMantineSize()}
+      color={getVariantColor()}
+      orientation={orientation}
       {...props}
-    />
+    >
+      {children}
+    </MantineDivider>
   )
-})
+}
 
 Divider.displayName = 'Divider'
+
+export default Divider

@@ -1,187 +1,104 @@
 import React from 'react'
-import styled from 'styled-components'
+import { Chip as MantineChip, createStyles } from '@mantine/core'
 
-const StyledChip = styled.div`
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 32px;
-  border-radius: 16px;
-  padding: 0 12px;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  line-height: 1.43;
-  letter-spacing: 0.01071em;
-  cursor: ${props => props.$clickable ? 'pointer' : 'default'};
-  transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1) 0ms, box-shadow 150ms cubic-bezier(0.4, 0, 0.2, 1) 0ms;
-  
-  background-color: ${props => {
-    if (props.$variant === 'outlined') return 'transparent';
-    switch (props.$color) {
-      case 'primary': return props.theme.colors?.primary || '#1976d2';
-      case 'secondary': return props.theme.colors?.secondary || '#dc004e';
-      case 'error': return props.theme.colors?.error || '#f44336';
-      case 'warning': return props.theme.colors?.warning || '#ff9800';
-      case 'success': return props.theme.colors?.success || '#4caf50';
-      case 'info': return props.theme.colors?.info || '#2196f3';
-      default: return props.theme.colors?.grey?.[300] || '#e0e0e0';
-    }
-  }};
-  
-  color: ${props => {
-    if (props.$variant === 'outlined') {
-      switch (props.$color) {
-        case 'primary': return props.theme.colors?.primary || '#1976d2';
-        case 'secondary': return props.theme.colors?.secondary || '#dc004e';
-        case 'error': return props.theme.colors?.error || '#f44336';
-        case 'warning': return props.theme.colors?.warning || '#ff9800';
-        case 'success': return props.theme.colors?.success || '#4caf50';
-        case 'info': return props.theme.colors?.info || '#2196f3';
-        default: return props.theme.colors?.text?.primary || 'rgba(0, 0, 0, 0.87)';
-      }
-    }
+const useStyles = createStyles((theme, { variant, size, color }) => ({
+  chip: {
+    transition: 'all 0.2s ease',
     
-    // For filled variant
-    switch (props.$color) {
-      case 'primary':
-      case 'secondary':
-      case 'error':
-      case 'warning':
-      case 'success':
-      case 'info':
-        return '#ffffff';
-      default: 
-        return props.theme.colors?.text?.primary || 'rgba(0, 0, 0, 0.87)';
-    }
-  }};
-  
-  border: ${props => {
-    if (props.$variant === 'outlined') {
-      switch (props.$color) {
-        case 'primary': return `1px solid ${props.theme.colors?.primary || '#1976d2'}`;
-        case 'secondary': return `1px solid ${props.theme.colors?.secondary || '#dc004e'}`;
-        case 'error': return `1px solid ${props.theme.colors?.error || '#f44336'}`;
-        case 'warning': return `1px solid ${props.theme.colors?.warning || '#ff9800'}`;
-        case 'success': return `1px solid ${props.theme.colors?.success || '#4caf50'}`;
-        case 'info': return `1px solid ${props.theme.colors?.info || '#2196f3'}`;
-        default: return `1px solid ${props.theme.colors?.grey?.[400] || '#bdbdbd'}`;
-      }
-    }
-    return 'none';
-  }};
+    // Custom size variants
+    ...(size === 'small' && {
+      fontSize: theme.fontSizes.xs,
+      padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
+    }),
+    ...(size === 'large' && {
+      fontSize: theme.fontSizes.lg,
+      padding: `${theme.spacing.md} ${theme.spacing.lg}`,
+    }),
+  },
 
-  &:hover {
-    ${props => props.$clickable && `
-      background-color: ${props.$variant === 'outlined' ? 
-        (props.theme.colors?.action?.hover || 'rgba(0, 0, 0, 0.04)') : 
-        'rgba(0, 0, 0, 0.08)'
-      };
-    `}
-  }
+  // Game-specific variants
+  game: {
+    background: `linear-gradient(135deg, ${theme.colors.gray[0]}, ${theme.colors.gray[1]})`,
+    border: `2px solid ${theme.colors.gray[3]}`,
+    '&:hover': {
+      borderColor: theme.colors.blue[4],
+      background: `linear-gradient(135deg, ${theme.colors.blue[0]}, ${theme.colors.blue[1]})`,
+    },
+  },
 
-  &:focus-visible {
-    outline: 2px solid ${props => props.theme.colors?.primary || '#1976d2'};
-    outline-offset: 2px;
-  }
-`
+  victory: {
+    background: `linear-gradient(135deg, ${theme.colors.green[0]}, ${theme.colors.green[1]})`,
+    border: `2px solid ${theme.colors.green[4]}`,
+    color: theme.colors.green[8],
+    '&:hover': {
+      borderColor: theme.colors.green[5],
+      background: `linear-gradient(135deg, ${theme.colors.green[1]}, ${theme.colors.green[2]})`,
+    },
+  },
 
-const StyledLabel = styled.span`
-  overflow: hidden;
-  text-overflow: ellipsis;
-  padding-left: ${props => props.$avatar ? '0' : 'inherit'};
-  padding-right: ${props => props.$deleteIcon ? '0' : 'inherit'};
-`
+  defeat: {
+    background: `linear-gradient(135deg, ${theme.colors.red[0]}, ${theme.colors.red[1]})`,
+    border: `2px solid ${theme.colors.red[4]}`,
+    color: theme.colors.red[8],
+    '&:hover': {
+      borderColor: theme.colors.red[5],
+      background: `linear-gradient(135deg, ${theme.colors.red[1]}, ${theme.colors.red[2]})`,
+    },
+  },
 
-const StyledIcon = styled.span`
-  display: flex;
-  align-items: center;
-  margin-left: ${props => props.$position === 'start' ? '-6px' : '5px'};
-  margin-right: ${props => props.$position === 'start' ? '5px' : '-6px'};
-  color: ${props => props.$color || 'inherit'};
-  font-size: 18px;
-`
+  role: {
+    background: `linear-gradient(135deg, ${theme.colors.blue[0]}, ${theme.colors.blue[1]})`,
+    border: `2px solid ${theme.colors.blue[4]}`,
+    color: theme.colors.blue[8],
+    '&:hover': {
+      borderColor: theme.colors.blue[5],
+      background: `linear-gradient(135deg, ${theme.colors.blue[1]}, ${theme.colors.blue[2]})`,
+    },
+  },
+}))
 
-export const Chip = React.forwardRef(({
-  label,
-  variant = 'filled',
-  color = 'default',
-  size = 'medium',
-  clickable = false,
-  deletable = false,
-  avatar,
-  icon,
-  deleteIcon,
-  onDelete,
-  onClick,
-  className,
-  sx,
-  ...props
-}, ref) => {
-  const handleClick = (event) => {
-    if (clickable && onClick) {
-      onClick(event)
-    }
-  }
+// Chip component
+export const Chip = ({ 
+  children, 
+  variant = 'default',
+  size = 'md',
+  color,
+  className = '',
+  ...props 
+}) => {
+  const { classes, cx } = useStyles({ variant, size, color })
 
-  const handleDelete = (event) => {
-    event.stopPropagation()
-    if (onDelete) {
-      onDelete(event)
-    }
-  }
-
-  const handleKeyDown = (event) => {
-    if (event.key === 'Delete' || event.key === 'Backspace') {
-      if (deletable && onDelete) {
-        event.preventDefault()
-        onDelete(event)
-      }
-    } else if (event.key === 'Enter' || event.key === ' ') {
-      if (clickable && onClick) {
-        event.preventDefault()
-        onClick(event)
-      }
+  // Map variant to color
+  const getVariantColor = () => {
+    if (color) return color
+    
+    switch (variant) {
+      case 'victory':
+        return 'green'
+      case 'defeat':
+        return 'red'
+      case 'role':
+        return 'blue'
+      case 'game':
+        return 'gray'
+      default:
+        return 'blue'
     }
   }
 
   return (
-    <StyledChip
-      ref={ref}
-      role={clickable ? 'button' : undefined}
-      tabIndex={clickable || deletable ? 0 : undefined}
-      $variant={variant}
-      $color={color}
-      $size={size}
-      $clickable={clickable}
-      className={className}
-      style={sx}
-      onClick={handleClick}
-      onKeyDown={handleKeyDown}
+    <MantineChip
+      className={cx(className, classes.chip)}
+      size={size}
+      color={getVariantColor()}
+      variant="filled"
       {...props}
     >
-      {(avatar || icon) && (
-        <StyledIcon $position="start" $color={color}>
-          {avatar || icon}
-        </StyledIcon>
-      )}
-      
-      <StyledLabel $avatar={!!avatar} $deleteIcon={!!deleteIcon}>
-        {label}
-      </StyledLabel>
-      
-      {(deletable || deleteIcon) && (
-        <StyledIcon 
-          $position="end" 
-          $color={color}
-          onClick={handleDelete}
-          role="button"
-          tabIndex={-1}
-        >
-          {deleteIcon || '×'}
-        </StyledIcon>
-      )}
-    </StyledChip>
+      {children}
+    </MantineChip>
   )
-})
+}
 
 Chip.displayName = 'Chip'
+
+export default Chip

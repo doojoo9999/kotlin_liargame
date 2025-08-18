@@ -1,97 +1,88 @@
 import React from 'react'
-import styled from 'styled-components'
-import {Link as RouterLink} from 'react-router-dom'
+import { Anchor as MantineAnchor, createStyles } from '@mantine/core'
 
-const StyledLink = styled.a`
-  color: ${props => props.theme.colors?.primary?.main || '#1976d2'};
-  text-decoration: none;
-  cursor: pointer;
-  transition: color 0.2s ease-in-out;
-  
-  &:hover {
-    color: ${props => props.theme.colors?.primary?.dark || '#1565c0'};
-    text-decoration: underline;
-  }
-  
-  &:focus {
-    outline: 2px solid ${props => props.theme.colors?.primary?.main || '#1976d2'};
-    outline-offset: 2px;
-  }
-`
+const useStyles = createStyles((theme, { variant, size, color }) => ({
+  link: {
+    transition: 'all 0.2s ease',
+    
+    // Custom size variants
+    ...(size === 'small' && {
+      fontSize: theme.fontSizes.sm,
+    }),
+    ...(size === 'large' && {
+      fontSize: theme.fontSizes.lg,
+    }),
+  },
 
-const StyledButton = styled.button`
-  background: none;
-  border: none;
-  color: ${props => props.theme.colors?.primary?.main || '#1976d2'};
-  text-decoration: none;
-  cursor: pointer;
-  transition: color 0.2s ease-in-out;
-  font: inherit;
-  padding: 0;
-  margin: 0;
-  
-  &:hover {
-    color: ${props => props.theme.colors?.primary?.dark || '#1565c0'};
-    text-decoration: underline;
-  }
-  
-  &:focus {
-    outline: 2px solid ${props => props.theme.colors?.primary?.main || '#1976d2'};
-    outline-offset: 2px;
-  }
-`
+  // Game-specific variants
+  game: {
+    color: theme.colors.blue[6],
+    '&:hover': {
+      color: theme.colors.blue[7],
+      textDecoration: 'underline',
+    },
+  },
 
-export const Link = React.forwardRef(({
-  component,
-  to,
-  href,
-  children,
-  onClick,
-  style,
-  ...props
-}, ref) => {
-  // If component is RouterLink or has 'to' prop, use RouterLink
-  if (component === RouterLink || to) {
-    return (
-      <StyledLink
-        as={RouterLink}
-        to={to}
-        ref={ref}
-        onClick={onClick}
-        style={style}
-        {...props}
-      >
-        {children}
-      </StyledLink>
-    )
+  navigation: {
+    color: theme.colors.gray[7],
+    fontWeight: 500,
+    '&:hover': {
+      color: theme.colors.blue[6],
+      textDecoration: 'none',
+    },
+  },
+
+  action: {
+    color: theme.colors.blue[6],
+    fontWeight: 600,
+    '&:hover': {
+      color: theme.colors.blue[7],
+      textDecoration: 'underline',
+      transform: 'translateY(-1px)',
+    },
+  },
+}))
+
+// Link component
+export const Link = ({ 
+  children, 
+  variant = 'default',
+  size = 'md',
+  color,
+  className = '',
+  ...props 
+}) => {
+  const { classes, cx } = useStyles({ variant, size, color })
+
+  // Map variant to color
+  const getVariantColor = () => {
+    if (color) return color
+    
+    switch (variant) {
+      case 'game':
+        return 'blue'
+      case 'navigation':
+        return 'gray'
+      case 'action':
+        return 'blue'
+      default:
+        return 'blue'
+    }
   }
-  
-  // If component is button or has onClick without href, use button
-  if (component === 'button' || (onClick && !href)) {
-    return (
-      <StyledButton
-        ref={ref}
-        onClick={onClick}
-        style={style}
-        {...props}
-      >
-        {children}
-      </StyledButton>
-    )
-  }
-  
-  // Default to anchor tag
+
   return (
-    <StyledLink
-      ref={ref}
-      href={href}
-      onClick={onClick}
-      style={style}
+    <MantineAnchor
+      className={cx(className, classes.link)}
+      size={size}
+      color={getVariantColor()}
+      underline="hover"
       {...props}
     >
       {children}
-    </StyledLink>
+    </MantineAnchor>
   )
-})
+}
 
 Link.displayName = 'Link'
+
+export default Link
