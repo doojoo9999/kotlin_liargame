@@ -10,7 +10,7 @@ import {
 import {useTheme} from '@styles'
 import {useResponsiveLayout} from '../hooks/useGameLayout'
 
-// Animation keyframes using styled-components
+// Animation keyframes using CSS
 const revealAnimation = `
   0% {
     transform: rotateY(0deg);
@@ -33,64 +33,6 @@ const sparkleAnimation = `
   50% {
     opacity: 1;
     transform: scale(1);
-  }
-`
-
-// Main layout styled components
-const FullscreenOverlay = styled(Box)`
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.9);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 9999;
-  padding: ${props => props.$isMobile ? '8px' : '16px'};
-`
-
-const ResultPaper = styled(Paper)`
-  max-width: ${props => props.$isMobile ? '100%' : '800px'};
-  width: 100%;
-  max-height: 90vh;
-  overflow: auto;
-  border-radius: 16px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  position: relative;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-`
-
-const ContentContainer = styled(Box)`
-  padding: ${props => props.$isMobile ? '8px' : '16px'};
-`
-
-const SparkleBox = styled(Box)`
-  position: absolute;
-  top: ${props => props.$top}%;
-  left: ${props => props.$left}%;
-  width: 8px;
-  height: 8px;
-  background: gold;
-  border-radius: 50%;
-  animation: sparkleAnimation 2s infinite;
-  animation-delay: ${props => props.$delay}s;
-  
-  @keyframes sparkleAnimation {
-    ${sparkleAnimation}
-  }
-`
-
-const AnimatedAvatarContainer = styled(Box)`
-  display: inline-block;
-  animation: ${props => props.$showAnimation ? `revealAnimation 2s ease-in-out` : 'none'};
-  border-radius: 50%;
-  padding: 4px;
-  
-  @keyframes revealAnimation {
-    ${revealAnimation}
   }
 `
 

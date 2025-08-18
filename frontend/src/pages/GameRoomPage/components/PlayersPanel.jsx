@@ -6,269 +6,7 @@ import {AnimatePresence, motion} from 'framer-motion'
 import {Box, Typography} from '../../../components/ui'
 import {UserPlus as PersonAddIcon, Flag as ReportIcon} from 'lucide-react'
 import UserAvatar from '../../../components/UserAvatar'
-
-// Players panel container
-const PlayersPanelContainer = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${({ theme }) => theme.spacing[2]};
-  width: 100%;
-`
-
-// Players grid using CSS Grid
-const PlayersGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: ${({ theme }) => theme.spacing[4]};
-  width: 100%;
-  justify-items: center;
-  
-  /* Responsive grid adjustments */
-  @media (max-width: 767px) {
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    gap: ${({ theme }) => theme.spacing[3]};
-  }
-  
-  @media (min-width: 768px) and (max-width: 1023px) {
-    grid-template-columns: repeat(3, 1fr);
-  }
-  
-  @media (min-width: 1024px) {
-    grid-template-columns: repeat(4, 1fr);
-  }
-`
-
-// Empty state container
-const EmptyState = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  padding: ${({ theme }) => theme.semanticSpacing.component.xl};
-  text-align: center;
-  border: 2px dashed ${({ theme }) => theme.colors.border.secondary};
-  border-radius: ${({ theme }) => theme.semanticBorderRadius.card.medium};
-  background-color: ${({ theme }) => theme.colors.surface.secondary};
-  min-height: 200px;
-  
-  .empty-icon {
-    font-size: 48px;
-    margin-bottom: ${({ theme }) => theme.spacing[2]};
-    opacity: 0.5;
-  }
-`
-
-// Card container with hover and turn effects
-const CardContainer = styled(motion.div)`
-  position: relative;
-  width: 160px;
-  height: 120px;
-  background-color: ${({ theme }) => theme.colors.surface.primary};
-  border: 1px solid ${({ theme }) => theme.colors.border.primary};
-  border-radius: ${({ theme }) => theme.semanticBorderRadius.card.medium};
-  box-shadow: ${({ theme }) => theme.semanticShadows.card.default};
-  cursor: pointer;
-  overflow: hidden;
-  transition: ${({ theme }) => theme.semanticTransitions.card.hover};
-  
-  /* Hover effects */
-  &:hover {
-    transform: translateY(-4px);
-    box-shadow: ${({ theme }) => theme.shadows.lg};
-    border-color: ${({ theme }) => theme.colors.border.secondary};
-  }
-  
-  &:active {
-    transform: translateY(-2px);
-    box-shadow: ${({ theme }) => theme.shadows.md};
-  }
-  
-  /* Current turn highlighting */
-  ${({ $isTurn, theme }) => $isTurn && css`
-    border: 2px solid ${theme.colors.primary[500]};
-    box-shadow: 0 0 16px rgba(99, 102, 241, 0.3), ${theme.shadows.md};
-    
-    /* Pulse animation */
-    animation: ${theme.animations.game.countdownPulse};
-    
-    &::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 3px;
-      background: linear-gradient(90deg, ${theme.colors.primary[500]}, ${theme.colors.secondary[500]});
-      z-index: 1;
-    }
-  `}
-  
-  /* Mobile size adjustments */
-  ${({ theme }) => css`
-    @media (max-width: 767px) {
-      width: 140px;
-      height: 100px;
-    }
-  `}
-`
-
-// Card content layout
-const CardContent = styled.div`
-  display: flex;
-  flex-direction: column;
-  padding: ${({ theme }) => theme.spacing[3]};
-  height: 100%;
-  gap: ${({ theme }) => theme.spacing[1]};
-`
-
-// Top section with avatar and status
-const TopSection = styled.div`
-  display: flex;
-  align-items: center;
-  gap: ${({ theme }) => theme.spacing[2]};
-  margin-bottom: ${({ theme }) => theme.spacing[1]};
-`
-
-// Avatar container with status indicator
-const AvatarContainer = styled.div`
-  position: relative;
-  flex-shrink: 0;
-`
-
-// Online status dot
-const StatusDot = styled.div`
-  position: absolute;
-  bottom: -2px;
-  right: -2px;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  border: 2px solid ${({ theme }) => theme.colors.surface.primary};
-  background-color: ${({ $isOnline, theme }) => 
-    $isOnline ? theme.colors.success[500] : theme.colors.text.tertiary};
-  z-index: 2;
-`
-
-// Player info section
-const PlayerInfo = styled.div`
-  flex: 1;
-  min-width: 0; /* Allow text truncation */
-`
-
-// Player nickname
-const PlayerNickname = styled.div`
-  font-size: ${({ theme }) => theme.fontSize.sm};
-  font-weight: ${({ theme }) => theme.fontWeight.semiBold};
-  color: ${({ theme }) => theme.colors.text.primary};
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  line-height: ${({ theme }) => theme.lineHeight.none};
-`
-
-// Role badge
-const RoleBadge = styled.div`
-  display: inline-block;
-  padding: ${({ theme }) => `2px ${theme.spacing[1]}`};
-  border-radius: ${({ theme }) => theme.borderRadius.sm};
-  font-size: ${({ theme }) => theme.fontSize.xs};
-  font-weight: ${({ theme }) => theme.fontWeight.medium};
-  text-transform: uppercase;
-  margin-top: 2px;
-  
-  ${({ $role, theme }) => {
-    switch ($role) {
-      case 'liar':
-        return css`
-          background-color: ${theme.colors.game.liar[100]};
-          color: ${theme.colors.game.liar[700]};
-          border: 1px solid ${theme.colors.game.liar[300]};
-        `
-      case 'citizen':
-        return css`
-          background-color: ${theme.colors.game.citizen[100]};
-          color: ${theme.colors.game.citizen[700]};
-          border: 1px solid ${theme.colors.game.citizen[300]};
-        `
-      default:
-        return css`
-          background-color: ${theme.colors.surface.secondary};
-          color: ${theme.colors.text.secondary};
-          border: 1px solid ${theme.colors.border.primary};
-        `
-    }
-  }}
-`
-
-// Bottom section with status and actions
-const BottomSection = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: auto;
-`
-
-// Status text
-const StatusText = styled.div`
-  font-size: ${({ theme }) => theme.fontSize.xs};
-  color: ${({ theme }) => theme.colors.text.secondary};
-  display: flex;
-  align-items: center;
-  gap: ${({ theme }) => theme.spacing[1]};
-  
-  /* Crown icon for room owner */
-  .crown-icon {
-    color: ${({ theme }) => theme.colors.warning[500]};
-  }
-`
-
-// Action buttons container
-const ActionButtons = styled.div`
-  display: flex;
-  gap: ${({ theme }) => theme.spacing[0.5]};
-  opacity: 0;
-  transition: ${({ theme }) => theme.transition.fast};
-  
-  ${CardContainer}:hover & {
-    opacity: 1;
-  }
-`
-
-// Action button
-const ActionButton = styled.button`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border: none;
-  border-radius: ${({ theme }) => theme.borderRadius.sm};
-  background-color: ${({ theme }) => theme.colors.surface.secondary};
-  color: ${({ theme }) => theme.colors.text.secondary};
-  cursor: pointer;
-  transition: ${({ theme }) => theme.transition.fast};
-  
-  svg {
-    width: 14px;
-    height: 14px;
-  }
-  
-  &:hover {
-    background-color: ${({ theme }) => theme.colors.primary[100]};
-    color: ${({ theme }) => theme.colors.primary[600]};
-    transform: scale(1.1);
-  }
-  
-  &:active {
-    transform: scale(0.95);
-  }
-  
-  /* Report button styling */
-  &.report-button:hover {
-    background-color: ${({ theme }) => theme.colors.error[100]};
-    color: ${({ theme }) => theme.colors.error[600]};
-  }
-`
+import {getPlayersPanelStyles, getResponsiveStyles} from './PlayersPanel.styles'
 
 // Individual Player Card Component
 const PlayerCard = React.memo(function PlayerCard({
@@ -284,235 +22,79 @@ const PlayerCard = React.memo(function PlayerCard({
 }) {
   const [isHovered, setIsHovered] = useState(false)
   
-  // Determine player status text
-  const getStatusText = () => {
-    if (isOwner) return '방장'
-    if (isTurn) return '발언 중'
-    return '대기 중'
-  }
+  const handleMouseEnter = () => setIsHovered(true)
+  const handleMouseLeave = () => setIsHovered(false)
   
-  // Handle friend add
-  const handleAddFriend = (e) => {
-    e.stopPropagation()
-    onAddFriend?.(player)
-  }
-  
-  // Handle report
-  const handleReport = (e) => {
-    e.stopPropagation()
-    onReportPlayer?.(player)
-  }
-
-  const getCardStyles = (isTurn) => {
-    const baseStyles = {
-      position: 'relative',
-      width: '160px',
-      height: '120px',
-      backgroundColor: '#ffffff',
-      border: isTurn ? '2px solid #6366f1' : '1px solid #e5e7eb',
-      borderRadius: '12px',
-      boxShadow: isTurn ? '0 0 16px rgba(99, 102, 241, 0.3), 0 4px 6px rgba(0,0,0,0.1)' : '0 1px 3px rgba(0,0,0,0.1)',
-      cursor: 'pointer',
-      overflow: 'hidden',
-      transition: 'all 0.2s ease'
-    }
-
-    if (isTurn) {
-      baseStyles.borderColor = '#6366f1'
-      baseStyles.boxShadow = '0 0 16px rgba(99, 102, 241, 0.3), 0 4px 6px rgba(0,0,0,0.1)'
-    }
-
-    return baseStyles
-  }
-
-  const getRoleBadgeStyles = (role) => {
-    const baseStyles = {
-      display: 'inline-block',
-      padding: '2px 4px',
-      borderRadius: '4px',
-      fontSize: '12px',
-      fontWeight: 500,
-      textTransform: 'uppercase',
-      marginTop: '2px'
-    }
-
-    switch (role) {
-      case 'liar':
-        return {
-          ...baseStyles,
-          backgroundColor: '#fef2f2',
-          color: '#dc2626',
-          border: '1px solid #fca5a5'
-        }
-      case 'citizen':
-        return {
-          ...baseStyles,
-          backgroundColor: '#f0fdf4',
-          color: '#16a34a',
-          border: '1px solid #86efac'
-        }
-      default:
-        return {
-          ...baseStyles,
-          backgroundColor: '#f9fafb',
-          color: '#6b7280',
-          border: '1px solid #e5e7eb'
-        }
-    }
-  }
+  const isCurrentTurn = currentTurnPlayerId === player.id
   
   return (
     <motion.div
       className={className}
-      style={getCardStyles(isTurn)}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.98 }}
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{
-        type: "spring",
-        stiffness: 300,
-        damping: 25
-      }}
+      style={getPlayersPanelStyles().cardContainer(isCurrentTurn)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      whileHover={{ y: -4 }}
+      whileTap={{ y: -2 }}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      transition={{ duration: 0.3 }}
       {...props}
     >
-      <div style={{
-        display: 'flex',
-        flexDirection: 'column',
-        padding: '12px',
-        height: '100%',
-        gap: '4px'
-      }}>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          marginBottom: '4px'
-        }}>
-          <div style={{ position: 'relative', flexShrink: 0 }}>
+      <div style={getPlayersPanelStyles().cardContent}>
+        {/* Top Section */}
+        <div style={getPlayersPanelStyles().topSection}>
+          <div style={getPlayersPanelStyles().avatarContainer}>
             <UserAvatar
-              userId={player.id}
-              nickname={player.nickname}
-              avatarUrl={player.avatarUrl}
-              size="small"
+              user={player}
+              size={isSelf ? 'large' : 'medium'}
+              showStatus={true}
+              isOnline={player.status === 'ONLINE'}
             />
-            <div style={{
-              position: 'absolute',
-              bottom: '-2px',
-              right: '-2px',
-              width: '12px',
-              height: '12px',
-              borderRadius: '50%',
-              border: '2px solid #ffffff',
-              backgroundColor: player.isOnline !== false ? '#22c55e' : '#9ca3af',
-              zIndex: 2
-            }} />
+            <div style={getPlayersPanelStyles().statusDot(player.status === 'ONLINE')} />
           </div>
           
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{
-              fontSize: '14px',
-              fontWeight: 600,
-              color: '#1f2937',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              lineHeight: 1
-            }}>
+          <div style={getPlayersPanelStyles().playerInfo}>
+            <div style={getPlayersPanelStyles().playerNickname}>
               {player.nickname}
+              {isOwner && ' 👑'}
             </div>
+            
             {player.role && (
-              <div style={getRoleBadgeStyles(player.role)}>
-                {player.role === 'liar' ? '라이어' : '시민'}
+              <div style={getPlayersPanelStyles().roleBadge(player.role.toLowerCase())}>
+                {player.role === 'LIAR' ? '라이어' : '시민'}
               </div>
             )}
           </div>
         </div>
         
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginTop: 'auto'
-        }}>
-          <div style={{
-            fontSize: '12px',
-            color: '#6b7280',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px'
-          }}>
-            {isOwner && <span style={{ color: '#f59e0b' }}>👑</span>}
-            {getStatusText()}
+        {/* Bottom Section */}
+        <div style={getPlayersPanelStyles().bottomSection}>
+          <div style={getPlayersPanelStyles().statusText(player.status)}>
+            {player.status === 'ONLINE' ? '🟢 온라인' : '⚫ 오프라인'}
           </div>
           
-          <div style={{
-            display: 'flex',
-            gap: '2px',
-            opacity: isHovered ? 1 : 0,
-            transition: 'opacity 0.2s ease'
-          }}>
-            {!isSelf && (
+          <div style={getPlayersPanelStyles().actionButtons}>
+            {onAddFriend && (
               <button
-                onClick={handleAddFriend}
-                aria-label={`친구 추가: ${player.nickname}`}
+                style={getPlayersPanelStyles().actionButton()}
+                onClick={() => onAddFriend(player.id)}
                 title="친구 추가"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: '24px',
-                  height: '24px',
-                  border: 'none',
-                  borderRadius: '4px',
-                  backgroundColor: '#f9fafb',
-                  color: '#6b7280',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                  '&:hover': {
-                    backgroundColor: '#e0e7ff',
-                    color: '#4f46e5',
-                    transform: 'scale(1.1)'
-                  },
-                  '&:active': {
-                    transform: 'scale(0.95)'
-                  }
-                }}
               >
-                <PersonAddIcon style={{ width: '14px', height: '14px' }} />
+                <PersonAddIcon size={14} />
               </button>
             )}
-            <button
-              className="report-button"
-              onClick={handleReport}
-              aria-label={`신고: ${player.nickname}`}
-              title="신고"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '24px',
-                height: '24px',
-                border: 'none',
-                borderRadius: '4px',
-                backgroundColor: '#f9fafb',
-                color: '#6b7280',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-                '&:hover': {
-                  backgroundColor: '#fee2e2',
-                  color: '#dc2626',
-                  transform: 'scale(1.1)'
-                },
-                '&:active': {
-                  transform: 'scale(0.95)'
-                }
-              }}
-            >
-              <ReportIcon style={{ width: '14px', height: '14px' }} />
-            </button>
+            
+            {onReportPlayer && (
+              <button
+                style={getPlayersPanelStyles().actionButton('danger')}
+                onClick={() => onReportPlayer(player.id)}
+                title="신고하기"
+                className="report-button"
+              >
+                <ReportIcon size={14} />
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -520,145 +102,71 @@ const PlayerCard = React.memo(function PlayerCard({
   )
 })
 
-// Container variants for staggered animation
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.1,
-      delayChildren: 0.2
-    }
-  }
-}
-
-// Individual card variants
-const cardVariants = {
-  hidden: { 
-    opacity: 0, 
-    scale: 0.8,
-    y: 20 
-  },
-  visible: { 
-    opacity: 1, 
-    scale: 1,
-    y: 0,
-    transition: {
-      type: "spring",
-      stiffness: 300,
-      damping: 25
-    }
-  },
-  exit: {
-    opacity: 0,
-    scale: 0.8,
-    y: -20,
-    transition: {
-      duration: 0.2
-    }
-  }
-}
-
-const PlayersPanel = React.memo(function PlayersPanel({
-  players,
-  effectiveCurrentTurnPlayerId,
-  currentUserNickname,
+// Main PlayersPanel Component
+const PlayersPanel = ({
+  players = [],
+  currentTurnPlayerId,
   onAddFriend,
   onReportPlayer,
-}) {
-  // Determine if player is room owner (first player in array)
-  const isPlayerOwner = (player, index) => {
-    return index === 0 || player.isOwner || player.role === 'owner'
-  }
+  className = '',
+  ...props
+}) => {
+  const styles = getPlayersPanelStyles()
+  const responsiveStyles = getResponsiveStyles()
   
-  // Handle empty state
   if (!players || players.length === 0) {
     return (
-      <Box sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '8px',
-        width: '100%'
-      }}>
-        <Box sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexDirection: 'column',
-          padding: '32px',
-          textAlign: 'center',
-          border: '2px dashed #d1d5db',
-          borderRadius: '12px',
-          backgroundColor: '#f9fafb',
-          minHeight: '200px'
-        }}>
-          <div style={{ fontSize: '48px', marginBottom: '8px', opacity: 0.5 }}>👥</div>
-          <Typography variant="body2" color="text.secondary">
-            플레이어를 불러오는 중...
-          </Typography>
-        </Box>
+      <Box
+        style={{
+          ...styles.emptyState,
+          ...responsiveStyles.emptyState
+        }}
+        className={className}
+        {...props}
+      >
+        <div className="empty-icon">👥</div>
+        <Typography variant="h6" color="textSecondary">
+          플레이어가 없습니다
+        </Typography>
+        <Typography variant="body2" color="textSecondary">
+          게임을 시작하면 플레이어들이 여기에 표시됩니다
+        </Typography>
       </Box>
     )
   }
-
+  
   return (
-    <Box sx={{
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '8px',
-      width: '100%'
-    }}>
-      <motion.div
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
-      >
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
-          gap: '16px',
-          width: '100%',
-          justifyItems: 'center'
-        }}>
-          <AnimatePresence mode="popLayout">
-            {players.map((player, index) => {
-              const isTurn = effectiveCurrentTurnPlayerId === player.id
-              const isSelf = currentUserNickname && player.nickname === currentUserNickname
-              const isOwner = isPlayerOwner(player, index)
-              
-              return (
-                <motion.div
-                  key={player.id}
-                  variants={cardVariants}
-                  initial="hidden"
-                  animate="visible"
-                  exit="exit"
-                  layout
-                  layoutId={`player-${player.id}`}
-                  style={{ 
-                    display: 'flex',
-                    justifyContent: 'center',
-                    width: '100%'
-                  }}
-                >
-                  <PlayerCard
-                    player={player}
-                    isTurn={isTurn}
-                    isSelf={isSelf}
-                    isOwner={isOwner}
-                    currentTurnPlayerId={effectiveCurrentTurnPlayerId}
-                    onAddFriend={onAddFriend}
-                    onReportPlayer={onReportPlayer}
-                  />
-                </motion.div>
-              )
-            })}
-          </AnimatePresence>
-        </div>
-      </motion.div>
+    <Box
+      style={styles.container}
+      className={className}
+      {...props}
+    >
+      <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold' }}>
+        플레이어 ({players.length})
+      </Typography>
+      
+      <div style={{
+        ...styles.grid,
+        ...responsiveStyles.grid
+      }}>
+        <AnimatePresence>
+          {players.map((player, index) => (
+            <PlayerCard
+              key={player.id}
+              player={player}
+              isTurn={currentTurnPlayerId === player.id}
+              currentTurnPlayerId={currentTurnPlayerId}
+              onAddFriend={onAddFriend}
+              onReportPlayer={onReportPlayer}
+              style={{
+                animationDelay: `${index * 100}ms`
+              }}
+            />
+          ))}
+        </AnimatePresence>
+      </div>
     </Box>
   )
-})
+}
 
-PlayersPanel.displayName = 'PlayersPanel'
 export default PlayersPanel
