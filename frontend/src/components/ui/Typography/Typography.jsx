@@ -1,77 +1,40 @@
 import React from 'react'
-import { Text as MantineText, Title as MantineTitle, createStyles } from '@mantine/core'
+import { Text as MantineText, Title as MantineTitle } from '@mantine/core'
 
-const useStyles = createStyles((theme, { variant, color, weight, align }) => ({
-  text: {
-    // Custom color variants
-    ...(color === 'primary' && {
-      color: theme.colors.blue[6],
-    }),
-    ...(color === 'secondary' && {
-      color: theme.colors.gray[6],
-    }),
-    ...(color === 'success' && {
-      color: theme.colors.green[6],
-    }),
-    ...(color === 'error' && {
-      color: theme.colors.red[6],
-    }),
-    ...(color === 'warning' && {
-      color: theme.colors.yellow[6],
-    }),
-    
-    // Custom weight variants
-    ...(weight === 'light' && {
-      fontWeight: 300,
-    }),
-    ...(weight === 'normal' && {
-      fontWeight: 400,
-    }),
-    ...(weight === 'medium' && {
-      fontWeight: 500,
-    }),
-    ...(weight === 'semibold' && {
-      fontWeight: 600,
-    }),
-    ...(weight === 'bold' && {
-      fontWeight: 700,
-    }),
-    
-    // Text alignment
-    ...(align === 'left' && {
-      textAlign: 'left',
-    }),
-    ...(align === 'center' && {
-      textAlign: 'center',
-    }),
-    ...(align === 'right' && {
-      textAlign: 'right',
-    }),
-    ...(align === 'justify' && {
-      textAlign: 'justify',
-    }),
-  },
+// Helpers
+const mapColor = (color) => {
+  switch (color) {
+    case 'primary':
+      return 'blue'
+    case 'secondary':
+      return 'gray'
+    case 'success':
+      return 'green'
+    case 'error':
+      return 'red'
+    case 'warning':
+      return 'yellow'
+    default:
+      return undefined
+  }
+}
 
-  // Game-specific variants
-  game: {
-    fontFamily: theme.fontFamilyMonospace,
-    letterSpacing: '0.05em',
-  },
-
-  victory: {
-    background: `linear-gradient(135deg, ${theme.colors.yellow[6]}, ${theme.colors.orange[6]})`,
-    WebkitBackgroundClip: 'text',
-    WebkitTextFillColor: 'transparent',
-    fontWeight: 700,
-  },
-
-  defeat: {
-    background: `linear-gradient(135deg, ${theme.colors.red[6]}, ${theme.colors.pink[6]})`,
-    WebkitBackgroundClip: 'text',
-    WebkitTextFillColor: 'transparent',
-    fontWeight: 700,
-  },
-}))
+const mapWeight = (weight) => {
+  switch (weight) {
+    case 'light':
+      return 300
+    case 'normal':
+      return 400
+    case 'medium':
+      return 500
+    case 'semibold':
+      return 600
+    case 'bold':
+      return 700
+    default:
+      return undefined
+  }
+}
 
 // Text component
 export const Text = ({ 
@@ -83,13 +46,29 @@ export const Text = ({
   className = '',
   ...props 
 }) => {
-  const { classes, cx } = useStyles({ variant, color, weight, align })
+  const c = mapColor(color)
+  const fw = mapWeight(weight)
+
+  // Variants
+  if (variant === 'victory') {
+    return (
+      <MantineText variant="gradient" gradient={{ from: 'yellow', to: 'orange', deg: 135 }} fw={700} className={className} ta={align} {...props}>
+        {children}
+      </MantineText>
+    )
+  }
+  if (variant === 'defeat') {
+    return (
+      <MantineText variant="gradient" gradient={{ from: 'red', to: 'pink', deg: 135 }} fw={700} className={className} ta={align} {...props}>
+        {children}
+      </MantineText>
+    )
+  }
+
+  const style = variant === 'game' ? { letterSpacing: '0.05em', fontFamily: 'var(--mantine-font-family-monospace)' } : undefined
 
   return (
-    <MantineText
-      className={cx(className, classes.text)}
-      {...props}
-    >
+    <MantineText c={c} fw={fw} className={className} ta={align} style={style} {...props}>
       {children}
     </MantineText>
   )
@@ -105,13 +84,28 @@ export const Title = ({
   className = '',
   ...props 
 }) => {
-  const { classes, cx } = useStyles({ variant, color, weight, align })
+  const c = mapColor(color)
+  const fw = mapWeight(weight)
+
+  if (variant === 'victory') {
+    return (
+      <MantineTitle variant="gradient" gradient={{ from: 'yellow', to: 'orange', deg: 135 }} fw={700} className={className} ta={align} {...props}>
+        {children}
+      </MantineTitle>
+    )
+  }
+  if (variant === 'defeat') {
+    return (
+      <MantineTitle variant="gradient" gradient={{ from: 'red', to: 'pink', deg: 135 }} fw={700} className={className} ta={align} {...props}>
+        {children}
+      </MantineTitle>
+    )
+  }
+
+  const style = variant === 'game' ? { letterSpacing: '0.05em', fontFamily: 'var(--mantine-font-family-monospace)' } : undefined
 
   return (
-    <MantineTitle
-      className={cx(className, classes.text)}
-      {...props}
-    >
+    <MantineTitle c={c} fw={fw} className={className} ta={align} style={style} {...props}>
       {children}
     </MantineTitle>
   )

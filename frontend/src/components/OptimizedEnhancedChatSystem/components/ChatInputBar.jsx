@@ -1,54 +1,7 @@
 import React, {useRef} from 'react'
 import {Box, Button, Divider, Input as TextField, Typography} from '@components/ui'
 import {Send as SendIcon, Smile as EmojiIcon} from 'lucide-react'
-import styled from 'styled-components'
 import {getChatThemeVariant} from '../../../styles/themeVariants'
-
-// Styled components to replace MUI sx styling
-const InputContainer = styled(Box)`
-  padding: ${props => props.$isMobile ? '8px' : '16px'};
-  background-color: ${props => props.$backgroundColor || '#ffffff'};
-  transition: color 0.3s ease;
-`
-
-const InputWrapper = styled.div`
-  position: relative;
-  display: flex;
-  align-items: flex-end;
-  gap: 8px;
-`
-
-const ButtonGroup = styled.div`
-  display: flex;
-  gap: 4px;
-  margin-left: 8px;
-`
-
-const IconButtonStyled = styled(Button)`
-  min-width: 32px;
-  width: 32px;
-  height: 32px;
-  padding: 4px;
-  border-radius: 50%;
-  transition: all 0.3s ease;
-  
-  &:hover {
-    background-color: ${props => props.$isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'};
-    transform: scale(1.1);
-  }
-  
-  &:disabled {
-    opacity: 0.5;
-  }
-`
-
-const HelperTextContainer = styled(Box)`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 8px;
-  padding: 0 8px;
-`
 
 /**
  * ChatInputBar component for text input, emoji, and send functionality
@@ -98,8 +51,17 @@ const ChatInputBar = React.memo(({
     return (
         <>
             <Divider />
-            <InputContainer $isMobile={isMobile} $backgroundColor={chatTheme.message.background}>
-                <InputWrapper>
+            <Box style={{
+                padding: isMobile ? '8px' : '16px',
+                backgroundColor: chatTheme.message.background || '#ffffff',
+                transition: 'color 0.3s ease'
+            }}>
+                <div style={{
+                    position: 'relative',
+                    display: 'flex',
+                    alignItems: 'flex-end',
+                    gap: '8px'
+                }}>
                     <TextField
                         ref={inputRef}
                         value={inputValue}
@@ -111,30 +73,70 @@ const ChatInputBar = React.memo(({
                         style={inputStyle}
                     />
                     
-                    <ButtonGroup>
+                    <div style={{
+                        display: 'flex',
+                        gap: '4px',
+                        marginLeft: '8px'
+                    }}>
                         {/* Emoji button */}
-                        <IconButtonStyled
+                        <Button
                             onClick={onEmojiButtonClick}
                             disabled={disabled}
-                            $isDarkMode={isDarkMode}
                             aria-label="Add emoji"
+                            style={{
+                                minWidth: '32px',
+                                width: '32px',
+                                height: '32px',
+                                padding: '4px',
+                                borderRadius: '50%',
+                                transition: 'all 0.3s ease',
+                                backgroundColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+                                '&:hover': {
+                                    backgroundColor: isDarkMode ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)',
+                                    transform: 'scale(1.1)'
+                                },
+                                '&:disabled': {
+                                    opacity: 0.5
+                                }
+                            }}
                         >
                             <EmojiIcon size={16} />
-                        </IconButtonStyled>
+                        </Button>
 
                         {/* Send button */}
-                        <IconButtonStyled
+                        <Button
                             onClick={handleSendClick}
                             disabled={disabled || !inputValue.trim()}
-                            $isDarkMode={isDarkMode}
                             aria-label="Send message"
+                            style={{
+                                minWidth: '32px',
+                                width: '32px',
+                                height: '32px',
+                                padding: '4px',
+                                borderRadius: '50%',
+                                transition: 'all 0.3s ease',
+                                backgroundColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+                                '&:hover': {
+                                    backgroundColor: isDarkMode ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)',
+                                    transform: 'scale(1.1)'
+                                },
+                                '&:disabled': {
+                                    opacity: 0.5
+                                }
+                            }}
                         >
                             <SendIcon size={16} />
-                        </IconButtonStyled>
-                    </ButtonGroup>
-                </InputWrapper>
+                        </Button>
+                    </div>
+                </div>
                 
-                <HelperTextContainer>
+                <Box style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginTop: '8px',
+                    padding: '0 8px'
+                }}>
                     <Typography variant="caption" style={{ opacity: 0.7 }}>
                         {`${inputValue.length}/${maxLength}`}
                     </Typography>
@@ -143,8 +145,8 @@ const ChatInputBar = React.memo(({
                             {debugText}
                         </Typography>
                     )}
-                </HelperTextContainer>
-            </InputContainer>
+                </Box>
+            </Box>
         </>
     )
 })

@@ -11,7 +11,6 @@ import {
 } from 'lucide-react'
 import UserAvatar from './UserAvatar'
 import {useResponsiveLayout} from '../hooks/useGameLayout'
-import styled from 'styled-components'
 
 // Common emojis for the game
 const GAME_EMOJIS = [
@@ -30,82 +29,6 @@ export const MESSAGE_TYPES = {
   SUCCESS: 'success',
   GAME_EVENT: 'game_event'
 }
-
-// Styled components for enhanced chat
-const ChatContainer = styled(Paper)`
-  height: 400px;
-  display: flex;
-  flex-direction: column;
-  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-  border-radius: 16px;
-  overflow: hidden;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-`
-
-const MessagesContainer = styled.div`
-  flex: 1;
-  overflow-y: auto;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  
-  &::-webkit-scrollbar {
-    width: 6px;
-  }
-  
-  &::-webkit-scrollbar-track {
-    background: rgba(0, 0, 0, 0.1);
-    border-radius: 3px;
-  }
-  
-  &::-webkit-scrollbar-thumb {
-    background: rgba(0, 0, 0, 0.3);
-    border-radius: 3px;
-  }
-`
-
-const InputContainer = styled.div`
-  padding: 16px;
-  border-top: 1px solid #e0e0e0;
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(10px);
-`
-
-const EmojiMenuContainer = styled.div`
-  position: absolute;
-  top: ${props => props.$top || 0}px;
-  left: ${props => props.$left || 0}px;
-  background: white;
-  border: 1px solid #e0e0e0;
-  border-radius: 12px;
-  padding: 16px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  z-index: 1300;
-  max-height: 200px;
-  width: ${props => props.$isMobile ? '280px' : '320px'};
-  display: ${props => props.$open ? 'block' : 'none'};
-`
-
-const EmojiGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(8, 1fr);
-  gap: 8px;
-  margin-top: 8px;
-`
-
-const EmojiButton = styled(Button)`
-  min-width: 32px;
-  height: 32px;
-  font-size: 1.2rem;
-  padding: 4px;
-  transition: all 0.2s ease;
-  
-  &:hover {
-    transform: scale(1.2);
-    background-color: rgba(0, 0, 0, 0.04);
-  }
-`
 
 const EnhancedChatSystem = ({
   messages = [],
@@ -213,120 +136,117 @@ const EnhancedChatSystem = ({
 
     if (isSystem) {
       return (
-        <Fade in key={message.id || index} timeout={300}>
-          <Box sx={{ 
-            display: 'flex', 
-            justifyContent: 'center', 
-            my: 1 
-          }}>
-            <Chip
-              icon={getMessageIcon(message.type)}
-              label={message.content}
-              color={getMessageColor(message.type)}
-              variant="outlined"
-              size={isMobile ? 'small' : 'medium'}
-              sx={{
-                maxWidth: '80%',
-                height: 'auto',
-                '& .MuiChip-label': {
-                  whiteSpace: 'normal',
-                  padding: '8px 12px'
-                }
-              }}
-            />
-          </Box>
-        </Fade>
+        <Box key={message.id || index} sx={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          my: 1 
+        }}>
+          <Chip
+            icon={getMessageIcon(message.type)}
+            label={message.content}
+            color={getMessageColor(message.type)}
+            variant="outlined"
+            size={isMobile ? 'small' : 'medium'}
+            sx={{
+              maxWidth: '80%',
+              height: 'auto',
+              '& .MuiChip-label': {
+                whiteSpace: 'normal',
+                padding: '8px 12px'
+              }
+            }}
+          />
+        </Box>
       )
     }
 
     return (
-      <Fade in key={message.id || index} timeout={300}>
+      <Box
+        key={message.id || index}
+        sx={{
+          display: 'flex',
+          flexDirection: isOwnMessage ? 'row-reverse' : 'row',
+          alignItems: 'flex-end',
+          mb: 1,
+          gap: 1
+        }}
+      >
+        {/* Avatar */}
+        {showAvatar && !isOwnMessage && (
+          <UserAvatar
+            userId={message.playerId}
+            nickname={message.playerNickname}
+            size={isMobile ? 'small' : 'medium'}
+          />
+        )}
+
+        {/* Message bubble */}
         <Box
           sx={{
-            display: 'flex',
-            flexDirection: isOwnMessage ? 'row-reverse' : 'row',
-            alignItems: 'flex-end',
-            mb: 1,
-            gap: 1
+            maxWidth: '70%',
+            minWidth: '60px'
           }}
         >
-          {/* Avatar */}
+          {/* Nickname (only for others' messages and when showing avatar) */}
           {showAvatar && !isOwnMessage && (
-            <UserAvatar
-              userId={message.playerId}
-              nickname={message.playerNickname}
-              size={isMobile ? 'small' : 'medium'}
-            />
-          )}
-
-          {/* Message bubble */}
-          <Box
-            sx={{
-              maxWidth: '70%',
-              minWidth: '60px'
-            }}
-          >
-            {/* Nickname (only for others' messages and when showing avatar) */}
-            {showAvatar && !isOwnMessage && (
-              <Typography
-                variant="caption"
-                sx={{
-                  display: 'block',
-                  ml: 1,
-                  mb: 0.5,
-                  color: 'text.secondary',
-                  fontSize: isMobile ? '0.7rem' : '0.75rem'
-                }}
-              >
-                {message.playerNickname}
-              </Typography>
-            )}
-
-            {/* Message content */}
-            <Paper
-              elevation={1}
+            <Typography
+              variant="caption"
               sx={{
-                p: isMobile ? 1 : 1.5,
-                bgcolor: isOwnMessage ? 'primary.main' : 'background.paper',
-                color: isOwnMessage ? 'primary.contrastText' : 'text.primary',
-                borderRadius: 2,
-                borderTopLeftRadius: !isOwnMessage && showAvatar ? 0 : 2,
-                borderTopRightRadius: isOwnMessage && showAvatar ? 0 : 2,
-                wordBreak: 'break-word'
+                display: 'block',
+                ml: 1,
+                mb: 0.5,
+                color: 'text.secondary',
+                fontSize: isMobile ? '0.7rem' : '0.75rem'
               }}
             >
-              <Typography
-                variant={isMobile ? 'body2' : 'body1'}
-                sx={{ 
-                  fontSize: isMobile ? '0.85rem' : '0.95rem',
-                  lineHeight: 1.4
-                }}
-              >
-                {message.content}
-              </Typography>
-
-              {/* Timestamp */}
-              <Typography
-                variant="caption"
-                sx={{
-                  display: 'block',
-                  mt: 0.5,
-                  opacity: 0.7,
-                  fontSize: isMobile ? '0.65rem' : '0.7rem',
-                  textAlign: isOwnMessage ? 'right' : 'left'
-                }}
-              >
-                {formatTimestamp(message.timestamp)}
-              </Typography>
-            </Paper>
-          </Box>
-
-          {/* Own message avatar placeholder */}
-          {showAvatar && isOwnMessage && (
-            <Box sx={{ width: isMobile ? 32 : 40 }} />
+              {message.playerNickname}
+            </Typography>
           )}
+
+          {/* Message content */}
+          <Paper
+            elevation={1}
+            sx={{
+              p: isMobile ? 1 : 1.5,
+              bgcolor: isOwnMessage ? 'primary.main' : 'background.paper',
+              color: isOwnMessage ? 'primary.contrastText' : 'text.primary',
+              borderRadius: 2,
+              borderTopLeftRadius: !isOwnMessage && showAvatar ? 0 : 2,
+              borderTopRightRadius: isOwnMessage && showAvatar ? 0 : 2,
+              wordBreak: 'break-word'
+            }}
+          >
+            <Typography
+              variant={isMobile ? 'body2' : 'body1'}
+              sx={{ 
+                fontSize: isMobile ? '0.85rem' : '0.95rem',
+                lineHeight: 1.4
+              }}
+            >
+              {message.content}
+            </Typography>
+
+            {/* Timestamp */}
+            <Typography
+              variant="caption"
+              sx={{
+                display: 'block',
+                mt: 0.5,
+                opacity: 0.7,
+                fontSize: isMobile ? '0.65rem' : '0.7rem',
+                textAlign: isOwnMessage ? 'right' : 'left'
+              }}
+            >
+              {formatTimestamp(message.timestamp)}
+            </Typography>
+          </Paper>
         </Box>
-      </Fade>
+
+        {/* Own message avatar placeholder */}
+        {showAvatar && isOwnMessage && (
+          <Box sx={{ width: isMobile ? 32 : 40 }} />
+        )}
+      </Box>
     )
   }
 
@@ -398,48 +318,49 @@ const EnhancedChatSystem = ({
           placeholder={placeholder}
           disabled={disabled}
           size={isMobile ? 'small' : 'medium'}
-          InputProps={{
-            endAdornment: (
-              <InputAdornment position="end">
-                <Box sx={{ display: 'flex', gap: 0.5 }}>
-                  {/* Emoji button */}
-                  <IconButton
-                    size="small"
-                    onClick={(e) => setEmojiMenuAnchor(e.currentTarget)}
-                    disabled={disabled}
-                  >
-                    <EmojiIcon />
-                  </IconButton>
-
-                  {/* Send button */}
-                  <IconButton
-                    size="small"
-                    onClick={handleSendMessage}
-                    disabled={disabled || !inputValue.trim()}
-                    color="primary"
-                  >
-                    <SendIcon />
-                  </IconButton>
-                </Box>
-              </InputAdornment>
-            )
-          }}
           helperText={`${inputValue.length}/${maxLength}`}
         />
 
+        {/* Emoji and Send buttons */}
+        <Box sx={{ display: 'flex', gap: 1, mt: 1, justifyContent: 'flex-end' }}>
+          <Button
+            size="small"
+            onClick={(e) => setEmojiMenuAnchor(e.currentTarget)}
+            disabled={disabled}
+            variant="outline"
+            startIcon={<EmojiIcon />}
+          >
+            이모지
+          </Button>
+
+          <Button
+            size="small"
+            onClick={handleSendMessage}
+            disabled={disabled || !inputValue.trim()}
+            variant="contained"
+            startIcon={<SendIcon />}
+          >
+            전송
+          </Button>
+        </Box>
+
         {/* Emoji menu */}
-        <Menu
-          anchorEl={emojiMenuAnchor}
-          open={Boolean(emojiMenuAnchor)}
-          onClose={() => setEmojiMenuAnchor(null)}
-          PaperProps={{
-            sx: {
-              maxHeight: 200,
-              width: isMobile ? 280 : 320
-            }
-          }}
-        >
-          <Box sx={{ p: 1 }}>
+        {emojiMenuAnchor && (
+          <Box
+            sx={{
+              position: 'absolute',
+              top: emojiMenuAnchor.offsetTop - 200,
+              left: emojiMenuAnchor.offsetLeft,
+              background: 'white',
+              border: '1px solid #e0e0e0',
+              borderRadius: '12px',
+              padding: '16px',
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
+              zIndex: 1300,
+              maxHeight: '200px',
+              width: isMobile ? '280px' : '320px'
+            }}
+          >
             <Typography variant="caption" sx={{ mb: 1, display: 'block' }}>
               자주 사용하는 이모지
             </Typography>
@@ -447,27 +368,32 @@ const EnhancedChatSystem = ({
               sx={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(8, 1fr)',
-                gap: 0.5
+                gap: 1
               }}
             >
               {GAME_EMOJIS.map((emoji, index) => (
-                <IconButton
+                <Button
                   key={index}
                   size="small"
                   onClick={() => handleEmojiSelect(emoji)}
                   sx={{
+                    minWidth: '32px',
+                    height: '32px',
                     fontSize: '1.2rem',
+                    padding: '4px',
+                    transition: 'all 0.2s ease',
                     '&:hover': {
-                      bgcolor: 'action.hover'
+                      transform: 'scale(1.2)',
+                      backgroundColor: 'rgba(0, 0, 0, 0.04)'
                     }
                   }}
                 >
                   {emoji}
-                </IconButton>
+                </Button>
               ))}
             </Box>
           </Box>
-        </Menu>
+        )}
       </Box>
     </Box>
   )

@@ -1,0 +1,53 @@
+/* Card base styles */
+.cardBase {
+	transition: all 0.2s ease;
+	position: relative;
+	overflow: hidden;
+}
+
+/* Interactive states */
+.interactive {
+	cursor: pointer;
+}
+.interactive:hover {
+	transform: translateY(-2px);
+	box-shadow: var(--mantine-shadow-lg);
+}
+.interactive:active {
+	transform: translateY(-1px);
+	box-shadow: var(--mantine-shadow-md);
+}
+.interactive:focus-visible {
+	outline: 2px solid var(--mantine-color-blue-6);
+	outline-offset: 2px;
+}
+
+/* Variant: game */
+.variant-game {
+	background: linear-gradient(135deg, var(--mantine-color-gray-0), var(--mantine-color-gray-1));
+	border: 2px solid var(--mantine-color-gray-3);
+}
+.variant-game:hover {
+	border-color: var(--mantine-color-blue-4);
+	background: linear-gradient(135deg, var(--mantine-color-blue-0), var(--mantine-color-blue-1));
+}
+
+/* Variant: victory */
+.variant-victory {
+	background: linear-gradient(135deg, var(--mantine-color-yellow-0), var(--mantine-color-orange-1));
+	border: 2px solid var(--mantine-color-yellow-4);
+}
+.variant-victory:hover {
+	border-color: var(--mantine-color-orange-5);
+	background: linear-gradient(135deg, var(--mantine-color-orange-0), var(--mantine-color-red-1));
+}
+
+/* Variant: defeat */
+.variant-defeat {
+	background: linear-gradient(135deg, var(--mantine-color-red-0), var(--mantine-color-pink-1));
+	border: 2px solid var(--mantine-color-red-4);
+}
+.variant-defeat:hover {
+	border-color: var(--mantine-color-red-5);
+	background: linear-gradient(135deg, var(--mantine-color-pink-0), var(--mantine-color-red-1));
+}

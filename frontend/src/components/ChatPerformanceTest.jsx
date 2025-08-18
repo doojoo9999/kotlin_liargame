@@ -1,88 +1,6 @@
 import React, {useEffect, useRef, useState} from 'react'
 import {Box, Button, Chip, Grid, Input as TextField, Paper, Typography} from '@components/ui'
 import OptimizedEnhancedChatSystem from './OptimizedEnhancedChatSystem'
-import styled from 'styled-components'
-
-// Styled components for controls
-const ControlsContainer = styled(Paper)`
-  padding: 24px;
-  margin-bottom: 24px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-`
-
-const ControlRow = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
-`
-
-const SliderContainer = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 200px;
-`
-
-const CustomSlider = styled.input`
-  flex: 1;
-  height: 6px;
-  border-radius: 3px;
-  background: #e0e0e0;
-  outline: none;
-  
-  &::-webkit-slider-thumb {
-    appearance: none;
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: #1976d2;
-    cursor: pointer;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-  }
-  
-  &::-moz-range-thumb {
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: #1976d2;
-    cursor: pointer;
-    border: none;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-  }
-`
-
-const SwitchContainer = styled.label`
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-`
-
-const CustomSwitch = styled.input`
-  position: relative;
-  width: 44px;
-  height: 24px;
-  appearance: none;
-  background: ${props => props.checked ? '#1976d2' : '#ccc'};
-  border-radius: 12px;
-  transition: all 0.3s ease;
-  cursor: pointer;
-  
-  &::before {
-    content: '';
-    position: absolute;
-    top: 2px;
-    left: ${props => props.checked ? '22px' : '2px'};
-    width: 20px;
-    height: 20px;
-    background: white;
-    border-radius: 50%;
-    transition: all 0.3s ease;
-  }
-`
 
 // Mock user data for 10-person chat scenario
 const MOCK_USERS = [
@@ -275,26 +193,36 @@ const ChatPerformanceTest = () => {
       <Paper sx={{ p: 2, mb: 2 }}>
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} md={3}>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={isAutoSimulation}
-                  onChange={(e) => setIsAutoSimulation(e.target.checked)}
-                />
-              }
-              label="자동 시뮬레이션"
-            />
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <input
+                type="checkbox"
+                checked={isAutoSimulation}
+                onChange={(e) => setIsAutoSimulation(e.target.checked)}
+                style={{
+                  width: '20px',
+                  height: '20px'
+                }}
+              />
+              <Typography>자동 시뮬레이션</Typography>
+            </Box>
           </Grid>
           
           <Grid item xs={12} md={3}>
             <Typography gutterBottom>메시지 속도 (ms)</Typography>
-            <Slider
+            <input
+              type="range"
+              min="100"
+              max="3000"
+              step="100"
               value={messageSpeed}
-              onChange={(e, newValue) => setMessageSpeed(newValue)}
-              min={100}
-              max={3000}
-              step={100}
-              valueLabelDisplay="auto"
+              onChange={(e) => setMessageSpeed(parseInt(e.target.value))}
+              style={{
+                width: '100%',
+                height: '6px',
+                borderRadius: '3px',
+                background: '#e0e0e0',
+                outline: 'none'
+              }}
             />
           </Grid>
           

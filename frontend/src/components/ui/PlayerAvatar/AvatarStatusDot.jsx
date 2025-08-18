@@ -1,51 +1,5 @@
 import React, {memo} from 'react'
-import styled, {css, keyframes} from 'styled-components'
 import {animations, borderRadius, colors} from '@/styles'
-
-// Pulse animation for speaking state
-const pulseAnimation = keyframes`
-  0% {
-    box-shadow: 0 0 0 0 ${colors.primary.main}40;
-  }
-  70% {
-    box-shadow: 0 0 0 6px ${colors.primary.main}00;
-  }
-  100% {
-    box-shadow: 0 0 0 0 ${colors.primary.main}00;
-  }
-`
-
-const StatusDotContainer = styled.div`
-  position: absolute;
-  border-radius: ${borderRadius.full};
-  border: 2px solid white;
-  transition: ${animations.transition.default};
-  z-index: 1;
-
-  ${props => css`
-    width: ${props.size};
-    height: ${props.size};
-    bottom: ${props.offset};
-    right: ${props.offset};
-  `}
-
-  ${props => props.status === 'online' && css`
-    background-color: ${colors.success.main};
-  `}
-
-  ${props => props.status === 'offline' && css`
-    background-color: ${colors.grey[400]};
-  `}
-
-  ${props => props.status === 'speaking' && css`
-    background-color: ${colors.primary.main};
-    animation: ${pulseAnimation} 1s infinite;
-  `}
-
-  ${props => props.status === 'away' && css`
-    background-color: ${colors.warning.main};
-  `}
-`
 
 const AvatarStatusDot = memo(({
   status = 'online',
@@ -64,12 +18,41 @@ const AvatarStatusDot = memo(({
 
   const finalAriaLabel = ariaLabel || `상태: ${statusLabels[status] || status}`
 
+  const getStatusColor = () => {
+    switch (status) {
+      case 'online':
+        return colors.success.main
+      case 'offline':
+        return colors.grey[400]
+      case 'speaking':
+        return colors.primary.main
+      case 'away':
+        return colors.warning.main
+      default:
+        return colors.grey[400]
+    }
+  }
+
+  const statusStyle = {
+    position: 'absolute',
+    borderRadius: borderRadius.full,
+    border: '2px solid white',
+    transition: animations.transition.default,
+    zIndex: 1,
+    width: size,
+    height: size,
+    bottom: offset,
+    right: offset,
+    backgroundColor: getStatusColor(),
+    ...(status === 'speaking' && {
+      animation: 'pulse 1s infinite'
+    })
+  }
+
   return (
-    <StatusDotContainer
-      status={status}
-      size={size}
-      offset={offset}
+    <div
       className={className}
+      style={statusStyle}
       aria-label={finalAriaLabel}
       role="img"
       {...props}

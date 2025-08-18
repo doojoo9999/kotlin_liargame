@@ -2,7 +2,6 @@
 // CSS Grid layout with player cards and staggered animations
 
 import React, {useState} from 'react'
-import styled, {css} from 'styled-components'
 import {AnimatePresence, motion} from 'framer-motion'
 import {Box, Typography} from '../../../components/ui'
 import {UserPlus as PersonAddIcon, Flag as ReportIcon} from 'lucide-react'
@@ -303,11 +302,69 @@ const PlayerCard = React.memo(function PlayerCard({
     e.stopPropagation()
     onReportPlayer?.(player)
   }
+
+  const getCardStyles = (isTurn) => {
+    const baseStyles = {
+      position: 'relative',
+      width: '160px',
+      height: '120px',
+      backgroundColor: '#ffffff',
+      border: isTurn ? '2px solid #6366f1' : '1px solid #e5e7eb',
+      borderRadius: '12px',
+      boxShadow: isTurn ? '0 0 16px rgba(99, 102, 241, 0.3), 0 4px 6px rgba(0,0,0,0.1)' : '0 1px 3px rgba(0,0,0,0.1)',
+      cursor: 'pointer',
+      overflow: 'hidden',
+      transition: 'all 0.2s ease'
+    }
+
+    if (isTurn) {
+      baseStyles.borderColor = '#6366f1'
+      baseStyles.boxShadow = '0 0 16px rgba(99, 102, 241, 0.3), 0 4px 6px rgba(0,0,0,0.1)'
+    }
+
+    return baseStyles
+  }
+
+  const getRoleBadgeStyles = (role) => {
+    const baseStyles = {
+      display: 'inline-block',
+      padding: '2px 4px',
+      borderRadius: '4px',
+      fontSize: '12px',
+      fontWeight: 500,
+      textTransform: 'uppercase',
+      marginTop: '2px'
+    }
+
+    switch (role) {
+      case 'liar':
+        return {
+          ...baseStyles,
+          backgroundColor: '#fef2f2',
+          color: '#dc2626',
+          border: '1px solid #fca5a5'
+        }
+      case 'citizen':
+        return {
+          ...baseStyles,
+          backgroundColor: '#f0fdf4',
+          color: '#16a34a',
+          border: '1px solid #86efac'
+        }
+      default:
+        return {
+          ...baseStyles,
+          backgroundColor: '#f9fafb',
+          color: '#6b7280',
+          border: '1px solid #e5e7eb'
+        }
+    }
+  }
   
   return (
-    <CardContainer
+    <motion.div
       className={className}
-      $isTurn={isTurn}
+      style={getCardStyles(isTurn)}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       whileHover={{ scale: 1.02 }}
@@ -321,58 +378,145 @@ const PlayerCard = React.memo(function PlayerCard({
       }}
       {...props}
     >
-      <CardContent>
-        <TopSection>
-          <AvatarContainer>
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        padding: '12px',
+        height: '100%',
+        gap: '4px'
+      }}>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          marginBottom: '4px'
+        }}>
+          <div style={{ position: 'relative', flexShrink: 0 }}>
             <UserAvatar
               userId={player.id}
               nickname={player.nickname}
               avatarUrl={player.avatarUrl}
               size="small"
             />
-            <StatusDot $isOnline={player.isOnline !== false} />
-          </AvatarContainer>
+            <div style={{
+              position: 'absolute',
+              bottom: '-2px',
+              right: '-2px',
+              width: '12px',
+              height: '12px',
+              borderRadius: '50%',
+              border: '2px solid #ffffff',
+              backgroundColor: player.isOnline !== false ? '#22c55e' : '#9ca3af',
+              zIndex: 2
+            }} />
+          </div>
           
-          <PlayerInfo>
-            <PlayerNickname>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{
+              fontSize: '14px',
+              fontWeight: 600,
+              color: '#1f2937',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              lineHeight: 1
+            }}>
               {player.nickname}
-            </PlayerNickname>
+            </div>
             {player.role && (
-              <RoleBadge $role={player.role}>
+              <div style={getRoleBadgeStyles(player.role)}>
                 {player.role === 'liar' ? '라이어' : '시민'}
-              </RoleBadge>
+              </div>
             )}
-          </PlayerInfo>
-        </TopSection>
+          </div>
+        </div>
         
-        <BottomSection>
-          <StatusText>
-            {isOwner && <span className="crown-icon">👑</span>}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginTop: 'auto'
+        }}>
+          <div style={{
+            fontSize: '12px',
+            color: '#6b7280',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px'
+          }}>
+            {isOwner && <span style={{ color: '#f59e0b' }}>👑</span>}
             {getStatusText()}
-          </StatusText>
+          </div>
           
-          <ActionButtons>
+          <div style={{
+            display: 'flex',
+            gap: '2px',
+            opacity: isHovered ? 1 : 0,
+            transition: 'opacity 0.2s ease'
+          }}>
             {!isSelf && (
-              <ActionButton
+              <button
                 onClick={handleAddFriend}
                 aria-label={`친구 추가: ${player.nickname}`}
                 title="친구 추가"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '24px',
+                  height: '24px',
+                  border: 'none',
+                  borderRadius: '4px',
+                  backgroundColor: '#f9fafb',
+                  color: '#6b7280',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
+                    backgroundColor: '#e0e7ff',
+                    color: '#4f46e5',
+                    transform: 'scale(1.1)'
+                  },
+                  '&:active': {
+                    transform: 'scale(0.95)'
+                  }
+                }}
               >
-                <PersonAddIcon />
-              </ActionButton>
+                <PersonAddIcon style={{ width: '14px', height: '14px' }} />
+              </button>
             )}
-            <ActionButton
+            <button
               className="report-button"
               onClick={handleReport}
               aria-label={`신고: ${player.nickname}`}
               title="신고"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '24px',
+                height: '24px',
+                border: 'none',
+                borderRadius: '4px',
+                backgroundColor: '#f9fafb',
+                color: '#6b7280',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  backgroundColor: '#fee2e2',
+                  color: '#dc2626',
+                  transform: 'scale(1.1)'
+                },
+                '&:active': {
+                  transform: 'scale(0.95)'
+                }
+              }}
             >
-              <ReportIcon />
-            </ActionButton>
-          </ActionButtons>
-        </BottomSection>
-      </CardContent>
-    </CardContainer>
+              <ReportIcon style={{ width: '14px', height: '14px' }} />
+            </button>
+          </div>
+        </div>
+      </div>
+    </motion.div>
   )
 })
 
@@ -430,25 +574,52 @@ const PlayersPanel = React.memo(function PlayersPanel({
   // Handle empty state
   if (!players || players.length === 0) {
     return (
-      <PlayersPanelContainer>
-        <EmptyState>
-          <div className="empty-icon">👥</div>
+      <Box sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '8px',
+        width: '100%'
+      }}>
+        <Box sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexDirection: 'column',
+          padding: '32px',
+          textAlign: 'center',
+          border: '2px dashed #d1d5db',
+          borderRadius: '12px',
+          backgroundColor: '#f9fafb',
+          minHeight: '200px'
+        }}>
+          <div style={{ fontSize: '48px', marginBottom: '8px', opacity: 0.5 }}>👥</div>
           <Typography variant="body2" color="text.secondary">
             플레이어를 불러오는 중...
           </Typography>
-        </EmptyState>
-      </PlayersPanelContainer>
+        </Box>
+      </Box>
     )
   }
 
   return (
-    <PlayersPanelContainer>
+    <Box sx={{
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '8px',
+      width: '100%'
+    }}>
       <motion.div
         variants={containerVariants}
         initial="hidden"
         animate="visible"
       >
-        <PlayersGrid>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
+          gap: '16px',
+          width: '100%',
+          justifyItems: 'center'
+        }}>
           <AnimatePresence mode="popLayout">
             {players.map((player, index) => {
               const isTurn = effectiveCurrentTurnPlayerId === player.id
@@ -483,9 +654,9 @@ const PlayersPanel = React.memo(function PlayersPanel({
               )
             })}
           </AnimatePresence>
-        </PlayersGrid>
+        </div>
       </motion.div>
-    </PlayersPanelContainer>
+    </Box>
   )
 })
 

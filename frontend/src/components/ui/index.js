@@ -34,7 +34,7 @@ export { default as Chip } from './Chip/Chip.jsx'
 export { default as List, ListItem, ListItemIcon, ListItemText } from './List/List.jsx'
 
 // Table
-export { default as Table, TableHead, TableBody, TableRow, TableCell, TableHeader } from './Table/Table.jsx'
+export { default as Table, TableHead, TableBody, TableRow, TableCell, TableHeader, TableContainer } from './Table/Table.jsx'
 
 // Link
 export { default as Link } from './Link/Link.jsx'
@@ -44,3 +44,10 @@ export { default as Divider } from './Divider/Divider.jsx'
 
 // CssBaseline
 export { default as CssBaseline } from './CssBaseline/CssBaseline.jsx'
+
+// Interactions re-exports used by pages
+export { buttonInteractions } from './interactions/index.js'
+export { useRipple } from './interactions/index.js'
+
+// PlayerAvatar system
+export { PlayerAvatar, AvatarStatusDot, AvatarBadge, AvatarEffects } from './PlayerAvatar/index.jsx'

@@ -1,69 +1,23 @@
 import React from 'react'
-import { Box as MantineBox, Container as MantineContainer, Stack as MantineStack, Grid as MantineGrid, createStyles } from '@mantine/core'
+import { Box as MantineBox, Container as MantineContainer, Stack as MantineStack, Grid as MantineGrid } from '@mantine/core'
 
-const useStyles = createStyles((theme, { variant, spacing, align, justify }) => ({
-  layout: {
-    // Custom spacing variants
-    ...(spacing === 'tight' && {
-      gap: theme.spacing.xs,
-    }),
-    ...(spacing === 'normal' && {
-      gap: theme.spacing.md,
-    }),
-    ...(spacing === 'loose' && {
-      gap: theme.spacing.lg,
-    }),
-    
-    // Custom alignment variants
-    ...(align === 'start' && {
-      alignItems: 'flex-start',
-    }),
-    ...(align === 'center' && {
-      alignItems: 'center',
-    }),
-    ...(align === 'end' && {
-      alignItems: 'flex-end',
-    }),
-    ...(align === 'stretch' && {
-      alignItems: 'stretch',
-    }),
-    
-    // Custom justify variants
-    ...(justify === 'start' && {
-      justifyContent: 'flex-start',
-    }),
-    ...(justify === 'center' && {
-      justifyContent: 'center',
-    }),
-    ...(justify === 'end' && {
-      justifyContent: 'flex-end',
-    }),
-    ...(justify === 'space-between' && {
-      justifyContent: 'space-between',
-    }),
-    ...(justify === 'space-around' && {
-      justifyContent: 'space-around',
-    }),
-  },
+const layoutBase = (spacing, align, justify) => ({
+  display: 'flex',
+  gap: spacing === 'tight' ? 'var(--mantine-spacing-xs)' : spacing === 'loose' ? 'var(--mantine-spacing-lg)' : 'var(--mantine-spacing-md)',
+  alignItems: align === 'start' ? 'flex-start' : align === 'center' ? 'center' : align === 'end' ? 'flex-end' : 'stretch',
+  justifyContent:
+    justify === 'start' ? 'flex-start' :
+    justify === 'center' ? 'center' :
+    justify === 'end' ? 'flex-end' :
+    justify === 'space-between' ? 'space-between' :
+    justify === 'space-around' ? 'space-around' : 'flex-start',
+})
 
-  // Game-specific variants
-  game: {
-    background: `linear-gradient(135deg, ${theme.colors.gray[0]}, ${theme.colors.gray[1]})`,
-    borderRadius: theme.radius.md,
-    padding: theme.spacing.md,
-  },
-
-  center: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: '100%',
-  },
-
-  spacer: {
-    flex: 1,
-  },
-}))
+const gameStyle = {
+  background: 'linear-gradient(135deg, var(--mantine-color-gray-0), var(--mantine-color-gray-1))',
+  borderRadius: 'var(--mantine-radius-md)',
+  padding: 'var(--mantine-spacing-md)'
+}
 
 // Box component
 export const Box = ({ 
@@ -75,13 +29,10 @@ export const Box = ({
   className = '',
   ...props 
 }) => {
-  const { classes, cx } = useStyles({ variant, spacing, align, justify })
+  const style = { ...layoutBase(spacing, align, justify), ...(variant === 'game' ? gameStyle : {}) }
 
   return (
-    <MantineBox
-      className={cx(className, classes.layout)}
-      {...props}
-    >
+    <MantineBox className={className} style={style} {...props}>
       {children}
     </MantineBox>
   )
@@ -95,14 +46,10 @@ export const Container = ({
   className = '',
   ...props 
 }) => {
-  const { classes, cx } = useStyles({ variant })
+  const style = variant === 'game' ? gameStyle : undefined
 
   return (
-    <MantineContainer
-      className={cx(className, classes.layout)}
-      size={size}
-      {...props}
-    >
+    <MantineContainer className={className} size={size} style={style} {...props}>
       {children}
     </MantineContainer>
   )
@@ -118,16 +65,10 @@ export const Stack = ({
   className = '',
   ...props 
 }) => {
-  const { classes, cx } = useStyles({ variant, spacing, align, justify })
+  const style = { ...layoutBase(spacing, align, justify), ...(variant === 'game' ? gameStyle : {}) }
 
   return (
-    <MantineStack
-      className={cx(className, classes.layout)}
-      gap={spacing}
-      align={align}
-      justify={justify}
-      {...props}
-    >
+    <MantineStack className={className} gap={spacing} align={align} justify={justify} style={style} {...props}>
       {children}
     </MantineStack>
   )
@@ -143,16 +84,10 @@ export const Grid = ({
   className = '',
   ...props 
 }) => {
-  const { classes, cx } = useStyles({ variant, spacing, align, justify })
+  const style = { ...(variant === 'game' ? gameStyle : {}) }
 
   return (
-    <MantineGrid
-      className={cx(className, classes.layout)}
-      gutter={spacing}
-      align={align}
-      justify={justify}
-      {...props}
-    >
+    <MantineGrid className={className} gutter={spacing} align={align} justify={justify} style={style} {...props}>
       {children}
     </MantineGrid>
   )
@@ -164,13 +99,10 @@ export const Center = ({
   className = '',
   ...props 
 }) => {
-  const { classes, cx } = useStyles({})
+  const centerStyle = { display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100%' }
 
   return (
-    <div
-      className={cx(className, classes.center)}
-      {...props}
-    >
+    <div className={className} style={centerStyle} {...props}>
       {children}
     </div>
   )
@@ -178,13 +110,10 @@ export const Center = ({
 
 // Spacer component
 export const Spacer = ({ className = '', ...props }) => {
-  const { classes, cx } = useStyles({})
+  const spacerStyle = { flex: 1 }
 
   return (
-    <div
-      className={cx(className, classes.spacer)}
-      {...props}
-    />
+    <div className={className} style={spacerStyle} {...props} />
   )
 }
 
