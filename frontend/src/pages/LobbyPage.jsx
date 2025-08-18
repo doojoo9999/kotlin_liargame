@@ -1,7 +1,7 @@
 // --- ARCHITECTURE FIX: Force overwrite on 2024-05-21 to resolve persistent import errors ---
 import React, {lazy, Suspense, useEffect} from 'react';
 import {Alert, Box, Container} from '@mantine/core';
-import {useNotifications} from '@mantine/notifications';
+import {notifications} from '@mantine/notifications';
 import {useGame} from '../context/GameContext';
 import useSubjectStore from '../stores/subjectStore';
 import config from '../config/environment';
@@ -47,7 +47,7 @@ function LobbyPage() {
     addWord
   } = useSubjectStore();
 
-  const notifications = useNotifications();
+  
 
   useEffect(() => {
     fetchRooms();

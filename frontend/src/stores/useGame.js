@@ -10,7 +10,7 @@ import * as gameApi from '../api/gameApi'
  * Unified hook that provides access to all game-related state and actions
  * This replaces the original useGame hook from GameContext
  */
-export const useGame = () => {
+export const useGame = (navigate) => {
   // Auth store
   const {
     currentUser,
@@ -30,16 +30,15 @@ export const useGame = () => {
     loading: roomLoading,
     error: roomError,
     fetchRooms,
-    createRoom,
-    joinRoom,
-    leaveRoom,
+    createRoom: originalCreateRoom,
+    joinRoom: originalJoinRoom,
+    leaveRoom: originalLeaveRoom,
     getCurrentRoom,
     fetchRoomDetails,
     updateRoomInList,
     navigateToLobby,
-    navigateToRoom,
     clearError: clearRoomError,
-  } = useRoomStore()
+  } = useRoomStore(navigate)
 
   // Socket store
   const {
@@ -103,13 +102,13 @@ export const useGame = () => {
     getSubjectById,
     addSubject,
     addWord,
-    handleSubjectUpdate,
     searchSubjects,
     getSubjectsByCategory,
     clearError: clearSubjectsError,
   } = useSubjectStore()
 
   // Combine loading states
+  console.log('roomLoading before useMemo:', roomLoading);
   const loading = useMemo(() => ({
     auth: authLoading,
     rooms: roomLoading.rooms,
@@ -127,17 +126,6 @@ export const useGame = () => {
     socket: socketError.socket,
     subjects: subjectsError,
   }), [authError, roomError, socketError, subjectsError])
-
-  // Helper functions
-  const setLoading = (type, value) => {
-    // This is handled individually by each store now
-    console.warn('setLoading is deprecated - use individual store loading states')
-  }
-
-  const setError = (type, value) => {
-    // This is handled individually by each store now
-    console.warn('setError is deprecated - use individual store error clearing functions')
-  }
 
   const clearError = (type) => {
     switch (type) {
@@ -237,16 +225,16 @@ export const useGame = () => {
 
     // Actions - Room
     fetchRooms,
-    createRoom,
-    joinRoom,
-    leaveRoom,
+    createRoom: (roomData) => originalCreateRoom(roomData, navigate),
+    joinRoom: (gameNumber, password) => originalJoinRoom(gameNumber, password, navigate),
+    leaveRoom: (gameNumber) => originalLeaveRoom(gameNumber, navigate),
     getCurrentRoom,
     fetchRoomDetails,
     updateRoomInList,
 
     // Actions - Navigation
     navigateToLobby,
-    navigateToRoom,
+    
 
     // Actions - Socket/Chat
     connectSocket,
@@ -295,8 +283,6 @@ export const useGame = () => {
     canStartGame,
 
     // Actions - Utility
-    setLoading, // Deprecated
-    setError,   // Deprecated
     clearError,
   }
 }

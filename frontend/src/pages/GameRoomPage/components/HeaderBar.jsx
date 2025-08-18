@@ -3,24 +3,11 @@
 
 import React from 'react'
 import {motion} from 'framer-motion'
-import {LogOut as ExitIcon, HelpCircle as HelpIcon, Users as PeopleIcon} from 'lucide-react'
+import {HelpCircle as HelpIcon, LogOut as ExitIcon, Users as PeopleIcon} from 'lucide-react'
 import {Button, buttonInteractions} from '../../../components/ui'
 
 // Pulse animation keyframes
-const pulseAnimation = keyframes`
-  0% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  50% {
-    transform: scale(1.05);
-    opacity: 0.8;
-  }
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-`
+
 
 const HeaderBar = React.memo(function HeaderBar({
   currentRoom,

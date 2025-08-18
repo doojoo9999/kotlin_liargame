@@ -1,28 +1,31 @@
-import React from 'react'
-import PropTypes from 'prop-types'
-import {createBrowserRouter, Navigate, Outlet, RouterProvider} from 'react-router-dom'
-import {Alert, Box, CircularProgress, CssBaseline} from './components/ui'
-import {MantineProvider} from '@mantine/core'
-import '@mantine/core/styles.css'
-import {Notifications} from '@mantine/notifications'
-import {GameProvider, useGame} from './context/GameContext'
-import LoginPage from './pages/LoginPage'
-import LobbyPage from './pages/LobbyPage'
-import GameRoomPage from './pages/GameRoomPage'
-import AdminLoginPage from './pages/AdminLoginPage'
-import AdminDashboard from './pages/AdminDashboard'
-import ErrorBoundary from './components/ErrorBoundary'
-import RouteErrorBoundary from './components/RouteErrorBoundary'
-import LoginFailurePage from './pages/LoginFailurePage'
-import {lobbyLoader} from './loaders/lobbyLoader'
+import React from 'react';
+import PropTypes from 'prop-types';
+import {createBrowserRouter, Navigate, Outlet, RouterProvider, useNavigate} from 'react-router-dom';
+
+import {Alert, Box, CircularProgress, CssBaseline} from './components/ui';
+import '@mantine/core/styles.css';
+import {Notifications} from '@mantine/notifications';
+
+import {GameProvider, useGame} from './context/GameContext';
+import AdminDashboard from './pages/AdminDashboard';
+import AdminLoginPage from './pages/AdminLoginPage';
+import GameRoomPage from './pages/GameRoomPage';
+import LobbyPage from './pages/LobbyPage';
+import LoginPage from './pages/LoginPage';
+import LoginFailurePage from './pages/LoginFailurePage';
+import ErrorBoundary from './components/ErrorBoundary';
+import RouteErrorBoundary from './components/RouteErrorBoundary';
+import {GameLoader} from './components/GameLoader';
+import {lobbyLoader} from './loaders/lobbyLoader';
 
 /**
  * 애플리케이션의 핵심 프로바이더와 인증 상태를 관리하는 레이아웃 컴포넌트.
  * 이 컴포넌트 하위의 모든 자식 라우트는 GameContext와 I18nContext에 접근할 수 있습니다.
  */
 function AppLayout() {
+    const navigate = useNavigate();
     return (
-        <GameProvider>
+        <GameProvider navigate={navigate}>
             <Outlet />
         </GameProvider>
     );
@@ -123,12 +126,12 @@ const router = createBrowserRouter([
 
 function App() {
   return (
-    <MantineProvider defaultColorScheme="dark">
+    <>
       <CssBaseline>
         <Notifications position="bottom-right" zIndex={2000} />
-        <ErrorBoundary><RouterProvider router={router} /></ErrorBoundary>
+        <ErrorBoundary><RouterProvider router={router} fallbackElement={<GameLoader />} /></ErrorBoundary>
       </CssBaseline>
-    </MantineProvider>
+    </>
   )
 }
 
