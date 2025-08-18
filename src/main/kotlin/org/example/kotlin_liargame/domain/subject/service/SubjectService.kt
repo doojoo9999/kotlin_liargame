@@ -2,6 +2,7 @@ package org.example.kotlin_liargame.domain.subject.service
 
 import org.example.kotlin_liargame.domain.subject.dto.request.SubjectRequest
 import org.example.kotlin_liargame.domain.subject.dto.response.SubjectResponse
+import org.example.kotlin_liargame.domain.subject.exception.SubjectAlreadyExistsException
 import org.example.kotlin_liargame.domain.subject.model.SubjectEntity
 import org.example.kotlin_liargame.domain.subject.repository.SubjectRepository
 import org.example.kotlin_liargame.domain.word.repository.WordRepository
@@ -33,7 +34,7 @@ class SubjectService (
             
             return savedSubject
         } else {
-            throw RuntimeException("주제가 이미 존재합니다")
+            throw SubjectAlreadyExistsException("주제가 이미 존재합니다")
         }
     }
 

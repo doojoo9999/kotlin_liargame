@@ -28,9 +28,9 @@ const GameContext = createContext()
  * This Provider serves as a compatibility layer and DI point for effect initialization.
  * It does not provide contextValue as all state management is handled by Zustand stores.
  */
-const GameProvider = ({ children }) => {
+const GameProvider = ({ children, navigate }) => {
   // Get Zustand store data for effect initialization
-  const zustandStore = useGameZustand()
+  const zustandStore = useGameZustand(navigate)
   const { 
     currentRoom, 
     socketConnected, 

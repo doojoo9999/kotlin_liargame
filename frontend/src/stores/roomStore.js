@@ -65,7 +65,7 @@ const useRoomStore = create(
       }
     },
 
-    createRoom: async (roomData) => {
+    createRoom: async (roomData, navigate) => {
       try {
         const { currentUser } = useAuthStore.getState()
         if (!currentUser) {
@@ -118,6 +118,11 @@ const useRoomStore = create(
         
         console.log('[DEBUG_LOG] Room creation completed, ready for navigation:', createdRoom.gameNumber)
 
+        // Navigate to the game room
+        if (navigate) {
+          navigate(`/game/${createdRoom.gameNumber}`);
+        }
+
         return createdRoom
       } catch (error) {
         console.error('Failed to create room:', error)
@@ -129,11 +134,11 @@ const useRoomStore = create(
       }
     },
 
-    joinRoom: async (gameNumber, password = '') => {
+    joinRoom: async (gameNumber, password = '', navigate) => {
       try {
         console.log('[ROOMSTORE] Starting joinRoom for game:', gameNumber, 'with password:', password ? '***' : 'none')
 
-        set(state => ({ 
+        set(state => ({
           loading: { ...state.loading, room: true },
           error: { ...state.error, room: null }
         }))
@@ -162,6 +167,12 @@ const useRoomStore = create(
         }))
 
         console.log('[ROOMSTORE] Room join completed successfully, returning:', normalizedRoom.gameNumber)
+
+        // Navigate to the game room after joining
+        if (navigate) {
+          navigate(`/game/${normalizedRoom.gameNumber}`);
+        }
+
         return normalizedRoom
       } catch (error) {
         console.error('[ROOMSTORE] Failed to join room:', error)
@@ -176,7 +187,7 @@ const useRoomStore = create(
 
     getCurrentRoom: async (gameNumber) => {
       try {
-        set(state => ({ 
+        set(state => ({
           loading: { ...state.loading, room: true },
           error: { ...state.error, room: null }
         }))
@@ -216,7 +227,7 @@ const useRoomStore = create(
       }
     },
 
-    leaveRoom: async (gameNumber) => {
+    leaveRoom: async (gameNumber, navigate) => {
       try {
         console.log('[DEBUG_LOG] Leaving room with gameNumber:', gameNumber)
         const response = await gameApi.leaveRoom({
@@ -229,6 +240,11 @@ const useRoomStore = create(
           currentPage: 'lobby'
         })
 
+        // Navigate to lobby after leaving room
+        if (navigate) {
+          navigate('/lobby');
+        }
+
         return response
 
       } catch (error) {
@@ -239,27 +255,30 @@ const useRoomStore = create(
 
     fetchRoomDetails: async (gameNumber) => {
       try {
-        console.log('[DEBUG_LOG] Fetching room details for game:', gameNumber)
-
-        const roomDetails = await gameApi.getRoomDetails(gameNumber)
-
-        if (!roomDetails) {
+        set(state => ({
+          loading: { ...state.loading, room: true },
+          error: { ...state.error, room: null }
+        }))
+        
+        const roomData = await gameApi.getRoomDetails(gameNumber)
+        
+        if (!roomData) {
           console.error('[DEBUG_LOG] No room details received')
           return null
         }
 
         const normalizedRoom = {
-          gameNumber: roomDetails.gameNumber || gameNumber,
-          title: roomDetails.title || roomDetails.gameName || `게임방 #${gameNumber}`,
-          host: roomDetails.host || roomDetails.gameOwner || roomDetails.hostNickname || '알 수 없음',
-          currentPlayers: parseInt(roomDetails.currentPlayers || roomDetails.playerCount || 0),
-          maxPlayers: parseInt(roomDetails.maxPlayers || roomDetails.gameParticipants || 8),
-          subject: roomDetails.subject || roomDetails.citizenSubject?.content || roomDetails.subjectName || '주제 없음',
-          state: roomDetails.state || roomDetails.gameState || 'WAITING',
-          round: parseInt(roomDetails.currentRound || roomDetails.gameCurrentRound || 1),
-          players: Array.isArray(roomDetails.players) ? roomDetails.players : [],
-          hasPassword: roomDetails.hasPassword || false,
-          createdAt: roomDetails.createdAt,
+          gameNumber: roomData.gameNumber || gameNumber,
+          title: roomData.title || roomData.gameName || `게임방 #${gameNumber}`,
+          host: roomData.host || roomData.gameOwner || roomData.hostNickname || '알 수 없음',
+          currentPlayers: parseInt(roomData.currentPlayers || roomData.playerCount || 0),
+          maxPlayers: parseInt(roomData.maxPlayers || roomData.gameParticipants || 8),
+          subject: roomData.subject || roomData.citizenSubject?.content || roomData.subjectName || '주제 없음',
+          state: roomData.state || roomData.gameState || 'WAITING',
+          round: parseInt(roomData.currentRound || roomData.gameCurrentRound || 1),
+          players: Array.isArray(roomData.players) ? roomData.players : [],
+          hasPassword: roomData.hasPassword || false,
+          createdAt: roomData.createdAt,
           updatedAt: new Date().toISOString()
         }
 
@@ -290,10 +309,6 @@ const useRoomStore = create(
         currentPage: 'lobby',
         currentRoom: null
       })
-    },
-
-    navigateToRoom: () => {
-      set({ currentPage: 'room' })
     },
 
     clearError: (type) => {
