@@ -5,700 +5,195 @@ import React, {useEffect, useRef, useState} from 'react'
 import {AnimatePresence, motion} from 'framer-motion'
 import {Box, CircularProgress, Typography, useRipple} from '../../../components/ui'
 import {Send as SendIcon} from 'lucide-react'
+import {getChatPanelStyles, getResponsiveStyles} from './ChatPanel.styles'
 
-// Chat panel container
-const ChatPanelContainer = styled(motion.div)`
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  background-color: ${({ theme }) => theme.colors.surface.primary};
-  border-radius: ${({ theme }) => theme.semanticBorderRadius.card.medium};
-  box-shadow: ${({ theme }) => theme.semanticShadows.card.default};
-  overflow: hidden;
-  
-  /* Responsive adjustments */
-  @media (max-width: 767px) {
-    border-radius: ${({ theme }) => theme.semanticBorderRadius.card.small};
-  }
-`
-
-// Message list container
-const MessageListContainer = styled.div`
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: ${({ theme }) => theme.semanticSpacing.component.sm};
-  
-  /* Custom scrollbar */
-  &::-webkit-scrollbar {
-    width: 6px;
-  }
-  
-  &::-webkit-scrollbar-track {
-    background: ${({ theme }) => theme.colors.surface.secondary};
-    border-radius: ${({ theme }) => theme.borderRadius.full};
-  }
-  
-  &::-webkit-scrollbar-thumb {
-    background: ${({ theme }) => theme.colors.border.secondary};
-    border-radius: ${({ theme }) => theme.borderRadius.full};
-    
-    &:hover {
-      background: ${({ theme }) => theme.colors.text.tertiary};
-    }
-  }
-  
-  /* Smooth scrolling */
-  scroll-behavior: smooth;
-  
-  /* Mobile optimizations */
-  @media (max-width: 767px) {
-    padding: ${({ theme }) => theme.semanticSpacing.component.xs};
-  }
-`
-
-// Messages container for AnimatePresence
-const MessagesContainer = styled.div`
-  display: flex;
-  flex-direction: column;
-  min-height: 100%;
-  gap: ${({ theme }) => theme.spacing[1]};
-`
-
-// Base bubble container
-const BubbleContainer = styled(motion.div)`
-  display: flex;
-  margin: ${({ theme }) => `${theme.spacing[1]} 0`};
-  max-width: 100%;
-  
-  /* Alignment based on message type */
-  ${({ $isUser, $isSystem }) => {
-    if ($isSystem) {
-      return css`
-        justify-content: center;
-        margin: ${({ theme }) => `${theme.spacing[2]} 0`};
-      `
-    }
-    return $isUser ? css`justify-content: flex-end;` : css`justify-content: flex-start;`
-  }}
-`
-
-// Message bubble styles
-const MessageBubble = styled.div`
-  position: relative;
-  max-width: 70%;
-  padding: ${({ theme }) => `${theme.spacing[2]} ${theme.spacing[3]}`};
-  border-radius: 18px;
-  word-wrap: break-word;
-  word-break: break-word;
-  
-  /* Bubble variants */
-  ${({ $variant, theme }) => {
-    switch ($variant) {
-      case 'user':
-        return css`
-          background-color: ${theme.colors.primary[500]};
-          color: ${theme.colors.white};
-          border-radius: 18px 18px 6px 18px;
-          box-shadow: ${theme.shadows.sm};
-          
-          &::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            right: -6px;
-            width: 0;
-            height: 0;
-            border-style: solid;
-            border-width: 6px 0 0 6px;
-            border-color: transparent transparent transparent ${theme.colors.primary[500]};
-          }
-        `
-      case 'other':
-        return css`
-          background-color: ${theme.colors.surface.primary};
-          color: ${theme.colors.text.primary};
-          border: 1px solid ${theme.colors.border.primary};
-          border-radius: 6px 18px 18px 18px;
-          box-shadow: ${theme.shadows.sm};
-          
-          &::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: -7px;
-            width: 0;
-            height: 0;
-            border-style: solid;
-            border-width: 6px 6px 0 0;
-            border-color: ${theme.colors.surface.primary} transparent transparent transparent;
-          }
-          
-          &::before {
-            content: '';
-            position: absolute;
-            bottom: -1px;
-            left: -8px;
-            width: 0;
-            height: 0;
-            border-style: solid;
-            border-width: 7px 7px 0 0;
-            border-color: ${theme.colors.border.primary} transparent transparent transparent;
-          }
-        `
-      case 'system':
-        return css`
-          background: linear-gradient(135deg, ${theme.colors.primary[50]}, ${theme.colors.secondary[50]});
-          color: ${theme.colors.text.primary};
-          border: 1px solid ${theme.colors.primary[200]};
-          border-radius: ${theme.borderRadius.lg};
-          text-align: center;
-          font-weight: ${theme.fontWeight.medium};
-          max-width: 80%;
-          box-shadow: ${theme.shadows.sm};
-        `
-      default:
-        return css`
-          background-color: ${theme.colors.surface.secondary};
-          color: ${theme.colors.text.primary};
-          border: 1px solid ${theme.colors.border.primary};
-        `
-    }
-  }}
-`
-
-// Message content
-const MessageContent = styled.div`
-  font-size: ${({ theme }) => theme.fontSize.sm};
-  line-height: ${({ theme }) => theme.lineHeight.relaxed};
-  
-  /* System message special styling */
-  ${({ $isSystem }) => $isSystem && css`
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: ${({ theme }) => theme.spacing[1]};
-    
-    svg {
-      width: 16px;
-      height: 16px;
-    }
-  `}
-`
-
-// System message icon wrapper
-const SystemIcon = styled.span`
-  font-size: 16px;
-  filter: grayscale(0.2);
-`
-
-// Input container
-const InputContainer = styled.div`
-  display: flex;
-  align-items: flex-end;
-  gap: ${({ theme }) => theme.spacing[2]};
-  padding: ${({ theme }) => theme.semanticSpacing.component.md};
-  background-color: ${({ theme }) => theme.colors.surface.primary};
-  border-top: 1px solid ${({ theme }) => theme.colors.border.primary};
-  
-  /* Mobile adjustments */
-  @media (max-width: 767px) {
-    padding: ${({ theme }) => theme.semanticSpacing.component.sm};
-    gap: ${({ theme }) => theme.spacing[1]};
-  }
-`
-
-// Text input field
-const TextInput = styled.input`
-  width: 100%;
-  padding: ${({ theme }) => `${theme.spacing[3]} ${theme.spacing[4]}`};
-  border: 2px solid ${({ theme }) => theme.colors.border.primary};
-  border-radius: 24px;
-  font-family: ${({ theme }) => theme.fontFamily.primary};
-  font-size: ${({ theme }) => theme.fontSize.sm};
-  line-height: ${({ theme }) => theme.lineHeight.normal};
-  color: ${({ theme }) => theme.colors.text.primary};
-  background-color: ${({ theme }) => theme.colors.surface.primary};
-  outline: none;
-  transition: ${({ theme }) => theme.semanticTransitions.input.focus};
-  
-  &::placeholder {
-    color: ${({ theme }) => theme.colors.text.tertiary};
-    opacity: 0.7;
-  }
-  
-  &:focus {
-    border-color: ${({ theme }) => theme.colors.primary[400]};
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-  }
-  
-  &:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-    background-color: ${({ theme }) => theme.colors.surface.disabled};
-  }
-`
-
-// Send button
-const SendButton = styled(motion.button)`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  border: none;
-  border-radius: 50%;
-  background: linear-gradient(135deg, ${({ theme }) => theme.colors.primary[500]}, ${({ theme }) => theme.colors.secondary[500]});
-  color: ${({ theme }) => theme.colors.white};
-  cursor: pointer;
-  transition: ${({ theme }) => theme.transition.fast};
-  box-shadow: ${({ theme }) => theme.shadows.sm};
-  
-  svg {
-    width: 20px;
-    height: 20px;
-    transform: rotate(-45deg);
-  }
-  
-  &:hover:not(:disabled) {
-    background: linear-gradient(135deg, ${({ theme }) => theme.colors.primary[600]}, ${({ theme }) => theme.colors.secondary[600]});
-    box-shadow: ${({ theme }) => theme.shadows.md};
-    transform: translateY(-1px) scale(1.05);
-  }
-  
-  &:active:not(:disabled) {
-    transform: translateY(0) scale(0.95);
-    box-shadow: ${({ theme }) => theme.shadows.sm};
-  }
-  
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    transform: none;
-    background: ${({ theme }) => theme.colors.surface.disabled};
-    color: ${({ theme }) => theme.colors.text.disabled};
-  }
-`
-
-// Empty state message
-const EmptyState = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex: 1;
-  padding: ${({ theme }) => theme.semanticSpacing.component.xl};
-  text-align: center;
-  color: ${({ theme }) => theme.colors.text.tertiary};
-  font-size: ${({ theme }) => theme.fontSize.sm};
-`
-
-// Loading fallback
-const LoadingFallback = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  flex: 1;
-  gap: ${({ theme }) => theme.spacing[2]};
-  padding: ${({ theme }) => theme.semanticSpacing.component.xl};
-`
-
-const ChatPanel = React.memo(function ChatPanel({
-  messages,
-  currentUser,
-  onSendMessage,
-  disabled,
-  placeholder,
+// Message Bubble Component
+const MessageBubble = React.memo(function MessageBubble({
+  message,
+  isUser = false,
+  isSystem = false,
+  theme,
+  ...props
 }) {
-  const [inputValue, setInputValue] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const containerRef = useRef(null)
-  const shouldScrollRef = useRef(true)
-  const { createRipple, RippleEffect } = useRipple()
-
-  // Convert messages to the format expected by our modern components
-  const convertedMessages = React.useMemo(() => {
-    if (!messages || !Array.isArray(messages)) return []
-    
-    return messages.map((message, index) => ({
-      id: message.id || `msg-${index}-${Date.now()}`,
-      content: message.content || '',
-      playerNickname: message.playerNickname || message.sender,
-      playerId: message.playerId || message.userId,
-      sender: message.sender || message.playerNickname,
-      timestamp: message.timestamp || message.createdAt || new Date().toISOString(),
-      isSystem: message.isSystem || ['system', 'info', 'warning', 'success', 'game_event'].includes(message.type),
-      type: message.type || 'user',
-      originalMessage: message
-    }))
-  }, [messages])
-
-  // Auto-scroll to bottom when new messages arrive
-  const scrollToBottom = React.useCallback((behavior = 'smooth') => {
-    if (!containerRef.current || !shouldScrollRef.current) return
-    
-    const container = containerRef.current
-    container.scrollTo({
-      top: container.scrollHeight,
-      behavior
-    })
-  }, [])
-
-  // Handle send message
-  const handleSendMessage = React.useCallback(async (content) => {
-    if (!onSendMessage || disabled) return
-    
-    setIsLoading(true)
-    
-    try {
-      await onSendMessage(content)
-      setInputValue('') // Clear input after sending
-    } catch (error) {
-      console.error('Failed to send message:', error)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [onSendMessage, disabled])
-
-  // Handle send button click
-  const handleSend = async (e) => {
-    const trimmedValue = inputValue.trim()
-    if (!trimmedValue || disabled || isLoading) return
-    
-    // Create ripple effect
-    createRipple(e)
-    
-    await handleSendMessage(trimmedValue)
-  }
-
-  // Handle key press
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSend()
-    }
-  }
-
-  // Scroll to bottom when messages change
-  useEffect(() => {
-    if (convertedMessages.length > 0) {
-      setTimeout(() => scrollToBottom(), 50)
-    }
-  }, [convertedMessages.length, scrollToBottom])
-
-  // Render message bubble
-  const renderMessage = (message, index) => {
-    const isUser = message.playerNickname === currentUser || message.sender === currentUser
-    const isSystem = message.isSystem || ['system', 'info', 'warning', 'success', 'game_event'].includes(message.type)
-    
-    const variant = isSystem ? 'system' : (isUser ? 'user' : 'other')
-    
-    // Get system message icon based on type
-    const getSystemIcon = (type) => {
-      const iconMap = {
-        'system': '👑',
-        'info': 'ℹ️',
-        'warning': '⚠️',
-        'success': '✅',
-        'game_event': '🎯',
-        'game_start': '🎮',
-        'game_end': '🏆',
-        'player_join': '👋',
-        'player_leave': '👋',
-      }
-      return iconMap[type] || '👑'
-    }
-
-    const getBubbleStyles = (variant) => {
-      const baseStyles = {
-        position: 'relative',
-        maxWidth: '70%',
-        padding: '8px 12px',
-        borderRadius: '18px',
-        wordWrap: 'break-word',
-        wordBreak: 'break-word',
-        fontSize: '14px',
-        lineHeight: 1.5
-      }
-
-      switch (variant) {
-        case 'user':
-          return {
-            ...baseStyles,
-            backgroundColor: '#6366f1',
-            color: 'white',
-            borderRadius: '18px 18px 6px 18px',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-          }
-        case 'other':
-          return {
-            ...baseStyles,
-            backgroundColor: '#ffffff',
-            color: '#1f2937',
-            border: '1px solid #e5e7eb',
-            borderRadius: '6px 18px 18px 18px',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-          }
-        case 'system':
-          return {
-            ...baseStyles,
-            background: 'linear-gradient(135deg, #f3f4f6, #e5e7eb)',
-            color: '#1f2937',
-            border: '1px solid #d1d5db',
-            borderRadius: '12px',
-            textAlign: 'center',
-            fontWeight: 500,
-            maxWidth: '80%',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-          }
-        default:
-          return {
-            ...baseStyles,
-            backgroundColor: '#f9fafb',
-            color: '#1f2937',
-            border: '1px solid #e5e7eb'
-          }
-      }
-    }
-
-    const getContainerStyles = (isUser, isSystem) => {
-      if (isSystem) {
-        return {
-          display: 'flex',
-          margin: '16px 0',
-          maxWidth: '100%',
-          justifyContent: 'center'
-        }
-      }
-      return {
-        display: 'flex',
-        margin: '4px 0',
-        maxWidth: '100%',
-        justifyContent: isUser ? 'flex-end' : 'flex-start'
-      }
-    }
-
+  const styles = getChatPanelStyles(theme)
+  
+  if (isSystem) {
     return (
       <motion.div
-        key={message.id}
-        style={getContainerStyles(isUser, isSystem)}
-        initial={{ opacity: 0, y: 10, scale: 0.95 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{
-          type: "spring",
-          stiffness: 300,
-          damping: 25,
-          duration: 0.3
-        }}
+        style={styles.messageBubble('system', theme)}
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.3 }}
+        {...props}
       >
-        <div style={getBubbleStyles(variant)}>
-          <div style={{
-            ...(isSystem && {
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '4px'
-            })
-          }}>
-            {isSystem && (
-              <span style={{ fontSize: '16px', filter: 'grayscale(0.2)' }}>
-                {getSystemIcon(message.type)}
-              </span>
-            )}
-            {message.content}
-          </div>
+        <div style={styles.messageContent}>
+          {message.content}
         </div>
       </motion.div>
     )
   }
-
-  // Show loading state when disabled and no messages
-  if (disabled && (!messages || messages.length === 0)) {
-    return (
-      <motion.div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          height: '100%',
-          backgroundColor: '#ffffff',
-          borderRadius: '12px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-          overflow: 'hidden'
-        }}
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.2 }}
-      >
-        <Box sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flex: 1,
-          gap: '8px',
-          padding: '32px'
-        }}>
-          <CircularProgress size={24} />
-          <Typography variant="body2">
-            서버에 연결 중...
-          </Typography>
-        </Box>
-      </motion.div>
-    )
-  }
-
+  
   return (
     <motion.div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-        backgroundColor: '#ffffff',
-        borderRadius: '12px',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-        overflow: 'hidden'
-      }}
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ 
-        type: "spring",
-        stiffness: 300,
-        damping: 25,
-        duration: 0.3 
-      }}
+      style={styles.messageBubble(isUser ? 'user' : 'other', theme)}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2 }}
+      {...props}
     >
-      <div
-        ref={containerRef}
-        style={{
-          flex: 1,
-          overflowY: 'auto',
-          overflowX: 'hidden',
-          padding: '16px',
-          scrollBehavior: 'smooth'
-        }}
-      >
-        {convertedMessages.length === 0 ? (
-          <Box sx={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flex: 1,
-            padding: '32px',
-            textAlign: 'center',
-            color: '#6b7280',
-            fontSize: '14px'
-          }}>
-            💬 채팅을 시작해보세요!
-          </Box>
-        ) : (
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            minHeight: '100%',
-            gap: '4px'
-          }}>
-            <AnimatePresence mode="popLayout">
-              {convertedMessages.map((message, index) => (
-                <motion.div
-                  key={message.id}
-                  layout
-                >
-                  {renderMessage(message, index)}
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </div>
-        )}
-      </div>
+      {!isSystem && (
+        <div style={styles.messageHeader}>
+          <span style={styles.senderName(isUser, theme)}>
+            {message.senderName || '알 수 없음'}
+          </span>
+          <span style={styles.timestamp(isUser, theme)}>
+            {message.timestamp ? new Date(message.timestamp).toLocaleTimeString() : ''}
+          </span>
+        </div>
+      )}
       
-      <div style={{
-        display: 'flex',
-        alignItems: 'flex-end',
-        gap: '8px',
-        padding: '16px',
-        backgroundColor: '#ffffff',
-        borderTop: '1px solid #e5e7eb'
-      }}>
-        <input
-          type="text"
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          onKeyPress={handleKeyPress}
-          placeholder={placeholder || "메시지를 입력하세요..."}
-          disabled={disabled}
-          maxLength={200}
-          style={{
-            width: '100%',
-            padding: '12px 16px',
-            border: '2px solid #e5e7eb',
-            borderRadius: '24px',
-            fontFamily: 'inherit',
-            fontSize: '14px',
-            lineHeight: 1.5,
-            color: '#1f2937',
-            backgroundColor: '#ffffff',
-            outline: 'none',
-            transition: 'all 0.2s ease',
-            '&::placeholder': {
-              color: '#6b7280',
-              opacity: 0.7
-            },
-            '&:focus': {
-              borderColor: '#6366f1',
-              boxShadow: '0 0 0 3px rgba(99, 102, 241, 0.1)'
-            },
-            '&:disabled': {
-              opacity: 0.6,
-              cursor: 'not-allowed',
-              backgroundColor: '#f3f4f6'
-            }
-          }}
-        />
-
-        <motion.button
-          onClick={handleSend}
-          disabled={!inputValue.trim() || disabled || isLoading}
-          whileTap={{ scale: 0.9 }}
-          whileHover={{ scale: 1.1 }}
-          aria-label="메시지 전송"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '44px',
-            height: '44px',
-            border: 'none',
-            borderRadius: '50%',
-            background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-            color: 'white',
-            cursor: 'pointer',
-            transition: 'all 0.2s ease',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-            '&:hover:not(:disabled)': {
-              background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
-              boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-              transform: 'translateY(-1px) scale(1.05)'
-            },
-            '&:active:not(:disabled)': {
-              transform: 'translateY(0) scale(0.95)',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-            },
-            '&:disabled': {
-              opacity: 0.5,
-              cursor: 'not-allowed',
-              transform: 'none',
-              background: '#f3f4f6',
-              color: '#9ca3af'
-            }
-          }}
-        >
-          <SendIcon style={{ width: '20px', height: '20px', transform: 'rotate(-45deg)' }} />
-          <RippleEffect color="rgba(255, 255, 255, 0.3)" />
-        </motion.button>
+      <div style={styles.messageContent}>
+        {message.content}
       </div>
     </motion.div>
   )
 })
 
-ChatPanel.displayName = 'ChatPanel'
+// Main ChatPanel Component
+const ChatPanel = ({
+  messages = [],
+  onSendMessage,
+  isLoading = false,
+  currentUserId,
+  theme,
+  className = '',
+  ...props
+}) => {
+  const [inputValue, setInputValue] = useState('')
+  const [isTyping, setIsTyping] = useState(false)
+  const messagesEndRef = useRef(null)
+  const inputRef = useRef(null)
+  const styles = getChatPanelStyles(theme)
+  const responsiveStyles = getResponsiveStyles(theme)
+  
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }
+  
+  useEffect(() => {
+    scrollToBottom()
+  }, [messages])
+  
+  const handleSendMessage = () => {
+    if (!inputValue.trim() || isLoading) return
+    
+    onSendMessage?.(inputValue.trim())
+    setInputValue('')
+    setIsTyping(false)
+  }
+  
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleSendMessage()
+    }
+  }
+  
+  const handleInputChange = (e) => {
+    setInputValue(e.target.value)
+    setIsTyping(e.target.value.length > 0)
+  }
+  
+  const isUserMessage = (message) => {
+    return message.senderId === currentUserId
+  }
+  
+  return (
+    <motion.div
+      style={{
+        ...styles.container,
+        ...responsiveStyles.container
+      }}
+      className={className}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      {...props}
+    >
+      {/* Message List */}
+      <div
+        style={{
+          ...styles.messageListContainer,
+          ...responsiveStyles.messageListContainer,
+          ...styles.scrollbar
+        }}
+      >
+        {isLoading && messages.length === 0 ? (
+          <div style={styles.loadingContainer}>
+            <CircularProgress size={40} />
+            <Typography variant="body2" sx={{ ml: 2 }}>
+              메시지를 불러오는 중...
+            </Typography>
+          </div>
+        ) : messages.length === 0 ? (
+          <div style={styles.emptyState}>
+            <Typography variant="h6">💬</Typography>
+            <Typography variant="body1">
+              아직 메시지가 없습니다
+            </Typography>
+            <Typography variant="body2">
+              첫 번째 메시지를 보내보세요!
+            </Typography>
+          </div>
+        ) : (
+          <div style={styles.messagesContainer}>
+            <AnimatePresence mode="popLayout">
+              {messages.map((message, index) => (
+                <div
+                  key={message.id || index}
+                  style={styles.bubbleContainer(
+                    isUserMessage(message),
+                    message.type === 'system'
+                  )}
+                >
+                  <MessageBubble
+                    message={message}
+                    isUser={isUserMessage(message)}
+                    isSystem={message.type === 'system'}
+                    theme={theme}
+                  />
+                </div>
+              ))}
+            </AnimatePresence>
+            <div ref={messagesEndRef} />
+          </div>
+        )}
+      </div>
+      
+      {/* Input Section */}
+      <div style={styles.inputContainer}>
+        <input
+          ref={inputRef}
+          type="text"
+          value={inputValue}
+          onChange={handleInputChange}
+          onKeyPress={handleKeyPress}
+          placeholder="메시지를 입력하세요..."
+          disabled={isLoading}
+          style={styles.inputField}
+        />
+        
+        <button
+          onClick={handleSendMessage}
+          disabled={!inputValue.trim() || isLoading}
+          style={styles.sendButton}
+          title="메시지 보내기"
+        >
+          <SendIcon size={20} />
+        </button>
+      </div>
+    </motion.div>
+  )
+}
+
 export default ChatPanel
