@@ -70,3 +70,4 @@ export const feedbackIconStyles = {
   transform: 'translate(-50%, -50%)',
   zIndex: 10,
 }
+

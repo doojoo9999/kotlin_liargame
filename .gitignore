@@ -42,6 +42,8 @@ out/
 ### VS Code ###
 .vscode/
 
+node_modules
+
 ### Kotlin ###
 .kotlin
 
