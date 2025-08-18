@@ -1,146 +1,119 @@
 import React from 'react'
-import styled from 'styled-components'
-import {borderRadius, colors, spacing} from '@/styles'
+import { Table as MantineTable, createStyles } from '@mantine/core'
 
-const StyledTableContainer = styled.div`
-  width: 100%;
-  overflow-x: auto;
-  border-radius: ${borderRadius.medium};
-  border: 1px solid ${colors.border.primary};
-`
+const useStyles = createStyles((theme, { variant, size, striped, hoverable }) => ({
+  table: {
+    transition: 'all 0.2s ease',
+    
+    // Striped rows
+    ...(striped && {
+      '& tbody tr:nth-of-type(odd)': {
+        backgroundColor: theme.colors.gray[0],
+      },
+    }),
+    
+    // Hoverable rows
+    ...(hoverable && {
+      '& tbody tr:hover': {
+        backgroundColor: theme.colors.blue[0],
+        cursor: 'pointer',
+      },
+    }),
+  },
 
-const StyledTable = styled.table`
-  width: 100%;
-  border-collapse: collapse;
-  background-color: ${colors.surface.primary};
-`
+  // Game-specific variants
+  game: {
+    background: `linear-gradient(135deg, ${theme.colors.gray[0]}, ${theme.colors.gray[1]})`,
+    border: `2px solid ${theme.colors.gray[3]}`,
+    borderRadius: theme.radius.md,
+    overflow: 'hidden',
+  },
 
-const StyledTableHead = styled.thead`
-  background-color: ${colors.surface.secondary};
-`
+  players: {
+    '& thead th': {
+      background: `linear-gradient(135deg, ${theme.colors.blue[6]}, ${theme.colors.blue[7]})`,
+      color: theme.white,
+      fontWeight: 600,
+    },
+    '& tbody tr': {
+      borderBottom: `1px solid ${theme.colors.gray[3]}`,
+      '&:hover': {
+        background: theme.colors.blue[0],
+      },
+    },
+  },
 
-const StyledTableBody = styled.tbody``
+  rooms: {
+    '& thead th': {
+      background: `linear-gradient(135deg, ${theme.colors.green[6]}, ${theme.colors.green[7]})`,
+      color: theme.white,
+      fontWeight: 600,
+    },
+    '& tbody tr': {
+      borderBottom: `1px solid ${theme.colors.gray[3]}`,
+      '&:hover': {
+        background: theme.colors.green[0],
+      },
+    },
+  },
+}))
 
-const StyledTableRow = styled.tr`
-  &:nth-child(even) {
-    background-color: ${colors.surface.secondary};
-  }
-  
-  &:hover {
-    background-color: ${colors.surface.hover || 'rgba(0, 0, 0, 0.04)'};
-  }
-`
-
-const StyledTableCell = styled.td`
-  padding: ${spacing.md};
-  text-align: ${props => props.align || 'left'};
-  vertical-align: middle;
-  border-bottom: 1px solid ${colors.border.secondary};
-  font-size: 14px;
-  color: ${colors.text.primary};
-  
-  &:first-child {
-    padding-left: ${spacing.lg};
-  }
-  
-  &:last-child {
-    padding-right: ${spacing.lg};
-  }
-`
-
-const StyledTableHeaderCell = styled.th`
-  padding: ${spacing.md};
-  text-align: ${props => props.align || 'left'};
-  vertical-align: middle;
-  border-bottom: 2px solid ${colors.border.primary};
-  font-size: 14px;
-  font-weight: 600;
-  color: ${colors.text.primary};
-  background-color: ${colors.surface.secondary};
-  
-  &:first-child {
-    padding-left: ${spacing.lg};
-  }
-  
-  &:last-child {
-    padding-right: ${spacing.lg};
-  }
-`
-
-export const TableContainer = React.forwardRef(({ children, className, style, ...props }, ref) => (
-  <StyledTableContainer ref={ref} className={className} style={style} {...props}>
-    {children}
-  </StyledTableContainer>
-))
-
-export const Table = React.forwardRef(({ children, className, style, ...props }, ref) => (
-  <StyledTable ref={ref} className={className} style={style} {...props}>
-    {children}
-  </StyledTable>
-))
-
-export const TableHead = React.forwardRef(({ children, className, style, ...props }, ref) => (
-  <StyledTableHead ref={ref} className={className} style={style} {...props}>
-    {children}
-  </StyledTableHead>
-))
-
-export const TableBody = React.forwardRef(({ children, className, style, ...props }, ref) => (
-  <StyledTableBody ref={ref} className={className} style={style} {...props}>
-    {children}
-  </StyledTableBody>
-))
-
-export const TableRow = React.forwardRef(({ children, className, style, ...props }, ref) => (
-  <StyledTableRow ref={ref} className={className} style={style} {...props}>
-    {children}
-  </StyledTableRow>
-))
-
-export const TableCell = React.forwardRef(({ 
+// Table component
+export const Table = ({ 
   children, 
-  align, 
-  colSpan, 
-  className, 
-  style, 
+  variant = 'default',
+  size = 'md',
+  striped = false,
+  hoverable = false,
+  className = '',
   ...props 
-}, ref) => (
-  <StyledTableCell 
-    ref={ref} 
-    align={align} 
-    colSpan={colSpan}
-    className={className} 
-    style={style} 
-    {...props}
-  >
-    {children}
-  </StyledTableCell>
-))
+}) => {
+  const { classes, cx } = useStyles({ variant, size, striped, hoverable })
 
-// Header cell variant
-export const TableHeaderCell = React.forwardRef(({ 
-  children, 
-  align, 
-  className, 
-  style, 
-  ...props 
-}, ref) => (
-  <StyledTableHeaderCell 
-    ref={ref} 
-    align={align} 
-    className={className} 
-    style={style} 
-    {...props}
-  >
-    {children}
-  </StyledTableHeaderCell>
-))
+  return (
+    <MantineTable
+      className={cx(className, classes.table)}
+      size={size}
+      striped={striped}
+      highlightOnHover={hoverable}
+      {...props}
+    >
+      {children}
+    </MantineTable>
+  )
+}
 
-// Display names for debugging
-TableContainer.displayName = 'TableContainer'
+// Table sub-components
+export const TableHead = ({ children, className, ...props }) => (
+  <MantineTable.Thead className={className} {...props}>
+    {children}
+  </MantineTable.Thead>
+)
+
+export const TableBody = ({ children, className, ...props }) => (
+  <MantineTable.Tbody className={className} {...props}>
+    {children}
+  </MantineTable.Tbody>
+)
+
+export const TableRow = ({ children, className, ...props }) => (
+  <MantineTable.Tr className={className} {...props}>
+    {children}
+  </MantineTable.Tr>
+)
+
+export const TableCell = ({ children, className, ...props }) => (
+  <MantineTable.Td className={className} {...props}>
+    {children}
+  </MantineTable.Td>
+)
+
+export const TableHeader = ({ children, className, ...props }) => (
+  <MantineTable.Th className={className} {...props}>
+    {children}
+  </MantineTable.Th>
+)
+
 Table.displayName = 'Table'
-TableHead.displayName = 'TableHead'
-TableBody.displayName = 'TableBody'
-TableRow.displayName = 'TableRow'
-TableCell.displayName = 'TableCell'
-TableHeaderCell.displayName = 'TableHeaderCell'
+
+export default Table

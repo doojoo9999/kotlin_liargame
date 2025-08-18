@@ -1,191 +1,191 @@
-import styled, {css} from 'styled-components'
-import {spacing} from '@/styles'
+import React from 'react'
+import { Box as MantineBox, Container as MantineContainer, Stack as MantineStack, Grid as MantineGrid, createStyles } from '@mantine/core'
 
-// Box component to replace MUI Box
-const Box = styled.div`
-  ${props => props.$display && css`
-    display: ${props.$display};
-  `}
-  
-  ${props => props.$flexDirection && css`
-    flex-direction: ${props.$flexDirection};
-  `}
-  
-  ${props => props.$justifyContent && css`
-    justify-content: ${props.$justifyContent};
-  `}
-  
-  ${props => props.$alignItems && css`
-    align-items: ${props.$alignItems};
-  `}
-  
-  ${props => props.$height && css`
-    height: ${props.$height};
-  `}
-  
-  ${props => props.$width && css`
-    width: ${props.$width};
-  `}
-  
-  ${props => props.$gap && css`
-    gap: ${typeof props.$gap === 'number' ? `${props.$gap * 8}px` : props.$gap};
-  `}
-  
-  ${props => props.$padding && css`
-    padding: ${typeof props.$padding === 'number' ? `${props.$padding * 8}px` : props.$padding};
-  `}
-  
-  ${props => props.$margin && css`
-    margin: ${typeof props.$margin === 'number' ? `${props.$margin * 8}px` : props.$margin};
-  `}
-  
-  ${props => props.$backgroundColor && css`
-    background-color: ${props.$backgroundColor};
-  `}
-  
-  ${props => props.$color && css`
-    color: ${props.$color};
-  `}
-  
-  ${props => props.$borderRadius && css`
-    border-radius: ${typeof props.$borderRadius === 'number' ? `${props.$borderRadius}px` : props.$borderRadius};
-  `}
-  
-  ${props => props.$boxShadow && css`
-    box-shadow: ${props.$boxShadow};
-  `}
-  
-  ${props => props.$position && css`
-    position: ${props.$position};
-  `}
-  
-  ${props => props.$top && css`
-    top: ${props.$top};
-  `}
-  
-  ${props => props.$left && css`
-    left: ${props.$left};
-  `}
-  
-  ${props => props.$right && css`
-    right: ${props.$right};
-  `}
-  
-  ${props => props.$bottom && css`
-    bottom: ${props.$bottom};
-  `}
-  
-  ${props => props.$zIndex && css`
-    z-index: ${props.$zIndex};
-  `}
-  
-  ${props => props.$overflow && css`
-    overflow: ${props.$overflow};
-  `}
-  
-  ${props => props.$textAlign && css`
-    text-align: ${props.$textAlign};
-  `}
-`
+const useStyles = createStyles((theme, { variant, spacing, align, justify }) => ({
+  layout: {
+    // Custom spacing variants
+    ...(spacing === 'tight' && {
+      gap: theme.spacing.xs,
+    }),
+    ...(spacing === 'normal' && {
+      gap: theme.spacing.md,
+    }),
+    ...(spacing === 'loose' && {
+      gap: theme.spacing.lg,
+    }),
+    
+    // Custom alignment variants
+    ...(align === 'start' && {
+      alignItems: 'flex-start',
+    }),
+    ...(align === 'center' && {
+      alignItems: 'center',
+    }),
+    ...(align === 'end' && {
+      alignItems: 'flex-end',
+    }),
+    ...(align === 'stretch' && {
+      alignItems: 'stretch',
+    }),
+    
+    // Custom justify variants
+    ...(justify === 'start' && {
+      justifyContent: 'flex-start',
+    }),
+    ...(justify === 'center' && {
+      justifyContent: 'center',
+    }),
+    ...(justify === 'end' && {
+      justifyContent: 'flex-end',
+    }),
+    ...(justify === 'space-between' && {
+      justifyContent: 'space-between',
+    }),
+    ...(justify === 'space-around' && {
+      justifyContent: 'space-around',
+    }),
+  },
+
+  // Game-specific variants
+  game: {
+    background: `linear-gradient(135deg, ${theme.colors.gray[0]}, ${theme.colors.gray[1]})`,
+    borderRadius: theme.radius.md,
+    padding: theme.spacing.md,
+  },
+
+  center: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: '100%',
+  },
+
+  spacer: {
+    flex: 1,
+  },
+}))
+
+// Box component
+export const Box = ({ 
+  children, 
+  variant = 'default',
+  spacing,
+  align,
+  justify,
+  className = '',
+  ...props 
+}) => {
+  const { classes, cx } = useStyles({ variant, spacing, align, justify })
+
+  return (
+    <MantineBox
+      className={cx(className, classes.layout)}
+      {...props}
+    >
+      {children}
+    </MantineBox>
+  )
+}
 
 // Container component
-const Container = styled.div.withConfig({
-    shouldForwardProp: (prop) => prop !== 'maxWidth'
-})`
-    width: 100%;
-    max-width: ${props => {
-        const maxWidthValue = props.maxWidth || props.$maxWidth;
-        switch (maxWidthValue) {
-            case 'xs': return '444px'
-            case 'sm': return '600px'
-            case 'md': return '960px'
-            case 'lg': return '1280px'
-            case 'xl': return '1920px'
-            default: return maxWidthValue || '100%'
-        }
-    }};
-    margin: 0 auto;
-    padding: 0 ${spacing.md};
+export const Container = ({ 
+  children, 
+  variant = 'default',
+  size = 'md',
+  className = '',
+  ...props 
+}) => {
+  const { classes, cx } = useStyles({ variant })
 
-    ${props => props.$disableGutters && css`
-        padding: 0;
-    `}
-`
+  return (
+    <MantineContainer
+      className={cx(className, classes.layout)}
+      size={size}
+      {...props}
+    >
+      {children}
+    </MantineContainer>
+  )
+}
 
+// Stack component
+export const Stack = ({ 
+  children, 
+  variant = 'default',
+  spacing = 'md',
+  align = 'stretch',
+  justify = 'start',
+  className = '',
+  ...props 
+}) => {
+  const { classes, cx } = useStyles({ variant, spacing, align, justify })
 
-// Stack component for vertical/horizontal layouts
-const Stack = styled.div`
-  display: flex;
-  flex-direction: ${props => props.$direction || 'column'};
-  gap: ${props => typeof props.$spacing === 'number' ? `${props.$spacing * 8}px` : props.$spacing || spacing.md};
-  
-  ${props => props.$alignItems && css`
-    align-items: ${props.$alignItems};
-  `}
-  
-  ${props => props.$justifyContent && css`
-    justify-content: ${props.$justifyContent};
-  `}
-  
-  ${props => props.$wrap && css`
-    flex-wrap: wrap;
-  `}
-`
+  return (
+    <MantineStack
+      className={cx(className, classes.layout)}
+      gap={spacing}
+      align={align}
+      justify={justify}
+      {...props}
+    >
+      {children}
+    </MantineStack>
+  )
+}
 
 // Grid component
-const Grid = styled.div`
-  display: grid;
-  gap: ${props => typeof props.$gap === 'number' ? `${props.$gap * 8}px` : props.$gap || spacing.md};
-  
-  ${props => props.$columns && css`
-    grid-template-columns: ${typeof props.$columns === 'number' ? `repeat(${props.$columns}, 1fr)` : props.$columns};
-  `}
-  
-  ${props => props.$rows && css`
-    grid-template-rows: ${typeof props.$rows === 'number' ? `repeat(${props.$rows}, 1fr)` : props.$rows};
-  `}
-  
-  ${props => props.$areas && css`
-    grid-template-areas: ${props.$areas};
-  `}
-`
+export const Grid = ({ 
+  children, 
+  variant = 'default',
+  spacing = 'md',
+  align = 'stretch',
+  justify = 'start',
+  className = '',
+  ...props 
+}) => {
+  const { classes, cx } = useStyles({ variant, spacing, align, justify })
 
-// Center component for easy centering
-const Center = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  
-  ${props => props.$height && css`
-    height: ${props.$height};
-  `}
-  
-  ${props => props.$width && css`
-    width: ${props.$width};
-  `}
-`
+  return (
+    <MantineGrid
+      className={cx(className, classes.layout)}
+      gutter={spacing}
+      align={align}
+      justify={justify}
+      {...props}
+    >
+      {children}
+    </MantineGrid>
+  )
+}
+
+// Center component
+export const Center = ({ 
+  children, 
+  className = '',
+  ...props 
+}) => {
+  const { classes, cx } = useStyles({})
+
+  return (
+    <div
+      className={cx(className, classes.center)}
+      {...props}
+    >
+      {children}
+    </div>
+  )
+}
 
 // Spacer component
-const Spacer = styled.div`
-  ${props => props.$x && css`
-    width: ${typeof props.$x === 'number' ? `${props.$x * 8}px` : props.$x};
-  `}
-  
-  ${props => props.$y && css`
-    height: ${typeof props.$y === 'number' ? `${props.$y * 8}px` : props.$y};
-  `}
-  
-  ${props => !props.$x && !props.$y && css`
-    flex: 1;
-  `}
-`
+export const Spacer = ({ className = '', ...props }) => {
+  const { classes, cx } = useStyles({})
 
-// Export all layout components
-export {
-  Box,
-  Container,
-  Stack,
-  Grid,
-  Center,
-  Spacer
+  return (
+    <div
+      className={cx(className, classes.spacer)}
+      {...props}
+    />
+  )
 }
+
+export default Box

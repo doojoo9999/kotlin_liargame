@@ -1,91 +1,100 @@
 import React from 'react'
-import styled from 'styled-components'
+import { Paper as MantinePaper, createStyles } from '@mantine/core'
 
-const StyledPaper = styled.div`
-  background-color: ${props => props.theme.colors?.background?.paper || '#ffffff'};
-  color: ${props => props.theme.colors?.text?.primary || 'rgba(0, 0, 0, 0.87)'};
-  transition: box-shadow 300ms cubic-bezier(0.4, 0, 0.2, 1) 0ms;
-  border-radius: ${props => {
-    if (props.$square) return '0';
-    return props.theme.borderRadius?.medium || '8px';
-  }};
-  
-  box-shadow: ${props => {
-    switch (props.$elevation) {
-      case 0: return 'none';
-      case 1: return '0px 2px 1px -1px rgba(0,0,0,0.2),0px 1px 1px 0px rgba(0,0,0,0.14),0px 1px 3px 0px rgba(0,0,0,0.12)';
-      case 2: return '0px 3px 1px -2px rgba(0,0,0,0.2),0px 2px 2px 0px rgba(0,0,0,0.14),0px 1px 5px 0px rgba(0,0,0,0.12)';
-      case 3: return '0px 3px 3px -2px rgba(0,0,0,0.2),0px 3px 4px 0px rgba(0,0,0,0.14),0px 1px 8px 0px rgba(0,0,0,0.12)';
-      case 4: return '0px 2px 4px -1px rgba(0,0,0,0.2),0px 4px 5px 0px rgba(0,0,0,0.14),0px 1px 10px 0px rgba(0,0,0,0.12)';
-      case 5: return '0px 3px 5px -1px rgba(0,0,0,0.2),0px 5px 8px 0px rgba(0,0,0,0.14),0px 1px 14px 0px rgba(0,0,0,0.12)';
-      case 6: return '0px 3px 5px -1px rgba(0,0,0,0.2),0px 6px 10px 0px rgba(0,0,0,0.14),0px 1px 18px 0px rgba(0,0,0,0.12)';
-      case 7: return '0px 4px 5px -2px rgba(0,0,0,0.2),0px 7px 10px 1px rgba(0,0,0,0.14),0px 2px 16px 1px rgba(0,0,0,0.12)';
-      case 8: return '0px 5px 5px -3px rgba(0,0,0,0.2),0px 8px 10px 1px rgba(0,0,0,0.14),0px 3px 14px 2px rgba(0,0,0,0.12)';
-      case 9: return '0px 5px 6px -3px rgba(0,0,0,0.2),0px 9px 12px 1px rgba(0,0,0,0.14),0px 3px 16px 2px rgba(0,0,0,0.12)';
-      case 10: return '0px 6px 6px -3px rgba(0,0,0,0.2),0px 10px 14px 1px rgba(0,0,0,0.14),0px 4px 18px 3px rgba(0,0,0,0.12)';
-      case 11: return '0px 6px 7px -4px rgba(0,0,0,0.2),0px 11px 15px 1px rgba(0,0,0,0.14),0px 4px 20px 3px rgba(0,0,0,0.12)';
-      case 12: return '0px 7px 8px -4px rgba(0,0,0,0.2),0px 12px 17px 2px rgba(0,0,0,0.14),0px 5px 22px 4px rgba(0,0,0,0.12)';
-      case 13: return '0px 7px 8px -4px rgba(0,0,0,0.2),0px 13px 19px 2px rgba(0,0,0,0.14),0px 5px 24px 4px rgba(0,0,0,0.12)';
-      case 14: return '0px 7px 9px -4px rgba(0,0,0,0.2),0px 14px 21px 2px rgba(0,0,0,0.14),0px 5px 26px 4px rgba(0,0,0,0.12)';
-      case 15: return '0px 8px 9px -5px rgba(0,0,0,0.2),0px 15px 22px 2px rgba(0,0,0,0.14),0px 6px 28px 5px rgba(0,0,0,0.12)';
-      case 16: return '0px 8px 10px -5px rgba(0,0,0,0.2),0px 16px 24px 2px rgba(0,0,0,0.14),0px 6px 30px 5px rgba(0,0,0,0.12)';
-      case 17: return '0px 8px 11px -5px rgba(0,0,0,0.2),0px 17px 26px 2px rgba(0,0,0,0.14),0px 6px 32px 5px rgba(0,0,0,0.12)';
-      case 18: return '0px 9px 11px -5px rgba(0,0,0,0.2),0px 18px 28px 2px rgba(0,0,0,0.14),0px 7px 34px 6px rgba(0,0,0,0.12)';
-      case 19: return '0px 9px 12px -6px rgba(0,0,0,0.2),0px 19px 29px 2px rgba(0,0,0,0.14),0px 7px 36px 6px rgba(0,0,0,0.12)';
-      case 20: return '0px 10px 13px -6px rgba(0,0,0,0.2),0px 20px 31px 3px rgba(0,0,0,0.14),0px 8px 38px 7px rgba(0,0,0,0.12)';
-      case 21: return '0px 10px 13px -6px rgba(0,0,0,0.2),0px 21px 33px 3px rgba(0,0,0,0.14),0px 8px 40px 7px rgba(0,0,0,0.12)';
-      case 22: return '0px 10px 14px -6px rgba(0,0,0,0.2),0px 22px 35px 3px rgba(0,0,0,0.14),0px 8px 42px 7px rgba(0,0,0,0.12)';
-      case 23: return '0px 11px 14px -7px rgba(0,0,0,0.2),0px 23px 36px 3px rgba(0,0,0,0.14),0px 9px 44px 8px rgba(0,0,0,0.12)';
-      case 24: return '0px 11px 15px -7px rgba(0,0,0,0.2),0px 24px 38px 3px rgba(0,0,0,0.14),0px 9px 46px 8px rgba(0,0,0,0.12)';
-      default: return '0px 2px 1px -1px rgba(0,0,0,0.2),0px 1px 1px 0px rgba(0,0,0,0.14),0px 1px 3px 0px rgba(0,0,0,0.12)';
+const useStyles = createStyles((theme, { variant, elevation, interactive }) => ({
+  paper: {
+    transition: 'all 0.2s ease',
+    
+    // Interactive variants
+    ...(interactive && {
+      cursor: 'pointer',
+      '&:hover': {
+        transform: 'translateY(-2px)',
+        boxShadow: theme.shadows.lg,
+      },
+      '&:active': {
+        transform: 'translateY(-1px)',
+        boxShadow: theme.shadows.md,
+      },
+      '&:focus-visible': {
+        outline: `2px solid ${theme.colors.blue[6]}`,
+        outlineOffset: '2px',
+      },
+    }),
+  },
+
+  // Game-specific variants
+  game: {
+    background: `linear-gradient(135deg, ${theme.colors.gray[0]}, ${theme.colors.gray[1]})`,
+    border: `2px solid ${theme.colors.gray[3]}`,
+    '&:hover': {
+      borderColor: theme.colors.blue[4],
+      background: `linear-gradient(135deg, ${theme.colors.blue[0]}, ${theme.colors.blue[1]})`,
+    },
+  },
+
+  victory: {
+    background: `linear-gradient(135deg, ${theme.colors.green[0]}, ${theme.colors.green[1]})`,
+    border: `2px solid ${theme.colors.green[4]}`,
+    '&:hover': {
+      borderColor: theme.colors.green[5],
+      background: `linear-gradient(135deg, ${theme.colors.green[1]}, ${theme.colors.green[2]})`,
+    },
+  },
+
+  defeat: {
+    background: `linear-gradient(135deg, ${theme.colors.red[0]}, ${theme.colors.red[1]})`,
+    border: `2px solid ${theme.colors.red[4]}`,
+    '&:hover': {
+      borderColor: theme.colors.red[5],
+      background: `linear-gradient(135deg, ${theme.colors.red[1]}, ${theme.colors.red[2]})`,
+    },
+  },
+}))
+
+// Paper component
+export const Paper = ({ 
+  children, 
+  variant = 'default',
+  elevation = 'md',
+  interactive = false,
+  className = '',
+  ...props 
+}) => {
+  const { classes, cx } = useStyles({ variant, elevation, interactive })
+
+  // Map elevation to Mantine shadow
+  const getShadow = () => {
+    switch (elevation) {
+      case 'none':
+        return 'none'
+      case 'xs':
+        return 'xs'
+      case 'sm':
+        return 'sm'
+      case 'md':
+        return 'md'
+      case 'lg':
+        return 'lg'
+      case 'xl':
+        return 'xl'
+      default:
+        return 'md'
     }
-  }};
-
-  ${props => props.$variant === 'outlined' && `
-    box-shadow: none;
-    border: 1px solid ${props.theme.colors?.divider || 'rgba(0, 0, 0, 0.12)'};
-  `}
-`
-
-export const Paper = React.forwardRef(({
-  children,
-  elevation = 1,
-  square = false,
-  variant = 'elevation',
-  className,
-  sx,
-  component = 'div',
-  ...otherProps
-}, ref) => {
-  // DOM에 전달하면 안되는 props 필터링
-  const { 
-    maxWidth,
-    minWidth,
-    maxHeight,
-    minHeight,
-    ...props 
-  } = otherProps
+  }
 
   return (
-    <StyledPaper
-      as={component}
-      ref={ref}
-      $elevation={variant === 'elevation' ? elevation : 0}
-      $square={square}
-      $variant={variant}
-      className={className}
-      style={{
-        ...sx,
-        ...(maxWidth && { maxWidth }),
-        ...(minWidth && { minWidth }),
-        ...(maxHeight && { maxHeight }),
-        ...(minHeight && { minHeight })
-      }}
+    <MantinePaper
+      className={cx(className, classes.paper)}
+      shadow={getShadow()}
+      withBorder
       {...props}
     >
       {children}
-    </StyledPaper>
+    </MantinePaper>
   )
-})
+}
 
 Paper.displayName = 'Paper'
+
+export default Paper
