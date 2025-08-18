@@ -1,33 +1,7 @@
 import React from 'react'
 import {useRouteError} from 'react-router-dom'
-import styled from 'styled-components'
 import {Alert, Box, Button, Typography} from '../components/ui'
 import {RefreshCw as RefreshIcon} from 'lucide-react'
-
-// Styled components for game-style design
-const RouteErrorContainer = styled.div`
-  max-width: 600px;
-  margin: 0 auto;
-  padding: 24px;
-`
-
-const RouteErrorContent = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 50vh;
-  gap: 24px;
-  text-align: center;
-`
-
-const RouteErrorCard = styled.div`
-  padding: 32px;
-  border-radius: 16px;
-  background: white;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-  width: 100%;
-`
 
 function RouteErrorBoundary() {
   const error = useRouteError()
@@ -37,9 +11,15 @@ function RouteErrorBoundary() {
   }
 
   return (
-    <RouteErrorContainer>
-      <RouteErrorCard>
-        <RouteErrorContent>
+    <Box style={{ maxWidth: '600px', margin: '0 auto', padding: '24px' }}>
+      <Box style={{ 
+        padding: '32px', 
+        borderRadius: '16px', 
+        backgroundColor: 'white', 
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)', 
+        width: '100%' 
+      }}>
+        <Box $display="flex" $flexDirection="column" $alignItems="center" $justifyContent="center" $height="50vh" $gap="24px" style={{ textAlign: 'center' }}>
           <Typography variant="h4" color="#f44336" style={{ marginBottom: '16px', fontWeight: 'bold' }}>
             오류가 발생했습니다
           </Typography>
@@ -69,9 +49,9 @@ function RouteErrorBoundary() {
           >
             다시 시도
           </Button>
-        </RouteErrorContent>
-      </RouteErrorCard>
-    </RouteErrorContainer>
+        </Box>
+      </Box>
+    </Box>
   )
 }
 

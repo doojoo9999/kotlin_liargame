@@ -1,5 +1,4 @@
 import React, {useEffect, useState} from 'react'
-import styled, {keyframes} from 'styled-components'
 import {
     Brain,
     ChevronLeft,
@@ -159,312 +158,82 @@ const ACTION_GUIDANCE = {
     }
 }
 
-// Styled Components
-const fadeIn = keyframes`
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-`
-
-const TutorialOverlay = styled.div`
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: 16px;
-`
-
-const TutorialModal = styled.div`
-  background: white;
-  border-radius: 16px;
-  max-width: 800px;
-  width: 100%;
-  max-height: 90vh;
-  overflow-y: auto;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
-  animation: ${fadeIn} 0.3s ease-out;
-
-  @media (max-width: 768px) {
-    max-height: 95vh;
-    border-radius: 12px;
-  }
-`
-
-const TutorialHeader = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 24px 24px 16px;
-  border-bottom: 1px solid #f0f0f0;
-
-  @media (max-width: 768px) {
-    padding: 16px 16px 12px;
-  }
-`
-
-const TutorialTitle = styled.h2`
-  margin: 0;
-  font-size: 24px;
-  font-weight: 600;
-  color: #1a1a1a;
-
-  @media (max-width: 768px) {
-    font-size: 20px;
-  }
-`
-
-const HeaderActions = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 8px;
-`
-
-const SkipButton = styled(Button)`
-  font-size: 14px;
-  padding: 6px 12px;
-  background: transparent;
-  color: #666;
-  
-  &:hover {
-    background: #f5f5f5;
-  }
-`
-
-const CloseButton = styled.button`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: none;
-  background: transparent;
-  border-radius: 8px;
-  cursor: pointer;
-  color: #666;
-  transition: all 0.2s;
-
-  &:hover {
-    background: #f5f5f5;
-    color: #333;
-  }
-`
-
-const TutorialContent = styled.div`
-  padding: 24px;
-
-  @media (max-width: 768px) {
-    padding: 16px;
-  }
-`
-
-const StepProgressBar = styled.div`
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 32px;
-  flex-wrap: wrap;
-
-  @media (max-width: 768px) {
-    gap: 8px;
-    margin-bottom: 24px;
-  }
-`
-
-const StepIndicator = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: ${props => props.active ? props.color : '#f0f0f0'};
-  color: ${props => props.active ? 'white' : '#999'};
-  transition: all 0.3s;
-  font-size: 14px;
-
-  @media (max-width: 768px) {
-    width: 32px;
-    height: 32px;
-    font-size: 12px;
-  }
-`
-
-const StepContent = styled.div`
-  animation: ${fadeIn} 0.4s ease-out;
-`
-
-const StepHeader = styled.div`
-  text-align: center;
-  margin-bottom: 24px;
-`
-
-const StepTitle = styled.h3`
-  font-size: 28px;
-  font-weight: 600;
-  color: #1a1a1a;
-  margin: 0 0 12px 0;
-
-  @media (max-width: 768px) {
-    font-size: 24px;
-    margin: 0 0 8px 0;
-  }
-`
-
-const StepDescription = styled.p`
-  font-size: 16px;
-  color: #666;
-  line-height: 1.6;
-  margin: 0;
-
-  @media (max-width: 768px) {
-    font-size: 14px;
-  }
-`
-
-const SubSteps = styled.div`
-  display: grid;
-  gap: 16px;
-  margin-top: 24px;
-
-  @media (max-width: 768px) {
-    gap: 12px;
-    margin-top: 16px;
-  }
-`
-
-const SubStep = styled.div`
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 16px;
-  background: #f8f9fa;
-  border-radius: 12px;
-  border-left: 4px solid ${props => props.color || '#2196F3'};
-
-  @media (max-width: 768px) {
-    padding: 12px;
-    gap: 8px;
-  }
-`
-
-const SubStepIcon = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  background: white;
-  border-radius: 8px;
-  flex-shrink: 0;
-  color: ${props => props.color || '#2196F3'};
-
-  @media (max-width: 768px) {
-    width: 28px;
-    height: 28px;
-  }
-`
-
-const SubStepContent = styled.div`
-  flex: 1;
-`
-
-const SubStepTitle = styled.h4`
-  font-size: 16px;
-  font-weight: 600;
-  color: #1a1a1a;
-  margin: 0 0 4px 0;
-
-  @media (max-width: 768px) {
-    font-size: 14px;
-  }
-`
-
-const SubStepDescription = styled.p`
-  font-size: 14px;
-  color: #666;
-  margin: 0;
-  line-height: 1.5;
-
-  @media (max-width: 768px) {
-    font-size: 13px;
-  }
-`
-
-const TutorialFooter = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 24px;
-  border-top: 1px solid #f0f0f0;
-
-  @media (max-width: 768px) {
-    padding: 12px 16px;
-    flex-wrap: wrap;
-    gap: 12px;
-  }
-`
-
-const NavigationButton = styled(Button)`
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  @media (max-width: 768px) {
-    padding: 6px 12px;
-    font-size: 14px;
-  }
-`
-
-const ProgressInfo = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  color: #666;
-  font-size: 14px;
-
-  @media (max-width: 768px) {
-    width: 100%;
-    justify-content: center;
-    order: -1;
-    font-size: 12px;
-  }
-`
-
 const TutorialStepContent = ({ step, isMobile }) => (
-    <StepContent>
-        <StepHeader>
-            <StepTitle>{step.title}</StepTitle>
-            <StepDescription>{step.content}</StepDescription>
-        </StepHeader>
+    <div style={{ animation: 'fadeIn 0.4s ease-out' }}>
+        <div style={{
+            textAlign: 'center',
+            marginBottom: '24px'
+        }}>
+            <h3 style={{
+                fontSize: isMobile ? '24px' : '28px',
+                fontWeight: 600,
+                color: '#1a1a1a',
+                margin: '0 0 12px 0'
+            }}>
+                {step.title}
+            </h3>
+            <p style={{
+                fontSize: isMobile ? '14px' : '16px',
+                color: '#666',
+                lineHeight: 1.6,
+                margin: 0
+            }}>
+                {step.content}
+            </p>
+        </div>
 
         {step.subSteps && (
-            <SubSteps>
+            <div style={{
+                display: 'grid',
+                gap: isMobile ? '12px' : '16px',
+                marginTop: isMobile ? '16px' : '24px'
+            }}>
                 {step.subSteps.map((subStep, index) => (
-                    <SubStep key={index} color={step.color}>
-                        <SubStepIcon color={step.color}>
+                    <div key={index} style={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: isMobile ? '8px' : '12px',
+                        padding: isMobile ? '12px' : '16px',
+                        background: '#f8f9fa',
+                        borderRadius: '12px',
+                        borderLeft: `4px solid ${step.color || '#2196F3'}`
+                    }}>
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: isMobile ? '28px' : '32px',
+                            height: isMobile ? '28px' : '32px',
+                            background: 'white',
+                            borderRadius: '8px',
+                            flexShrink: 0,
+                            color: step.color || '#2196F3'
+                        }}>
                             {subStep.icon}
-                        </SubStepIcon>
-                        <SubStepContent>
-                            <SubStepTitle>{subStep.title}</SubStepTitle>
-                            <SubStepDescription>{subStep.description}</SubStepDescription>
-                        </SubStepContent>
-                    </SubStep>
+                        </div>
+                        <div style={{ flex: 1 }}>
+                            <h4 style={{
+                                fontSize: isMobile ? '14px' : '16px',
+                                fontWeight: 600,
+                                color: '#1a1a1a',
+                                margin: '0 0 4px 0'
+                            }}>
+                                {subStep.title}
+                            </h4>
+                            <p style={{
+                                fontSize: isMobile ? '13px' : '14px',
+                                color: '#666',
+                                margin: 0,
+                                lineHeight: 1.5
+                            }}>
+                                {subStep.description}
+                            </p>
+                        </div>
+                    </div>
                 ))}
-            </SubSteps>
+            </div>
         )}
-    </StepContent>
+    </div>
 )
 
 const GameTutorialSystem = ({
@@ -524,64 +293,184 @@ const GameTutorialSystem = ({
     const currentStep = TUTORIAL_STEPS[activeStep]
 
     return (
-        <TutorialOverlay onClick={(e) => e.target === e.currentTarget && handleClose()}>
-            <TutorialModal>
-                <TutorialHeader>
-                    <TutorialTitle>게임 튜토리얼</TutorialTitle>
-                    <HeaderActions>
-                        <SkipButton variant="ghost" size="small" onClick={handleSkip}>
+        <div 
+            style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: 'rgba(0, 0, 0, 0.5)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 1000,
+                padding: '16px'
+            }}
+            onClick={(e) => e.target === e.currentTarget && handleClose()}
+        >
+            <div style={{
+                background: 'white',
+                borderRadius: '16px',
+                maxWidth: '800px',
+                width: '100%',
+                maxHeight: '90vh',
+                overflowY: 'auto',
+                boxShadow: '0 20px 40px rgba(0, 0, 0, 0.15)',
+                animation: 'fadeIn 0.3s ease-out'
+            }}>
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: isMobile ? '16px 16px 12px' : '24px 24px 16px',
+                    borderBottom: '1px solid #f0f0f0'
+                }}>
+                    <h2 style={{
+                        margin: 0,
+                        fontSize: isMobile ? '20px' : '24px',
+                        fontWeight: 600,
+                        color: '#1a1a1a'
+                    }}>
+                        게임 튜토리얼
+                    </h2>
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                    }}>
+                        <Button variant="ghost" size="small" onClick={handleSkip} style={{
+                            fontSize: '14px',
+                            padding: '6px 12px',
+                            background: 'transparent',
+                            color: '#666'
+                        }}>
                             건너뛰기
-                        </SkipButton>
-                        <CloseButton onClick={handleClose}>
+                        </Button>
+                        <button 
+                            onClick={handleClose}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                width: '32px',
+                                height: '32px',
+                                border: 'none',
+                                background: 'transparent',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                color: '#666',
+                                transition: 'all 0.2s'
+                            }}
+                        >
                             <X size={20} />
-                        </CloseButton>
-                    </HeaderActions>
-                </TutorialHeader>
+                        </button>
+                    </div>
+                </div>
 
-                <TutorialContent>
-                    <StepProgressBar>
+                <div style={{
+                    padding: isMobile ? '16px' : '24px'
+                }}>
+                    <div style={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        gap: isMobile ? '8px' : '12px',
+                        marginBottom: isMobile ? '24px' : '32px',
+                        flexWrap: 'wrap'
+                    }}>
                         {TUTORIAL_STEPS.map((step, index) => (
-                            <StepIndicator
+                            <div
                                 key={index}
-                                active={index <= activeStep}
-                                color={step.color}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    width: isMobile ? '32px' : '40px',
+                                    height: isMobile ? '32px' : '40px',
+                                    borderRadius: '50%',
+                                    background: index <= activeStep ? step.color : '#f0f0f0',
+                                    color: index <= activeStep ? 'white' : '#999',
+                                    transition: 'all 0.3s',
+                                    fontSize: isMobile ? '12px' : '14px'
+                                }}
                             >
                                 {step.icon}
-                            </StepIndicator>
+                            </div>
                         ))}
-                    </StepProgressBar>
+                    </div>
 
                     <TutorialStepContent step={currentStep} isMobile={isMobile} />
-                </TutorialContent>
+                </div>
 
-                <TutorialFooter>
-                    <NavigationButton
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: isMobile ? '12px 16px' : '16px 24px',
+                    borderTop: '1px solid #f0f0f0',
+                    ...(isMobile && {
+                        flexWrap: 'wrap',
+                        gap: '12px'
+                    })
+                }}>
+                    <Button
                         variant="ghost"
                         disabled={activeStep === 0}
                         onClick={handleBack}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            padding: isMobile ? '6px 12px' : '8px 16px',
+                            fontSize: isMobile ? '14px' : 'inherit'
+                        }}
                     >
                         <ChevronLeft size={16} />
                         이전
-                    </NavigationButton>
+                    </Button>
 
-                    <ProgressInfo>
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '16px',
+                        color: '#666',
+                        fontSize: isMobile ? '12px' : '14px',
+                        ...(isMobile && {
+                            width: '100%',
+                            justifyContent: 'center',
+                            order: -1
+                        })
+                    }}>
                         <span>{activeStep + 1} / {TUTORIAL_STEPS.length}</span>
-                    </ProgressInfo>
+                    </div>
 
                     {activeStep === TUTORIAL_STEPS.length - 1 ? (
-                        <NavigationButton variant="primary" onClick={handleClose}>
+                        <Button variant="primary" onClick={handleClose} style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            padding: isMobile ? '6px 12px' : '8px 16px',
+                            fontSize: isMobile ? '14px' : 'inherit'
+                        }}>
                             시작하기
                             <Play size={16} />
-                        </NavigationButton>
+                        </Button>
                     ) : (
-                        <NavigationButton variant="primary" onClick={handleNext}>
+                        <Button variant="primary" onClick={handleNext} style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            padding: isMobile ? '6px 12px' : '8px 16px',
+                            fontSize: isMobile ? '14px' : 'inherit'
+                        }}>
                             다음
                             <ChevronRight size={16} />
-                        </NavigationButton>
+                        </Button>
                     )}
-                </TutorialFooter>
-            </TutorialModal>
-        </TutorialOverlay>
+                </div>
+            </div>
+        </div>
     )
 }
 
@@ -592,58 +481,50 @@ export const ActionGuidance = ({ action, visible = true }) => {
     if (!guidance || !visible) return null
 
     return (
-        <ActionGuidanceContainer>
-            <ActionGuidanceIcon color={guidance.color}>
+        <div style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '12px',
+            padding: '16px',
+            background: '#f8f9fa',
+            borderRadius: '12px',
+            borderLeft: '4px solid #2196F3',
+            margin: '16px 0',
+            animation: 'fadeIn 0.3s ease-out'
+        }}>
+            <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '32px',
+                height: '32px',
+                background: 'white',
+                borderRadius: '8px',
+                flexShrink: 0,
+                color: guidance.color || '#2196F3'
+            }}>
                 {guidance.icon}
-            </ActionGuidanceIcon>
-            <ActionGuidanceContent>
-                <ActionGuidanceTitle>{guidance.message}</ActionGuidanceTitle>
-                <ActionGuidanceDescription>{guidance.description}</ActionGuidanceDescription>
-            </ActionGuidanceContent>
-        </ActionGuidanceContainer>
+            </div>
+            <div style={{ flex: 1 }}>
+                <h4 style={{
+                    fontSize: '16px',
+                    fontWeight: 600,
+                    color: '#1a1a1a',
+                    margin: '0 0 4px 0'
+                }}>
+                    {guidance.message}
+                </h4>
+                <p style={{
+                    fontSize: '14px',
+                    color: '#666',
+                    margin: 0,
+                    lineHeight: 1.5
+                }}>
+                    {guidance.description}
+                </p>
+            </div>
+        </div>
     )
 }
-
-const ActionGuidanceContainer = styled.div`
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 16px;
-  background: #f8f9fa;
-  border-radius: 12px;
-  border-left: 4px solid #2196F3;
-  margin: 16px 0;
-  animation: ${fadeIn} 0.3s ease-out;
-`
-
-const ActionGuidanceIcon = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  background: white;
-  border-radius: 8px;
-  flex-shrink: 0;
-  color: ${props => props.color || '#2196F3'};
-`
-
-const ActionGuidanceContent = styled.div`
-  flex: 1;
-`
-
-const ActionGuidanceTitle = styled.h4`
-  font-size: 16px;
-  font-weight: 600;
-  color: #1a1a1a;
-  margin: 0 0 4px 0;
-`
-
-const ActionGuidanceDescription = styled.p`
-  font-size: 14px;
-  color: #666;
-  margin: 0;
-  line-height: 1.5;
-`
 
 export default GameTutorialSystem

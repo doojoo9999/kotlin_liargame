@@ -2,7 +2,6 @@
 // Bubble-style chat with modern message system
 
 import React, {useEffect, useRef, useState} from 'react'
-import styled, {css} from 'styled-components'
 import {AnimatePresence, motion} from 'framer-motion'
 import {Box, CircularProgress, Typography, useRipple} from '../../../components/ui'
 import {Send as SendIcon} from 'lucide-react'
@@ -410,11 +409,79 @@ const ChatPanel = React.memo(function ChatPanel({
       return iconMap[type] || '👑'
     }
 
+    const getBubbleStyles = (variant) => {
+      const baseStyles = {
+        position: 'relative',
+        maxWidth: '70%',
+        padding: '8px 12px',
+        borderRadius: '18px',
+        wordWrap: 'break-word',
+        wordBreak: 'break-word',
+        fontSize: '14px',
+        lineHeight: 1.5
+      }
+
+      switch (variant) {
+        case 'user':
+          return {
+            ...baseStyles,
+            backgroundColor: '#6366f1',
+            color: 'white',
+            borderRadius: '18px 18px 6px 18px',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+          }
+        case 'other':
+          return {
+            ...baseStyles,
+            backgroundColor: '#ffffff',
+            color: '#1f2937',
+            border: '1px solid #e5e7eb',
+            borderRadius: '6px 18px 18px 18px',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+          }
+        case 'system':
+          return {
+            ...baseStyles,
+            background: 'linear-gradient(135deg, #f3f4f6, #e5e7eb)',
+            color: '#1f2937',
+            border: '1px solid #d1d5db',
+            borderRadius: '12px',
+            textAlign: 'center',
+            fontWeight: 500,
+            maxWidth: '80%',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+          }
+        default:
+          return {
+            ...baseStyles,
+            backgroundColor: '#f9fafb',
+            color: '#1f2937',
+            border: '1px solid #e5e7eb'
+          }
+      }
+    }
+
+    const getContainerStyles = (isUser, isSystem) => {
+      if (isSystem) {
+        return {
+          display: 'flex',
+          margin: '16px 0',
+          maxWidth: '100%',
+          justifyContent: 'center'
+        }
+      }
+      return {
+        display: 'flex',
+        margin: '4px 0',
+        maxWidth: '100%',
+        justifyContent: isUser ? 'flex-end' : 'flex-start'
+      }
+    }
+
     return (
-      <BubbleContainer
+      <motion.div
         key={message.id}
-        $isUser={isUser}
-        $isSystem={isSystem}
+        style={getContainerStyles(isUser, isSystem)}
         initial={{ opacity: 0, y: 10, scale: 0.95 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{
@@ -424,40 +491,73 @@ const ChatPanel = React.memo(function ChatPanel({
           duration: 0.3
         }}
       >
-        <MessageBubble $variant={variant}>
-          <MessageContent $isSystem={isSystem}>
+        <div style={getBubbleStyles(variant)}>
+          <div style={{
+            ...(isSystem && {
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px'
+            })
+          }}>
             {isSystem && (
-              <SystemIcon>
+              <span style={{ fontSize: '16px', filter: 'grayscale(0.2)' }}>
                 {getSystemIcon(message.type)}
-              </SystemIcon>
+              </span>
             )}
             {message.content}
-          </MessageContent>
-        </MessageBubble>
-      </BubbleContainer>
+          </div>
+        </div>
+      </motion.div>
     )
   }
 
   // Show loading state when disabled and no messages
   if (disabled && (!messages || messages.length === 0)) {
     return (
-      <ChatPanelContainer
+      <motion.div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100%',
+          backgroundColor: '#ffffff',
+          borderRadius: '12px',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+          overflow: 'hidden'
+        }}
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.2 }}
       >
-        <LoadingFallback>
+        <Box sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flex: 1,
+          gap: '8px',
+          padding: '32px'
+        }}>
           <CircularProgress size={24} />
           <Typography variant="body2">
             서버에 연결 중...
           </Typography>
-        </LoadingFallback>
-      </ChatPanelContainer>
+        </Box>
+      </motion.div>
     )
   }
 
   return (
-    <ChatPanelContainer
+    <motion.div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        backgroundColor: '#ffffff',
+        borderRadius: '12px',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+        overflow: 'hidden'
+      }}
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ 
@@ -467,13 +567,36 @@ const ChatPanel = React.memo(function ChatPanel({
         duration: 0.3 
       }}
     >
-      <MessageListContainer ref={containerRef}>
+      <div
+        ref={containerRef}
+        style={{
+          flex: 1,
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          padding: '16px',
+          scrollBehavior: 'smooth'
+        }}
+      >
         {convertedMessages.length === 0 ? (
-          <EmptyState>
+          <Box sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flex: 1,
+            padding: '32px',
+            textAlign: 'center',
+            color: '#6b7280',
+            fontSize: '14px'
+          }}>
             💬 채팅을 시작해보세요!
-          </EmptyState>
+          </Box>
         ) : (
-          <MessagesContainer>
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            minHeight: '100%',
+            gap: '4px'
+          }}>
             <AnimatePresence mode="popLayout">
               {convertedMessages.map((message, index) => (
                 <motion.div
@@ -484,12 +607,19 @@ const ChatPanel = React.memo(function ChatPanel({
                 </motion.div>
               ))}
             </AnimatePresence>
-          </MessagesContainer>
+          </div>
         )}
-      </MessageListContainer>
+      </div>
       
-      <InputContainer>
-        <TextInput
+      <div style={{
+        display: 'flex',
+        alignItems: 'flex-end',
+        gap: '8px',
+        padding: '16px',
+        backgroundColor: '#ffffff',
+        borderTop: '1px solid #e5e7eb'
+      }}>
+        <input
           type="text"
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
@@ -497,20 +627,76 @@ const ChatPanel = React.memo(function ChatPanel({
           placeholder={placeholder || "메시지를 입력하세요..."}
           disabled={disabled}
           maxLength={200}
+          style={{
+            width: '100%',
+            padding: '12px 16px',
+            border: '2px solid #e5e7eb',
+            borderRadius: '24px',
+            fontFamily: 'inherit',
+            fontSize: '14px',
+            lineHeight: 1.5,
+            color: '#1f2937',
+            backgroundColor: '#ffffff',
+            outline: 'none',
+            transition: 'all 0.2s ease',
+            '&::placeholder': {
+              color: '#6b7280',
+              opacity: 0.7
+            },
+            '&:focus': {
+              borderColor: '#6366f1',
+              boxShadow: '0 0 0 3px rgba(99, 102, 241, 0.1)'
+            },
+            '&:disabled': {
+              opacity: 0.6,
+              cursor: 'not-allowed',
+              backgroundColor: '#f3f4f6'
+            }
+          }}
         />
 
-        <SendButton
+        <motion.button
           onClick={handleSend}
           disabled={!inputValue.trim() || disabled || isLoading}
           whileTap={{ scale: 0.9 }}
           whileHover={{ scale: 1.1 }}
           aria-label="메시지 전송"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '44px',
+            height: '44px',
+            border: 'none',
+            borderRadius: '50%',
+            background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+            color: 'white',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+            '&:hover:not(:disabled)': {
+              background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+              boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+              transform: 'translateY(-1px) scale(1.05)'
+            },
+            '&:active:not(:disabled)': {
+              transform: 'translateY(0) scale(0.95)',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+            },
+            '&:disabled': {
+              opacity: 0.5,
+              cursor: 'not-allowed',
+              transform: 'none',
+              background: '#f3f4f6',
+              color: '#9ca3af'
+            }
+          }}
         >
-          <SendIcon />
+          <SendIcon style={{ width: '20px', height: '20px', transform: 'rotate(-45deg)' }} />
           <RippleEffect color="rgba(255, 255, 255, 0.3)" />
-        </SendButton>
-      </InputContainer>
-    </ChatPanelContainer>
+        </motion.button>
+      </div>
+    </motion.div>
   )
 })
 

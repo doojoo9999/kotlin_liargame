@@ -9,7 +9,6 @@ import {
 } from 'lucide-react'
 import {useTheme} from '@styles'
 import {useResponsiveLayout} from '../hooks/useGameLayout'
-import styled from 'styled-components'
 
 // Animation keyframes using styled-components
 const revealAnimation = `
@@ -35,24 +34,6 @@ const sparkleAnimation = `
     opacity: 1;
     transform: scale(1);
   }
-`
-
-// Styled components for animations
-const FadeWrapper = styled.div`
-  opacity: ${props => props.$show ? 1 : 0};
-  transform: translateY(${props => props.$show ? 0 : '20px'});
-  transition: all 0.3s ease-in-out;
-`
-
-const SlideWrapper = styled.div`
-  transform: translateX(${props => props.$show ? 0 : '100%'});
-  transition: transform 0.3s ease-in-out;
-`
-
-const ZoomWrapper = styled.div`
-  transform: scale(${props => props.$show ? 1 : 0.8});
-  opacity: ${props => props.$show ? 1 : 0};
-  transition: all 0.3s ease-in-out;
 `
 
 // Main layout styled components
@@ -181,25 +162,65 @@ const GameResultScreen = ({
   }
 
   return (
-    <FullscreenOverlay $isMobile={isMobile}>
-      <ResultPaper $isMobile={isMobile}>
+    <Box
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'rgba(0, 0, 0, 0.9)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 9999,
+        padding: isMobile ? '8px' : '16px'
+      }}
+    >
+      <Paper
+        style={{
+          maxWidth: isMobile ? '100%' : '800px',
+          width: '100%',
+          maxHeight: '90vh',
+          overflow: 'auto',
+          borderRadius: '16px',
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          color: 'white',
+          position: 'relative',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+        }}
+      >
         {/* Sparkle Effects */}
         {showLiarReveal && (
           <>
             {[...Array(6)].map((_, i) => (
-              <SparkleBox
+              <Box
                 key={i}
-                $top={20 + i * 15}
-                $left={10 + i * 15}
-                $delay={i * 0.3}
+                style={{
+                  position: 'absolute',
+                  top: `${20 + i * 15}%`,
+                  left: `${10 + i * 15}%`,
+                  width: '8px',
+                  height: '8px',
+                  background: 'gold',
+                  borderRadius: '50%',
+                  animation: 'sparkleAnimation 2s infinite',
+                  animationDelay: `${i * 0.3}s`
+                }}
               />
             ))}
           </>
         )}
 
-        <ContentContainer $isMobile={isMobile}>
+        <Box style={{
+          padding: isMobile ? '8px' : '16px'
+        }}>
           {/* Game Over Title */}
-          <Fade in timeout={1000}>
+          <div style={{
+            opacity: 1,
+            transform: 'translateY(0)',
+            transition: 'all 0.3s ease-in-out'
+          }}>
             <Typography
               variant={isMobile ? 'h4' : 'h3'}
               align="center"
@@ -211,11 +232,14 @@ const GameResultScreen = ({
             >
               🎮 게임 종료
             </Typography>
-          </Fade>
+          </div>
 
           {/* Liar Reveal Animation */}
           {liarPlayer && (
-            <Slide direction="up" in={showLiarReveal} timeout={1000}>
+            <div style={{
+              transform: showLiarReveal ? 'translateX(0)' : 'translateX(100%)',
+              transition: 'transform 0.3s ease-in-out'
+            }}>
               <Box sx={{ textAlign: 'center', mb: 4 }}>
                 <Typography variant="h5" sx={{ mb: 2, fontWeight: 'bold' }}>
                   라이어 공개!
@@ -224,12 +248,12 @@ const GameResultScreen = ({
                 <Box
                   sx={{
                     display: 'inline-block',
-                    animation: showAnimation ? `${revealAnimation} 2s ease-in-out` : 'none',
+                    animation: showAnimation ? 'revealAnimation 2s ease-in-out' : 'none',
                     borderRadius: '50%',
                     p: 1
                   }}
                 >
-                  <Avatar
+                  <Box
                     sx={{
                       width: isMobile ? 80 : 120,
                       height: isMobile ? 80 : 120,
@@ -237,11 +261,15 @@ const GameResultScreen = ({
                       fontSize: isMobile ? '2rem' : '3rem',
                       fontWeight: 'bold',
                       border: '4px solid white',
-                      boxShadow: '0 8px 32px rgba(0,0,0,0.3)'
+                      boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+                      borderRadius: '50%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
                     }}
                   >
                     {liarPlayer.nickname?.charAt(0) || '?'}
-                  </Avatar>
+                  </Box>
                 </Box>
                 
                 <Typography variant="h6" sx={{ mt: 2, fontWeight: 'bold' }}>
@@ -254,11 +282,15 @@ const GameResultScreen = ({
                   sx={{ mt: 1, color: 'white', fontWeight: 'bold' }}
                 />
               </Box>
-            </Slide>
+            </div>
           )}
 
           {/* Game Result */}
-          <Zoom in={showResults} timeout={1000}>
+          <div style={{
+            transform: showResults ? 'scale(1)' : 'scale(0.8)',
+            opacity: showResults ? 1 : 0,
+            transition: 'all 0.3s ease-in-out'
+          }}>
             <Card
               sx={{
                 mb: 3,
@@ -282,10 +314,14 @@ const GameResultScreen = ({
                 )}
               </CardContent>
             </Card>
-          </Zoom>
+          </div>
 
           {/* Player Results */}
-          <Fade in={showResults} timeout={1500}>
+          <div style={{
+            opacity: showResults ? 1 : 0,
+            transform: showResults ? 'translateY(0)' : 'translateY(20px)',
+            transition: 'all 0.3s ease-in-out'
+          }}>
             <Box sx={{ mb: 4 }}>
               <Typography variant="h6" sx={{ mb: 2, textAlign: 'center', fontWeight: 'bold' }}>
                 플레이어 결과
@@ -294,12 +330,11 @@ const GameResultScreen = ({
               <Grid container spacing={2}>
                 {players.map((player, index) => (
                   <Grid item xs={12} sm={6} md={4} key={player.id}>
-                    <Slide
-                      direction="up"
-                      in={showResults}
-                      timeout={1000}
-                      style={{ transitionDelay: `${index * 100}ms` }}
-                    >
+                    <div style={{
+                      transform: showResults ? 'translateX(0)' : 'translateX(100%)',
+                      transition: 'transform 0.3s ease-in-out',
+                      transitionDelay: `${index * 100}ms`
+                    }}>
                       <Card
                         sx={{
                           bgcolor: 'rgba(255, 255, 255, 0.1)',
@@ -308,17 +343,23 @@ const GameResultScreen = ({
                         }}
                       >
                         <CardContent sx={{ textAlign: 'center', py: 2 }}>
-                          <Avatar
+                          <Box
                             sx={{
                               width: 50,
                               height: 50,
                               mx: 'auto',
                               mb: 1,
-                              bgcolor: `hsl(${player.id * 30}, 70%, 50%)`
+                              bgcolor: `hsl(${player.id * 30}, 70%, 50%)`,
+                              borderRadius: '50%',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: 'white',
+                              fontWeight: 'bold'
                             }}
                           >
                             {player.nickname?.charAt(0) || '?'}
-                          </Avatar>
+                          </Box>
                           
                           <Typography variant="body1" fontWeight="bold" sx={{ mb: 1 }}>
                             {player.nickname}
@@ -333,15 +374,19 @@ const GameResultScreen = ({
                           )}
                         </CardContent>
                       </Card>
-                    </Slide>
+                    </div>
                   </Grid>
                 ))}
               </Grid>
             </Box>
-          </Fade>
+          </div>
 
           {/* Action Buttons */}
-          <Fade in={showActions} timeout={1000}>
+          <div style={{
+            opacity: showActions ? 1 : 0,
+            transform: showActions ? 'translateY(0)' : 'translateY(20px)',
+            transition: 'all 0.3s ease-in-out'
+          }}>
             <Box sx={{ textAlign: 'center' }}>
               <Divider sx={{ my: 3, bgcolor: 'rgba(255, 255, 255, 0.3)' }} />
               
@@ -394,10 +439,10 @@ const GameResultScreen = ({
                 )}
               </Box>
             </Box>
-          </Fade>
-        </ContentContainer>
-      </ResultPaper>
-    </FullscreenOverlay>
+          </div>
+        </Box>
+      </Paper>
+    </Box>
   )
 }
 

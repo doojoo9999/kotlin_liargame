@@ -1,6 +1,5 @@
 import React, {useEffect, useState} from 'react'
-import styled from 'styled-components'
-import {Button, Container, Paper, Typography} from '../components/ui'
+import {Button, Container, Paper, Typography, Box} from '../components/ui'
 import {
     FileQuestion as QuizIcon,
     LayoutDashboard as DashboardIcon,
@@ -14,127 +13,6 @@ import SubjectWordPage from './SubjectWordPage'
 import GameMonitoringPage from './GameMonitoringPage'
 
 const DRAWER_WIDTH = 280
-
-// Custom styled components
-const AppBar = styled.div`
-  position: fixed;
-  top: 0;
-  left: ${props => props.$isMobile ? 0 : DRAWER_WIDTH}px;
-  right: 0;
-  height: 64px;
-  background-color: #ff6b6b;
-  color: white;
-  display: flex;
-  align-items: center;
-  padding: 0 16px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  z-index: 1200;
-`
-
-const DrawerContainer = styled.div`
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: ${DRAWER_WIDTH}px;
-  height: 100vh;
-  background-color: white;
-  border-right: 1px solid rgba(0,0,0,0.12);
-  transform: translateX(${props => props.$open ? 0 : -DRAWER_WIDTH}px);
-  transition: transform 0.3s ease-in-out;
-  z-index: 1300;
-  
-  @media (min-width: 960px) {
-    transform: translateX(0);
-    position: relative;
-  }
-`
-
-const DrawerOverlay = styled.div`
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0,0,0,0.5);
-  z-index: 1250;
-  display: ${props => props.$show ? 'block' : 'none'};
-  
-  @media (min-width: 960px) {
-    display: none;
-  }
-`
-
-const DrawerHeader = styled.div`
-  padding: 16px;
-  display: flex;
-  align-items: center;
-  background-color: #ff6b6b;
-  color: white;
-`
-
-const MenuList = styled.div`
-  padding-top: 16px;
-`
-
-const MenuItem = styled.div`
-  padding: 8px 16px;
-  margin: 0 8px 8px 8px;
-  border-radius: 8px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  background-color: ${props => props.$selected ? 'rgba(255, 107, 107, 0.1)' : 'transparent'};
-  
-  &:hover {
-    background-color: ${props => props.$selected ? 'rgba(255, 107, 107, 0.2)' : 'rgba(0,0,0,0.04)'};
-  }
-`
-
-const MenuIconContainer = styled.div`
-  margin-right: 12px;
-  color: ${props => props.$selected ? '#ff6b6b' : 'inherit'};
-`
-
-const MenuText = styled.div`
-  flex: 1;
-  
-  .primary {
-    font-weight: ${props => props.$selected ? 'bold' : 'normal'};
-    color: ${props => props.$selected ? '#ff6b6b' : 'inherit'};
-  }
-  
-  .secondary {
-    font-size: 0.75rem;
-    color: rgba(0,0,0,0.6);
-  }
-`
-
-const MainContent = styled.div`
-  margin-left: ${props => props.$isMobile ? 0 : DRAWER_WIDTH}px;
-  min-height: 100vh;
-  background-color: #f5f5f5;
-  padding-top: 64px;
-`
-
-const IconBtn = styled.button`
-  background: none;
-  border: none;
-  color: white;
-  cursor: pointer;
-  padding: 8px;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  margin-right: 16px;
-  
-  &:hover {
-    background-color: rgba(255,255,255,0.1);
-  }
-  
-  @media (min-width: 960px) {
-    display: none;
-  }
-`
 
 function AdminDashboard() {
   const navigate = useNavigate()
@@ -222,41 +100,108 @@ function AdminDashboard() {
   const drawer = (
     <>
       {/* Sidebar Header */}
-      <DrawerHeader>
+      <Box
+        sx={{
+          padding: '16px',
+          display: 'flex',
+          alignItems: 'center',
+          backgroundColor: '#ff6b6b',
+          color: 'white'
+        }}
+      >
         <AdminIcon size={24} style={{ marginRight: '16px' }} />
         <Typography variant="h6">
           관리자 패널
         </Typography>
-      </DrawerHeader>
+      </Box>
 
       {/* Menu Items */}
-      <MenuList>
+      <Box sx={{ paddingTop: '16px' }}>
         {menuItems.map((item) => (
-          <MenuItem
+          <Box
             key={item.id}
-            $selected={selectedMenu === item.id}
+            sx={{
+              padding: '8px 16px',
+              margin: '0 8px 8px 8px',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              backgroundColor: selectedMenu === item.id ? 'rgba(255, 107, 107, 0.1)' : 'transparent',
+              '&:hover': {
+                backgroundColor: selectedMenu === item.id ? 'rgba(255, 107, 107, 0.2)' : 'rgba(0,0,0,0.04)'
+              }
+            }}
             onClick={() => handleMenuClick(item.id)}
           >
-            <MenuIconContainer $selected={selectedMenu === item.id}>
+            <Box
+              sx={{
+                marginRight: '12px',
+                color: selectedMenu === item.id ? '#ff6b6b' : 'inherit'
+              }}
+            >
               {item.icon}
-            </MenuIconContainer>
-            <MenuText $selected={selectedMenu === item.id}>
+            </Box>
+            <Box
+              sx={{
+                flex: 1,
+                '& .primary': {
+                  fontWeight: selectedMenu === item.id ? 'bold' : 'normal',
+                  color: selectedMenu === item.id ? '#ff6b6b' : 'inherit'
+                },
+                '& .secondary': {
+                  fontSize: '0.75rem',
+                  color: 'rgba(0,0,0,0.6)'
+                }
+              }}
+            >
               <div className="primary">{item.text}</div>
               <div className="secondary">{item.description}</div>
-            </MenuText>
-          </MenuItem>
+            </Box>
+          </Box>
         ))}
-      </MenuList>
+      </Box>
     </>
   )
 
   return (
     <div style={{ display: 'flex' }}>
       {/* App Bar */}
-      <AppBar $isMobile={isMobile}>
-        <IconBtn onClick={handleDrawerToggle}>
+      <Box
+        sx={{
+          position: 'fixed',
+          top: 0,
+          left: isMobile ? 0 : `${DRAWER_WIDTH}px`,
+          right: 0,
+          height: '64px',
+          backgroundColor: '#ff6b6b',
+          color: 'white',
+          display: 'flex',
+          alignItems: 'center',
+          padding: '0 16px',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+          zIndex: 1200
+        }}
+      >
+        <button
+          onClick={handleDrawerToggle}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: 'white',
+            cursor: 'pointer',
+            padding: '8px',
+            borderRadius: '4px',
+            display: 'flex',
+            alignItems: 'center',
+            marginRight: '16px',
+            '@media (min-width: 960px)': {
+              display: 'none'
+            }
+          }}
+        >
           <MenuIcon size={24} />
-        </IconBtn>
+        </button>
         
         <Typography variant="h6" style={{ flex: 1 }}>
           {menuItems.find(item => item.id === selectedMenu)?.text || '관리자 페이지'}
@@ -276,20 +221,60 @@ function AdminDashboard() {
           <LogoutIcon size={20} />
           로그아웃
         </Button>
-      </AppBar>
+      </Box>
 
       {/* Mobile Overlay */}
-      <DrawerOverlay $show={isMobile && mobileOpen} onClick={handleDrawerToggle} />
+      {isMobile && mobileOpen && (
+        <Box
+          sx={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            zIndex: 1250,
+            '@media (min-width: 960px)': {
+              display: 'none'
+            }
+          }}
+          onClick={handleDrawerToggle}
+        />
+      )}
 
       {/* Navigation Drawer */}
-      <DrawerContainer $open={mobileOpen}>
+      <Box
+        sx={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: `${DRAWER_WIDTH}px`,
+          height: '100vh',
+          backgroundColor: 'white',
+          borderRight: '1px solid rgba(0,0,0,0.12)',
+          transform: `translateX(${mobileOpen ? 0 : -DRAWER_WIDTH}px)`,
+          transition: 'transform 0.3s ease-in-out',
+          zIndex: 1300,
+          '@media (min-width: 960px)': {
+            transform: 'translateX(0)',
+            position: 'relative'
+          }
+        }}
+      >
         {drawer}
-      </DrawerContainer>
+      </Box>
 
       {/* Main Content */}
-      <MainContent $isMobile={isMobile}>
+      <Box
+        sx={{
+          marginLeft: isMobile ? 0 : `${DRAWER_WIDTH}px`,
+          minHeight: '100vh',
+          backgroundColor: '#f5f5f5',
+          paddingTop: '64px'
+        }}
+      >
         {renderContent()}
-      </MainContent>
+      </Box>
     </div>
   )
 }

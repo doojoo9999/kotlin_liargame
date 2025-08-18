@@ -1,61 +1,6 @@
 import React from 'react'
-import styled from 'styled-components'
 import {Alert, Box, Button, Paper, Typography} from '../components/ui'
 import {AlertCircle as ErrorIcon, RefreshCw as RefreshIcon} from 'lucide-react'
-
-// Styled components for game-style design
-const ErrorContainer = styled.div`
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-  padding: 24px;
-  background-color: #f5f5f5;
-`
-
-const ErrorCard = styled.div`
-  padding: 32px;
-  max-width: 600px;
-  text-align: center;
-  border-radius: 16px;
-  background: white;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-`
-
-const ErrorIconWrapper = styled.div`
-  display: flex;
-  justify-content: center;
-  margin-bottom: 16px;
-  
-  svg {
-    color: #f44336;
-    width: 64px;
-    height: 64px;
-  }
-`
-
-const ButtonContainer = styled.div`
-  display: flex;
-  gap: 16px;
-  justify-content: center;
-  margin-top: 24px;
-`
-
-const ErrorDetailsContainer = styled.div`
-  margin-top: 24px;
-  text-align: left;
-`
-
-const DevInfoContainer = styled.div`
-  padding: 16px;
-  background-color: #f5f5f5;
-  border-radius: 8px;
-  max-height: 200px;
-  overflow: auto;
-  font-family: 'Courier New', monospace;
-  font-size: 0.75rem;
-  white-space: pre-wrap;
-`
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -112,11 +57,11 @@ class ErrorBoundary extends React.Component {
     if (this.state.hasError) {
       // Fallback UI when an error occurs
       return (
-        <ErrorContainer>
-          <ErrorCard>
-            <ErrorIconWrapper>
-              <ErrorIcon />
-            </ErrorIconWrapper>
+        <Box $display="flex" $justifyContent="center" $alignItems="center" $height="100vh" $padding="24px" style={{ backgroundColor: '#f5f5f5' }}>
+          <Paper style={{ padding: '32px', maxWidth: '600px', textAlign: 'center', borderRadius: '16px', backgroundColor: 'white', boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)' }}>
+            <Box $display="flex" $justifyContent="center" $margin="0 0 16px 0">
+              <ErrorIcon style={{ color: '#f44336', width: '64px', height: '64px' }} />
+            </Box>
             
             <Typography variant="h4" component="h1" color="#f44336" style={{ marginBottom: '16px', fontWeight: 'bold' }}>
               {this.state.isWebSocketError ? '연결 문제가 발생했습니다' : '앗! 문제가 발생했습니다'}
@@ -138,7 +83,7 @@ class ErrorBoundary extends React.Component {
               </Typography>
             </Alert>
 
-            <ButtonContainer>
+            <Box $display="flex" $gap="16px" $justifyContent="center" $margin="24px 0 0 0">
               <Button
                 variant="contained"
                 onClick={this.handleReload}
@@ -155,21 +100,30 @@ class ErrorBoundary extends React.Component {
               >
                 다시 시도
               </Button>
-            </ButtonContainer>
+            </Box>
 
             {/* Development mode: Show detailed error info */}
             {import.meta.env.DEV && this.state.errorInfo && (
-              <ErrorDetailsContainer>
+              <Box $margin="24px 0 0 0" style={{ textAlign: 'left' }}>
                 <Typography variant="subtitle2" style={{ marginBottom: '8px', fontWeight: 'bold' }}>
                   개발자 정보 (개발 모드에서만 표시):
                 </Typography>
-                <DevInfoContainer>
+                <Box style={{ 
+                  padding: '16px', 
+                  backgroundColor: '#f5f5f5', 
+                  borderRadius: '8px', 
+                  maxHeight: '200px', 
+                  overflow: 'auto', 
+                  fontFamily: "'Courier New', monospace", 
+                  fontSize: '0.75rem', 
+                  whiteSpace: 'pre-wrap' 
+                }}>
                   {this.state.errorInfo.componentStack}
-                </DevInfoContainer>
-              </ErrorDetailsContainer>
+                </Box>
+              </Box>
             )}
-          </ErrorCard>
-        </ErrorContainer>
+          </Paper>
+        </Box>
       )
     }
 

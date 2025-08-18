@@ -1,18 +1,14 @@
 import React from 'react'
 import {Box, Typography} from '@components/ui'
 import {Megaphone as CampaignIcon} from 'lucide-react'
-import styled from 'styled-components'
-
-// Styled component for fade animation
-const FadeContainer = styled.div`
-  opacity: ${props => props.$visible ? 1 : 0};
-  transition: opacity 0.8s ease-in-out;
-  pointer-events: ${props => props.$visible ? 'auto' : 'none'};
-`
 
 const ModeratorMessage = ({ message, visible = true }) => {
   return (
-    <FadeContainer $visible={visible}>
+    <div style={{
+      opacity: visible ? 1 : 0,
+      transition: 'opacity 0.8s ease-in-out',
+      pointerEvents: visible ? 'auto' : 'none'
+    }}>
       <Box
         style={{
           position: 'fixed',
@@ -40,7 +36,7 @@ const ModeratorMessage = ({ message, visible = true }) => {
           {message}
         </Typography>
       </Box>
-    </FadeContainer>
+    </div>
   )
 }
 

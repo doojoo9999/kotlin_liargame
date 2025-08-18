@@ -1,5 +1,4 @@
 import React, {memo, useMemo} from 'react'
-import styled, {css, keyframes} from 'styled-components'
 import {animations, borderRadius, colors, shadows} from '@/styles'
 
 // Size presets for avatar variants
@@ -30,195 +29,161 @@ const AVATAR_SIZES = {
   }
 }
 
-// Animation keyframes
-const pulseAnimation = keyframes`
-  0% {
-    box-shadow: 0 0 0 0 ${colors.primary.main}40;
-  }
-  70% {
-    box-shadow: 0 0 0 10px ${colors.primary.main}00;
-  }
-  100% {
-    box-shadow: 0 0 0 0 ${colors.primary.main}00;
-  }
-`
+const PlayerAvatar = memo(({
+  nickname = '',
+  size = 'medium',
+  status = 'online', // 'online' | 'offline' | 'speaking'
+  role = 'citizen', // 'citizen' | 'liar' | 'leader'
+  isVoteComplete = false,
+  isSpeaking = false,
+  isCurrentTurn = false,
+  onClick,
+  className,
+  'aria-label': ariaLabel,
+  ...props
+}) => {
+  const gradient = useMemo(() => generateGradientFromNickname(nickname), [nickname])
+  const initials = useMemo(() => getInitials(nickname), [nickname])
+  
+  const finalAriaLabel = ariaLabel || `${nickname}의 아바타${role === 'leader' ? ' (방장)' : ''}${status === 'online' ? ' (온라인)' : ' (오프라인)'}`
 
-const bounceInAnimation = keyframes`
-  0% {
-    opacity: 0;
-    transform: scale(0.3);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.1);
-  }
-  70% {
-    transform: scale(0.9);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-`
+  const sizeConfig = AVATAR_SIZES[size] || AVATAR_SIZES.medium
 
-const glowAnimation = keyframes`
-  0%, 100% {
-    box-shadow: 0 0 5px ${colors.warning.main}40;
-  }
-  50% {
-    box-shadow: 0 0 20px ${colors.warning.main}80, 0 0 30px ${colors.warning.main}60;
-  }
-`
-
-// Styled components
-const AvatarContainer = styled.div`
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: ${borderRadius.full};
-  cursor: ${props => props.clickable ? 'pointer' : 'default'};
-  transition: ${animations.transition.default};
-  user-select: none;
-
-  ${props => {
-    const size = AVATAR_SIZES[props.size] || AVATAR_SIZES.medium
-    return css`
-      width: ${size.size};
-      height: ${size.size};
-      font-size: ${size.fontSize};
-    `
-  }}
-
-  /* Role-based borders */
-  ${props => props.role === 'leader' && css`
-    border: 3px solid ${colors.warning.main};
-    box-shadow: ${shadows.medium}, 0 0 0 1px ${colors.warning.light};
-  `}
-
-  ${props => props.role === 'liar' && css`
-    border: 3px solid ${colors.error.main};
-    box-shadow: ${shadows.medium}, 0 0 0 1px ${colors.error.light};
-  `}
-
-  ${props => props.role === 'citizen' && css`
-    border: 2px solid ${colors.grey[300]};
-  `}
-
-  /* Speaking state animation */
-  ${props => props.isSpeaking && css`
-    animation: ${pulseAnimation} 2s infinite;
-    border-color: ${colors.primary.main};
-  `}
-
-  /* Turn glow effect */
-  ${props => props.isCurrentTurn && css`
-    animation: ${glowAnimation} 2s infinite;
-  `}
-
-  /* Hover effect */
-  ${props => props.clickable && css`
-    &:hover {
-      transform: scale(1.05);
-      box-shadow: ${shadows.large};
+  const getAvatarStyle = () => {
+    const baseStyle = {
+      position: 'relative',
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: borderRadius.full,
+      cursor: onClick ? 'pointer' : 'default',
+      transition: animations.transition.default,
+      userSelect: 'none',
+      width: sizeConfig.size,
+      height: sizeConfig.size,
+      fontSize: sizeConfig.fontSize
     }
 
-    &:active {
-      transform: scale(0.95);
-      transition: ${animations.transition.fast};
+    // Role-based borders
+    if (role === 'leader') {
+      baseStyle.border = `3px solid ${colors.warning.main}`
+      baseStyle.boxShadow = `${shadows.medium}, 0 0 0 1px ${colors.warning.light}`
+    } else if (role === 'liar') {
+      baseStyle.border = `3px solid ${colors.error.main}`
+      baseStyle.boxShadow = `${shadows.medium}, 0 0 0 1px ${colors.error.light}`
+    } else if (role === 'citizen') {
+      baseStyle.border = `2px solid ${colors.grey[300]}`
     }
-  `}
-`
 
-const AvatarContent = styled.div`
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: inherit;
-  background: ${props => props.gradient};
-  color: white;
-  font-weight: 600;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-  overflow: hidden;
-`
+    // Speaking state animation
+    if (isSpeaking) {
+      baseStyle.animation = 'pulse 2s infinite'
+      baseStyle.borderColor = colors.primary.main
+    }
 
-const StatusDot = styled.div`
-  position: absolute;
-  border-radius: ${borderRadius.full};
-  border: 2px solid white;
-  transition: ${animations.transition.default};
+    // Turn glow effect
+    if (isCurrentTurn) {
+      baseStyle.animation = 'glow 2s infinite'
+    }
 
-  ${props => {
-    const size = AVATAR_SIZES[props.avatarSize] || AVATAR_SIZES.medium
-    return css`
-      width: ${size.statusDot};
-      height: ${size.statusDot};
-      bottom: ${size.statusOffset};
-      right: ${size.statusOffset};
-    `
-  }}
-
-  /* Status colors */
-  ${props => props.status === 'online' && css`
-    background-color: ${colors.success.main};
-  `}
-
-  ${props => props.status === 'offline' && css`
-    background-color: ${colors.grey[400]};
-  `}
-
-  ${props => props.status === 'speaking' && css`
-    background-color: ${colors.primary.main};
-    animation: ${pulseAnimation} 1s infinite;
-  `}
-`
-
-const CompletionBadge = styled.div`
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 60%;
-  height: 60%;
-  background-color: ${colors.success.main};
-  border-radius: ${borderRadius.full};
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-size: 70%;
-  font-weight: bold;
-  animation: ${bounceInAnimation} 0.6s ease-out;
-  box-shadow: ${shadows.medium};
-
-  &::before {
-    content: '✓';
+    return baseStyle
   }
-`
 
-const RoleBadge = styled.div`
-  position: absolute;
-  top: -2px;
-  left: 50%;
-  transform: translateX(-50%);
-  background-color: ${colors.warning.main};
-  color: white;
-  font-size: 60%;
-  font-weight: bold;
-  padding: 2px 6px;
-  border-radius: ${borderRadius.small};
-  box-shadow: ${shadows.small};
-  z-index: 2;
+  const getContentStyle = () => ({
+    width: '100%',
+    height: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 'inherit',
+    background: gradient,
+    color: 'white',
+    fontWeight: 600,
+    textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)',
+    overflow: 'hidden'
+  })
 
-  ${props => props.role === 'leader' && css`
-    &::before {
-      content: '👑';
-      margin-right: 2px;
-    }
-  `}
-`
+  const getStatusDotStyle = () => ({
+    position: 'absolute',
+    borderRadius: borderRadius.full,
+    border: '2px solid white',
+    transition: animations.transition.default,
+    width: sizeConfig.statusDot,
+    height: sizeConfig.statusDot,
+    bottom: sizeConfig.statusOffset,
+    right: sizeConfig.statusOffset,
+    backgroundColor: isSpeaking ? colors.primary.main : 
+                   status === 'online' ? colors.success.main : 
+                   status === 'offline' ? colors.grey[400] : colors.grey[400]
+  })
+
+  const getCompletionBadgeStyle = () => ({
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+    width: '60%',
+    height: '60%',
+    backgroundColor: colors.success.main,
+    borderRadius: borderRadius.full,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: 'white',
+    fontSize: '70%',
+    fontWeight: 'bold',
+    animation: 'bounceIn 0.6s ease-out',
+    boxShadow: shadows.medium
+  })
+
+  const getRoleBadgeStyle = () => ({
+    position: 'absolute',
+    top: '-2px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    backgroundColor: colors.warning.main,
+    color: 'white',
+    fontSize: '60%',
+    fontWeight: 'bold',
+    padding: '2px 6px',
+    borderRadius: borderRadius.small,
+    boxShadow: shadows.small,
+    zIndex: 2
+  })
+
+  return (
+    <div
+      className={className}
+      style={getAvatarStyle()}
+      onClick={onClick}
+      aria-label={finalAriaLabel}
+      {...props}
+    >
+      <div style={getContentStyle()}>
+        {initials}
+      </div>
+      
+      {/* Status indicator */}
+      <div style={getStatusDotStyle()} />
+      
+      {/* Role badge for leaders */}
+      {role === 'leader' && (
+        <div style={getRoleBadgeStyle()}>
+          👑 방장
+        </div>
+      )}
+      
+      {/* Vote completion indicator */}
+      {isVoteComplete && (
+        <div style={getCompletionBadgeStyle()}>
+          ✓
+        </div>
+      )}
+    </div>
+  )
+})
+
+PlayerAvatar.displayName = 'PlayerAvatar'
 
 // Utility function to generate gradient from nickname
 const generateGradientFromNickname = (nickname) => {
@@ -266,62 +231,5 @@ const getInitials = (nickname) => {
     .map(word => word.charAt(0).toUpperCase())
     .join('')
 }
-
-const PlayerAvatar = memo(({
-  nickname = '',
-  size = 'medium',
-  status = 'online', // 'online' | 'offline' | 'speaking'
-  role = 'citizen', // 'citizen' | 'liar' | 'leader'
-  isVoteComplete = false,
-  isSpeaking = false,
-  isCurrentTurn = false,
-  onClick,
-  className,
-  'aria-label': ariaLabel,
-  ...props
-}) => {
-  const gradient = useMemo(() => generateGradientFromNickname(nickname), [nickname])
-  const initials = useMemo(() => getInitials(nickname), [nickname])
-  
-  const finalAriaLabel = ariaLabel || `${nickname}의 아바타${role === 'leader' ? ' (방장)' : ''}${status === 'online' ? ' (온라인)' : ' (오프라인)'}`
-
-  return (
-    <AvatarContainer
-      size={size}
-      role={role}
-      isSpeaking={isSpeaking}
-      isCurrentTurn={isCurrentTurn}
-      clickable={!!onClick}
-      onClick={onClick}
-      className={className}
-      aria-label={finalAriaLabel}
-      {...props}
-    >
-      <AvatarContent gradient={gradient}>
-        {initials}
-      </AvatarContent>
-      
-      {/* Status indicator */}
-      <StatusDot 
-        status={isSpeaking ? 'speaking' : status}
-        avatarSize={size}
-      />
-      
-      {/* Role badge for leaders */}
-      {role === 'leader' && (
-        <RoleBadge role={role}>
-          방장
-        </RoleBadge>
-      )}
-      
-      {/* Vote completion indicator */}
-      {isVoteComplete && (
-        <CompletionBadge />
-      )}
-    </AvatarContainer>
-  )
-})
-
-PlayerAvatar.displayName = 'PlayerAvatar'
 
 export default PlayerAvatar

@@ -1,6 +1,5 @@
 import React from 'react'
 import {Box, Button, Typography} from '@components/ui'
-import styled from 'styled-components'
 
 // Common emojis for the game
 const GAME_EMOJIS = [
@@ -9,41 +8,6 @@ const GAME_EMOJIS = [
     '❤️', '💯', '🔥', '⭐', '❓', '❗', '💭', '💡',
     '🎭', '🕵️', '👥', '🎯', '🎲', '🏆', '⚡', '💀'
 ]
-
-// Styled components for emoji menu
-const MenuContainer = styled.div`
-    position: absolute;
-    top: ${props => props.$anchorTop || 0}px;
-    left: ${props => props.$anchorLeft || 0}px;
-    max-height: 200px;
-    width: ${props => props.$isMobile ? '280px' : '320px'};
-    background-color: #ffffff;
-    border: 1px solid #e0e0e0;
-    border-radius: 8px;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-    z-index: 1300;
-    transition: all 0.3s ease;
-    display: ${props => props.$open ? 'block' : 'none'};
-`
-
-const EmojiGrid = styled.div`
-    display: grid;
-    grid-template-columns: repeat(8, 1fr);
-    gap: 4px;
-`
-
-const EmojiButton = styled(Button)`
-    font-size: 1.2rem;
-    min-width: 32px;
-    height: 32px;
-    padding: 4px;
-    transition: all 0.2s ease;
-    
-    &:hover {
-        background-color: rgba(0, 0, 0, 0.04);
-        transform: scale(1.2);
-    }
-`
 
 /**
  * EmojiMenu component for emoji selection
@@ -90,11 +54,21 @@ const EmojiMenu = React.memo(({
     if (!open) return null
 
     return (
-        <MenuContainer 
-            $open={open}
-            $anchorTop={anchorPosition.top}
-            $anchorLeft={anchorPosition.left}
-            $isMobile={isMobile}
+        <div 
+            style={{
+                position: 'absolute',
+                top: `${anchorPosition.top}px`,
+                left: `${anchorPosition.left}px`,
+                maxHeight: '200px',
+                width: isMobile ? '280px' : '320px',
+                backgroundColor: '#ffffff',
+                border: '1px solid #e0e0e0',
+                borderRadius: '8px',
+                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                zIndex: 1300,
+                transition: 'all 0.3s ease',
+                display: open ? 'block' : 'none'
+            }}
         >
             <Box style={{ padding: '8px' }}>
                 <Typography
@@ -107,18 +81,29 @@ const EmojiMenu = React.memo(({
                 >
                     자주 사용하는 이모지
                 </Typography>
-                <EmojiGrid>
+                <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(8, 1fr)',
+                    gap: '4px'
+                }}>
                     {GAME_EMOJIS.map((emoji, index) => (
-                        <EmojiButton
+                        <Button
                             key={index}
                             onClick={() => handleEmojiClick(emoji)}
+                            style={{
+                                fontSize: '1.2rem',
+                                minWidth: '32px',
+                                height: '32px',
+                                padding: '4px',
+                                transition: 'all 0.2s ease'
+                            }}
                         >
                             {emoji}
-                        </EmojiButton>
+                        </Button>
                     ))}
-                </EmojiGrid>
+                </div>
             </Box>
-        </MenuContainer>
+        </div>
     )
 })
 

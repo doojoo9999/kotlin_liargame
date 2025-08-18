@@ -2,7 +2,6 @@
 // Gradient header with rounded design replacing MUI implementation
 
 import React from 'react'
-import styled, {css, keyframes} from 'styled-components'
 import {motion} from 'framer-motion'
 import {LogOut as ExitIcon, HelpCircle as HelpIcon, Users as PeopleIcon} from 'lucide-react'
 import {Button, buttonInteractions} from '../../../components/ui'
@@ -20,199 +19,6 @@ const pulseAnimation = keyframes`
   100% {
     transform: scale(1);
     opacity: 1;
-  }
-`
-
-// Main header container with gradient background
-const HeaderContainer = styled(motion.header)`
-  display: flex;
-  align-items: center;
-  gap: ${({ theme }) => theme.spacing[4]};
-  padding: ${({ theme }) => theme.semanticSpacing.component.md};
-  
-  /* Gradient background as specified */
-  background: linear-gradient(135deg, #ffffff, #f1f5f9);
-  
-  /* Rounded bottom corners only */
-  border-radius: 0 0 16px 16px;
-  
-  /* Subtle bottom shadow */
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  
-  /* Responsive flex wrapping */
-  flex-wrap: wrap;
-  
-  /* Mobile adjustments */
-  @media (max-width: 767px) {
-    gap: ${({ theme }) => theme.spacing[3]};
-    padding: ${({ theme }) => theme.semanticSpacing.component.sm};
-  }
-`
-
-// Room title section
-const RoomTitle = styled.div`
-  flex-grow: 1;
-  min-width: 200px;
-  
-  h1 {
-    margin: 0;
-    font-size: ${({ theme }) => theme.fontSize.lg};
-    font-weight: ${({ theme }) => theme.fontWeight.semiBold};
-    line-height: ${({ theme }) => theme.lineHeight.snug};
-    color: ${({ theme }) => theme.colors.text.primary};
-  }
-  
-  /* Mobile adjustments */
-  @media (max-width: 767px) {
-    min-width: 150px;
-    
-    h1 {
-      font-size: ${({ theme }) => theme.fontSize.base};
-    }
-  }
-`
-
-// Status badge
-const StatusBadge = styled(motion.div)`
-  display: inline-flex;
-  align-items: center;
-  gap: ${({ theme }) => theme.spacing[1]};
-  padding: ${({ theme }) => `${theme.spacing[1]} ${theme.spacing[3]}`};
-  border-radius: ${({ theme }) => theme.borderRadius.full};
-  font-size: ${({ theme }) => theme.fontSize.sm};
-  font-weight: ${({ theme }) => theme.fontWeight.medium};
-  letter-spacing: ${({ theme }) => theme.letterSpacing.wide};
-  text-transform: uppercase;
-  border: 1px solid;
-  transition: ${({ theme }) => theme.transition.default};
-  
-  /* Icon styling */
-  svg {
-    width: 16px;
-    height: 16px;
-    flex-shrink: 0;
-  }
-  
-  /* Mobile size adjustments */
-  ${({ $isMobile }) => $isMobile && css`
-    padding: ${({ theme }) => `${theme.spacing[0.5]} ${theme.spacing[2]}`};
-    font-size: ${({ theme }) => theme.fontSize.xs};
-    
-    svg {
-      width: 14px;
-      height: 14px;
-    }
-  `}
-  
-  /* Pulse animation for active states */
-  ${({ $shouldPulse }) => $shouldPulse && css`
-    animation: ${pulseAnimation} 2s ease-in-out infinite;
-  `}
-  
-  /* Status colors */
-  ${({ $status, theme }) => {
-    switch ($status?.toUpperCase()) {
-      case 'WAITING':
-        return css`
-          background-color: ${theme.colors.primary[50]};
-          border-color: ${theme.colors.primary[200]};
-          color: ${theme.colors.primary[700]};
-          svg { color: ${theme.colors.primary[500]}; }
-        `
-      case 'IN_PROGRESS':
-      case 'PLAYING':
-      case 'STARTED':
-        return css`
-          background-color: ${theme.colors.success[50]};
-          border-color: ${theme.colors.success[200]};
-          color: ${theme.colors.success[700]};
-          svg { color: ${theme.colors.success[500]}; }
-        `
-      case 'FINISHED':
-      case 'ENDED':
-      case 'COMPLETED':
-        return css`
-          background-color: ${theme.colors.text.tertiary}15;
-          border-color: ${theme.colors.border.secondary};
-          color: ${theme.colors.text.secondary};
-          svg { color: ${theme.colors.text.tertiary}; }
-        `
-      default:
-        return css`
-          background-color: ${theme.colors.surface.secondary};
-          border-color: ${theme.colors.border.primary};
-          color: ${theme.colors.text.secondary};
-          svg { color: ${theme.colors.text.tertiary}; }
-        `
-    }
-  }}
-`
-
-// Player count container
-const PlayerCountContainer = styled.div`
-  display: flex;
-  align-items: center;
-  gap: ${({ theme }) => theme.spacing[1]};
-  color: ${({ theme }) => theme.colors.text.secondary};
-  font-size: ${({ theme }) => theme.fontSize.sm};
-  font-weight: ${({ theme }) => theme.fontWeight.medium};
-  
-  svg {
-    width: 18px;
-    height: 18px;
-    color: ${({ theme }) => theme.colors.primary[500]};
-    flex-shrink: 0;
-  }
-  
-  .count-text {
-    display: flex;
-    align-items: baseline;
-    gap: 1px;
-    
-    .current {
-      color: ${({ theme }) => theme.colors.text.primary};
-      font-weight: ${({ theme }) => theme.fontWeight.semiBold};
-    }
-    
-    .separator {
-      color: ${({ theme }) => theme.colors.text.tertiary};
-      margin: 0 2px;
-    }
-    
-    .max {
-      color: ${({ theme }) => theme.colors.text.secondary};
-    }
-  }
-`
-
-// Action buttons container
-const ActionButtonsContainer = styled.div`
-  display: flex;
-  align-items: center;
-  gap: ${({ theme }) => theme.spacing[2]};
-  
-  /* Mobile adjustments */
-  @media (max-width: 767px) {
-    gap: ${({ theme }) => theme.spacing[1]};
-  }
-`
-
-// Leave button with error styling
-const LeaveButton = styled(Button)`
-  border-color: ${({ theme }) => theme.colors.error[300]};
-  color: ${({ theme }) => theme.colors.error[600]};
-  
-  &:hover:not(:disabled) {
-    background-color: ${({ theme }) => theme.colors.error[50]};
-    border-color: ${({ theme }) => theme.colors.error[400]};
-    color: ${({ theme }) => theme.colors.error[700]};
-    box-shadow: ${({ theme }) => theme.coloredShadows.error};
-  }
-  
-  &:active:not(:disabled) {
-    background-color: ${({ theme }) => theme.colors.error[100]};
-    border-color: ${({ theme }) => theme.colors.error[500]};
-    color: ${({ theme }) => theme.colors.error[800]};
   }
 `
 
@@ -261,8 +67,74 @@ const HeaderBar = React.memo(function HeaderBar({
   const shouldPulse = ['WAITING', 'IN_PROGRESS', 'PLAYING', 'STARTED'].includes(status?.toUpperCase())
   const buttonSize = isMobile ? 'small' : 'medium'
 
+  const getStatusBadgeStyles = (status, isMobile, shouldPulse) => {
+    const baseStyles = {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '4px',
+      padding: isMobile ? '2px 8px' : '4px 12px',
+      borderRadius: '9999px',
+      fontSize: isMobile ? '12px' : '14px',
+      fontWeight: 500,
+      letterSpacing: '0.025em',
+      textTransform: 'uppercase',
+      border: '1px solid',
+      transition: 'all 0.2s ease',
+      animation: shouldPulse ? 'pulse 2s ease-in-out infinite' : 'none'
+    }
+
+    switch (status?.toUpperCase()) {
+      case 'WAITING':
+        return {
+          ...baseStyles,
+          backgroundColor: '#e0e7ff',
+          borderColor: '#a5b4fc',
+          color: '#4338ca',
+          '& svg': { color: '#6366f1' }
+        }
+      case 'IN_PROGRESS':
+      case 'PLAYING':
+      case 'STARTED':
+        return {
+          ...baseStyles,
+          backgroundColor: '#dcfce7',
+          borderColor: '#86efac',
+          color: '#15803d',
+          '& svg': { color: '#22c55e' }
+        }
+      case 'FINISHED':
+      case 'ENDED':
+      case 'COMPLETED':
+        return {
+          ...baseStyles,
+          backgroundColor: 'rgba(107, 114, 128, 0.1)',
+          borderColor: '#d1d5db',
+          color: '#6b7280',
+          '& svg': { color: '#9ca3af' }
+        }
+      default:
+        return {
+          ...baseStyles,
+          backgroundColor: '#f9fafb',
+          borderColor: '#e5e7eb',
+          color: '#6b7280',
+          '& svg': { color: '#9ca3af' }
+        }
+    }
+  }
+
   return (
-    <HeaderContainer
+    <motion.header
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: isMobile ? '12px' : '16px',
+        padding: isMobile ? '12px' : '16px',
+        background: 'linear-gradient(135deg, #ffffff, #f1f5f9)',
+        borderRadius: '0 0 16px 16px',
+        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
+        flexWrap: 'wrap'
+      }}
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{
@@ -272,14 +144,23 @@ const HeaderBar = React.memo(function HeaderBar({
         duration: 0.3
       }}
     >
-      <RoomTitle>
-        <h1>{getRoomTitle()}</h1>
-      </RoomTitle>
+      <div style={{
+        flexGrow: 1,
+        minWidth: isMobile ? '150px' : '200px'
+      }}>
+        <h1 style={{
+          margin: 0,
+          fontSize: isMobile ? '16px' : '18px',
+          fontWeight: 600,
+          lineHeight: 1.4,
+          color: '#1f2937'
+        }}>
+          {getRoomTitle()}
+        </h1>
+      </div>
 
-      <StatusBadge
-        $status={status}
-        $isMobile={isMobile}
-        $shouldPulse={shouldPulse}
+      <motion.div
+        style={getStatusBadgeStyles(status, isMobile, shouldPulse)}
         initial={{ opacity: 0, scale: 0.8 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{
@@ -289,20 +170,35 @@ const HeaderBar = React.memo(function HeaderBar({
         }}
         whileHover={{ scale: 1.05 }}
       >
-        {roomStateInfo.icon && <roomStateInfo.icon />}
+        {roomStateInfo.icon && <roomStateInfo.icon style={{ width: isMobile ? '14px' : '16px', height: isMobile ? '14px' : '16px', flexShrink: 0 }} />}
         {roomStateInfo.text}
-      </StatusBadge>
+      </motion.div>
 
-      <PlayerCountContainer>
-        <PeopleIcon />
-        <span className="count-text">
-          <span className="current">{playersCount}</span>
-          <span className="separator">/</span>
-          <span className="max">{maxPlayers}</span>
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '4px',
+        color: '#6b7280',
+        fontSize: '14px',
+        fontWeight: 500
+      }}>
+        <PeopleIcon style={{ width: '18px', height: '18px', color: '#6366f1', flexShrink: 0 }} />
+        <span style={{
+          display: 'flex',
+          alignItems: 'baseline',
+          gap: '1px'
+        }}>
+          <span style={{ color: '#1f2937', fontWeight: 600 }}>{playersCount}</span>
+          <span style={{ color: '#9ca3af', margin: '0 2px' }}>/</span>
+          <span style={{ color: '#6b7280' }}>{maxPlayers}</span>
         </span>
-      </PlayerCountContainer>
+      </div>
 
-      <ActionButtonsContainer>
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: isMobile ? '4px' : '8px'
+      }}>
         <Button
           variant="outline"
           size={buttonSize}
@@ -315,19 +211,34 @@ const HeaderBar = React.memo(function HeaderBar({
           {!isMobile && '도움말'}
         </Button>
         
-        <LeaveButton
+        <Button
           variant="outline"
           size={buttonSize}
           onClick={onOpenLeaveDialog}
           aria-label="게임방 나가기"
           {...buttonInteractions.subtleButton}
           enableRipple={true}
+          style={{
+            borderColor: '#fca5a5',
+            color: '#dc2626',
+            '&:hover:not(:disabled)': {
+              backgroundColor: '#fef2f2',
+              borderColor: '#f87171',
+              color: '#b91c1c',
+              boxShadow: '0 4px 6px rgba(220, 38, 38, 0.1)'
+            },
+            '&:active:not(:disabled)': {
+              backgroundColor: '#fee2e2',
+              borderColor: '#ef4444',
+              color: '#991b1b'
+            }
+          }}
         >
           <ExitIcon style={{ marginRight: '4px' }} />
           {!isMobile && '나가기'}
-        </LeaveButton>
-      </ActionButtonsContainer>
-    </HeaderContainer>
+        </Button>
+      </div>
+    </motion.header>
   )
 })
 

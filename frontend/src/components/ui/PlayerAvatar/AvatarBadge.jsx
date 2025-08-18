@@ -1,92 +1,5 @@
 import React, {memo} from 'react'
-import styled, {css} from 'styled-components'
 import {borderRadius, colors, shadows, spacing} from '@/styles'
-
-const BadgeContainer = styled.div`
-  position: absolute;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: bold;
-  z-index: 2;
-  white-space: nowrap;
-  pointer-events: none;
-
-  ${props => props.position === 'top' && css`
-    top: -4px;
-    left: 50%;
-    transform: translateX(-50%);
-  `}
-
-  ${props => props.position === 'bottom' && css`
-    bottom: -4px;
-    left: 50%;
-    transform: translateX(-50%);
-  `}
-
-  ${props => props.position === 'top-right' && css`
-    top: -2px;
-    right: -2px;
-  `}
-
-  ${props => props.position === 'top-left' && css`
-    top: -2px;
-    left: -2px;
-  `}
-`
-
-const LeaderBadge = styled.div`
-  background-color: ${colors.warning.main};
-  color: white;
-  font-size: ${props => props.fontSize || '10px'};
-  padding: ${spacing.xs} ${spacing.sm};
-  border-radius: ${borderRadius.small};
-  box-shadow: ${shadows.small};
-  display: flex;
-  align-items: center;
-  gap: 2px;
-
-  &::before {
-    content: '👑';
-    font-size: 0.9em;
-  }
-`
-
-const LiarBadge = styled.div`
-  background-color: ${colors.error.main};
-  color: white;
-  font-size: ${props => props.fontSize || '10px'};
-  padding: ${spacing.xs} ${spacing.sm};
-  border-radius: ${borderRadius.small};
-  box-shadow: ${shadows.small};
-  display: flex;
-  align-items: center;
-  gap: 2px;
-
-  &::before {
-    content: '🎭';
-    font-size: 0.9em;
-  }
-`
-
-const CustomBadge = styled.div`
-  background-color: ${props => props.bgColor || colors.grey[600]};
-  color: ${props => props.textColor || 'white'};
-  font-size: ${props => props.fontSize || '10px'};
-  padding: ${spacing.xs} ${spacing.sm};
-  border-radius: ${borderRadius.small};
-  box-shadow: ${shadows.small};
-  display: flex;
-  align-items: center;
-  gap: 2px;
-
-  ${props => props.icon && css`
-    &::before {
-      content: '${props.icon}';
-      font-size: 0.9em;
-    }
-  `}
-`
 
 const AvatarBadge = memo(({
   type = 'custom', // 'leader' | 'liar' | 'custom'
@@ -100,32 +13,77 @@ const AvatarBadge = memo(({
   'aria-label': ariaLabel,
   ...props
 }) => {
-  const getBadgeComponent = () => {
-    switch (type) {
-      case 'leader':
-        return (
-          <LeaderBadge fontSize={fontSize}>
-            {text || '방장'}
-          </LeaderBadge>
-        )
-      case 'liar':
-        return (
-          <LiarBadge fontSize={fontSize}>
-            {text || '라이어'}
-          </LiarBadge>
-        )
-      case 'custom':
-      default:
-        return (
-          <CustomBadge
-            fontSize={fontSize}
-            bgColor={bgColor}
-            textColor={textColor}
-            icon={icon}
-          >
-            {text}
-          </CustomBadge>
-        )
+  const getBadgeStyle = () => {
+    const baseStyle = {
+      position: 'absolute',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontWeight: 'bold',
+      zIndex: 2,
+      whiteSpace: 'nowrap',
+      pointerEvents: 'none',
+      fontSize: fontSize,
+      padding: `${spacing.xs} ${spacing.sm}`,
+      borderRadius: borderRadius.small,
+      boxShadow: shadows.small,
+      gap: '2px'
+    }
+
+    // Position styles
+    if (position === 'top') {
+      baseStyle.top = '-4px'
+      baseStyle.left = '50%'
+      baseStyle.transform = 'translateX(-50%)'
+    } else if (position === 'bottom') {
+      baseStyle.bottom = '-4px'
+      baseStyle.left = '50%'
+      baseStyle.transform = 'translateX(-50%)'
+    } else if (position === 'top-right') {
+      baseStyle.top = '-2px'
+      baseStyle.right = '-2px'
+    } else if (position === 'top-left') {
+      baseStyle.top = '-2px'
+      baseStyle.left = '-2px'
+    }
+
+    // Type-specific styles
+    if (type === 'leader') {
+      baseStyle.backgroundColor = colors.warning.main
+      baseStyle.color = 'white'
+    } else if (type === 'liar') {
+      baseStyle.backgroundColor = colors.error.main
+      baseStyle.color = 'white'
+    } else {
+      baseStyle.backgroundColor = bgColor || colors.grey[600]
+      baseStyle.color = textColor || 'white'
+    }
+
+    return baseStyle
+  }
+
+  const getBadgeContent = () => {
+    if (type === 'leader') {
+      return (
+        <>
+          👑
+          {text || '방장'}
+        </>
+      )
+    } else if (type === 'liar') {
+      return (
+        <>
+          🎭
+          {text || '라이어'}
+        </>
+      )
+    } else {
+      return (
+        <>
+          {icon && <span style={{ fontSize: '0.9em' }}>{icon}</span>}
+          {text}
+        </>
+      )
     }
   }
 
@@ -138,15 +96,15 @@ const AvatarBadge = memo(({
   const finalAriaLabel = ariaLabel || `역할: ${typeLabels[type] || text}`
 
   return (
-    <BadgeContainer
-      position={position}
+    <div
       className={className}
+      style={getBadgeStyle()}
       aria-label={finalAriaLabel}
       role="img"
       {...props}
     >
-      {getBadgeComponent()}
-    </BadgeContainer>
+      {getBadgeContent()}
+    </div>
   )
 })
 

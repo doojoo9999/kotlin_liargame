@@ -1,18 +1,4 @@
 import React from 'react'
-import styled from 'styled-components'
-
-const StyledBox = styled.div`
-  ${({ $display }) => $display && `display: ${$display};`}
-  ${({ $flexDirection }) => $flexDirection && `flex-direction: ${$flexDirection};`}
-  ${({ $alignItems }) => $alignItems && `align-items: ${$alignItems};`}
-  ${({ $justifyContent }) => $justifyContent && `justify-content: ${$justifyContent};`}
-  ${({ $gap }) => $gap && `gap: ${$gap};`}
-  ${({ $padding }) => $padding && `padding: ${$padding};`}
-  ${({ $margin }) => $margin && `margin: ${$margin};`}
-  ${({ $width }) => $width && `width: ${$width};`}
-  ${({ $height }) => $height && `height: ${$height};`}
-  ${({ $maxWidth }) => $maxWidth && `max-width: ${$maxWidth};`}
-`
 
 const Box = React.forwardRef((props, ref) => {
   const { 
@@ -35,25 +21,28 @@ const Box = React.forwardRef((props, ref) => {
     ...otherProps  // ← now otherProps doesn't include maxWidth
   } = props
 
+  const computedStyle = {
+    ...style,
+    ...($display && { display: $display }),
+    ...($flexDirection && { flexDirection: $flexDirection }),
+    ...($alignItems && { alignItems: $alignItems }),
+    ...($justifyContent && { justifyContent: $justifyContent }),
+    ...($gap && { gap: $gap }),
+    ...($padding && { padding: $padding }),
+    ...($margin && { margin: $margin }),
+    ...($width && { width: $width }),
+    ...($height && { height: $height }),
+    ...(($maxWidth || maxWidth) && { maxWidth: $maxWidth || maxWidth })
+  }
+
   return (
-    <StyledBox
-      as={component}
+    <div
       ref={ref} 
-      style={style}
-      $display={$display}
-      $flexDirection={$flexDirection}
-      $alignItems={$alignItems}
-      $justifyContent={$justifyContent}
-      $gap={$gap}
-      $padding={$padding}
-      $margin={$margin}
-      $width={$width}
-      $height={$height}
-      $maxWidth={$maxWidth || maxWidth} // transient prop conversion
-      {...otherProps} // maxWidth is already removed
+      style={computedStyle}
+      {...otherProps}
     >
       {children}
-    </StyledBox>
+    </div>
   )
 })
 

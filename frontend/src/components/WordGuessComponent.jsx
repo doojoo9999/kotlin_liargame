@@ -7,83 +7,6 @@ import {
     Send as SendIcon,
     X as CancelIcon
 } from 'lucide-react'
-import styled from 'styled-components'
-
-// Styled components for animations
-const FadeWrapper = styled.div`
-  opacity: 1;
-  animation: fadeIn 0.3s ease-in-out;
-  
-  @keyframes fadeIn {
-    0% {
-      opacity: 0;
-      transform: translateY(20px);
-    }
-    100% {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-`
-
-const ResultCard = styled(Card)`
-  min-width: 500px;
-  background-color: ${props => props.$isLiarWin ? '#f44336' : '#4caf50'};
-  color: white;
-  border: 3px solid ${props => props.$isLiarWin ? '#d32f2f' : '#388e3c'};
-  box-shadow: ${props => props.$isLiarWin ? '0 0 30px rgba(244, 67, 54, 0.7)' : '0 0 30px rgba(76, 175, 80, 0.7)'};
-`
-
-const GuessResultCard = styled(Card)`
-  min-width: 500px;
-  background-color: ${props => props.$correct ? '#4caf50' : '#f44336'};
-  color: white;
-  border: 3px solid ${props => props.$correct ? '#388e3c' : '#d32f2f'};
-`
-
-const WaitingPaper = styled(Paper)`
-  min-width: 500px;
-  padding: 32px;
-  text-align: center;
-  background-color: #2196f3;
-  color: white;
-  border: 2px solid #1976d2;
-`
-
-const LiarCard = styled(Card)`
-  min-width: 500px;
-  background-color: #f44336;
-  color: white;
-  border: 3px solid #d32f2f;
-  box-shadow: 0 0 20px rgba(244, 67, 54, 0.5);
-  animation: pulse 2s infinite;
-  
-  @keyframes pulse {
-    0%, 100% {
-      transform: scale(1);
-    }
-    50% {
-      transform: scale(1.02);
-    }
-  }
-`
-
-const ProgressBar = styled.div`
-  width: 100%;
-  height: 8px;
-  border-radius: 4px;
-  background-color: rgba(255, 255, 255, 0.3);
-  overflow: hidden;
-  margin-top: 16px;
-`
-
-const ProgressFill = styled.div`
-  height: 100%;
-  background-color: white;
-  border-radius: 4px;
-  transition: width 0.3s ease;
-  width: ${props => props.$progress}%;
-`
 
 const WordGuessComponent = ({ 
   gameTimer, 
@@ -149,8 +72,17 @@ const WordGuessComponent = ({
   if (gameResult) {
     const isLiarWin = gameResult.winner === 'LIAR'
     return (
-      <FadeWrapper>
-        <ResultCard $isLiarWin={isLiarWin}>
+      <div style={{
+        opacity: 1,
+        animation: 'fadeIn 0.3s ease-in-out'
+      }}>
+        <Card style={{
+          minWidth: '500px',
+          backgroundColor: isLiarWin ? '#f44336' : '#4caf50',
+          color: 'white',
+          border: `3px solid ${isLiarWin ? '#d32f2f' : '#388e3c'}`,
+          boxShadow: isLiarWin ? '0 0 30px rgba(244, 67, 54, 0.7)' : '0 0 30px rgba(76, 175, 80, 0.7)'
+        }}>
           <CardContent style={{ textAlign: 'center', padding: '32px' }}>
             <Typography variant="h3" style={{ marginBottom: '16px' }}>
               {isLiarWin ? '🎭' : '👥'}
@@ -198,16 +130,24 @@ const WordGuessComponent = ({
               다시 게임하기
             </Button>
           </CardContent>
-        </ResultCard>
-      </FadeWrapper>
+        </Card>
+      </div>
     )
   }
 
   // Show guess result if submitted
   if (isSubmitted && guessResult) {
     return (
-      <FadeWrapper>
-        <GuessResultCard $correct={guessResult.correct}>
+      <div style={{
+        opacity: 1,
+        animation: 'fadeIn 0.3s ease-in-out'
+      }}>
+        <Card style={{
+          minWidth: '500px',
+          backgroundColor: guessResult.correct ? '#4caf50' : '#f44336',
+          color: 'white',
+          border: `3px solid ${guessResult.correct ? '#388e3c' : '#d32f2f'}`
+        }}>
           <CardContent style={{ textAlign: 'center', padding: '24px' }}>
             {guessResult.correct ? (
               <CheckIcon size={64} style={{ marginBottom: '16px' }} />
@@ -227,16 +167,26 @@ const WordGuessComponent = ({
               게임 결과를 집계하는 중...
             </Typography>
           </CardContent>
-        </GuessResultCard>
-      </FadeWrapper>
+        </Card>
+      </div>
     )
   }
 
   // Show waiting message for citizens
   if (!isLiar) {
     return (
-      <FadeWrapper>
-        <WaitingPaper>
+      <div style={{
+        opacity: 1,
+        animation: 'fadeIn 0.3s ease-in-out'
+      }}>
+        <Paper style={{
+          minWidth: '500px',
+          padding: '32px',
+          textAlign: 'center',
+          backgroundColor: '#2196f3',
+          color: 'white',
+          border: '2px solid #1976d2'
+        }}>
           <WaitIcon size={64} style={{ marginBottom: '16px' }} />
           <Typography variant="h5" style={{ fontWeight: 'bold', marginBottom: '8px' }}>
             🎭 최종 추리 단계
@@ -253,20 +203,43 @@ const WordGuessComponent = ({
               <Typography variant="h4" style={{ marginBottom: '8px' }}>
                 {gameTimer}초
               </Typography>
-              <ProgressBar>
-                <ProgressFill $progress={getProgressValue()} />
-              </ProgressBar>
+              <div style={{
+                width: '100%',
+                height: '8px',
+                borderRadius: '4px',
+                backgroundColor: 'rgba(255, 255, 255, 0.3)',
+                overflow: 'hidden',
+                marginTop: '16px'
+              }}>
+                <div style={{
+                  height: '100%',
+                  backgroundColor: 'white',
+                  borderRadius: '4px',
+                  transition: 'width 0.3s ease',
+                  width: `${getProgressValue()}%`
+                }} />
+              </div>
             </Box>
           )}
-        </WaitingPaper>
-      </FadeWrapper>
+        </Paper>
+      </div>
     )
   }
 
   // Show word guessing interface for liar
   return (
-    <FadeWrapper>
-      <LiarCard>
+    <div style={{
+      opacity: 1,
+      animation: 'fadeIn 0.3s ease-in-out'
+    }}>
+      <Card style={{
+        minWidth: '500px',
+        backgroundColor: '#f44336',
+        color: 'white',
+        border: '3px solid #d32f2f',
+        boxShadow: '0 0 20px rgba(244, 67, 54, 0.5)',
+        animation: 'pulse 2s infinite'
+      }}>
         <CardContent>
           {/* Header */}
           <Box style={{ textAlign: 'center', marginBottom: '24px' }}>
@@ -292,9 +265,22 @@ const WordGuessComponent = ({
               >
                 {gameTimer}초
               </Typography>
-              <ProgressBar style={{ marginTop: '8px' }}>
-                <ProgressFill $progress={getProgressValue()} />
-              </ProgressBar>
+              <div style={{
+                width: '100%',
+                height: '8px',
+                borderRadius: '4px',
+                backgroundColor: 'rgba(255, 255, 255, 0.3)',
+                overflow: 'hidden',
+                marginTop: '8px'
+              }}>
+                <div style={{
+                  height: '100%',
+                  backgroundColor: 'white',
+                  borderRadius: '4px',
+                  transition: 'width 0.3s ease',
+                  width: `${getProgressValue()}%`
+                }} />
+              </div>
             </Box>
           )}
 
@@ -387,8 +373,8 @@ const WordGuessComponent = ({
             ⚠️ 한 번만 추리할 수 있습니다!
           </Typography>
         </CardContent>
-      </LiarCard>
-    </FadeWrapper>
+      </Card>
+    </div>
   )
 }
 

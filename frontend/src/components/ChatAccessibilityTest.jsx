@@ -23,41 +23,8 @@ import {
     Volume2 as VolumeIcon,
     X as ErrorIcon
 } from 'lucide-react'
-import styled from 'styled-components'
 import OptimizedEnhancedChatSystem from './OptimizedEnhancedChatSystem'
 import {getContrastRatio, getSystemMessageColors, getUserColorSet} from '../utils/colorUtils'
-
-// Styled components to replace MUI FormControlLabel and Switch
-const FormControlLabel = styled.label`
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  margin: 8px 0;
-`
-
-const Switch = styled.input.attrs({ type: 'checkbox' })`
-  position: relative;
-  width: 44px;
-  height: 24px;
-  appearance: none;
-  background: ${props => props.checked ? '#1976d2' : '#ccc'};
-  border-radius: 12px;
-  transition: all 0.3s ease;
-  cursor: pointer;
-  
-  &::before {
-    content: '';
-    position: absolute;
-    top: 2px;
-    left: ${props => props.checked ? '22px' : '2px'};
-    width: 20px;
-    height: 20px;
-    background: white;
-    border-radius: 50%;
-    transition: all 0.3s ease;
-  }
-`
 
 // Accessibility test data
 const ACCESSIBILITY_TEST_USERS = [
@@ -246,31 +213,64 @@ const ChatAccessibilityTest = () => {
       <Paper style={{ padding: '16px', marginBottom: '16px' }}>
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} md={3}>
-            <FormControlLabel>
-              <Switch
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, margin: '8px 0' }}>
+              <input
+                type="checkbox"
                 checked={isDarkMode}
                 onChange={(e) => setIsDarkMode(e.target.checked)}
+                style={{
+                  position: 'relative',
+                  width: '44px',
+                  height: '24px',
+                  appearance: 'none',
+                  background: e?.target?.checked ? '#1976d2' : '#ccc',
+                  borderRadius: '12px',
+                  transition: 'all 0.3s ease',
+                  cursor: 'pointer'
+                }}
               />
               <Typography>다크 모드</Typography>
-            </FormControlLabel>
+            </Box>
           </Grid>
           <Grid item xs={12} md={3}>
-            <FormControlLabel>
-              <Switch
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, margin: '8px 0' }}>
+              <input
+                type="checkbox"
                 checked={highContrast}
                 onChange={(e) => setHighContrast(e.target.checked)}
+                style={{
+                  position: 'relative',
+                  width: '44px',
+                  height: '24px',
+                  appearance: 'none',
+                  background: e?.target?.checked ? '#1976d2' : '#ccc',
+                  borderRadius: '12px',
+                  transition: 'all 0.3s ease',
+                  cursor: 'pointer'
+                }}
               />
               <Typography>고대비 모드</Typography>
-            </FormControlLabel>
+            </Box>
           </Grid>
           <Grid item xs={12} md={3}>
-            <FormControlLabel>
-              <Switch
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, margin: '8px 0' }}>
+              <input
+                type="checkbox"
                 checked={screenReaderMode}
                 onChange={(e) => setScreenReaderMode(e.target.checked)}
+                style={{
+                  position: 'relative',
+                  width: '44px',
+                  height: '24px',
+                  appearance: 'none',
+                  background: e?.target?.checked ? '#1976d2' : '#ccc',
+                  borderRadius: '12px',
+                  transition: 'all 0.3s ease',
+                  cursor: 'pointer'
+                }}
               />
               <Typography>스크린 리더 모드</Typography>
-            </FormControlLabel>
+            </Box>
           </Grid>
           <Grid item xs={12} md={3}>
             <Button 
