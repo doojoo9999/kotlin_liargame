@@ -16,7 +16,7 @@ class AdminStompClient {
     }
 
 
-    connect(serverUrl = 'http://localhost:20021', options = {}) {
+    connect(serverUrl = 'http://119.201.51.128:20021', options = {}) {
         // If already connected, return immediately
         if (this.isConnected && this.client && this.client.connected) {
             console.log('[DEBUG_LOG] Admin STOMP already connected')
