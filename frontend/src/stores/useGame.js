@@ -22,7 +22,7 @@ export const useGame = (navigate) => {
     clearError: clearAuthError,
   } = useAuthStore()
 
-  // Room store
+  // Room store - Zustand store는 파라미터를 받지 않습니다
   const {
     roomList,
     currentRoom,
@@ -38,7 +38,7 @@ export const useGame = (navigate) => {
     updateRoomInList,
     navigateToLobby,
     clearError: clearRoomError,
-  } = useRoomStore(navigate)
+  } = useRoomStore()
 
   // Socket store
   const {
@@ -223,7 +223,7 @@ export const useGame = (navigate) => {
     login,
     logout,
 
-    // Actions - Room
+    // Actions - Room - navigate를 전달하는 래퍼 함수들
     fetchRooms,
     createRoom: (roomData) => originalCreateRoom(roomData, navigate),
     joinRoom: (gameNumber, password) => originalJoinRoom(gameNumber, password, navigate),

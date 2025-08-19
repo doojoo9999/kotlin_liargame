@@ -1,15 +1,18 @@
-import { useEffect } from 'react'
+import {useEffect, useRef} from 'react'
 
-/**
- * Handles room connection lifecycle with debounce and cleanup.
- * Does not change external behavior: logs and toasts preserved.
- */
 export default function useRoomConnectionEffect({
   gameNumber,
   connectToRoom,
   disconnectSocket,
   addToast,
 }) {
+
+    const addToastRef = useRef(addToast)
+    useEffect(() => {
+        addToastRef.current = addToast;
+    }, [addToast]);
+
+
   useEffect(() => {
     if (!gameNumber) {
       console.log('[DEBUG_LOG] No currentRoom or gameNumber available')
@@ -27,7 +30,6 @@ export default function useRoomConnectionEffect({
           console.log('[DEBUG_LOG] Successfully connected to room:', localGameNumber)
         } catch (error) {
           console.error('[DEBUG_LOG] Failed to initialize room:', error)
-          // Let GameContext handle retries to avoid double retry mechanism
           addToast('서버 연결에 실패했습니다. 게임 컨텍스트에서 재시도 중...', 'warning')
         }
       }
@@ -46,5 +48,5 @@ export default function useRoomConnectionEffect({
     }
     // Intentionally do not include connectToRoom/disconnectSocket to preserve original behavior
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameNumber, addToast])
+  }, [gameNumber])
 }
