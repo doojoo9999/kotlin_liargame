@@ -21,7 +21,7 @@ import {debugLog} from '../../utils/logger'
 const API_BASE_URL =
     import.meta.env.VITE_API_BASE_URL ||
     (typeof window !== 'undefined' && window.API_BASE_URL) ||
-    'http://localhost:20021'
+    'http://119.201.51.128:20021'
 
 
 function GameMonitoringPage() {

@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 const apiClient = axios.create({
-  baseURL: (import.meta.env.VITE_API_BASE_URL || 'http://localhost:20021') + '/api/v1',
+  baseURL: (import.meta.env.VITE_API_BASE_URL || 'http://119.201.51.128:20021') + '/api/v1',
   timeout: 10000,
   withCredentials: true, // 세션 쿠키 자동 전송
   headers: {
