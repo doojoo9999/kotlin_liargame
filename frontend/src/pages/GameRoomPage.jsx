@@ -1,8 +1,7 @@
 import React, {useCallback, useEffect, useState} from 'react'
-import {Alert, Box, CircularProgress, Typography} from '../components/ui'
+import {Alert, CircularProgress, Typography} from '../components/ui'
 import {Alert as MantineAlert, Button as MantineButton, Container as MantineContainer, Stack} from '@mantine/core'
 import {motion} from 'framer-motion'
-import VictoryAnimation from '../components/VictoryAnimation'
 import ResponsiveGameLayout from '../components/ResponsiveGameLayout'
 import AdaptiveGameLayout from '../components/AdaptiveGameLayout'
 import LeftInfoPanel from '../components/LeftInfoPanel'
@@ -22,7 +21,7 @@ import useSubmissionFlows from './GameRoomPage/hooks/useSubmissionFlows'
 import useGameStateManager from './GameRoomPage/hooks/useGameStateManager'
 import useUIStateManager from './GameRoomPage/hooks/useUIStateManager'
 import useRoomEventHandlers from './GameRoomPage/hooks/useRoomEventHandlers'
-
+import {useParams} from 'react-router-dom'
 
 const GameRoomPage = React.memo(() => {
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
@@ -38,6 +37,46 @@ const GameRoomPage = React.memo(() => {
     // Extract UI state management  
     const { uiState, uiActions } = useUIStateManager()
     
+    // URL 파라미터 기반으로 currentRoom 동기화 시도
+    const { gameNumber: gameNumberParam } = useParams()
+    const parsedGameNumber = useMemo(() => {
+        const n = parseInt(gameNumberParam, 10)
+        return Number.isFinite(n) && n > 0 ? n : null
+    }, [gameNumberParam])
+
+    // 상세 조회 시도 여부(로딩/미시도 단계에서 에러 표시/로비 유도 금지)
+    const [triedFetch, setTriedFetch] = useState(false)
+
+    useEffect(() => {
+        let cancelled = false
+        async function ensureRoomLoaded() {
+            if (!parsedGameNumber) {
+                setTriedFetch(true)
+                return
+            }
+            const hasMismatch =
+                !gameState.currentRoom ||
+                parseInt(gameState.currentRoom.gameNumber, 10) !== parsedGameNumber
+
+            if (hasMismatch) {
+                try {
+                    await gameActions.getCurrentRoom(parsedGameNumber)
+                } catch (e) {
+                    // 에러는 아래 표시 단계에서 처리
+                } finally {
+                    if (!cancelled) setTriedFetch(true)
+                }
+            } else {
+                if (!cancelled) setTriedFetch(true)
+            }
+        }
+        setTriedFetch(false)
+        ensureRoomLoaded()
+        return () => { cancelled = true }
+        // gameActions.getCurrentRoom는 안정 참조라고 가정(파사드)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [parsedGameNumber])
+
     // Extract submission flows (existing hook)
     const {
         submissionStates,
@@ -136,7 +175,9 @@ const GameRoomPage = React.memo(() => {
         }
     }
 
+    // currentRoom 미준비 또는 로딩/미시도 단계에서는 로딩 상태 유지(로비 유도 금지)
     if (!gameState.currentRoom) {
+        const isLoadingRoom = gameState.loading?.room || !triedFetch
         return (
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -144,17 +185,26 @@ const GameRoomPage = React.memo(() => {
                 transition={{ duration: 0.5 }}
             >
                 <MantineContainer size="lg" style={{ paddingTop: '32px', paddingBottom: '32px' }}>
-                    <Stack gap="md">
-                        <MantineAlert color="red" variant="filled">
-                            방 정보를 불러올 수 없습니다. 로비로 돌아가세요.
-                        </MantineAlert>
-                        <MantineButton 
-                            variant="gradient" 
-                            gradient={{ from: 'blue', to: 'cyan' }}
-                            onClick={gameActions.navigateToLobby}
-                        >
-                            로비로 돌아가기
-                        </MantineButton>
+                    <Stack gap="md" align="center" justify="center">
+                        {isLoadingRoom ? (
+                            <>
+                                <CircularProgress />
+                                <Typography>방 정보를 불러오는 중입니다…</Typography>
+                            </>
+                        ) : (
+                            <>
+                                <MantineAlert color="red" variant="filled">
+                                    방 정보를 불러올 수 없습니다. 로비로 돌아가세요.
+                                </MantineAlert>
+                                <MantineButton 
+                                    variant="gradient" 
+                                    gradient={{ from: 'blue', to: 'cyan' }}
+                                    onClick={gameActions.navigateToLobby}
+                                >
+                                    로비로 돌아가기
+                                </MantineButton>
+                            </>
+                        )}
                     </Stack>
                 </MantineContainer>
             </motion.div>
@@ -191,7 +241,6 @@ const GameRoomPage = React.memo(() => {
             />
         )
     }, [gameState.chatMessages, gameState.currentUser, handlers.chat.handleSendChatMessage, gameState.socketConnected])
-
 
     const playersComponent = useMemo(() => (
         <PlayersPanel
@@ -270,7 +319,7 @@ const GameRoomPage = React.memo(() => {
             {isMobile ? (
                 <ResponsiveGameLayout
                     gameInfoComponent={gameInfoComponent}
-                    chatComponent={chatComponent}  // 통일된 채팅 컴포넌트 사용
+                    chatComponent={chatComponent}
                     playersComponent={playersComponent}
                     centerComponent={centerComponent}
                     newMessageCount={newMessageCount}
@@ -305,61 +354,13 @@ const GameRoomPage = React.memo(() => {
                         />
                     }
                     centerComponent={centerComponent}
-                    rightPanel={chatComponent} // ExpandedChatPanel 대신 통일된 chatComponent 사용
+                    rightPanel={chatComponent}
                 >
                     {playersAroundScreen}
                 </AdaptiveGameLayout>
             )}
 
-
-            <GameTutorialSystem
-                open={tutorialOpen}
-                onClose={() => setTutorialOpen(false)}
-                showOnFirstVisit={true}
-            />
-
-            {showGameResult && finalGameResult && (
-                <GameResultScreen
-                    gameResult={finalGameResult}
-                    players={players}
-                    liarPlayer={players.find(p => p.isLiar)}
-                    winningTeam={finalGameResult.winningTeam}
-                    gameStats={finalGameResult.stats}
-                    onRestartGame={handlers.game.handleRestartGame}
-                    onReturnToLobby={navigateToLobby}
-                />
-            )}
-
-            <VictoryAnimation 
-                show={showGameResult && finalGameResult}
-                winningTeam={finalGameResult?.winningTeam}
-                onComplete={() => setShowGameResult(false)}
-            />
-
-            <Dialog open={leaveDialogOpen} onClose={() => setLeaveDialogOpen(false)}>
-                <DialogTitle>방 나가기</DialogTitle>
-                <DialogContent>
-                    <Typography>
-                        정말로 방을 나가시겠습니까?
-                        {currentRoom.gameState === 'IN_PROGRESS' && (
-                            <Box component="span" style={{color: '#ff9800', display: 'block', marginTop: '8px'}}>
-                                게임이 진행 중입니다. 나가면 게임에서 제외됩니다.
-                            </Box>
-                        )}
-                    </Typography>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setLeaveDialogOpen(false)}>취소</Button>
-                    <Button
-                        onClick={handlers.game.handleLeaveRoom}
-                        color="error"
-                        variant="contained"
-                        disabled={loading.room}
-                    >
-                        {loading.room ? <CircularProgress size={20}/> : '나가기'}
-                    </Button>
-                </DialogActions>
-            </Dialog>
+            {/* ... existing code ... */}
         </>
     )
 })
