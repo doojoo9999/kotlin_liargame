@@ -364,7 +364,6 @@ export const submitLiarGuess = async (gameNumber, guess) => {
   }
 }
 
-// 게임 상태 복구 API (재연결 시 사용)
 export const recoverGameState = async (gameNumber) => {
   try {
     const response = await apiClient.get(`/game/recover-state/${gameNumber}`)
