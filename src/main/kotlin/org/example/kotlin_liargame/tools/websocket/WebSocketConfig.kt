@@ -34,7 +34,7 @@ class WebSocketConfig(
     
     override fun registerStompEndpoints(registry: StompEndpointRegistry) {
         registry.addEndpoint("/ws")
-            .setAllowedOriginPatterns("*")
+            .setAllowedOrigins("*")
             .addInterceptors(object : HandshakeInterceptor {
                 override fun beforeHandshake(
                     request: ServerHttpRequest,

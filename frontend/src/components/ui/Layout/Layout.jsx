@@ -1,5 +1,10 @@
-import React from 'react'
-import { Box as MantineBox, Container as MantineContainer, Stack as MantineStack, Grid as MantineGrid } from '@mantine/core'
+import React, {useMemo} from 'react'
+import {
+    Box as MantineBox,
+    Container as MantineContainer,
+    Grid as MantineGrid,
+    Stack as MantineStack
+} from '@mantine/core'
 
 const layoutBase = (spacing, align, justify) => ({
   display: 'flex',
@@ -19,6 +24,16 @@ const gameStyle = {
   padding: 'var(--mantine-spacing-md)'
 }
 
+const filterTransientProps = (props) => {
+    const transientProps = {};
+    for (const key in props) {
+      if (!key.startsWith('$')) {
+        transientProps[key] = props[key];
+      }
+    }
+    return transientProps;
+  };
+
 // Box component
 export const Box = ({ 
   children, 
@@ -30,9 +45,10 @@ export const Box = ({
   ...props 
 }) => {
   const style = { ...layoutBase(spacing, align, justify), ...(variant === 'game' ? gameStyle : {}) }
+  const filteredProps = useMemo(() => filterTransientProps(props), [props])
 
   return (
-    <MantineBox className={className} style={style} {...props}>
+    <MantineBox className={className} style={style} {...filteredProps}>
       {children}
     </MantineBox>
   )
@@ -47,9 +63,10 @@ export const Container = ({
   ...props 
 }) => {
   const style = variant === 'game' ? gameStyle : undefined
+  const filteredProps = useMemo(() => filterTransientProps(props), [props])
 
   return (
-    <MantineContainer className={className} size={size} style={style} {...props}>
+    <MantineContainer className={className} size={size} style={style} {...filteredProps}>
       {children}
     </MantineContainer>
   )
@@ -66,9 +83,10 @@ export const Stack = ({
   ...props 
 }) => {
   const style = { ...layoutBase(spacing, align, justify), ...(variant === 'game' ? gameStyle : {}) }
+  const filteredProps = useMemo(() => filterTransientProps(props), [props])
 
   return (
-    <MantineStack className={className} gap={spacing} align={align} justify={justify} style={style} {...props}>
+    <MantineStack className={className} gap={spacing} align={align} justify={justify} style={style} {...filteredProps}>
       {children}
     </MantineStack>
   )
@@ -85,9 +103,10 @@ export const Grid = ({
   ...props 
 }) => {
   const style = { ...(variant === 'game' ? gameStyle : {}) }
+  const filteredProps = useMemo(() => filterTransientProps(props), [props])
 
   return (
-    <MantineGrid className={className} gutter={spacing} align={align} justify={justify} style={style} {...props}>
+    <MantineGrid className={className} gutter={spacing} align={align} justify={justify} style={style} {...filteredProps}>
       {children}
     </MantineGrid>
   )
@@ -100,9 +119,10 @@ export const Center = ({
   ...props 
 }) => {
   const centerStyle = { display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100%' }
+  const filteredProps = useMemo(() => filterTransientProps(props), [props])
 
   return (
-    <div className={className} style={centerStyle} {...props}>
+    <div className={className} style={centerStyle} {...filteredProps}>
       {children}
     </div>
   )
@@ -111,9 +131,10 @@ export const Center = ({
 // Spacer component
 export const Spacer = ({ className = '', ...props }) => {
   const spacerStyle = { flex: 1 }
+  const filteredProps = useMemo(() => filterTransientProps(props), [props])
 
   return (
-    <div className={className} style={spacerStyle} {...props} />
+    <div className={className} style={spacerStyle} {...filteredProps} />
   )
 }
 

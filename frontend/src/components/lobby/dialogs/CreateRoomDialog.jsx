@@ -216,7 +216,7 @@ const CreateRoomDialog = ({
               { value: 'LIARS_KNOW', label: '라이어가 자신이 라이어인 것을 아는 모드' },
               { value: 'LIARS_DIFFERENT_WORD', label: '라이어가 시민과 다른 답을 보는 모드' }
             ]}
-            dropdownPosition="bottom"
+            
             offset={4}
             mb="0"
             styles={{
