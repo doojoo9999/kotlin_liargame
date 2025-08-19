@@ -95,7 +95,7 @@ catch (error) {
 ### D. API Connection Issues
 **Symptoms:** `[DEBUG] onSubmit called` but then `[DEBUG] Login error caught`
 **Possible Causes:**
-- Server `http://119.201.51.128:20021/api/v1/auth/login` not reachable
+- Server `http://localhost:20021/api/v1/auth/login` not reachable
 - CORS policy blocking requests
 - Network timeout or connection refused
 
