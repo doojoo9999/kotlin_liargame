@@ -98,8 +98,7 @@ class GameService(
         }
 
         val savedGame = gameRepository.save(newGame)
-        
-        // Save all selected subjects to GameSubjectEntity table
+
         selectedSubjects.forEach { subject ->
             val gameSubject = GameSubjectEntity(
                 game = savedGame,
