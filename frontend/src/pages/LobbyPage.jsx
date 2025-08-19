@@ -2,6 +2,7 @@
 import React, {lazy, Suspense, useEffect} from 'react';
 import {Alert, Box, Container} from '@mantine/core';
 import {notifications} from '@mantine/notifications';
+import {useNavigate} from 'react-router-dom';
 import {useGame} from '../context/GameContext';
 import useSubjectStore from '../stores/subjectStore';
 import config from '../config/environment';
@@ -27,17 +28,18 @@ const AnimatedBackground = lazy(() => import('../components/AnimatedBackground')
 const FloatingGamepadIcons = lazy(() => import('../components/FloatingGamepadIcons').then(module => ({ default: module.FloatingGamepadIcons })));
 
 function LobbyPage() {
+  const navigate = useNavigate();
   const {
     roomList,
     currentUser,
+    currentRoom, // <-- Add currentRoom here
     loading,
     error,
     fetchRooms,
     createRoom,
     joinRoom,
     logout,
-    navigateToRoom
-  } = useGame();
+  } = useGame(); // <-- Remove navigate from here
 
   const {
     subjects,
@@ -52,7 +54,14 @@ function LobbyPage() {
   useEffect(() => {
     fetchRooms();
     fetchSubjects();
-  }, [fetchRooms, fetchSubjects]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Effect to handle navigation when a room is created or joined
+  useEffect(() => {
+    if (currentRoom && currentRoom.gameNumber) {
+      navigate(`/game/${currentRoom.gameNumber}`);
+    }
+  }, [currentRoom, navigate]);
 
   const {
     createRoomOpen,
@@ -83,12 +92,8 @@ function LobbyPage() {
   const handleCreateRoom = async () => {
     try {
       const roomToCreate = { ...roomForm, title: roomForm.title || `${currentUser?.nickname || '플레이어'}의 방` };
-      const newRoom = await createRoom(roomToCreate);
+      await createRoom(roomToCreate);
       closeCreateRoomDialog();
-      //showSnackbar('방이 성공적으로 생성되었습니다.', 'success');
-      if (newRoom && newRoom.id) {
-        navigateToRoom(newRoom.id);
-      }
     } catch (e) {
       console.error("Failed to create room", e);
       notifications.show({

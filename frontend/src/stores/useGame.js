@@ -10,7 +10,7 @@ import * as gameApi from '../api/gameApi'
  * Unified hook that provides access to all game-related state and actions
  * This replaces the original useGame hook from GameContext
  */
-export const useGame = (navigate) => {
+export const useGame = () => {
   // Auth store
   const {
     currentUser,
@@ -147,6 +147,28 @@ export const useGame = (navigate) => {
     }
   }
 
+  const setLoading = useCallback((type, value) => {
+    const store = type.includes('room') ? useRoomStore : 
+                  type.includes('socket') ? useSocketStore :
+                  type.includes('subject') ? useSubjectStore :
+                  useAuthStore
+
+    store.setState(state => ({
+      loading: { ...state.loading, [type]: value }
+    }))
+  }, [])
+
+  const setError = useCallback((type, error) => {
+    const store = type.includes('room') ? useRoomStore :
+                  type.includes('socket') ? useSocketStore :
+                  type.includes('subject') ? useSubjectStore :
+                  useAuthStore
+                  
+    store.setState(state => ({
+      error: { ...state.error, [type]: error }
+    }))
+  }, [])
+
   // DefenseComponent에서 사용할 함수
   const submitDefense = useCallback(async (gameNumber, defenseText) => {
     try {
@@ -225,9 +247,9 @@ export const useGame = (navigate) => {
 
     // Actions - Room - navigate를 전달하는 래퍼 함수들
     fetchRooms,
-    createRoom: (roomData) => originalCreateRoom(roomData, navigate),
-    joinRoom: (gameNumber, password) => originalJoinRoom(gameNumber, password, navigate),
-    leaveRoom: (gameNumber) => originalLeaveRoom(gameNumber, navigate),
+    createRoom: (roomData) => originalCreateRoom(roomData),
+    joinRoom: (gameNumber, password) => originalJoinRoom(gameNumber, password),
+    leaveRoom: (gameNumber) => originalLeaveRoom(gameNumber),
     getCurrentRoom,
     fetchRoomDetails,
     updateRoomInList,
@@ -284,6 +306,8 @@ export const useGame = (navigate) => {
 
     // Actions - Utility
     clearError,
+    setLoading,
+    setError,
   }
 }
 

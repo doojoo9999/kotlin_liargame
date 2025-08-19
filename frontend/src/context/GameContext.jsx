@@ -1,4 +1,4 @@
-import React, {createContext, useCallback} from 'react'
+import React, {createContext, useCallback, useMemo} from 'react'
 import {useGame as useGameZustand} from '../stores/useGame'
 
 // Import effect management hooks
@@ -106,6 +106,16 @@ const GameProvider = ({ children, navigate }) => {
    */
   useTimerEffects(gameTimer)
 
+  const socketActions = useMemo(() => ({
+    loadChatHistory,
+    setGameState,
+    setPlayers,
+    addChatMessage,
+    setVoteState,
+    setLiar,
+    clearChatMessages
+  }), [loadChatHistory, setGameState, setPlayers, addChatMessage, setVoteState, setLiar, clearChatMessages]);
+
   /**
    * Socket Effects: Handle WebSocket connections, room joining, and real-time updates
    * Depends on: currentRoom, socketConnected state and loadChatHistory action from Zustand
@@ -119,15 +129,7 @@ const GameProvider = ({ children, navigate }) => {
     dispatch,
     setLoading,
     setError,
-    {
-      loadChatHistory,
-      setGameState,
-      setPlayers,
-      addChatMessage,
-      setVoteState,
-      setLiar,
-      clearChatMessages
-    }
+    socketActions
   )
 
   if (import.meta.env.DEV) {

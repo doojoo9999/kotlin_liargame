@@ -66,7 +66,7 @@ const useRoomStore = create(
       }
     },
 
-    createRoom: async (roomData, navigate) => {
+    createRoom: async (roomData) => {
       try {
         const { currentUser } = useAuthStore.getState()
         if (!currentUser) {
@@ -80,7 +80,6 @@ const useRoomStore = create(
         
         const result = await gameApi.createRoom(roomData)
         
-        // Normalize gameNumber to a positive integer
         const rawGameNumber = result?.gameNumber ?? result
         const normalizedGameNumber = parseInt(rawGameNumber, 10)
         if (!Number.isFinite(normalizedGameNumber) || normalizedGameNumber <= 0) {
@@ -88,58 +87,9 @@ const useRoomStore = create(
           console.error('[ROOMSTORE] Invalid gameNumber on createRoom:', msg)
           throw new Error(msg)
         }
-        
-        const getSubjectById = async (subjectId) => {
-          try {
-            const allSubjects = await gameApi.getAllSubjects()
-            const foundSubject = allSubjects.find(s => s.id === subjectId)
-            return foundSubject || { id: subjectId, name: '알 수 없는 주제' }
-          } catch (error) {
-            console.error('Failed to get subject:', error)
-            return { id: subjectId, name: '주제 오류' }
-          }
-        }
 
-        const createdRoom = {
-          id: normalizedGameNumber,
-          gameNumber: normalizedGameNumber,
-          title: roomData.gName,
-          maxPlayers: roomData.gParticipants,
-          currentPlayers: 1,
-          gameState: 'WAITING',
-          subject: roomData.subjectIds?.length > 0 ? await getSubjectById(roomData.subjectIds[0]) : null,
-          players: [{
-            id: currentUser.id,
-            nickname: currentUser.nickname,
-            isHost: true,
-            isAlive: true,
-            avatarUrl: null
-          }],
-          password: roomData.gPassword,
-          rounds: roomData.gTotalRounds
-        }
-        
-        set(state => ({
-          currentRoom: createdRoom,
-          currentPage: 'room',
-          loading: { ...state.loading, room: false }
-        }))
-        
-        console.log('[DEBUG_LOG] Room creation completed, ready for navigation:', createdRoom.gameNumber)
-
-        // Navigate to the game room immediately after creation
-        if (navigate) {
-          try {
-            navigate(`/game/${createdRoom.gameNumber}`)
-          } finally {
-            // Refresh rooms list asynchronously without blocking navigation
-            setTimeout(() => { try { get().fetchRooms() } catch (e) { console.warn('[ROOMSTORE] fetchRooms after create failed:', e) } }, 0)
-          }
-        } else {
-          // Fallback: still refresh list asynchronously
-          setTimeout(() => { try { get().fetchRooms() } catch (e) { console.warn('[ROOMSTORE] fetchRooms after create failed:', e) } }, 0)
-        }
-
+        // Just fetch the details and set the state. Navigation will be handled by the component.
+        const createdRoom = await get().getCurrentRoom(normalizedGameNumber)
         return createdRoom
       } catch (error) {
         console.error('Failed to create room:', error)
@@ -154,7 +104,7 @@ const useRoomStore = create(
       }
     },
 
-    joinRoom: async (gameNumber, password = '', navigate) => {
+    joinRoom: async (gameNumber, password = '') => {
       try {
         console.log('[ROOMSTORE] Starting joinRoom for game:', gameNumber, 'with password:', password ? '***' : 'none')
 
@@ -204,11 +154,6 @@ const useRoomStore = create(
         }))
 
         console.log('[ROOMSTORE] Room join completed successfully, returning:', normalizedRoom.gameNumber)
-
-        // Navigate to the game room after joining immediately
-        if (navigate) {
-          navigate(`/game/${normalizedRoom.gameNumber}`)
-        }
 
         return normalizedRoom
       } catch (error) {
@@ -267,7 +212,7 @@ const useRoomStore = create(
       }
     },
 
-    leaveRoom: async (gameNumber, navigate) => {
+    leaveRoom: async (gameNumber) => {
       try {
         console.log('[DEBUG_LOG] Leaving room with gameNumber:', gameNumber)
         const response = await gameApi.leaveRoom({
@@ -279,11 +224,6 @@ const useRoomStore = create(
           currentRoom: null,
           currentPage: 'lobby'
         })
-
-        // Navigate to lobby after leaving room
-        if (navigate) {
-          navigate('/lobby');
-        }
 
         return response
 

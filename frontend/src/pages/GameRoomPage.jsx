@@ -70,7 +70,6 @@ const GameRoomPage = React.memo(() => {
                 if (!cancelled) setTriedFetch(true)
             }
         }
-        setTriedFetch(false)
         ensureRoomLoaded()
         return () => { cancelled = true }
         // gameActions.getCurrentRoom는 안정 참조라고 가정(파사드)
