@@ -37,6 +37,7 @@ const useRoomStore = create(
         }
 
         const mappedRooms = rooms.map(room => ({
+          id: parseInt(room.gameNumber, 10),
           gameNumber: room.gameNumber,
           title: room.title || room.gameName,
           host: room.host || room.gameOwner,
@@ -79,6 +80,15 @@ const useRoomStore = create(
         
         const result = await gameApi.createRoom(roomData)
         
+        // Normalize gameNumber to a positive integer
+        const rawGameNumber = result?.gameNumber ?? result
+        const normalizedGameNumber = parseInt(rawGameNumber, 10)
+        if (!Number.isFinite(normalizedGameNumber) || normalizedGameNumber <= 0) {
+          const msg = `gameNumber가 양수여야 합니다. 받은 값: ${rawGameNumber}`
+          console.error('[ROOMSTORE] Invalid gameNumber on createRoom:', msg)
+          throw new Error(msg)
+        }
+        
         const getSubjectById = async (subjectId) => {
           try {
             const allSubjects = await gameApi.getAllSubjects()
@@ -91,7 +101,8 @@ const useRoomStore = create(
         }
 
         const createdRoom = {
-          gameNumber: result.gameNumber || result,
+          id: normalizedGameNumber,
+          gameNumber: normalizedGameNumber,
           title: roomData.gName,
           maxPlayers: roomData.gParticipants,
           currentPlayers: 1,
@@ -114,20 +125,29 @@ const useRoomStore = create(
           loading: { ...state.loading, room: false }
         }))
         
-        get().fetchRooms()
-        
         console.log('[DEBUG_LOG] Room creation completed, ready for navigation:', createdRoom.gameNumber)
 
-        // Navigate to the game room
+        // Navigate to the game room immediately after creation
         if (navigate) {
-          navigate(`/game/${createdRoom.gameNumber}`);
+          try {
+            navigate(`/game/${createdRoom.gameNumber}`)
+          } finally {
+            // Refresh rooms list asynchronously without blocking navigation
+            setTimeout(() => { try { get().fetchRooms() } catch (e) { console.warn('[ROOMSTORE] fetchRooms after create failed:', e) } }, 0)
+          }
+        } else {
+          // Fallback: still refresh list asynchronously
+          setTimeout(() => { try { get().fetchRooms() } catch (e) { console.warn('[ROOMSTORE] fetchRooms after create failed:', e) } }, 0)
         }
 
         return createdRoom
       } catch (error) {
         console.error('Failed to create room:', error)
+        const message = error?.message?.includes('gameNumber')
+          ? error.message
+          : '방 생성에 실패했습니다.'
         set(state => ({
-          error: { ...state.error, room: '방 생성에 실패했습니다.' },
+          error: { ...state.error, room: message },
           loading: { ...state.loading, room: false }
         }))
         throw error
@@ -143,16 +163,33 @@ const useRoomStore = create(
           error: { ...state.error, room: null }
         }))
 
-        console.log('[ROOMSTORE] Calling gameApi.joinRoom...')
-        const response = await gameApi.joinRoom(gameNumber, password)
+        // Normalize input gameNumber to integer and validate
+        const normalizedInput = parseInt(gameNumber, 10)
+        if (!Number.isFinite(normalizedInput) || normalizedInput <= 0) {
+          const msg = `gameNumber가 양수여야 합니다. 받은 값: ${gameNumber}`
+          console.error('[ROOMSTORE] Invalid gameNumber on joinRoom:', msg)
+          throw new Error(msg)
+        }
+
+        console.log('[ROOMSTORE] Calling gameApi.joinRoom with normalized gameNumber:', normalizedInput)
+        const response = await gameApi.joinRoom(normalizedInput, password)
         console.log('[ROOMSTORE] Raw API response:', JSON.stringify(response, null, 2))
 
         // Normalize the room data
+        const rawRespGameNumber = response?.gameNumber ?? normalizedInput
+        const normalizedRespGameNumber = parseInt(rawRespGameNumber, 10)
+        if (!Number.isFinite(normalizedRespGameNumber) || normalizedRespGameNumber <= 0) {
+          const msg = `서버 응답의 gameNumber가 유효하지 않습니다. 받은 값: ${rawRespGameNumber}`
+          console.error('[ROOMSTORE] Invalid response gameNumber on joinRoom:', msg)
+          throw new Error(msg)
+        }
+
         const normalizedRoom = {
-          gameNumber: response.gameNumber || gameNumber,
-          title: response.title || response.gameName || `방 #${gameNumber}`,
-          maxPlayers: response.maxPlayers || response.gameParticipants || 8,
-          currentPlayers: response.currentPlayers || response.playerCount || 1,
+          id: normalizedRespGameNumber,
+          gameNumber: normalizedRespGameNumber,
+          title: response.title || response.gameName || `방 #${normalizedRespGameNumber}`,
+          maxPlayers: parseInt(response.maxPlayers || response.gameParticipants || 8, 10),
+          currentPlayers: parseInt(response.currentPlayers || response.playerCount || 1, 10),
           state: response.state || response.gameState || 'WAITING',
           players: response.players || [],
           ...response
@@ -168,17 +205,20 @@ const useRoomStore = create(
 
         console.log('[ROOMSTORE] Room join completed successfully, returning:', normalizedRoom.gameNumber)
 
-        // Navigate to the game room after joining
+        // Navigate to the game room after joining immediately
         if (navigate) {
-          navigate(`/game/${normalizedRoom.gameNumber}`);
+          navigate(`/game/${normalizedRoom.gameNumber}`)
         }
 
         return normalizedRoom
       } catch (error) {
         console.error('[ROOMSTORE] Failed to join room:', error)
         console.error('[ROOMSTORE] Error details:', error.message, error.response?.data)
+        const message = error?.message?.includes('gameNumber')
+          ? error.message
+          : '방 입장에 실패했습니다.'
         set(state => ({
-          error: { ...state.error, room: '방 입장에 실패했습니다.' },
+          error: { ...state.error, room: message },
           loading: { ...state.loading, room: false }
         }))
         throw error

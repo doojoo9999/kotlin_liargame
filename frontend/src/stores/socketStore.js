@@ -261,7 +261,7 @@ const useSocketStore = create(
         await get().loadChatHistory(gameNumber)
 
         console.log('[DEBUG_LOG] Establishing WebSocket connection')
-        const client = await gameStompClient.connect('http://119.201.51.128:20021')
+        const client = await gameStompClient.connect('http://localhost:20021')
 
         gameStompClient.subscribeToGameChat(gameNumber, (message) => {
           console.log('[DEBUG_LOG] Received chat message:', message)
