@@ -63,12 +63,7 @@ class GameController(
     @PostMapping("/start")
     fun startGame(@Valid @RequestBody request: StartGameRequest, session: HttpSession): ResponseEntity<GameStateResponse> {
         return try {
-            // 기존 게임 시작 로직
-            val gameState = gameService.startGame(request, session)
-            
-            // 새로운 게임 진행 로직 추가
-            gameProgressService.initializeGameProgress(gameState.gameNumber)
-            
+            val gameState = gameProgressService.startGame(request, session)
             ResponseEntity.ok(gameState)
         } catch (e: Exception) {
             println("[ERROR] Failed to start game: ${e.message}")
@@ -78,13 +73,13 @@ class GameController(
     
     @PostMapping("/hint")
     fun giveHint(@Valid @RequestBody request: GiveHintRequest, session: HttpSession): ResponseEntity<GameStateResponse> {
-        val response = gameService.giveHint(request, session)
+        val response = gameProgressService.giveHint(request, session)
         return ResponseEntity.ok(response)
     }
     
     @PostMapping("/vote")
     fun vote(@Valid @RequestBody request: VoteRequest, session: HttpSession): ResponseEntity<GameStateResponse> {
-        val response = gameService.vote(request, session)
+        val response = votingService.vote(request, session)
         return ResponseEntity.ok(response)
     }
     
@@ -115,7 +110,7 @@ class GameController(
     
     @PostMapping("/survival-vote")
     fun survivalVote(@RequestBody request: SurvivalVoteRequest, session: HttpSession): ResponseEntity<GameStateResponse> {
-        val response = gameService.survivalVote(request, session)
+        val response = votingService.survivalVote(request, session)
         return ResponseEntity.ok(response)
     }
     
