@@ -14,15 +14,18 @@ import org.example.kotlin_liargame.domain.game.repository.GameRepository
 import org.example.kotlin_liargame.domain.game.repository.PlayerRepository
 import org.example.kotlin_liargame.domain.subject.model.SubjectEntity
 import org.example.kotlin_liargame.domain.subject.repository.SubjectRepository
+import org.example.kotlin_liargame.global.config.GameProperties
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.Instant
 
 @Service
 class GameProgressService(
     private val gameRepository: GameRepository,
     private val playerRepository: PlayerRepository,
     private val subjectRepository: SubjectRepository,
-    private val gameMonitoringService: GameMonitoringService
+    private val gameMonitoringService: GameMonitoringService,
+    private val gameProperties: GameProperties
 ) {
 
     @Transactional
@@ -36,8 +39,8 @@ class GameProgressService(
         }
 
         val players = playerRepository.findByGame(game)
-        if (!game.canStart(players.size)) {
-            throw RuntimeException("게임을 시작하기 위한 플레이어가 충분하지 않습니다. (최소 3명, 최대 15명)")
+        if (players.size < gameProperties.minPlayers || players.size > gameProperties.maxPlayers) {
+            throw RuntimeException("게임을 시작하기 위한 플레이어가 충분하지 않습니다. (최소 ${gameProperties.minPlayers}명, 최대 ${gameProperties.maxPlayers}명)")
         }
 
         val selectedSubjects = selectSubjects(req, game)
@@ -46,10 +49,43 @@ class GameProgressService(
         game.startGame()
         val savedGame = gameRepository.save(game)
 
+        startNewTurn(savedGame)
+
         val gameStateResponse = getGameState(savedGame, session)
         gameMonitoringService.broadcastGameState(savedGame, gameStateResponse)
 
         return gameStateResponse
+    }
+
+    fun startNewTurn(game: GameEntity) {
+        val alivePlayers = playerRepository.findByGameAndIsAlive(game, true)
+        if (alivePlayers.isEmpty()) {
+            // Handle game end logic
+            return
+        }
+
+        val nextPlayer = alivePlayers.first()
+
+        game.currentPlayerId = nextPlayer.id
+        game.turnStartedAt = Instant.now()
+        gameRepository.save(game)
+
+        gameMonitoringService.notifyTurnChanged(game.gameNumber, nextPlayer.id, game.turnStartedAt!!)
+    }
+
+    @Transactional
+    fun forceNextTurn(gameId: Long) {
+        val game = gameRepository.findById(gameId).orElse(null) ?: return
+        
+        game.currentPlayerId?.let {
+            val currentPlayer = playerRepository.findById(it).orElse(null)
+            if (currentPlayer != null && currentPlayer.state == PlayerState.WAITING_FOR_HINT) {
+                currentPlayer.state = PlayerState.GAVE_HINT // Mark as spoken (timeout)
+                playerRepository.save(currentPlayer)
+            }
+        }
+        
+        startNewTurn(game)
     }
 
     private fun selectSubjects(req: StartGameRequest, game: GameEntity): List<SubjectEntity> {
@@ -60,8 +96,6 @@ class GameProgressService(
             }
             return subjects
         }
-        // Simplified subject selection logic for brevity.
-        // In a real scenario, you would implement the full logic from GameService.
         return subjectRepository.findAll().shuffled().take(2)
     }
 
@@ -101,15 +135,21 @@ class GameProgressService(
 
         val userId = getCurrentUserId(session)
         
-        markPlayerAsSpoken(req.gameNumber, userId)
+        val player = markPlayerAsSpoken(req.gameNumber, userId)
+        gameMonitoringService.notifyHintSubmitted(req.gameNumber, userId, req.hint)
+        
+        val players = playerRepository.findByGame(game)
+        val allPlayersGaveHints = players.all { it.state == PlayerState.GAVE_HINT || !it.isAlive }
 
-        val gameStateResponse = getGameState(game, session)
-        gameMonitoringService.broadcastGameState(game, gameStateResponse)
-        return gameStateResponse
+        if (allPlayersGaveHints) {
+            startNewTurn(game)
+        }
+
+        return getGameState(game, session)
     }
 
     @Transactional
-    fun markPlayerAsSpoken(gameNumber: Int, userId: Long) {
+    fun markPlayerAsSpoken(gameNumber: Int, userId: Long): PlayerEntity {
         val game = gameRepository.findByGameNumber(gameNumber)
             ?: throw RuntimeException("Game not found")
 
@@ -129,19 +169,7 @@ class GameProgressService(
         }
 
         player.state = PlayerState.GAVE_HINT
-        playerRepository.save(player)
-
-        val players = playerRepository.findByGame(game)
-        val allPlayersGaveHints = players.all { it.state == PlayerState.GAVE_HINT || !it.isAlive }
-
-        if (allPlayersGaveHints) {
-            players.forEach { p ->
-                if (p.isAlive) {
-                    p.setWaitingForVote()
-                    playerRepository.save(p)
-                }
-            }
-        }
+        return playerRepository.save(player)
     }
 
     private fun getCurrentUserId(session: HttpSession): Long {
@@ -154,12 +182,9 @@ class GameProgressService(
             ?: throw RuntimeException("Not authenticated")
     }
     
-    // This is a simplified version of getGameState. You might need to move the full implementation
-    // or create a shared component/service for it.
-    private fun getGameState(game: GameEntity, session: HttpSession): GameStateResponse {
+    private fun getGameState(game: GameEntity, session: HttpSession?): GameStateResponse {
         val players = playerRepository.findByGame(game)
-        val currentUserId = getCurrentUserId(session)
-        // GamePhase logic would be needed here.
+        val currentUserId = session?.let { getCurrentUserId(it) }
         return GameStateResponse.from(game, players, currentUserId, org.example.kotlin_liargame.domain.game.model.enum.GamePhase.GIVING_HINTS)
     }
 }

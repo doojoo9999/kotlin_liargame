@@ -61,7 +61,7 @@ management:
         include: "prometheus,health"
   metrics:
     tags:
-      application: ${spring.application.name}
+      application: "kotlin_liargame"
 
 server:
     port: 20021
