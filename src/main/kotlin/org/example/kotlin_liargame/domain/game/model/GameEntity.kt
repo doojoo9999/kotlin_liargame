@@ -32,12 +32,18 @@ class GameEntity(
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "liar_subject_id")
-    var liarSubject: SubjectEntity? = null
+    var liarSubject: SubjectEntity? = null,
+
+    var currentPlayerId: Long? = null,
+    var turnStartedAt: Instant? = null
 ) : BaseEntity() {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long = 0
+
+    @Version
+    val version: Long = 0
     
     fun startGame() {
         if (gameState == GameState.WAITING) {
@@ -61,9 +67,5 @@ class GameEntity(
 
     fun isFull(currentPlayerCount: Int): Boolean {
         return currentPlayerCount >= gameParticipants
-    }
-    
-    fun canStart(currentPlayerCount: Int): Boolean {
-        return currentPlayerCount >= 3 && currentPlayerCount <= 15
     }
 }
