@@ -2,14 +2,22 @@ package org.example.kotlin_liargame.domain.game.service
 
 import org.example.kotlin_liargame.domain.game.model.GameEntity
 import org.example.kotlin_liargame.domain.game.model.PlayerEntity
+import org.example.kotlin_liargame.tools.websocket.dto.HintSubmittedEvent
+import org.example.kotlin_liargame.tools.websocket.dto.PlayerVotedEvent
+import org.example.kotlin_liargame.tools.websocket.dto.TurnChangedEvent
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.stereotype.Service
+import java.time.Instant
 
 @Service
 class GameMonitoringService(
     private val messagingTemplate: SimpMessagingTemplate
 ) {
 
+    /**
+     * A new player has joined the game room.
+     * Notifies the lobby and the specific game room.
+     */
     fun notifyPlayerJoined(game: GameEntity, newPlayer: PlayerEntity, currentPlayers: List<PlayerEntity>) {
         val payload = mapOf(
             "type" to "PLAYER_JOINED",
@@ -19,11 +27,16 @@ class GameMonitoringService(
             "currentPlayers" to currentPlayers.size,
             "maxPlayers" to game.gameParticipants
         )
+        // Notify the specific game room
         messagingTemplate.convertAndSend("/topic/room.${game.gameNumber}", payload)
+        // Notify the lobby about the room update
         messagingTemplate.convertAndSend("/topic/lobby", payload)
     }
 
-
+    /**
+     * A player has left the game room.
+     * Notifies the lobby and the specific game room.
+     */
     fun notifyPlayerLeft(game: GameEntity, playerName: String, userId: Long, remainingPlayers: List<PlayerEntity>) {
         val payload = mapOf(
             "type" to "PLAYER_LEFT",
@@ -33,10 +46,16 @@ class GameMonitoringService(
             "currentPlayers" to remainingPlayers.size,
             "maxPlayers" to game.gameParticipants
         )
+        // Notify the specific game room
         messagingTemplate.convertAndSend("/topic/room.${game.gameNumber}", payload)
+        // Notify the lobby about the room update
         messagingTemplate.convertAndSend("/topic/lobby", payload)
     }
 
+    /**
+     * The game room has been deleted (e.g., last player left).
+     * Notifies the lobby to remove the room from the list.
+     */
     fun notifyRoomDeleted(gameNumber: Int) {
         val payload = mapOf(
             "type" to "ROOM_DELETED",
@@ -45,7 +64,26 @@ class GameMonitoringService(
         messagingTemplate.convertAndSend("/topic/lobby", payload)
     }
 
+    /**
+     * The game state has been updated (e.g., game started, new round).
+     * Broadcasts the new state to all players in the room.
+     */
     fun broadcastGameState(game: GameEntity, gameStateResponse: Any) {
         messagingTemplate.convertAndSend("/topic/game/${game.gameNumber}/state", gameStateResponse)
+    }
+
+    fun notifyPlayerVoted(gameNumber: Int, voterId: Long, targetId: Long) {
+        val event = PlayerVotedEvent(gameNumber = gameNumber, voterId = voterId, targetId = targetId)
+        messagingTemplate.convertAndSend("/topic/game/$gameNumber/events", event)
+    }
+
+    fun notifyHintSubmitted(gameNumber: Int, playerId: Long, hint: String) {
+        val event = HintSubmittedEvent(gameNumber = gameNumber, playerId = playerId, hint = hint)
+        messagingTemplate.convertAndSend("/topic/game/$gameNumber/events", event)
+    }
+
+    fun notifyTurnChanged(gameNumber: Int, currentPlayerId: Long, turnStartedAt: Instant) {
+        val event = TurnChangedEvent(gameNumber = gameNumber, currentPlayerId = currentPlayerId, turnStartedAt = turnStartedAt)
+        messagingTemplate.convertAndSend("/topic/game/$gameNumber/events", event)
     }
 }
