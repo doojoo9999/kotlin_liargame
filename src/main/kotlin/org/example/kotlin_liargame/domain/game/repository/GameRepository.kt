@@ -23,4 +23,9 @@ interface GameRepository : JpaRepository<GameEntity, Long> {
 
     @Query("SELECT g FROM GameEntity g WHERE g.gameState IN ('WAITING', 'IN_PROGRESS')")
     fun findAllActiveGames(): List<GameEntity>
+
+    fun findByGameState(gameState: GameState): List<GameEntity>
+
+    @Query("SELECT g FROM GameEntity g WHERE g.gameState = 'WAITING' AND g.createdAt < :time")
+    fun findStaleWaitingGames(time: java.time.Instant): List<GameEntity>
 }
