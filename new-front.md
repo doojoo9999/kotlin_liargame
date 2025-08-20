@@ -84,56 +84,215 @@ frontend/
 3.  **상태 관리 규칙**: 서버 상태는 TanStack Query, 클라이언트 상태는 Zustand로 엄격히 분리합니다.
 4.  **Barrel Export**: 각 모듈(`features/*`, `shared/*` 등)은 `index.js`를 통해 외부에 필요한 것만 노출합니다. 모듈 내부 파일에 직접 접근하는 import는 금지됩니다.
 
-### **단계별 실행 계획 (Step-by-Step Execution Plan):**
+---
 
-#### **Phase 1: 프로젝트 초기 설정**
+## 4. 백엔드 API 명세 (Frontend-Backend Interface)
 
-1.  **Vite 프로젝트 생성**: `frontend-new` 폴더에 Vite + React 프로젝트를 생성하세요.
-2.  **의존성 설치**: `new-front.md`의 '권장 기술 스택'에 명시된 모든 라이브러리(`@mantine/core`, `@tanstack/react-query`, `zustand` 등)를 `npm install`을 통해 설치하세요.
-3.  **기본 폴더 구조 생성**: `src` 폴더 내에 `app`, `pages`, `features`, `shared` 폴더를 생성하세요. 각 폴더 하위에도 필요한 기본 폴더(`app/providers`, `shared/api`, `shared/ui` 등)를 미리 만들어 두세요.
-4.  **ESLint/Prettier 설정**: 일관된 코드 스타일을 위해 기본 규칙을 설정합니다.
+### 4.1. 백엔드 아키텍처 개요
 
-#### **Phase 2: `shared` 레이어 구축 (공통 기반)**
+백엔드는 역할과 책임에 따라 여러 서비스로 분리되었습니다. 프론트엔드 개발 시 각 서비스의 역할을 이해하면 API를 더 쉽게 파악할 수 있습니다.
 
-1.  **`shared/api/apiClient.js`**: `axios` 인스턴스를 생성하고, 기본 `baseURL`과 인터셉터(요청/응답)를 설정합니다.
-2.  **`shared/api/queryKeys.js`**: TanStack Query에서 사용할 모든 쿼리 키를 중앙에서 관리하는 객체를 정의합니다.
-3.  **`shared/socket/stompClient.js`**: STOMP.js와 SockJS를 래핑하여 연결, 구독, 메시지 발행, 재연결 로직을 포함하는 클래스 또는 훅을 만듭니다.
-4.  **`shared/ui/`**: 프로젝트 전반에서 사용될 원자적 UI 컴포넌트를 만듭니다. (예: `Button.jsx`, `Input.jsx`, `Modal.jsx`). Mantine 컴포넌트를 래핑하여 프로젝트에 맞게 커스터마이징하는 것을 권장합니다.
+- **`GameService`**: 게임 방의 생명주기(생성, 참여, 퇴장)를 관리합니다. 동시성 제어를 위해 비관적 락(`PESSIMISTIC_WRITE`)을 사용하여 여러 유저가 동시에 방에 참여하거나 나갈 때 데이터 정합성을 보장합니다.
+- **`GameProgressService`**: 게임의 실제 진행(시작, 힌트 제공, 턴 관리)을 담당합니다.
+- **`VotingService`**: 라이어 투표, 생존 투표 등 모든 투표 관련 로직을 전담합니다.
+- **`ChatService`**: 인게임 채팅 및 시스템 메시지 전송을 관리합니다.
+- **`GameMonitoringService`**: WebSocket을 통해 게임 상태 변경(플레이어 입/퇴장, 게임 시작 등)을 모든 클라이언트에게 브로드캐스팅하는 역할을 합니다.
 
-#### **Phase 3: `app` 레이어 구축 (전역 설정)**
+### 4.1.1. 프론트엔드-백엔드 핵심 아키텍처 원칙
 
-1.  **`app/styles/`**: Mantine 테마 설정, 전역 CSS 변수, `global.css` 등을 설정합니다.
-2.  **`app/providers/`**: 애플리케이션 전체를 감싸는 Provider들을 조합하는 `AppProvider.jsx`를 만듭니다. (`MantineProvider`, `QueryClientProvider`, `BrowserRouter` 포함)
-3.  **`app/main.jsx`**: `AppProvider`를 사용하여 `App` 컴포넌트를 렌더링합니다.
+이 프로젝트는 **서버 중심 아키텍처(Server-Authoritative Architecture)**를 따릅니다. 이는 모든 상태 변경의 최종 권한과 책임이 백엔드에 있음을 의미합니다. 프론트엔드는 이 원칙을 반드시 준수해야 합니다.
 
-#### **Phase 4: `features` 및 `pages` 레이어 구축 (기능 구현)**
+- **백엔드는 '상태'와 '규칙'의 단일 진실 공급원(Single Source of Truth)입니다.**
+  - 예시: "방이 가득 찼는가?", "지금 투표할 시간인가?", "주인을 잃은 방을 삭제해야 하는가?" 와 같은 모든 판단은 백엔드가 내립니다.
+- **프론트엔드의 역할은 '사용자 액션 요청'과 '상태 표시'입니다.**
+  - 예시: 사용자가 '나가기' 버튼을 누르면, 프론트엔드는 자신이 마지막 플레이어인지 판단하지 않고, 단순히 "제가 이 방에서 나가겠습니다" (`/api/v1/game/leave`) 라는 요청을 백엔드에 보냅니다.
+- **상태 동기화는 백엔드가 주도합니다.**
+  - 예시: 백엔드는 `leave` 요청을 처리한 후, 방이 삭제되어야 한다고 판단하면 `/topic/lobby`로 `ROOM_DELETED` 메시지를 브로드캐스팅합니다. 프론트엔드는 이 메시지를 수신하여 로비 화면으로 이동하는 등 UI를 업데이트할 뿐입니다.
 
-*이제 각 기능을 독립적으로 개발하고 페이지에 조립합니다. **인증** 기능부터 시작합니다.*
+**이 원칙을 통해 데이터 정합성을 보장하고, 보안을 강화하며, 여러 클라이언트 간의 상태를 일관되게 유지할 수 있습니다.**
 
-1.  **`features/auth` 모듈 생성**:
-    -   `api/index.js`: `apiClient`를 사용하여 `login(nickname)`, `logout()` API 요청 함수를 작성합니다.
-    -   `hooks/useLogin.js`: `login` API를 호출하는 `useMutation` 훅을 만듭니다.
-    -   `ui/LoginForm.jsx`: 닉네임을 입력받고, `useLogin` 훅을 사용하여 로그인을 시도하는 폼 컴포넌트를 작성합니다. `react-hook-form`과 `zod`를 사용하세요.
-    -   `index.js`: `useLogin` 훅과 `LoginForm` 컴포넌트를 export 합니다.
+### 4.2. REST API 엔드포인트 상세
 
-2.  **`pages/LoginPage.jsx` 생성**:
-    -   `features/auth`에서 노출한 `LoginForm` 컴포넌트를 가져와 페이지 중앙에 배치합니다. 다른 로직은 포함하지 않습니다.
+#### **인증 (Auth)**
+- **Controller**: `AuthController`
+- **Service**: `UserService`
 
-3.  **`stores/authStore.js` (Zustand) 생성**:
-    -   로그인된 유저의 닉네임과 로그인 상태(isLoggedIn)를 저장하는 Zustand 스토어를 만듭니다. `login`, `logout` 액션을 포함합니다.
-    -   `useLogin` 훅의 `onSuccess` 콜백에서 이 스토어의 상태를 업데이트하도록 연동합니다.
+---
 
-*위와 같은 방식으로 **방 목록 보기**, **방 생성하기**, **채팅**, **사회자 게임 진행**, **게임 진행** 등 다른 기능들도 `features` 모듈로 각각 개발하고, `pages`에서 조립하세요.*
+- **`POST /api/v1/auth/login`**: 닉네임으로 로그인합니다.
+  - **Service Method**: `fun login(nickname: String, session: HttpSession): User`
+  - **설명**: 사용자가 입력한 닉네임으로 시스템에 로그인합니다. 기존에 해당 닉네임의 유저가 없으면 새로 생성하고, 있으면 기존 유저 정보를 반환합니다. 로그인 성공 시 서버 세션에 `userId`와 `nickname`이 저장됩니다.
+  - **Request Body**: 
+    ```json
+    { "nickname": "string" }
+    ```
+  - **Response Body**: 
+    ```json
+    { "userId": number, "nickname": "string" }
+    ```
 
-#### **Phase 5: 최종 검증**
+- **`POST /api/v1/auth/logout`**: 로그아웃합니다.
+  - **Service Method**: `fun logout(session: HttpSession)`
+  - **설명**: 현재 사용자의 세션을 무효화하여 로그아웃 처리합니다.
+  - **Response Body**: 
+    ```json
+    { "message": "Logged out successfully" }
+    ```
 
-1.  **빌드 및 린트**: `npm run build`와 `npm run lint`를 실행하여 에러가 없는지 확인합니다.
-2.  **기능 검토**: 모든 기능이 기획서대로 동작하는지, 상태 관리가 예측 가능하게 이루어지는지 확인합니다.
-3.  **README 작성**: 프로젝트 실행 방법, 아키텍처 개요, 주요 결정 사항을 `README.md`에 문서화합니다.
+#### **게임 방 (Game Room)**
+- **Controller**: `GameController`
+- **Service**: `GameService`
 
-**준수해야 할 규칙**:
-- **절대 경로 사용**: Vite 설정에서 `@/`를 `src/`로 매핑하여 모든 import는 절대 경로를 사용합니다. (`import { Button } from '@/shared/ui'`)
-- **단방향 의존성**: `features`는 `shared`에 의존할 수 있지만, `shared`는 `features`에 의존할 수 없습니다. `features` 간의 직접적인 의존도도 피해야 합니다.
-- **컴포넌트 분리**: 로직을 포함한 컴포넌트와 순수 UI 컴포넌트를 명확히 분리하세요.
+---
 
-이 지침에 따라 작업을 시작하세요. 각 단계가 완료될 때마다 진행 상황을 보고해주세요.
+- **`POST /api/v1/game/create`**: 새 게임 방을 생성합니다.
+  - **Service Method**: `fun createGameRoom(req: CreateGameRoomRequest, session: HttpSession): Int`
+  - **설명**: 새로운 라이어 게임 방을 생성합니다. 요청한 유저가 방장이 되며, 첫 번째 플레이어로 자동 참가 처리됩니다.
+  - **핵심 로직**:
+    1. 현재 사용자가 다른 게임에 참여 중인지 확인합니다.
+    2. 사용 가능한 방 번호를 1번부터 순차적으로 찾습니다.
+    3. `Game` 엔티티를 생성하고 데이터베이스에 저장합니다.
+    4. 방장을 첫 번째 `Player`로 추가하기 위해 내부적으로 `joinGame` 로직을 호출합니다.
+  - **Request Body**: `CreateGameRoomRequest`
+    ```json
+    {
+      "gameName": "string",
+      "gameParticipants": number,
+      "gameTotalRounds": number,
+      "gameLiarCount": number,
+      "gameMode": "NORMAL" | "FOOL" | "LIARS_DIFFERENT_WORD",
+      "subjectIds": number[] | null,
+      "useRandomSubjects": boolean,
+      "randomSubjectCount": number | null
+    }
+    ```
+  - **Response Body**: `number` (생성된 게임 방의 고유 번호)
+
+- **`POST /api/v1/game/join`**: 기존 게임 방에 참여합니다.
+  - **Service Method**: `fun joinGame(req: JoinGameRequest, session: HttpSession): GameStateResponse`
+  - **설명**: 지정된 번호의 게임 방에 현재 세션의 사용자가 플레이어로 참여합니다.
+  - **핵심 로직**:
+    1. **(동시성 제어)** `findByGameNumberWithLock`을 호출하여 대상 게임에 **비관적 락**을 겁니다. 이를 통해 여러 유저가 동시에 참여 요청을 보내도 방 인원수가 정확하게 관리됩니다.
+    2. 방 상태(대기 중인지), 현재 인원 등을 확인하여 참여 가능 여부를 검사합니다.
+    3. `Player` 엔티티를 생성하고 게임에 추가합니다.
+  - **WebSocket 이벤트**: 성공 시 `GameMonitoringService`를 통해 `/topic/room/{gameNumber}` 토픽으로 `PLAYER_JOINED` 메시지를 브로드캐스팅하여 대기실의 모든 클라이언트에게 알립니다.
+  - **Request Body**: 
+    ```json
+    { "gameNumber": number }
+    ```
+  - **Response Body**: `GameStateResponse` (업데이트된 게임 상태)
+
+- **`POST /api/v1/game/leave`**: 게임 방에서 나갑니다.
+  - **Service Method**: `fun leaveGame(req: LeaveGameRequest, session: HttpSession): Boolean`
+  - **설명**: 현재 게임 방에서 나갑니다. 방장이 나갈 경우, 방에 남아있는 다른 플레이어에게 방장 권한이 자동으로 위임됩니다. 마지막 플레이어가 나갈 경우 방은 삭제됩니다.
+  - **핵심 로직**:
+    1. **(동시성 제어)** `findByGameNumberWithLock`을 호출하여 대상 게임에 **비관적 락**을 겁니다.
+    2. `Player` 엔티티를 게임에서 삭제합니다.
+    3. 남은 플레이어 수를 확인하고, 필요 시 방장 위임 또는 방 삭제를 처리합니다.
+  - **WebSocket 이벤트**: 성공 시 `GameMonitoringService`를 통해 `/topic/room/{gameNumber}`로 `PLAYER_LEFT` 메시지를, 방 삭제 시 `/topic/lobby`로 `ROOM_DELETED` 메시지를 브로드캐스팅합니다.
+  - **Request Body**: 
+    ```json
+    { "gameNumber": number }
+    ```
+  - **Response Body**: `boolean` (성공 여부)
+
+- **`GET /api/v1/game/rooms`**: 활성화된 게임 방 목록을 조회합니다.
+  - **Service Method**: `fun getAllGameRooms(session: HttpSession): GameRoomListResponse`
+  - **설명**: 현재 '대기 중'이거나 '진행 중'인 모든 게임 방의 목록을 반환합니다. 로비 화면 표시에 사용됩니다.
+  - **Response Body**: `GameRoomListResponse`
+
+#### **게임 진행 (Game Progress)**
+- **Controller**: `GameController`
+- **Service**: `GameProgressService`
+
+---
+
+- **`POST /api/v1/game/start`**: 게임을 시작합니다.
+  - **Service Method**: `fun startGame(req: StartGameRequest, session: HttpSession): GameStateResponse`
+  - **설명**: 방장이 게임 시작을 요청합니다. 최소 인원(3명)이 충족되어야 시작할 수 있습니다.
+  - **핵심 로직**:
+    1. 요청자가 방장인지, 방이 대기 상태인지 확인합니다.
+    2. 게임에 참여한 플레이어들에게 '라이어'와 '시민' 역할을 무작위로 할당합니다.
+    3. 게임 주제와 제시어를 설정합니다.
+    4. 게임 상태를 `IN_PROGRESS`로 변경합니다.
+  - **WebSocket 이벤트**: 성공 시 `GameMonitoringService`를 통해 `/topic/game/{gameNumber}/state` 토픽으로 게임 전체 상태(`GameStateResponse`)를 브로드캐스팅합니다.
+  - **Request Body**: `StartGameRequest`
+  - **Response Body**: `GameStateResponse`
+
+- **`POST /api/v1/game/hint`**: 힌트(발언)를 제출합니다.
+  - **Service Method**: `fun giveHint(req: GiveHintRequest, session: HttpSession): GameStateResponse`
+  - **설명**: 자신의 턴에 라이어가 아닌 것을 증명하기 위한 힌트(제시어 설명)를 제출합니다.
+  - **핵심 로직**:
+    1. 현재 게임이 진행 중이고, 플레이어가 힌트를 제출할 차례인지 확인합니다.
+    2. 제출된 힌트를 `Player` 엔티티에 저장하고, 상태를 `GAVE_HINT`로 변경합니다.
+    3. 모든 플레이어가 힌트를 제출했는지 확인하고, 만약 그렇다면 자동으로 투표 단계로 넘어갈 준비를 합니다.
+  - **WebSocket 이벤트**: 상태 변경 시 `/topic/game/{gameNumber}/state`로 업데이트된 게임 상태를 브로드캐스팅합니다.
+  - **Request Body**: `GiveHintRequest`
+    ```json
+    { "gameNumber": number, "hint": "string" }
+    ```
+  - **Response Body**: `GameStateResponse`
+
+#### **투표 (Voting)**
+- **Controller**: `GameController`
+- **Service**: `VotingService`
+
+---
+
+- **`POST /api/v1/game/vote`**: 라이어로 의심되는 플레이어에게 투표합니다.
+  - **Service Method**: `fun vote(req: VoteRequest, session: HttpSession): GameStateResponse`
+  - **설명**: 힌트 제공 단계가 끝난 후, 라이어라고 생각되는 플레이어에게 투표합니다.
+  - **핵심 로직**:
+    1. 현재가 투표 단계인지 확인합니다.
+    2. 투표 내용을 기록하고, 대상 플레이어의 `votesReceived`를 1 증가시킵니다.
+    3. 모든 플레이어가 투표를 완료하면, 최다 득표자를 결정합니다.
+    4. 동점일 경우 재투표를 진행하고, 단독 최다 득표자가 나오면 '변론' 단계로 넘어갑니다.
+  - **WebSocket 이벤트**: 투표가 진행되거나 완료될 때마다 `/topic/game/{gameNumber}/state`로 게임 상태를 브로드캐스팅합니다.
+  - **Request Body**: `VoteRequest`
+    ```json
+    { "gameNumber": number, "targetPlayerId": number }
+    ```
+  - **Response Body**: `GameStateResponse`
+
+### 4.3. WebSocket (STOMP) 프로토콜
+
+- **연결 Endpoint**: `/ws`
+
+#### **클라이언트 -> 서버 (MessageMapping)**
+
+- **채팅 메시지 전송**:
+  - **Destination**: `/chat.send`
+  - **Payload**: `SendChatMessageRequest` (`{ "gameNumber": number, "content": "string" }`)
+  - **설명**: 게임 중 채팅 메시지를 서버로 전송합니다. `ChatService`가 메시지를 받아 DB에 저장하고, 해당 게임 방의 모든 클라이언트에게 `/topic/chat/{gameNumber}`로 메시지를 브로드캐스팅합니다.
+
+- **발언(힌트) 완료 알림**:
+  - **Destination**: `/speech/complete`
+  - **Payload**: `CompleteSpeechRequest` (`{ "gameNumber": number }`)
+  - **설명**: `GameProgressService`의 `markPlayerAsSpoken`을 호출하여 해당 플레이어의 발언이 끝났음을 기록합니다. 모든 플레이어가 발언을 마치면 자동으로 투표 단계로 전환되고, 새로운 게임 상태가 브로드캐스팅됩니다.
+
+#### **서버 -> 클라이언트 (Topic)**
+
+- **게임 상태 업데이트 (가장 중요)**:
+  - **Topic**: `/topic/game/{gameNumber}/state`
+  - **Payload**: `GameStateResponse` DTO
+  - **설명**: 게임 시작, 힌트 제출, 투표 완료 등 게임의 주요 상태가 변경될 때마다 서버가 이 토픽으로 최신 게임 상태 전체를 전송합니다. **클라이언트는 이 데이터를 받아 화면 전체를 업데이트하는 것을 기본 전략으로 삼아야 합니다.**
+
+- **게임 이벤트 수신 (최적화)**:
+  - **Topic**: `/topic/game/{gameNumber}/events`
+  - **Payload**: `PlayerVotedEvent` | `HintSubmittedEvent` | `TurnChangedEvent` 등
+  - **설명**: 투표, 힌트 제출 등 빈번하게 발생하는 작은 변화들을 실시간으로 전달합니다. 클라이언트는 이 이벤트를 사용하여 전체 상태를 다시 요청하지 않고도 UI의 일부(예: 투표 현황)를 즉시 업데이트하여 반응성을 높일 수 있습니다.
+
+- **플레이어 입/퇴장 및 방 정보 변경**:
+  - **Topic**: `/topic/room/{gameNumber}`
+  - **Payload**: `{ "type": "PLAYER_JOINED" | "PLAYER_LEFT", "playerName": "string", "currentPlayers": number, ... }`
+  - **설명**: 대기실에서 플레이어가 들어오거나 나갈 때, 방장 변경 등 방 정보가 업데이트될 때마다 전송됩니다.
+
+- **로비 업데이트**:
+  - **Topic**: `/topic/lobby`
+  - **Payload**: `{ "type": "ROOM_DELETED" | "ROOM_UPDATED", "gameNumber": number, ... }`
+  - **설명**: 방이 삭제되거나, 방의 인원수가 변경될 때 로비에 있는 모든 클라이언트에게 전송됩니다.
+
+- **채팅 메시지 수신**:
+  - **Topic**: `/topic/chat/{gameNumber}`
+  - **Payload**: `ChatMessageResponse` DTO
+  - **설명**: 새로운 채팅 메시지(유저 메시지, 시스템 메시지)가 도착했을 때 수신합니다.
