@@ -47,6 +47,9 @@ spring:
   session:
     store-type: memory # 테스트용 메모리 세션
 
+  flyway:
+    enabled: false # Flyway 비활성화
+
   # JWT 관련 설정 모두 제거
 
 server:
