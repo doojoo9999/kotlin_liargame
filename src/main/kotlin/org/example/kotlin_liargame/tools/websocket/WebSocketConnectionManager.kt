@@ -1,5 +1,6 @@
 package org.example.kotlin_liargame.tools.websocket
 
+import org.example.kotlin_liargame.domain.game.service.GameService
 import org.example.kotlin_liargame.tools.websocket.dto.ConnectionMessage
 import org.example.kotlin_liargame.tools.websocket.dto.ConnectionState
 import org.example.kotlin_liargame.tools.websocket.dto.ConnectionStats
@@ -17,7 +18,8 @@ import java.util.concurrent.ScheduledFuture
 @Component
 class WebSocketConnectionManager(
     @Lazy private val messagingTemplate: SimpMessagingTemplate,
-    private val taskScheduler: TaskScheduler
+    private val taskScheduler: TaskScheduler,
+    @Lazy private val gameService: GameService
 ) {
     
     private val connectionStates = ConcurrentHashMap<String, ConnectionState>()
@@ -60,17 +62,38 @@ class WebSocketConnectionManager(
             connectionState.status = ConnectionStatus.DISCONNECTED
             connectionState.disconnectedAt = Instant.now()
             
-            // Cancel heartbeat monitoring
             heartbeatTasks[sessionId]?.cancel(false)
             heartbeatTasks.remove(sessionId)
             
             println("[CONNECTION] WebSocket disconnected: $sessionId (userId: ${connectionState.userId})")
+
+            connectionState.userId?.let {
+                gameService.handlePlayerDisconnection(it)
+            }
             
-            // Schedule cleanup after some time to allow for reconnection
             taskScheduler.schedule({
                 cleanupConnection(sessionId)
             }, Instant.now().plusSeconds(300)) // 5 minutes grace period
         }
+    }
+
+    private fun cleanupConnection(sessionId: String) {
+        val connectionState = connectionStates[sessionId]
+        connectionState?.userId?.let { userId ->
+            val player = gameService.findPlayerInActiveGame(userId)
+            player?.let {
+                if (it.state == org.example.kotlin_liargame.domain.game.model.enum.PlayerState.DISCONNECTED) {
+                    gameService.leaveGameAsSystem(it.game.gameNumber, userId)
+                }
+            }
+        }
+
+        connectionStates.remove(sessionId)
+        heartbeatTasks[sessionId]?.cancel(false)
+        heartbeatTasks.remove(sessionId)
+        reconnectionAttempts.remove(sessionId)
+        
+        println("[CONNECTION] Cleaned up connection: $sessionId")
     }
 
     fun handleHeartbeat(sessionId: String) {
@@ -80,7 +103,6 @@ class WebSocketConnectionManager(
             connectionState.status = ConnectionStatus.CONNECTED
             reconnectionAttempts.remove(sessionId) // Reset reconnection attempts on successful heartbeat
             
-            // Send heartbeat response
             messagingTemplate.convertAndSendToUser(
                 sessionId,
                 "/topic/heartbeat",
@@ -96,7 +118,6 @@ class WebSocketConnectionManager(
     fun handleReconnection(oldSessionId: String, newSessionId: String, userId: Long?): Boolean {
         val oldConnection = connectionStates[oldSessionId]
         if (oldConnection != null && oldConnection.userId == userId) {
-            // Transfer connection state
             val newConnection = oldConnection.copy(
                 sessionId = newSessionId,
                 reconnectedAt = Instant.now(),
@@ -122,6 +143,10 @@ class WebSocketConnectionManager(
                 )
             )
             
+            userId?.let {
+                gameService.handlePlayerReconnection(it)
+            }
+
             return true
         }
         
@@ -223,15 +248,6 @@ class WebSocketConnectionManager(
         }
     }
 
-    private fun cleanupConnection(sessionId: String) {
-        connectionStates.remove(sessionId)
-        heartbeatTasks[sessionId]?.cancel(false)
-        heartbeatTasks.remove(sessionId)
-        reconnectionAttempts.remove(sessionId)
-        
-        println("[CONNECTION] Cleaned up connection: $sessionId")
-    }
-
     fun getConnectionStats(): ConnectionStats {
         val now = Instant.now()
         val connections = connectionStates.values
@@ -249,6 +265,3 @@ class WebSocketConnectionManager(
         )
     }
 }
-
-
-
