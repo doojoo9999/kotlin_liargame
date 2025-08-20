@@ -14,13 +14,8 @@ spring:
 
   h2:
       console:
-          enabled: true  # H2 콘솔을 활성화합니다 (H2 콘솔은 H2 데이터베이스의 UI를 제공하는 도구)
-          path: /h2-console  # H2 콘솔의 경로
-#    datasource:
-#        driver-class-name: org.h2.Driver  # 데이터베이스로 H2를 사용합니다.
-#        url: jdbc:h2:mem:testdb  # H2 인메모리 데이터베이스 연결 경로
-#        username: sa  # H2 접속 시 사용할 username 설정 (기본값 그대로 사용)
-#        password:  # H2 접속 시 사용할 password 설정 (기본값 그대로 사용)
+          enabled: true
+          path: /h2-console
 
   datasource:
     url: ${SPRING_LOCAL_DATABASE_URL}
@@ -53,7 +48,20 @@ spring:
           max-idle: 8
           min-idle: 0
 
+game:
+  properties:
+    turn-timeout-seconds: 60
+    min-players: 3
+    max-players: 15
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "prometheus,health"
+  metrics:
+    tags:
+      application: ${spring.application.name}
 
 server:
     port: 20021
