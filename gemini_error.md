@@ -764,21 +764,21 @@ flushWork @ chunk-276SZO74.js?v=19c79349:176
 performWorkUntilDeadline @ chunk-276SZO74.js?v=19c79349:384Understand this error
 hook.js:608 The above error occurred in the <GameProvider> component:
 
-    at GameProvider (http://119.201.51.128:5173/src/context/GameContext.jsx?t=1755534127607:25:25)
-    at AppLayout (http://119.201.51.128:5173/src/App.jsx?t=1755534127607:37:20)
-    at RenderedRoute (http://119.201.51.128:5173/node_modules/.vite/deps/react-router-dom.js?v=d308228d:5643:26)
-    at RenderErrorBoundary (http://119.201.51.128:5173/node_modules/.vite/deps/react-router-dom.js?v=d308228d:5602:5)
-    at DataRoutes (http://119.201.51.128:5173/node_modules/.vite/deps/react-router-dom.js?v=d308228d:6237:3)
-    at Router (http://119.201.51.128:5173/node_modules/.vite/deps/react-router-dom.js?v=d308228d:6322:13)
-    at RouterProvider (http://119.201.51.128:5173/node_modules/.vite/deps/react-router-dom.js?v=d308228d:6067:11)
+    at GameProvider (http://localhost:5173/src/context/GameContext.jsx?t=1755534127607:25:25)
+    at AppLayout (http://localhost:5173/src/App.jsx?t=1755534127607:37:20)
+    at RenderedRoute (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=d308228d:5643:26)
+    at RenderErrorBoundary (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=d308228d:5602:5)
+    at DataRoutes (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=d308228d:6237:3)
+    at Router (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=d308228d:6322:13)
+    at RouterProvider (http://localhost:5173/node_modules/.vite/deps/react-router-dom.js?v=d308228d:6067:11)
     at RouterProvider2
-    at ErrorBoundary (http://119.201.51.128:5173/src/components/ErrorBoundary.jsx:9:5)
+    at ErrorBoundary (http://localhost:5173/src/components/ErrorBoundary.jsx:9:5)
     at div
-    at CssBaseline (http://119.201.51.128:5173/src/components/ui/CssBaseline/CssBaseline.jsx:19:31)
+    at CssBaseline (http://localhost:5173/src/components/ui/CssBaseline/CssBaseline.jsx:19:31)
     at App
-    at QueryClientProvider (http://119.201.51.128:5173/node_modules/.vite/deps/chunk-ENT363IH.js?v=19c79349:2934:3)
-    at MantineThemeProvider (http://119.201.51.128:5173/node_modules/.vite/deps/chunk-SZOH2DOY.js?v=19c79349:3407:3)
-    at MantineProvider (http://119.201.51.128:5173/node_modules/.vite/deps/chunk-SZOH2DOY.js?v=19c79349:3909:3)
+    at QueryClientProvider (http://localhost:5173/node_modules/.vite/deps/chunk-ENT363IH.js?v=19c79349:2934:3)
+    at MantineThemeProvider (http://localhost:5173/node_modules/.vite/deps/chunk-SZOH2DOY.js?v=19c79349:3407:3)
+    at MantineProvider (http://localhost:5173/node_modules/.vite/deps/chunk-SZOH2DOY.js?v=19c79349:3909:3)
 
 React will try to recreate this component tree from scratch using the error boundary you provided, RenderErrorBoundary.
 overrideMethod @ hook.js:608
@@ -808,7 +808,7 @@ at GameProvider (GameContext.jsx:33:24)
 at renderWithHooks (chunk-276SZO74.js?v=19c79349:11548:26)
 at mountIndeterminateComponent (chunk-276SZO74.js?v=19c79349:14926:21)
 at beginWork (chunk-276SZO74.js?v=19c79349:15914:22)
-at beginWork$1 (chunk-276SZO74.js?v=19c79349:19753:22) {componentStack: '\n    at GameProvider (http://119.201.51.128:5173/s…s/.vite/deps/chunk-SZOH2DOY.js?v=19c79349:3909:3)'} Error Component Stack
+at beginWork$1 (chunk-276SZO74.js?v=19c79349:19753:22) {componentStack: '\n    at GameProvider (http://localhost:5173/s…s/.vite/deps/chunk-SZOH2DOY.js?v=19c79349:3909:3)'} Error Component Stack
 at RenderErrorBoundary (react-router-dom.js?v=d308228d:5602:5)
 at DataRoutes (react-router-dom.js?v=d308228d:6237:3)
 at Router (react-router-dom.js?v=d308228d:6322:13)
