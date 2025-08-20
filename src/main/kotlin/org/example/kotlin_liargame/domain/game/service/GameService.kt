@@ -17,6 +17,11 @@ import org.example.kotlin_liargame.domain.subject.model.SubjectEntity
 import org.example.kotlin_liargame.domain.subject.repository.SubjectRepository
 import org.example.kotlin_liargame.domain.user.repository.UserRepository
 import org.example.kotlin_liargame.domain.word.repository.WordRepository
+import org.example.kotlin_liargame.global.exception.GameAlreadyStartedException
+import org.example.kotlin_liargame.global.exception.GameNotFoundException
+import org.example.kotlin_liargame.global.exception.PlayerNotInGameException
+import org.example.kotlin_liargame.global.exception.RoomFullException
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -32,6 +37,7 @@ class GameService(
     private val gameMonitoringService: GameMonitoringService,
     private val defenseService: DefenseService
 ) {
+    private val logger = LoggerFactory.getLogger(this::class.java)
 
     private fun validateExistingOwner(session: HttpSession) {
         val userId = getCurrentUserId(session)
@@ -43,12 +49,12 @@ class GameService(
         for (game in activeGames) {
             val playerInGame = playerRepository.findByGameAndUserId(game, userId)
             if (playerInGame != null) {
-                println("[DEBUG] User already in game: gameId = ${game.gameNumber}, state = ${game.gameState}")
+                logger.debug("User already in game: gameId = ${game.gameNumber}, state = ${game.gameState}")
                 throw RuntimeException("이미 진행중인 게임에 참여하고 있습니다.")
             }
         }
 
-        println("[DEBUG] validateExistingOwner passed")
+        logger.debug("validateExistingOwner passed")
 
     }
 
@@ -147,15 +153,15 @@ class GameService(
     @Transactional
     fun joinGame(req: JoinGameRequest, session: HttpSession): GameStateResponse {
         val game = gameRepository.findByGameNumberWithLock(req.gameNumber)
-            ?: throw RuntimeException("게임방을 찾을 수 없습니다: ${req.gameNumber}")
+            ?: throw GameNotFoundException(req.gameNumber)
 
         if (game.gameState != GameState.WAITING) {
-            throw RuntimeException("게임이 이미 시작되었습니다.")
+            throw GameAlreadyStartedException(req.gameNumber)
         }
 
         val currentPlayers = playerRepository.findByGame(game)
         if (currentPlayers.size >= game.gameParticipants) {
-            throw RuntimeException("게임방이 가득 찼습니다.")
+            throw RoomFullException(req.gameNumber)
         }
 
         val userId = getCurrentUserId(session)
@@ -195,7 +201,7 @@ class GameService(
     @Transactional
     fun leaveGame(req: LeaveGameRequest, session: HttpSession): Boolean {
                     val game = gameRepository.findByGameNumberWithLock(req.gameNumber)
-            ?: throw RuntimeException("게임방을 찾을 수 없습니다: ${req.gameNumber}")
+            ?: throw GameNotFoundException(req.gameNumber)
 
         val userId = getCurrentUserId(session)
         val nickname = getCurrentUserNickname(session)
@@ -210,7 +216,7 @@ class GameService(
 
             if (remainingPlayers.isEmpty()) {
                 // No players left, delete the room
-                println("[DEBUG] No players remaining, deleting room ${game.gameNumber}")
+                logger.debug("No players remaining, deleting room ${game.gameNumber}")
                 gameRepository.delete(game)
                 gameMonitoringService.notifyRoomDeleted(game.gameNumber)
                 return true
@@ -220,7 +226,7 @@ class GameService(
                 if (newOwner != null) {
                     game.gameOwner = newOwner.nickname
                     gameRepository.save(game)
-                    println("[DEBUG] Transferred ownership from $nickname to ${newOwner.nickname} in room ${game.gameNumber} (joined at: ${newOwner.joinedAt})")
+                    logger.debug("Transferred ownership from $nickname to ${newOwner.nickname} in room ${game.gameNumber} (joined at: ${newOwner.joinedAt})")
                 }
             }
 
@@ -236,15 +242,15 @@ class GameService(
     fun defend(req: DefendRequest, session: HttpSession): GameStateResponse {
 
                     val game = gameRepository.findByGameNumber(req.gameNumber)
-            ?: throw RuntimeException("Game not found")
+            ?: throw GameNotFoundException(req.gameNumber)
 
         if (game.gameState != GameState.IN_PROGRESS) {
-            throw RuntimeException("Game is not in progress")
+            throw GameAlreadyStartedException(req.gameNumber)
         }
 
         val userId = getCurrentUserId(session)
         val player = playerRepository.findByGameAndUserId(game, userId)
-            ?: throw RuntimeException("You are not in this game")
+            ?: throw PlayerNotInGameException(userId, req.gameNumber)
 
         if (!player.isAlive) {
             throw RuntimeException("You are eliminated from the game")
@@ -273,15 +279,15 @@ class GameService(
     fun guessWord(req: GuessWordRequest, session: HttpSession): GameResultResponse {
 
                     val game = gameRepository.findByGameNumber(req.gameNumber)
-            ?: throw RuntimeException("Game not found")
+            ?: throw GameNotFoundException(req.gameNumber)
 
         if (game.gameState != GameState.IN_PROGRESS) {
-            throw RuntimeException("Game is not in progress")
+            throw GameAlreadyStartedException(req.gameNumber)
         }
 
         val userId = getCurrentUserId(session)
         val player = playerRepository.findByGameAndUserId(game, userId)
-            ?: throw RuntimeException("You are not in this game")
+            ?: throw PlayerNotInGameException(userId, req.gameNumber)
 
         if (player.role != PlayerRole.LIAR || player.isAlive) {
             throw RuntimeException("Only eliminated liars can guess the word")
@@ -310,14 +316,14 @@ class GameService(
 
     fun getGameState(req: Int, session: HttpSession): GameStateResponse {
         val game = gameRepository.findByGameNumber(req)
-            ?: throw RuntimeException("Game not found")
+            ?: throw GameNotFoundException(req)
 
         return getGameState(game, session)
     }
 
     fun getGameResult(req: Int, session: HttpSession): GameResultResponse {
         val game = gameRepository.findByGameNumber(req)
-            ?: throw RuntimeException("Game not found")
+            ?: throw GameNotFoundException(req)
 
         if (game.gameState != GameState.ENDED) {
             throw RuntimeException("Game is not ended")
@@ -347,18 +353,18 @@ class GameService(
             val gameSubjects = gameSubjectRepository.findByGameWithSubject(game)
             val subjectNames = gameSubjects.map { it.subject.content ?: "Unknown" }
 
-            println("[DEBUG] Game ${game.gameNumber} (ID: ${game.id}): found ${players.size} players")
+            logger.debug("Game ${game.gameNumber} (ID: ${game.id}): found ${players.size} players")
             players.forEach { player ->
-                println("[DEBUG]   - Player: ${player.nickname} (ID: ${player.id}, User: ${player.userId})")
+                logger.debug("  - Player: ${player.nickname} (ID: ${player.id}, User: ${player.userId})")
             }
-            println("[DEBUG] Game ${game.gameNumber} subjects: $subjectNames")
+            logger.debug("Game ${game.gameNumber} subjects: $subjectNames")
 
             playerCounts[game.id] = players.size
             playersMap[game.id] = players
             gameSubjectsMap[game.id] = subjectNames
         }
 
-        println("[DEBUG] Player counts: $playerCounts")
+        logger.debug("Player counts: $playerCounts")
 
         return GameRoomListResponse.from(activeGames, playerCounts, playersMap, gameSubjectsMap)
     }
@@ -367,10 +373,10 @@ class GameService(
     @Transactional
     fun endOfRound(req: EndOfRoundRequest, session: HttpSession): GameStateResponse {
         val game = gameRepository.findByGameNumber(req.gameNumber)
-            ?: throw RuntimeException("Game not found")
+            ?: throw GameNotFoundException(req.gameNumber)
 
         if (game.gameState != GameState.IN_PROGRESS) {
-            throw RuntimeException("Game is not in progress")
+            throw GameAlreadyStartedException(req.gameNumber)
         }
 
         if (game.gameOwner != req.gameOwner) {
@@ -394,10 +400,10 @@ class GameService(
     @Transactional
     fun recoverGameState(gameNumber: Int, userId: Long): Map<String, Any> {
         val game = gameRepository.findByGameNumber(gameNumber)
-            ?: throw IllegalArgumentException("Game not found: $gameNumber")
+            ?: throw GameNotFoundException(gameNumber)
 
         val player = playerRepository.findByGameAndUserId(game, userId)
-            ?: throw IllegalArgumentException("Player not found in game")
+            ?: throw PlayerNotInGameException(userId, gameNumber)
 
         val defenseRecovery = defenseService.recoverGameState(gameNumber)
 
@@ -416,13 +422,13 @@ class GameService(
     }
 
 
-    private fun getGameState(game: GameEntity, session: HttpSession): GameStateResponse {
+    private fun getGameState(game: GameEntity, session: HttpSession?): GameStateResponse {
         val players = playerRepository.findByGame(game)
-        val currentUserId = getCurrentUserId(session)
+        val currentUserId = session?.let { getCurrentUserId(it) }
         val currentPhase = determineGamePhase(game, players)
         val accusedPlayer = findAccusedPlayer(players)
 
-        val currentPlayer = players.find { it.userId == currentUserId }
+        val currentPlayer = currentUserId?.let { players.find { p -> p.userId == it } }
         val isChatAvailable = if (currentPlayer != null) {
             chatService.isChatAvailable(game, currentPlayer)
         } else {
@@ -465,7 +471,7 @@ class GameService(
 
 
     private fun createTestSubjects(): List<SubjectEntity> {
-        println("[DEBUG] Creating test subjects for testing")
+        logger.debug("Creating test subjects for testing")
 
         val animalSubject = SubjectEntity(
             content = "동물",
@@ -533,11 +539,64 @@ class GameService(
         subjectRepository.flush()
 
         val subjects = subjectRepository.findAll().toList()
-        println("[DEBUG] Created test subjects: ${subjects.size}")
+        logger.debug("Created test subjects: ${subjects.size}")
         subjects.forEach { subject ->
-            println("[DEBUG] Test subject '${subject.content}' (ID: ${subject.id}) has ${subject.word.size} words")
+            logger.debug("Test subject '${subject.content}' (ID: ${subject.id}) has ${subject.word.size} words")
         }
 
         return subjects
+    }
+
+    fun findPlayerInActiveGame(userId: Long): PlayerEntity? {
+        return playerRepository.findByUserIdAndGameInProgress(userId)
+    }
+
+    @Transactional
+    fun leaveGameAsSystem(gameNumber: Int, userId: Long) {
+        val game = gameRepository.findByGameNumberWithLock(gameNumber) ?: return
+        val player = playerRepository.findByGameAndUserId(game, userId) ?: return
+
+        playerRepository.delete(player)
+
+        val remainingPlayers = playerRepository.findByGame(game)
+        if (remainingPlayers.isEmpty()) {
+            gameRepository.delete(game)
+            gameMonitoringService.notifyRoomDeleted(game.gameNumber)
+        } else {
+            if (game.gameOwner == player.nickname) {
+                val newOwner = remainingPlayers.minByOrNull { it.joinedAt }
+                newOwner?.let {
+                    game.gameOwner = it.nickname
+                    gameRepository.save(game)
+                }
+            }
+            gameMonitoringService.notifyPlayerLeft(game, player.nickname, userId, remainingPlayers)
+        }
+    }
+
+    @Transactional
+    fun handlePlayerDisconnection(userId: Long) {
+        val player = playerRepository.findByUserIdAndGameInProgress(userId)
+        player?.let {
+            it.state = PlayerState.DISCONNECTED
+            playerRepository.save(it)
+            val gameState = getGameState(it.game, null) // session is null for system event
+            gameMonitoringService.broadcastGameState(it.game, gameState)
+        }
+    }
+
+    @Transactional
+    fun handlePlayerReconnection(userId: Long) {
+        val player = playerRepository.findByUserIdAndGameInProgress(userId)
+        player?.let {
+            if (it.state == PlayerState.DISCONNECTED) {
+                // This is a simplified state restoration.
+                // A more robust implementation would store the previous state.
+                it.state = PlayerState.WAITING_FOR_HINT 
+                playerRepository.save(it)
+                val gameState = getGameState(it.game, null)
+                gameMonitoringService.broadcastGameState(it.game, gameState)
+            }
+        }
     }
 }
