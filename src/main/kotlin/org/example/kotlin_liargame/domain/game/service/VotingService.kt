@@ -64,6 +64,8 @@ class VotingService(
         targetPlayer.receiveVote()
         playerRepository.save(targetPlayer)
 
+        gameMonitoringService.notifyPlayerVoted(gameNumber, voter.id, targetPlayer.id)
+
         val players = playerRepository.findByGame(game)
         val allPlayersVoted = players.all {
             it.state == PlayerState.VOTED || !it.isAlive ||
@@ -71,11 +73,11 @@ class VotingService(
         }
 
         if (allPlayersVoted) {
+            // Process results and then broadcast the final state
             // ... (투표 결과 처리 로직)
+            val gameStateResponse = getGameState(game, voterUserId)
+            gameMonitoringService.broadcastGameState(game, gameStateResponse)
         }
-
-        val gameStateResponse = getGameState(game, voterUserId)
-        gameMonitoringService.broadcastGameState(game, gameStateResponse)
         
         return VoteResponse(
             voterNickname = voter.nickname,
