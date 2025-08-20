@@ -1,6 +1,9 @@
 package org.example.kotlin_liargame.domain.user.service
 
+import org.example.kotlin_liargame.domain.game.model.enum.WinningTeam
+import org.example.kotlin_liargame.domain.game.repository.GameHistoryRepository
 import org.example.kotlin_liargame.domain.user.dto.request.UserAddRequest
+import org.example.kotlin_liargame.domain.user.dto.response.UserStatsResponse
 import org.example.kotlin_liargame.domain.user.model.UserEntity
 import org.example.kotlin_liargame.domain.user.repository.UserRepository
 import org.slf4j.LoggerFactory
@@ -10,9 +13,47 @@ import java.time.LocalDateTime
 
 @Service
 class UserService (
-    private val userRepository : UserRepository
+    private val userRepository : UserRepository,
+    private val gameHistoryRepository: GameHistoryRepository
 ){
     private val logger = LoggerFactory.getLogger(this::class.java)
+
+    fun getUserStats(userId: Long): UserStatsResponse {
+        val user = findById(userId)
+        val userNickname = user.nickname
+        
+        val gameHistories = gameHistoryRepository.findByParticipantNickname(userNickname)
+        
+        val totalGames = gameHistories.size
+        var wins = 0
+        var liarPlays = 0
+        var citizenPlays = 0
+
+        gameHistories.forEach { history ->
+            if (history.liarNickname == userNickname) {
+                liarPlays++
+                if (history.winningTeam == WinningTeam.LIARS) {
+                    wins++
+                }
+            } else {
+                citizenPlays++
+                if (history.winningTeam == WinningTeam.CITIZENS) {
+                    wins++
+                }
+            }
+        }
+        
+        return UserStatsResponse(
+            userId = userId,
+            nickname = userNickname,
+            totalGames = totalGames,
+            wins = wins,
+            losses = totalGames - wins,
+            winRate = if (totalGames > 0) (wins.toDouble() / totalGames * 100) else 0.0,
+            liarPlays = liarPlays,
+            citizenPlays = citizenPlays
+        )
+    }
 
     fun authenticate(nickname: String, password: String?): UserEntity {
         logger.debug("Authentication attempt for nickname: {}", nickname)
