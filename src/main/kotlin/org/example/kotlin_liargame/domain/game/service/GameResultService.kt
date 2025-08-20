@@ -1,6 +1,9 @@
 package org.example.kotlin_liargame.domain.game.service
 
 import org.example.kotlin_liargame.domain.game.dto.response.*
+import org.example.kotlin_liargame.domain.game.model.GameHistory
+import org.example.kotlin_liargame.domain.game.model.enum.WinningTeam
+import org.example.kotlin_liargame.domain.game.repository.GameHistoryRepository
 import org.example.kotlin_liargame.domain.game.repository.GameRepository
 import org.example.kotlin_liargame.domain.game.repository.PlayerRepository
 import org.springframework.context.annotation.Lazy
@@ -15,6 +18,7 @@ import java.time.Instant
 class GameResultService(
     private val gameRepository: GameRepository,
     private val playerRepository: PlayerRepository,
+    private val gameHistoryRepository: GameHistoryRepository,
     private val messagingTemplate: SimpMessagingTemplate,
     private val taskScheduler: TaskScheduler,
     @Lazy private val topicGuessService: TopicGuessService
@@ -47,7 +51,6 @@ class GameResultService(
     fun submitLiarGuess(gameNumber: Int, liarPlayerId: Long, guess: String): LiarGuessResultResponse {
         val response = topicGuessService.submitLiarGuess(gameNumber, liarPlayerId, guess)
         
-        // Handle game ending based on the result
         if (response.isCorrect) {
             endGameWithLiarVictory(gameNumber)
         } else {
@@ -65,6 +68,8 @@ class GameResultService(
         game.endGame()
         gameRepository.save(game)
         
+        recordGameHistory(game, players, WinningTeam.CITIZENS)
+
         sendModeratorMessage(gameNumber, "시민팀이 승리했습니다!")
         
         val citizens = players.filter { it.role.name == "CITIZEN" }
@@ -97,6 +102,8 @@ class GameResultService(
         
         game.endGame()
         gameRepository.save(game)
+
+        recordGameHistory(game, players, WinningTeam.LIARS)
         
         sendModeratorMessage(gameNumber, "라이어팀이 승리했습니다!")
         
@@ -173,7 +180,6 @@ class GameResultService(
         }
     }
     
-    
     private fun calculateGameStatistics(gameNumber: Int): GameStatistics {
         val game = gameRepository.findByGameNumber(gameNumber)
             ?: throw IllegalArgumentException("Game not found")
@@ -187,8 +193,8 @@ class GameResultService(
             currentRound = game.gameCurrentRound,
             totalDuration = totalDuration,
             averageRoundDuration = if (game.gameCurrentRound > 0) totalDuration / game.gameCurrentRound else 0L,
-            totalVotes = 0, // 실제 구현에서는 투표 수 계산 필요
-            correctGuesses = 0 // 실제 구현에서는 정답 추측 수 계산 필요
+            totalVotes = 0,
+            correctGuesses = 0
         )
     }
     
@@ -209,5 +215,19 @@ class GameResultService(
                 timestamp = Instant.now()
             )
         )
+    }
+
+    private fun recordGameHistory(game: org.example.kotlin_liargame.domain.game.model.GameEntity, players: List<org.example.kotlin_liargame.domain.game.model.PlayerEntity>, winningTeam: WinningTeam) {
+        val liar = players.firstOrNull { it.role.name == "LIAR" } ?: return
+
+        val history = GameHistory(
+            gameNumber = game.gameNumber,
+            gameMode = game.gameMode,
+            participants = players.map { it.nickname }.toSet(),
+            liarNickname = liar.nickname,
+            winningTeam = winningTeam,
+            gameRounds = game.gameCurrentRound
+        )
+        gameHistoryRepository.save(history)
     }
 }
