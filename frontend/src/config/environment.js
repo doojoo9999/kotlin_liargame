@@ -1,8 +1,8 @@
 // src/config/environment.js
 const config = {
   // API 설정
-  apiBaseUrl: import.meta.env.VITE_API_BASE_URL || 'http://119.201.51.128:20021',
-  websocketUrl: (import.meta.env.VITE_WEBSOCKET_URL || 'http://119.201.51.128:20021').replace(/^ws/, 'http'),
+  apiBaseUrl: import.meta.env.VITE_API_BASE_URL || 'http://localhost:20021',
+  websocketUrl: (import.meta.env.VITE_WEBSOCKET_URL || 'http://localhost:20021').replace(/^ws/, 'http'),
   
   // 개발 모드 설정
   isDevelopment: import.meta.env.VITE_ENVIRONMENT === 'development',
