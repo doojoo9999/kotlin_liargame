@@ -8,5 +8,6 @@ enum class PlayerState {
     ACCUSED,
     DEFENDED,
     SURVIVED,
-    ELIMINATED
+    ELIMINATED,
+    DISCONNECTED
 }
