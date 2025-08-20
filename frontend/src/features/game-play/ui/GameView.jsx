@@ -4,7 +4,6 @@ import {GameStartButton} from './GameStartButton';
 import {InProgressView} from './InProgressView';
 import {GameResult} from '@/features/game-result/ui/GameResult';
 
-// Placeholder components for different game states
 const WaitingRoom = ({ gameState }) => (
   <>
     <Text>Waiting for players to join...</Text>

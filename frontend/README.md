@@ -1,12 +1,88 @@
-# React + Vite
+# Liar Game Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This is the frontend for the real-time Liar Game web application, rebuilt from the ground up with a modern, scalable architecture.
 
-Currently, two official plugins are available:
+## ✨ Core Philosophy
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **Modularity**: Built using Feature-Sliced Design to ensure features are independent, loosely coupled, and highly reusable.
+- **Clear Separation of Concerns**: Each file and folder has a single, clear responsibility (e.g., UI, business logic, API calls).
+- **Predictable State Management**: Server state and client state are strictly separated for clarity and maintainability.
 
-## Expanding the ESLint configuration
+## 🚀 Tech Stack
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+| Category          | Library                                                     | Purpose                                       |
+| ----------------- | ----------------------------------------------------------- | --------------------------------------------- |
+| **Environment**   | Vite                                                        | Build tool and development server             |
+| **UI Framework**  | React, Mantine                                              | Component-based UI and design system          |
+| **Styling**       | styled-components, Framer Motion                            | Custom styling and animations                 |
+| **Server State**  | TanStack Query v5                                           | Data fetching, caching, and synchronization   |
+| **Client State**  | Zustand                                                     | Global UI state management                    |
+| **Routing**       | React Router v7                                             | Client-side routing and data loading          |
+| **Forms**         | React Hook Form, Zod                                        | Form state management and validation          |
+| **Networking**    | Axios, STOMP.js, SockJS                                     | HTTP and WebSocket communication              |
+| **Icons**         | Lucide-React, Tabler Icons                                  | Icon library                                  |
+
+## 📂 Project Structure (Feature-Sliced Design)
+
+The codebase is organized into four main slices:
+
+-   `src/app`: Global settings, providers, styles, and application entry point.
+-   `src/pages`: Thin container components that assemble features into complete pages.
+-   `src/features`: Core application features (e.g., `auth`, `chat`, `game-play`). Each feature is a self-contained module.
+-   `src/shared`: Common modules shared across the entire application (e.g., `apiClient`, UI components, utility hooks).
+
+## ⚙️ Getting Started
+
+### Prerequisites
+
+-   Node.js (v18 or higher recommended)
+-   npm
+
+### 1. Environment Variables
+
+Create a `.env.local` file in the `frontend` directory and add the following variables. Adjust the URLs to match your backend server configuration.
+
+```env
+# The base URL for the backend REST API
+VITE_API_BASE_URL=http://localhost:8080
+
+# The base URL for the WebSocket server
+VITE_WS_BASE_URL=http://localhost:8080/ws
+```
+
+### 2. Installation
+
+Navigate to the frontend directory and install the dependencies:
+
+```bash
+cd frontend
+npm install
+```
+
+### 3. Running the Development Server
+
+To start the local development server, run:
+
+```bash
+npm run dev
+```
+
+The application will be available at `http://localhost:5173` (or the next available port).
+
+### 4. Building for Production
+
+To create a production-ready build, run:
+
+```bash
+npm run build
+```
+
+The optimized static files will be generated in the `frontend/dist` directory.
+
+### 5. Linting
+
+To check for code quality and style issues, run:
+
+```bash
+npm run lint
+```

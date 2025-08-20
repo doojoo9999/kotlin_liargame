@@ -1,25 +1,32 @@
-import {Button, Modal, Paper, Stack, Title} from '@mantine/core';
+import {useMemo} from 'react';
+import {Alert, Button, Center, Loader, Modal, Paper, Stack, Title} from '@mantine/core';
 import {useDisclosure} from '@mantine/hooks';
 import {CreateRoomForm} from '@/features/create-room';
 import {RoomList} from '@/features/room-list/ui/RoomList';
-
-// Placeholder for fetching subjects. In a real app, this would come from an API.
-const fakeSubjects = [
-  { value: 'movies', label: 'Movies' },
-  { value: 'food', label: 'Food' },
-  { value: 'animals', label: 'Animals' },
-];
+import {useSubjects} from '@/features/subjects/hooks/useSubjects';
 
 export const LobbyPage = () => {
   const [opened, { open, close }] = useDisclosure(false);
-  
-  // In a real app, you would use React Query to fetch the list of subjects.
-  // const { data: subjects } = useQuery(...)
+
+  const { data: subjectsData, isLoading, isError } = useSubjects();
+
+  const subjectOptions = useMemo(() => {
+    if (!subjectsData) return [];
+    // The API returns an array of { id: number, content: string }
+    return subjectsData.map(subject => ({
+      value: subject.id.toString(),
+      label: subject.content,
+    }));
+  }, [subjectsData]);
 
   return (
     <>
       <Modal opened={opened} onClose={close} title="Create New Game Room">
-        <CreateRoomForm subjects={fakeSubjects} onClose={close} />
+        {isLoading && <Center><Loader /></Center>}
+        {isError && <Alert color="red" title="Error">Failed to load subjects.</Alert>}
+        {subjectsData && (
+          <CreateRoomForm subjects={subjectOptions} onClose={close} />
+        )}
       </Modal>
 
       <Stack align="center" pt="xl" gap="xl">

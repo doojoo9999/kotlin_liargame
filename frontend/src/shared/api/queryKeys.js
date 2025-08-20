@@ -13,5 +13,8 @@ export const queryKeys = {
     players: (roomId) => ['game', 'players', roomId],
     result: (roomId) => ['game', 'result', roomId],
   },
+  subjects: {
+    list: () => ['subjects', 'list'],
+  },
   // Add other query keys as needed
 };
