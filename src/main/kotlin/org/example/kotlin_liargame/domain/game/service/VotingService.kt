@@ -24,8 +24,6 @@ class VotingService(
     private val defenseService: DefenseService,
     private val gameMonitoringService: GameMonitoringService
 ) {
-    
-    // ... (기존의 다른 메서드들은 유지)
 
     @Transactional
     fun castVote(gameNumber: Int, voterUserId: Long, targetPlayerId: Long): VoteResponse {
@@ -73,8 +71,6 @@ class VotingService(
         }
 
         if (allPlayersVoted) {
-            // Process results and then broadcast the final state
-            // ... (투표 결과 처리 로직)
             val gameStateResponse = getGameState(game, voterUserId)
             gameMonitoringService.broadcastGameState(game, gameStateResponse)
         }
@@ -98,8 +94,6 @@ class VotingService(
         val game = gameRepository.findByGameNumberWithLock(req.gameNumber)
             ?: throw RuntimeException("Game not found")
 
-        // ... (survivalVote 로직)
-
         val gameStateResponse = getGameState(game, session)
         gameMonitoringService.broadcastGameState(game, gameStateResponse)
         return gameStateResponse
@@ -110,7 +104,6 @@ class VotingService(
             ?: throw RuntimeException("Not authenticated")
     }
 
-    // Simplified getGameState
     private fun getGameState(game: org.example.kotlin_liargame.domain.game.model.GameEntity, session: HttpSession): GameStateResponse {
         val players = playerRepository.findByGame(game)
         val currentUserId = getCurrentUserId(session)
