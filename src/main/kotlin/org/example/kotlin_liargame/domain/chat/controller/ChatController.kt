@@ -48,11 +48,10 @@ class ChatController(
             println("[DEBUG] SessionAttributes: ${headerAccessor.sessionAttributes?.keys}")
 
             // 다양한 방법으로 사용자 인증 정보 추출 시도
-            var userId: Long? = null
             var sessionAttributes = headerAccessor.sessionAttributes
 
             // 1. WebSocket 세션 속성에서 직접 userId 추출 시도
-            userId = sessionAttributes?.get("userId") as? Long
+            var userId = sessionAttributes?.get("userId") as? Long
             if (userId != null) {
                 println("[DEBUG] Found userId in WebSocket session attributes: $userId")
             }
