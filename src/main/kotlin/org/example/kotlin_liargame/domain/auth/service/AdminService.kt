@@ -14,6 +14,7 @@ import org.example.kotlin_liargame.domain.user.model.UserEntity
 import org.example.kotlin_liargame.domain.user.model.UserRole
 import org.example.kotlin_liargame.domain.user.repository.UserRepository
 import org.slf4j.LoggerFactory
+import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.util.concurrent.atomic.AtomicInteger
@@ -26,7 +27,8 @@ class AdminService(
     private val userRepository: UserRepository,
     private val gameMonitoringService: GameMonitoringService,
     private val gameService: GameService,
-    private val meterRegistry: MeterRegistry
+    private val meterRegistry: MeterRegistry,
+    private val passwordEncoder: PasswordEncoder
 ) {
     private val logger = LoggerFactory.getLogger(this::class.java)
     private val activeGamesGauge = meterRegistry.gauge("liargame.games.active", AtomicInteger(0))
@@ -36,8 +38,7 @@ class AdminService(
         val user = userRepository.findByNickname(request.nickname)
             ?: throw IllegalArgumentException("사용자를 찾을 수 없습니다.")
 
-        // TODO: Implement password hashing
-        if (user.password != request.password) {
+        if (!passwordEncoder.matches(request.password, user.password)) {
             logger.debug("관리자 로그인 실패: 잘못된 비밀번호")
             throw IllegalArgumentException("잘못된 비밀번호입니다.")
         }
