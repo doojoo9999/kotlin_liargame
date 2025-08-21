@@ -47,6 +47,9 @@ class PlayerEntity (
     var votedFor: Long? = null,
 
     @Column(nullable = true)
+    var finalVote: Boolean? = null,
+
+    @Column(nullable = true)
     var voteStartTime: Instant? = null,
 
     @Column(nullable = false)
