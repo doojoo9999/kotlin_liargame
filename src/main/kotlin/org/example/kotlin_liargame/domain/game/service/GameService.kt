@@ -2,7 +2,10 @@ package org.example.kotlin_liargame.domain.game.service
 
 import jakarta.servlet.http.HttpSession
 import org.example.kotlin_liargame.domain.chat.service.ChatService
-import org.example.kotlin_liargame.domain.game.dto.request.*
+import org.example.kotlin_liargame.domain.game.dto.request.CreateGameRoomRequest
+import org.example.kotlin_liargame.domain.game.dto.request.EndOfRoundRequest
+import org.example.kotlin_liargame.domain.game.dto.request.JoinGameRequest
+import org.example.kotlin_liargame.domain.game.dto.request.LeaveGameRequest
 import org.example.kotlin_liargame.domain.game.dto.response.GameResultResponse
 import org.example.kotlin_liargame.domain.game.dto.response.GameRoomListResponse
 import org.example.kotlin_liargame.domain.game.dto.response.GameStateResponse
@@ -35,7 +38,8 @@ class GameService(
     private val gameSubjectRepository: GameSubjectRepository,
     private val chatService: ChatService,
     private val gameMonitoringService: GameMonitoringService,
-    private val defenseService: DefenseService
+    private val defenseService: DefenseService,
+    private val topicGuessService: TopicGuessService
 ) {
     private val logger = LoggerFactory.getLogger(this::class.java)
 
@@ -238,82 +242,6 @@ class GameService(
         return false
     }
 
-    @Transactional
-    fun defend(req: DefendRequest, session: HttpSession): GameStateResponse {
-
-                    val game = gameRepository.findByGameNumber(req.gameNumber)
-            ?: throw GameNotFoundException(req.gameNumber)
-
-        if (game.gameState != GameState.IN_PROGRESS) {
-            throw GameAlreadyStartedException(req.gameNumber)
-        }
-
-        val userId = getCurrentUserId(session)
-        val player = playerRepository.findByGameAndUserId(game, userId)
-            ?: throw PlayerNotInGameException(userId, req.gameNumber)
-
-        if (!player.isAlive) {
-            throw RuntimeException("You are eliminated from the game")
-        }
-
-        if (player.state != PlayerState.ACCUSED) {
-            throw RuntimeException("You are not accused")
-        }
-
-        player.defend(req.defense)
-        playerRepository.save(player)
-
-        val players = playerRepository.findByGame(game)
-        players.forEach { p ->
-            if (p.isAlive && p.id != player.id) {
-                p.setWaitingForVote()
-                p.votedFor = null
-                playerRepository.save(p)
-            }
-        }
-
-        return getGameState(game, session)
-    }
-
-    @Transactional
-    fun guessWord(req: GuessWordRequest, session: HttpSession): GameResultResponse {
-
-                    val game = gameRepository.findByGameNumber(req.gameNumber)
-            ?: throw GameNotFoundException(req.gameNumber)
-
-        if (game.gameState != GameState.IN_PROGRESS) {
-            throw GameAlreadyStartedException(req.gameNumber)
-        }
-
-        val userId = getCurrentUserId(session)
-        val player = playerRepository.findByGameAndUserId(game, userId)
-            ?: throw PlayerNotInGameException(userId, req.gameNumber)
-
-        if (player.role != PlayerRole.LIAR || player.isAlive) {
-            throw RuntimeException("Only eliminated liars can guess the word")
-        }
-
-        val citizenSubject = game.citizenSubject
-        if (citizenSubject == null) {
-            throw RuntimeException("Citizen subject not found")
-        }
-
-        val isCorrect = citizenSubject.word.any { word ->
-            req.guess.equals(word.content, ignoreCase = true)
-        }
-
-        game.endGame()
-        gameRepository.save(game)
-
-        val players = playerRepository.findByGame(game)
-        return GameResultResponse.from(
-            game = game,
-            players = players,
-            winningTeam = if (isCorrect) WinningTeam.LIARS else WinningTeam.CITIZENS,
-            correctGuess = isCorrect
-        )
-    }
-
     fun getGameState(req: Int, session: HttpSession): GameStateResponse {
         val game = gameRepository.findByGameNumber(req)
             ?: throw GameNotFoundException(req)
@@ -351,7 +279,7 @@ class GameService(
         activeGames.forEach { game ->
             val players = playerRepository.findByGame(game)
             val gameSubjects = gameSubjectRepository.findByGameWithSubject(game)
-            val subjectNames = gameSubjects.map { it.subject.content ?: "Unknown" }
+            val subjectNames = gameSubjects.map { it.subject.content }
 
             logger.debug("Game ${game.gameNumber} (ID: ${game.id}): found ${players.size} players")
             players.forEach { player ->
@@ -450,6 +378,10 @@ class GameService(
             GameState.WAITING -> GamePhase.WAITING_FOR_PLAYERS
             GameState.ENDED -> GamePhase.GAME_OVER
             GameState.IN_PROGRESS -> {
+                if (topicGuessService.isGuessingPhaseActive(game.gameNumber)) {
+                    return GamePhase.GUESSING_WORD
+                }
+
                 val allPlayersGaveHints = players.all { it.state == PlayerState.GAVE_HINT || !it.isAlive }
                 val allPlayersVoted = players.all { it.state == PlayerState.VOTED || !it.isAlive }
                 val accusedPlayer = findAccusedPlayer(players)
