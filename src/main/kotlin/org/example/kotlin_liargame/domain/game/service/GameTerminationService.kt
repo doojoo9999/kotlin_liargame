@@ -1,5 +1,8 @@
 package org.example.kotlin_liargame.domain.game.service
 
+import org.example.kotlin_liargame.domain.game.dto.response.GameTerminationMessage
+import org.example.kotlin_liargame.domain.game.dto.response.GameTerminationResponse
+import org.example.kotlin_liargame.domain.game.model.enum.AbnormalCondition
 import org.example.kotlin_liargame.domain.game.model.enum.GameState
 import org.example.kotlin_liargame.domain.game.repository.GameRepository
 import org.example.kotlin_liargame.domain.game.repository.PlayerRepository
@@ -161,25 +164,25 @@ class GameTerminationService(
         )
         
         // Cleanup resources
-        cleanupGameResources(gameNumber)
+        cleanupGameResources(game)
         
         println("[TERMINATION] Game $gameNumber terminated: $message")
     }
 
-    private fun cleanupGameResources(gameNumber: Int) {
+    private fun cleanupGameResources(game: org.example.kotlin_liargame.domain.game.model.GameEntity) {
         try {
             // Stop monitoring
-            stopGameMonitoring(gameNumber)
+            stopGameMonitoring(game.gameNumber)
             
             // Remove termination reason
-            terminationReasons.remove(gameNumber)
+            terminationReasons.remove(game.gameNumber)
             
             // Additional cleanup can be added here for other services
             // e.g., voting cleanup, defense cleanup, etc.
             
-            println("[CLEANUP] Cleaned up resources for game $gameNumber")
+            println("[CLEANUP] Cleaned up resources for game ${game.gameNumber}")
         } catch (e: Exception) {
-            println("[ERROR] Failed to cleanup resources for game $gameNumber: ${e.message}")
+            println("[ERROR] Failed to cleanup resources for game ${game.gameNumber}: ${e.message}")
         }
     }
 
@@ -206,25 +209,3 @@ class GameTerminationService(
         )
     }
 }
-
-enum class AbnormalCondition {
-    ALL_PLAYERS_DISCONNECTED,
-    GAME_STUCK,
-    SERVER_ERROR,
-    TIMEOUT_EXCEEDED
-}
-
-data class GameTerminationResponse(
-    val gameNumber: Int,
-    val terminationType: String,
-    val reason: String,
-    val timestamp: Instant,
-    val success: Boolean
-)
-
-data class GameTerminationMessage(
-    val gameNumber: Int,
-    val message: String,
-    val timestamp: Instant,
-    val reason: String
-)
