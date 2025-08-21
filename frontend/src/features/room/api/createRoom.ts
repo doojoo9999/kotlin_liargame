@@ -1,12 +1,8 @@
 import {apiClient} from '../../../shared/api/apiClient';
+import type {CreateRoomFormInputs} from '../ui/createRoomSchema';
 
-// Based on the backend DTO CreateGameRoomRequest
-export interface CreateRoomPayload {
-  gameName: string;
-  gamePassword?: string;
-  gameParticipants: number;
-  // Add other fields like gameTotalRounds, gameLiarCount etc. if needed
-}
+// This payload should match the form inputs and the backend DTO
+export type CreateRoomPayload = CreateRoomFormInputs;
 
 export const createRoom = async (data: CreateRoomPayload): Promise<number> => {
   const response = await apiClient.post<number>('/api/v1/game/create', data);

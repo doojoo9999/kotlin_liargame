@@ -13,54 +13,46 @@ export const useLobbySocket = () => {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    let subscription: { unsubscribe: () => void } | null = null;
-
-    // The actual subscription logic should be inside onConnect to handle auto-reconnects
-    const onConnect = () => {
-      console.log('Lobby WebSocket connected, subscribing to /topic/lobby');
-      subscription = stompClient.subscribe('/topic/lobby', (message) => {
-        try {
-          const payload: LobbyUpdatePayload = JSON.parse(message.body);
-          const queryKey = ['rooms', 'list'];
-
-          queryClient.setQueryData<GameRoom[]>(queryKey, (oldData = []) => {
-            const roomIndex = oldData.findIndex((room) => room.gameNumber === payload.gameRoom.gameNumber);
-
-            switch (payload.type) {
-              case 'ROOM_CREATED':
-                return roomIndex === -1 ? [...oldData, payload.gameRoom] : oldData;
-              
-              case 'ROOM_UPDATED':
-                if (roomIndex !== -1) {
-                  const newData = [...oldData];
-                  newData[roomIndex] = payload.gameRoom;
-                  return newData;
-                }
-                return oldData;
-
-              case 'ROOM_DELETED':
-                return oldData.filter((room) => room.gameNumber !== payload.gameRoom.gameNumber);
-
-              default:
-                return oldData;
-            }
-          });
-        } catch (error) {
-          console.error("Failed to parse lobby update message:", error);
-        }
-      });
-    };
-
-    // We need to enhance our stompClient to handle onConnect callbacks
-    // For now, let's assume it connects and we can subscribe immediately.
-    // A better implementation would be: stompClient.onConnect(onConnect);
+    // Ensure the client is trying to connect
     stompClient.connect();
-    onConnect(); // Assuming immediate connection for simplicity
+
+    const subscription = stompClient.subscribe('/topic/lobby', (message) => {
+      try {
+        const payload: LobbyUpdatePayload = JSON.parse(message.body);
+        const queryKey = ['rooms', 'list'];
+
+        queryClient.setQueryData<GameRoom[]>(queryKey, (oldData = []) => {
+          const roomIndex = oldData.findIndex((room) => room.gameNumber === payload.gameRoom.gameNumber);
+
+          switch (payload.type) {
+            case 'ROOM_CREATED':
+              // Add the new room if it doesn't exist
+              return roomIndex === -1 ? [...oldData, payload.gameRoom] : oldData;
+            
+            case 'ROOM_UPDATED':
+              // Update the room if it exists
+              if (roomIndex !== -1) {
+                const newData = [...oldData];
+                newData[roomIndex] = payload.gameRoom;
+                return newData;
+              }
+              return oldData;
+
+            case 'ROOM_DELETED':
+              // Remove the room
+              return oldData.filter((room) => room.gameNumber !== payload.gameRoom.gameNumber);
+
+            default:
+              return oldData;
+          }
+        });
+      } catch (error) {
+        console.error("Failed to parse lobby update message:", error);
+      }
+    });
 
     return () => {
-      console.log('Unsubscribing from /topic/lobby');
-      subscription?.unsubscribe();
-      // We don't disconnect here, as other parts of the app might use the connection.
+      subscription.unsubscribe();
     };
   }, [queryClient]);
 };

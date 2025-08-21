@@ -1,10 +1,18 @@
-import {Client, type IFrame, type IMessage} from '@stomp/stompjs';
+import {Client, type IFrame, type IMessage, type StompSubscription} from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 
 const WEBSOCKET_URL = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:20021'}/ws`;
 
+type SubscriptionCallback = (message: IMessage) => void;
+interface SubscriptionRequest {
+  destination: string;
+  callback: SubscriptionCallback;
+  subscription?: StompSubscription; // To store the actual subscription object
+}
+
 class StompClient {
   private client: Client;
+  private subscriptionQueue: Map<string, SubscriptionRequest> = new Map();
 
   constructor() {
     this.client = new Client({
@@ -14,7 +22,7 @@ class StompClient {
       heartbeatOutgoing: 4000,
       onConnect: () => {
         console.log('WebSocket connected');
-        // TODO: Handle automatic re-subscription on reconnect
+        this.processSubscriptionQueue();
       },
       onStompError: (frame: IFrame) => {
         console.error('Broker reported error: ' + frame.headers['message']);
@@ -24,9 +32,27 @@ class StompClient {
   }
 
   public connect() {
-    if (!this.client.active) {
+    if (!this.client.active && !this.client.connected) {
       this.client.activate();
     }
+  }
+
+  public subscribe(destination: string, callback: SubscriptionCallback) {
+    const request: SubscriptionRequest = { destination, callback };
+    this.subscriptionQueue.set(destination, request);
+
+    if (this.client.active) {
+      request.subscription = this.client.subscribe(destination, callback);
+    }
+
+    // Return a custom unsubscribe function
+    return {
+      unsubscribe: () => {
+        request.subscription?.unsubscribe();
+        this.subscriptionQueue.delete(destination);
+        console.log(`Unsubscribed from ${destination}`);
+      },
+    };
   }
 
   public disconnect() {
@@ -35,14 +61,19 @@ class StompClient {
     }
   }
 
-  public subscribe(destination: string, callback: (message: IMessage) => void) {
-    // The subscribe method returns a subscription object with an `unsubscribe` method
-    const subscription = this.client.subscribe(destination, callback);
-    return subscription;
+  public isActive(): boolean {
+    return this.client.active;
   }
 
   public publish(destination: string, body: string) {
     this.client.publish({ destination, body });
+  }
+
+  private processSubscriptionQueue() {
+    this.subscriptionQueue.forEach((req) => {
+      console.log(`Processing subscription for: ${req.destination}`);
+      req.subscription = this.client.subscribe(req.destination, req.callback);
+    });
   }
 }
 

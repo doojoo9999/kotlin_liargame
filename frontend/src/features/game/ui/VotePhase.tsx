@@ -1,4 +1,5 @@
-import {Button, Paper, Stack, Text, Title} from '@mantine/core';
+import {Button, Group, Paper, Stack, Text, Title} from '@mantine/core';
+import {Timer} from '../../../shared/ui/Timer';
 import {useUserStore} from '../../../shared/stores/userStore';
 import type {GameStateResponse, Player} from '../../room/types';
 import {useSubmitVoteMutation} from '../hooks/useSubmitVoteMutation';
@@ -23,14 +24,15 @@ export function VotePhase({ gameState }: VotePhaseProps) {
     });
   };
 
-  // A simple check to see if the current user has already voted.
-  // This should ideally be driven by a specific state from the backend,
-  // e.g., `gameState.currentUser.hasVoted`.
-  const hasVoted = false; // Placeholder
+  const currentUser = gameState.players.find(p => p.nickname === currentUserNickname);
+  const hasVoted = currentUser?.hasVoted || false;
 
   return (
     <Paper p="lg" withBorder>
-      <Title order={3} ta="center" mb="md">투표 단계</Title>
+      <Group justify="space-between" mb="md">
+        <Title order={3}>투표 단계</Title>
+        <Timer endTime={gameState.phaseEndTime} />
+      </Group>
       <Text ta="center" mb="xl">
         {hasVoted
           ? '다른 플레이어들이 투표하기를 기다리고 있습니다.'

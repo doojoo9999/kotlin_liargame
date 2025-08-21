@@ -1,8 +1,9 @@
 import {zodResolver} from '@hookform/resolvers/zod';
-import {Alert, Button, Paper, Stack, Text, TextInput, Title} from '@mantine/core';
+import {Alert, Button, Group, Paper, Stack, Text, TextInput, Title} from '@mantine/core';
 import {Mic} from 'lucide-react';
 import {useForm} from 'react-hook-form';
 import {z} from 'zod';
+import {Timer} from '../../../shared/ui/Timer';
 import {useUserStore} from '../../../shared/stores/userStore';
 import type {GameStateResponse} from '../../room/types';
 import {useSubmitHintMutation} from '../hooks/useSubmitHintMutation';
@@ -20,9 +21,13 @@ export function SpeechPhase({ gameState }: SpeechPhaseProps) {
   const currentUserNickname = useUserStore((state) => state.nickname);
   const submitHintMutation = useSubmitHintMutation(gameState.gameNumber);
 
-  // This logic needs to be improved based on actual data from backend
-  const currentPlayerTurn = gameState.players.find(p => !p.isEliminated);
-  const isMyTurn = currentUserNickname === currentPlayerTurn?.nickname;
+  // Get the nickname of the player whose turn it is
+  const currentPlayerTurnNickname =
+    gameState.turnOrder && gameState.currentTurnIndex != null
+      ? gameState.turnOrder[gameState.currentTurnIndex]
+      : null;
+
+  const isMyTurn = currentUserNickname === currentPlayerTurnNickname;
 
   const {
     register,
@@ -45,9 +50,12 @@ export function SpeechPhase({ gameState }: SpeechPhaseProps) {
   return (
     <Stack>
       <Paper p="lg" withBorder>
-        <Title order={3} ta="center" mb="md">발언 단계</Title>
+        <Group justify="space-between" mb="md">
+          <Title order={3}>발언 단계</Title>
+          <Timer endTime={gameState.phaseEndTime} />
+        </Group>
         <Text ta="center" size="xl" fw={700} mb="lg">
-          {currentPlayerTurn ? `${currentPlayerTurn.nickname}님의 차례` : '...'}
+          {currentPlayerTurnNickname ? `${currentPlayerTurnNickname}님의 차례` : '...'}
         </Text>
         
         <Alert icon={<Mic size={18} />} color={isMyTurn ? 'blue' : 'gray'}>

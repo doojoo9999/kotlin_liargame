@@ -14,7 +14,7 @@ export function PasswordModal({ opened, onClose, onSubmit, loading }: PasswordMo
       password: '',
     },
     validate: {
-      password: (value) => (value.length > 0 ? null : '비밀번호를 입력해주세요.'),
+      password: (value: string) => (value.length > 0 ? null : '비밀번호를 입력해주세요.'),
     },
   });
 

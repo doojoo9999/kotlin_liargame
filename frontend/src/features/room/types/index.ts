@@ -14,6 +14,7 @@ export interface Player {
   isReady: boolean;
   role?: 'LIAR' | 'CITIZEN';
   isEliminated: boolean;
+  hasVoted?: boolean;
 }
 
 export interface GameStateResponse {
@@ -35,4 +36,11 @@ export interface GameStateResponse {
   citizenSubject?: string;
   liarSubject?: string;
   subjects?: string[];
+  // Suggested fields for turn management
+  turnOrder?: string[]; // Array of nicknames in order of play
+  currentTurnIndex?: number; // Index for the turnOrder array
+  phaseEndTime?: string; // ISO 8601 string for when the current phase ends
+  // Fields for game results
+  winner?: 'CITIZEN' | 'LIAR';
+  reason?: string;
 }
