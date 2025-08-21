@@ -1,14 +1,17 @@
 package org.example.kotlin_liargame.domain.game.service
 
 import jakarta.servlet.http.HttpSession
-import org.example.kotlin_liargame.domain.game.dto.request.SurvivalVoteRequest
+import org.example.kotlin_liargame.domain.game.dto.request.FinalVotingRequest
 import org.example.kotlin_liargame.domain.game.dto.request.VoteRequest
+import org.example.kotlin_liargame.domain.game.dto.response.FinalJudgmentResultResponse
 import org.example.kotlin_liargame.domain.game.dto.response.GameStateResponse
 import org.example.kotlin_liargame.domain.game.dto.response.VoteResponse
 import org.example.kotlin_liargame.domain.game.model.enum.GameState
+import org.example.kotlin_liargame.domain.game.model.enum.PlayerRole
 import org.example.kotlin_liargame.domain.game.model.enum.PlayerState
 import org.example.kotlin_liargame.domain.game.repository.GameRepository
 import org.example.kotlin_liargame.domain.game.repository.PlayerRepository
+import org.springframework.context.annotation.Lazy
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.scheduling.TaskScheduler
 import org.springframework.stereotype.Service
@@ -21,8 +24,9 @@ class VotingService(
     private val playerRepository: PlayerRepository,
     private val messagingTemplate: SimpMessagingTemplate,
     private val taskScheduler: TaskScheduler,
-    private val defenseService: DefenseService,
-    private val gameMonitoringService: GameMonitoringService
+    @Lazy private val defenseService: DefenseService,
+    private val gameMonitoringService: GameMonitoringService,
+    @Lazy private val gameResultService: GameResultService
 ) {
 
     @Transactional
@@ -90,10 +94,49 @@ class VotingService(
     }
 
     @Transactional
-    fun survivalVote(req: SurvivalVoteRequest, session: HttpSession): GameStateResponse {
+    fun finalVote(req: FinalVotingRequest, session: HttpSession): GameStateResponse {
+        val userId = getCurrentUserId(session)
         val game = gameRepository.findByGameNumberWithLock(req.gameNumber)
             ?: throw RuntimeException("Game not found")
 
+        val voter = playerRepository.findByGameAndUserId(game, userId)
+            ?: throw RuntimeException("You are not in this game")
+
+        // 최종 투표는 변론이 끝난 플레이어들만 가능
+        if (!voter.isAlive || voter.state != PlayerState.DEFENDED) {
+            throw IllegalStateException("It's not the time for a final vote.")
+        }
+
+        voter.finalVote = req.voteForExecution
+        voter.state = PlayerState.FINAL_VOTED
+        playerRepository.save(voter)
+
+        val players = playerRepository.findByGame(game)
+        val alivePlayers = players.filter { it.isAlive }
+        val allVoted = alivePlayers.none { it.state == PlayerState.DEFENDED }
+
+        if (allVoted) {
+            val accusedPlayer = players.find { it.state == PlayerState.ACCUSED || it.state == PlayerState.DEFENDED }
+                ?: throw IllegalStateException("No accused player found.")
+
+            val votesForExecution = alivePlayers.count { it.finalVote == true }
+            val votesAgainstExecution = alivePlayers.count { it.finalVote == false }
+            val isExecuted = votesForExecution > votesAgainstExecution
+
+            val judgmentResult = FinalJudgmentResultResponse(
+                gameNumber = game.gameNumber,
+                accusedPlayerId = accusedPlayer.id,
+                accusedPlayerNickname = accusedPlayer.nickname,
+                isKilled = isExecuted,
+                isLiar = accusedPlayer.role == PlayerRole.LIAR,
+                executionVotes = votesForExecution,
+                survivalVotes = votesAgainstExecution,
+                totalVotes = alivePlayers.size
+            )
+            
+            gameResultService.processGameResult(game.gameNumber, judgmentResult)
+        }
+        
         val gameStateResponse = getGameState(game, session)
         gameMonitoringService.broadcastGameState(game, gameStateResponse)
         return gameStateResponse
