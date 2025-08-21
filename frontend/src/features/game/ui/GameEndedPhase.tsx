@@ -10,7 +10,6 @@ export function GameEndedPhase({ gameState }: GameEndedPhaseProps) {
   const navigate = useNavigate();
 
   const winnerText = gameState.winner === 'CITIZEN' ? '시민' : '라이어';
-  const liars = gameState.players.filter(p => p.role === 'LIAR').map(p => p.nickname).join(', ');
 
   const playerRows = gameState.players.map((player) => (
     <Table.Tr key={player.id}>
@@ -40,7 +39,7 @@ export function GameEndedPhase({ gameState }: GameEndedPhaseProps) {
             </List.Item>
             <List.Item>
               <Text span fw={500}>라이어 제시어: </Text>
-              {liarSubject || gameState.citizenSubject}
+              {gameState.liarSubject || gameState.citizenSubject}
             </List.Item>
           </List>
           

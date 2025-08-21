@@ -23,9 +23,15 @@ export const getRooms = async (): Promise<GameRoom[]> => {
   return response.data.gameRooms.map((room) => ({
     gameNumber: room.gameNumber,
     title: room.title,
+    host: room.host,
     maxPlayers: room.maxPlayers,
     currentPlayers: room.currentPlayers,
-    isPrivate: room.hasPassword,
-    status: room.state === 'IN_PROGRESS' ? 'IN_PROGRESS' : 'WAITING',
+    hasPassword: room.hasPassword,
+    state: room.state === 'IN_PROGRESS' ? 'IN_PROGRESS' : 'WAITING',
+    // These fields are in the new GameRoom type but not in the current API response.
+    // Providing default values to prevent type errors.
+    subject: null, 
+    subjects: [],
+    players: [],
   }));
 };
