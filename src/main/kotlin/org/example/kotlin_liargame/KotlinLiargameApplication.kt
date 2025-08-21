@@ -4,6 +4,7 @@ import org.example.kotlin_liargame.global.config.GameProperties
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.runApplication
+import org.springframework.cache.annotation.EnableCaching
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing
 import org.springframework.scheduling.annotation.EnableScheduling
 import org.springframework.session.data.redis.config.annotation.web.http.EnableRedisHttpSession
@@ -12,6 +13,7 @@ import org.springframework.session.data.redis.config.annotation.web.http.EnableR
 @EnableJpaAuditing
 @EnableScheduling
 @EnableRedisHttpSession
+@EnableCaching
 @EnableConfigurationProperties(GameProperties::class)
 class KotlinLiargameApplication
 
