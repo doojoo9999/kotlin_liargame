@@ -24,7 +24,12 @@ data class GameStateResponse(
     val isChatAvailable: Boolean = false,
     val citizenSubject: String? = null,
     val liarSubject: String? = null,
-    val subjects: List<String>? = null
+    val subjects: List<String>? = null,
+    val turnOrder: List<String>? = null,
+    val currentTurnIndex: Int? = null,
+    val phaseEndTime: String? = null,
+    val winner: String? = null,
+    val reason: String? = null
 ) {
     companion object {
         fun from(
@@ -33,7 +38,12 @@ data class GameStateResponse(
             currentUserId: Long?,
             currentPhase: GamePhase,
             accusedPlayer: PlayerEntity? = null,
-            isChatAvailable: Boolean = false
+            isChatAvailable: Boolean = false,
+            turnOrder: List<String>? = null,
+            currentTurnIndex: Int? = null,
+            phaseEndTime: String? = null,
+            winner: String? = null,
+            reason: String? = null
         ): GameStateResponse {
             val currentPlayer = players.find { it.userId == currentUserId }
             
@@ -55,7 +65,12 @@ data class GameStateResponse(
                 isChatAvailable = isChatAvailable,
                 citizenSubject = game.citizenSubject?.content,
                 liarSubject = game.liarSubject?.content,
-                subjects = listOfNotNull(game.citizenSubject?.content, game.liarSubject?.content).distinct()
+                subjects = listOfNotNull(game.citizenSubject?.content, game.liarSubject?.content).distinct(),
+                turnOrder = turnOrder,
+                currentTurnIndex = currentTurnIndex,
+                phaseEndTime = phaseEndTime,
+                winner = winner,
+                reason = reason
             )
         }
     }
