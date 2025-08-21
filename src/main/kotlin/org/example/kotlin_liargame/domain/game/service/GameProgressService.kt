@@ -2,7 +2,6 @@ package org.example.kotlin_liargame.domain.game.service
 
 import jakarta.servlet.http.HttpSession
 import org.example.kotlin_liargame.domain.game.dto.request.GiveHintRequest
-import org.example.kotlin_liargame.domain.game.dto.request.StartGameRequest
 import org.example.kotlin_liargame.domain.game.dto.response.GameStateResponse
 import org.example.kotlin_liargame.domain.game.model.GameEntity
 import org.example.kotlin_liargame.domain.game.model.PlayerEntity
@@ -29,7 +28,7 @@ class GameProgressService(
 ) {
 
     @Transactional
-    fun startGame(req: StartGameRequest, session: HttpSession): GameStateResponse {
+    fun startGame(session: HttpSession): GameStateResponse {
         val nickname = getCurrentUserNickname(session)
         val game = gameRepository.findByGameOwner(nickname)
             ?: throw RuntimeException("게임을 찾을 수 없습니다. 먼저 게임방을 생성해주세요.")
@@ -43,7 +42,7 @@ class GameProgressService(
             throw RuntimeException("게임을 시작하기 위한 플레이어가 충분하지 않습니다. (최소 ${gameProperties.minPlayers}명, 최대 ${gameProperties.maxPlayers}명)")
         }
 
-        val selectedSubjects = selectSubjects(req, game)
+        val selectedSubjects = selectSubjects(game)
         assignRolesAndSubjects(game, players, selectedSubjects)
 
         game.startGame()
@@ -88,7 +87,7 @@ class GameProgressService(
         startNewTurn(game)
     }
 
-    private fun selectSubjects(req: StartGameRequest, game: GameEntity): List<SubjectEntity> {
+    private fun selectSubjects(game: GameEntity): List<SubjectEntity> {
         if (game.citizenSubject != null) {
             val subjects = mutableListOf(game.citizenSubject!!)
             if (game.liarSubject != null && game.liarSubject != game.citizenSubject) {
@@ -114,18 +113,18 @@ class GameProgressService(
         game.liarSubject = liarSubject
 
         val liarCount = game.gameLiarCount.coerceAtMost(players.size - 1)
-        val liarIndices = players.indices.shuffled().take(liarCount)
+        val liarIndices = players.indices.shuffled().take(liarCount).toSet()
 
         players.forEachIndexed { index, player ->
-            player.role = if (index in liarIndices) PlayerRole.LIAR else PlayerRole.CITIZEN
+            player.role = if (liarIndices.contains(index)) PlayerRole.LIAR else PlayerRole.CITIZEN
             player.subject = when {
-                player.role == PlayerRole.CITIZEN -> subjects.random()
+                player.role == PlayerRole.CITIZEN -> citizenSubject
                 game.gameMode == GameMode.LIARS_DIFFERENT_WORD -> liarSubject
                 else -> citizenSubject
             }
             player.state = PlayerState.WAITING_FOR_HINT
-            playerRepository.save(player)
         }
+        playerRepository.saveAll(players)
     }
 
     @Transactional
@@ -135,7 +134,7 @@ class GameProgressService(
 
         val userId = getCurrentUserId(session)
         
-        val player = markPlayerAsSpoken(req.gameNumber, userId)
+        markPlayerAsSpoken(req.gameNumber, userId)
         gameMonitoringService.notifyHintSubmitted(req.gameNumber, userId, req.hint)
         
         val players = playerRepository.findByGame(game)
