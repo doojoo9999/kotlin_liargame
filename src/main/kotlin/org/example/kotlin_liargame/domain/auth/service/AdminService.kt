@@ -1,53 +1,63 @@
 package org.example.kotlin_liargame.domain.auth.service
 
 import io.micrometer.core.instrument.MeterRegistry
-import jakarta.servlet.http.HttpServletRequest
 import org.example.kotlin_liargame.domain.auth.dto.request.AdminLoginRequest
+import org.example.kotlin_liargame.domain.auth.dto.response.AdminGameInfo
+import org.example.kotlin_liargame.domain.auth.dto.response.AdminPlayerInfo
+import org.example.kotlin_liargame.domain.auth.dto.response.AdminPlayersResponse
+import org.example.kotlin_liargame.domain.auth.dto.response.AdminStatsResponse
 import org.example.kotlin_liargame.domain.game.repository.GameRepository
 import org.example.kotlin_liargame.domain.game.repository.PlayerRepository
 import org.example.kotlin_liargame.domain.game.service.GameMonitoringService
 import org.example.kotlin_liargame.domain.game.service.GameService
+import org.example.kotlin_liargame.domain.user.model.UserEntity
+import org.example.kotlin_liargame.domain.user.model.UserRole
 import org.example.kotlin_liargame.domain.user.repository.UserRepository
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 import java.util.concurrent.atomic.AtomicInteger
 
 @Service
+@Transactional
 class AdminService(
     private val gameRepository: GameRepository,
     private val playerRepository: PlayerRepository,
     private val userRepository: UserRepository,
     private val gameMonitoringService: GameMonitoringService,
     private val gameService: GameService,
-    private val meterRegistry: MeterRegistry,
-    @Value("\${admin.password:admin123}")
-    private val adminPassword: String
+    private val meterRegistry: MeterRegistry
 ) {
     private val logger = LoggerFactory.getLogger(this::class.java)
     private val activeGamesGauge = meterRegistry.gauge("liargame.games.active", AtomicInteger(0))
-    
-    companion object {
-        private const val ADMIN_USER_ID = -1L
-        private const val ADMIN_NICKNAME = "admin"
-    }
 
-    fun login(request: AdminLoginRequest, httpRequest: HttpServletRequest): AdminLoginResponse {
-        logger.debug("관리자 로그인 시도")
-        
-        if (request.password != adminPassword) {
+    fun login(request: AdminLoginRequest): UserEntity {
+        logger.debug("관리자 로그인 시도: {}", request.nickname)
+        val user = userRepository.findByNickname(request.nickname)
+            ?: throw IllegalArgumentException("사용자를 찾을 수 없습니다.")
+
+        // TODO: Implement password hashing
+        if (user.password != request.password) {
             logger.debug("관리자 로그인 실패: 잘못된 비밀번호")
-            throw IllegalArgumentException("잘못된 관리자 비밀번호입니다.")
+            throw IllegalArgumentException("잘못된 비밀번호입니다.")
+        }
+
+        if (user.role != UserRole.ADMIN) {
+            logger.debug("관리자 로그인 실패: 관리자 권한이 없습니다.")
+            throw SecurityException("관리자 권한이 없습니다.")
         }
         
-        val session = httpRequest.getSession(true)
-        session.setAttribute("userId", ADMIN_USER_ID)
-        session.setAttribute("nickname", ADMIN_NICKNAME)
-        session.setAttribute("isAdmin", true)
+        logger.debug("관리자 로그인 성공: {}", user.nickname)
+        return user
+    }
+
+    fun grantAdminRole(userId: Long) {
+        val user = userRepository.findById(userId)
+            .orElseThrow { IllegalArgumentException("사용자를 찾을 수 없습니다.") }
         
-        logger.debug("관리자 로그인 성공")
-        
-        return AdminLoginResponse(success = true, message = "관리자 로그인 성공")
+        user.role = UserRole.ADMIN
+        userRepository.save(user)
+        logger.info("사용자 {}에게 관리자 권한을 부여했습니다.", user.nickname)
     }
 
     fun getStatistics(): AdminStatsResponse {
@@ -99,7 +109,7 @@ class AdminService(
         val players = users.map { user ->
             val isInGame = playerUserIds.contains(user.id)
             AdminPlayerInfo(
-                id = user.id!!,
+                id = user.id,
                 nickname = user.nickname,
                 status = if (isInGame) "게임중" else "로비"
             )
@@ -146,34 +156,3 @@ class AdminService(
         return true
     }
 }
-
-data class AdminGameInfo(
-    val gameNumber: Int,
-    val gameName: String,
-    val gameState: String,
-    val currentPlayerCount: Int,
-    val maxPlayerCount: Int,
-    val players: List<AdminPlayerInfo>
-)
-
-data class AdminStatsResponse(
-    val totalPlayers: Int,
-    val activeGames: Int,
-    val totalGames: Int,
-    val playersInLobby: Int
-)
-
-data class AdminPlayersResponse(
-    val players: List<AdminPlayerInfo>
-)
-
-data class AdminPlayerInfo(
-    val id: Long,
-    val nickname: String,
-    val status: String
-)
-
-data class AdminLoginResponse(
-    val success: Boolean,
-    val message: String
-)
