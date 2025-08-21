@@ -1,7 +1,9 @@
 package org.example.kotlin_liargame.domain.auth.controller
 
 import jakarta.servlet.http.HttpSession
+import org.example.kotlin_liargame.domain.auth.dto.request.AdminLoginRequest
 import org.example.kotlin_liargame.domain.auth.dto.request.KickPlayerRequest
+import org.example.kotlin_liargame.domain.auth.dto.request.TerminateRoomRequest
 import org.example.kotlin_liargame.domain.auth.service.AdminService
 import org.example.kotlin_liargame.domain.game.service.GameTerminationService
 import org.example.kotlin_liargame.domain.profanity.service.ProfanityService
@@ -37,7 +39,7 @@ class AdminController(
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .body(ErrorResponse(
                     errorCode = "UNAUTHORIZED",
-                    message = "관리자 권-한이 필요합니다",
+                    message = "관리자 권한이 필요합니다",
                     userFriendlyMessage = "관리자 권한이 필요합니다."
                 ))
         }
@@ -68,7 +70,7 @@ class AdminController(
     fun getPendingProfanityRequests(session: HttpSession): ResponseEntity<Any> {
         if (!checkAdmin(session)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(ErrorResponse("UNAUTHORIZED", "관리자 권한이 필요합니다"))
+                .body(ErrorResponse("UNAUTHORIZED", "관리자 권한이 필요합니다", "관리자 권한이 필요합니다"))
         }
         val requests = profanityService.getPendingRequests()
         return ResponseEntity.ok(requests)
@@ -78,7 +80,7 @@ class AdminController(
     fun approveProfanityRequest(@PathVariable requestId: Long, session: HttpSession): ResponseEntity<Any> {
         if (!checkAdmin(session)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(ErrorResponse("UNAUTHORIZED", "관리자 권한이 필요합니다"))
+                .body(ErrorResponse("UNAUTHORIZED", "관리자 권한이 필요합니다", "관리자 권한이 필요합니다"))
         }
         profanityService.approveRequest(requestId)
         return ResponseEntity.ok().build()
@@ -88,9 +90,38 @@ class AdminController(
     fun rejectProfanityRequest(@PathVariable requestId: Long, session: HttpSession): ResponseEntity<Any> {
         if (!checkAdmin(session)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(ErrorResponse("UNAUTHORIZED", "관리자 권한이 필요합니다"))
+                .body(ErrorResponse("UNAUTHORIZED", "관리자 권한이 필요합니다", "관리자 권한이 필요합니다"))
         }
         profanityService.rejectRequest(requestId)
         return ResponseEntity.ok().build()
+    }
+
+    @PostMapping("/login")
+    fun adminLogin(@RequestBody request: AdminLoginRequest, session: HttpSession): ResponseEntity<Any> {
+        val adminUser = adminService.login(request)
+        session.setAttribute("userId", adminUser.id)
+        session.setAttribute("nickname", adminUser.nickname)
+        session.setAttribute("isAdmin", true)
+        return ResponseEntity.ok(mapOf("success" to true, "nickname" to adminUser.nickname))
+    }
+
+    @PostMapping("/grant-role/{userId}")
+    fun grantAdminRole(@PathVariable userId: Long, session: HttpSession): ResponseEntity<Any> {
+        if (!checkAdmin(session)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ErrorResponse("UNAUTHORIZED", "관리자 권한이 필요합니다", "관리자 권한이 필요합니다"))
+        }
+        adminService.grantAdminRole(userId)
+        return ResponseEntity.ok(mapOf("success" to true))
+    }
+
+    @PostMapping("/terminate-room")
+    fun terminateRoom(@RequestBody request: TerminateRoomRequest, session: HttpSession): ResponseEntity<Any> {
+        if (!checkAdmin(session)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ErrorResponse("UNAUTHORIZED", "관리자 권한이 필요합니다", "관리자 권한이 필요합니다"))
+        }
+        val result = adminService.terminateGameRoom(request.gameNumber)
+        return ResponseEntity.ok(mapOf("success" to result))
     }
 }
