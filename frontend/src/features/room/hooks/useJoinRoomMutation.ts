@@ -1,10 +1,13 @@
 import {useMutation, useQueryClient} from '@tanstack/react-query';
 import {useNavigate} from 'react-router-dom';
+import {useNotifications} from '../../../shared/hooks/useNotifications';
 import {joinRoom} from '../api/joinRoom';
+import {isAxiosError} from 'axios';
 
 export const useJoinRoomMutation = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { showError } = useNotifications();
 
   return useMutation({
     mutationFn: joinRoom,
@@ -18,8 +21,12 @@ export const useJoinRoomMutation = () => {
       navigate(`/game/${gameNumber}`);
     },
     onError: (error) => {
-      // TODO: Show user-friendly error notification (e.g., wrong password, room full)
       console.error('Failed to join room:', error);
+      let errorMessage = '방에 참여할 수 없습니다.';
+      if (isAxiosError(error) && error.response) {
+        errorMessage = error.response.data?.message || error.message;
+      }
+      showError('참여 실패', errorMessage);
     },
   });
 };

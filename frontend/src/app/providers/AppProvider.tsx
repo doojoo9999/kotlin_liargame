@@ -1,4 +1,5 @@
 import {MantineProvider} from '@mantine/core';
+import {Notifications} from '@mantine/notifications';
 import {QueryClientProvider} from '@tanstack/react-query';
 import type {ReactNode} from 'react';
 import {queryClient} from '../../shared/api/queryClient';
@@ -13,6 +14,7 @@ export function AppProvider({ children }: AppProviderProps) {
     <QueryClientProvider client={queryClient}>
       <MantineProvider>
         <GlobalStyles />
+        <Notifications />
         {children}
       </MantineProvider>
     </QueryClientProvider>

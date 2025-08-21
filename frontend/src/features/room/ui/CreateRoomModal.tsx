@@ -1,8 +1,9 @@
 import {zodResolver} from '@hookform/resolvers/zod';
-import {Button, Modal, NumberInput, PasswordInput, Stack, TextInput} from '@mantine/core';
-import {useForm} from 'react-hook-form';
+import {Button, Modal, NumberInput, PasswordInput, SimpleGrid, Stack, TextInput} from '@mantine/core';
+import {Controller, useForm} from 'react-hook-form';
 import {useCreateRoomMutation} from '../hooks/useCreateRoomMutation';
-import {CreateRoomFormInputs, createRoomSchema} from './createRoomSchema';
+import type {CreateRoomFormInputs} from './createRoomSchema';
+import {createRoomSchema} from './createRoomSchema';
 
 interface CreateRoomModalProps {
   opened: boolean;
@@ -13,11 +14,14 @@ export function CreateRoomModal({ opened, onClose }: CreateRoomModalProps) {
   const {
     register,
     handleSubmit,
+    control,
     formState: { errors },
   } = useForm<CreateRoomFormInputs>({
     resolver: zodResolver(createRoomSchema),
     defaultValues: {
       gameParticipants: 5,
+      gameTotalRounds: 3,
+      gameLiarCount: 1,
     },
   });
 
@@ -32,7 +36,7 @@ export function CreateRoomModal({ opened, onClose }: CreateRoomModalProps) {
   };
 
   return (
-    <Modal opened={opened} onClose={onClose} title="새로운 방 만들기" centered>
+    <Modal opened={opened} onClose={onClose} title="새로운 방 만들기" centered size="lg">
       <form onSubmit={handleSubmit(onSubmit)}>
         <Stack>
           <TextInput
@@ -48,14 +52,51 @@ export function CreateRoomModal({ opened, onClose }: CreateRoomModalProps) {
             error={errors.gamePassword?.message}
             {...register('gamePassword')}
           />
-          <NumberInput
-            label="최대 인원"
-            min={3}
-            max={15}
-            required
-            error={errors.gameParticipants?.message}
-            {...register('gameParticipants', { valueAsNumber: true })}
-          />
+          <SimpleGrid cols={3}>
+            <Controller
+              name="gameParticipants"
+              control={control}
+              render={({ field }) => (
+                <NumberInput
+                  {...field}
+                  label="최대 인원"
+                  min={3}
+                  max={15}
+                  required
+                  error={errors.gameParticipants?.message}
+                />
+              )}
+            />
+            <Controller
+              name="gameTotalRounds"
+              control={control}
+              render={({ field }) => (
+                <NumberInput
+                  {...field}
+                  label="총 라운드"
+                  min={1}
+                  max={10}
+                  required
+                  error={errors.gameTotalRounds?.message}
+                />
+              )}
+            />
+            <Controller
+              name="gameLiarCount"
+              control={control}
+              render={({ field }) => (
+                <NumberInput
+                  {...field}
+                  label="라이어 수"
+                  min={1}
+                  max={5}
+                  required
+                  error={errors.gameLiarCount?.message}
+                />
+              )}
+            />
+          </SimpleGrid>
+          
           <Button type="submit" loading={createRoomMutation.isPending} fullWidth mt="md">
             방 만들기
           </Button>

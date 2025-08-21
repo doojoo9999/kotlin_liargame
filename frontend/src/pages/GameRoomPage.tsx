@@ -32,7 +32,8 @@ export function GameRoomPage() {
       case 'IN_PROGRESS':
         return <GameInProgress gameState={gameState} />;
       case 'ENDED':
-        return <Title order={2}>게임 종료</Title>;
+        // NOTE: GameEndedPhase is now part of GameInProgress logic
+        return <GameInProgress gameState={gameState} />;
       default:
         return <Text>알 수 없는 게임 상태입니다.</Text>;
     }
@@ -54,36 +55,6 @@ export function GameRoomPage() {
           />
         </Stack>
       </SimpleGrid>
-    </Container>
-  );
-}
-t>
-      );
-    }
-
-    // Render different components based on the game state
-    switch (gameState.gameState) {
-      case 'WAITING':
-        return <GameLobby gameState={gameState} />;
-      case 'IN_PROGRESS':
-        // TODO: Implement GameInProgress component
-        return <Title order={2}>게임 진행 중...</Title>;
-      case 'ENDED':
-        // TODO: Implement GameEnded component
-        return <Title order={2}>게임 종료</Title>;
-      default:
-        return <Text>알 수 없는 게임 상태입니다.</Text>;
-    }
-  };
-
-  return (
-    <Container py="xl">
-      <Stack gap="lg">
-        <Title order={1}>
-          {gameState ? gameState.gameName : `Game Room #${gameNumber}`}
-        </Title>
-        {renderContent()}
-      </Stack>
     </Container>
   );
 }
