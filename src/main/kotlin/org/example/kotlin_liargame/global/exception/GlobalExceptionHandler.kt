@@ -43,7 +43,7 @@ class GlobalExceptionHandler(
             message = ex.message,
             userFriendlyMessage = ex.userFriendlyMessage,
             details = mapOf(
-                "path" to (request.getDescription(false) ?: "")
+                "path" to request.getDescription(false)
             )
         )
         
@@ -70,7 +70,7 @@ class GlobalExceptionHandler(
             message = ex.message ?: "Invalid argument",
             userFriendlyMessage = "잘못된 요청입니다.",
             details = mapOf(
-                "path" to (request.getDescription(false) ?: "")
+                "path" to request.getDescription(false)
             )
         )
         
@@ -89,7 +89,7 @@ class GlobalExceptionHandler(
             message = ex.message ?: "Invalid state",
             userFriendlyMessage = "현재 상태에서는 해당 작업을 수행할 수 없습니다.",
             details = mapOf(
-                "path" to (request.getDescription(false) ?: "")
+                "path" to request.getDescription(false)
             )
         )
         
@@ -108,7 +108,7 @@ class GlobalExceptionHandler(
             message = "Internal server error",
             userFriendlyMessage = "서버 내부 오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
             details = mapOf(
-                "path" to (request.getDescription(false) ?: ""),
+                "path" to request.getDescription(false),
                 "exceptionType" to ex.javaClass.simpleName
             )
         )
