@@ -155,6 +155,10 @@ class TopicGuessService(
         val elapsed = java.time.Duration.between(guessStatus.startTime, Instant.now()).seconds
         return maxOf(0, guessStatus.guessTimeLimit - elapsed.toInt())
     }
+
+    fun isGuessingPhaseActive(gameNumber: Int): Boolean {
+        return liarGuessStatusMap.containsKey(gameNumber) && liarGuessStatusMap[gameNumber]?.guessSubmitted == false
+    }
     
     fun cleanupGuessStatus(gameNumber: Int) {
         liarGuessStatusMap.remove(gameNumber)
