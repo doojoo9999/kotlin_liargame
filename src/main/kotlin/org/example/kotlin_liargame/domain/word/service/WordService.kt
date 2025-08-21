@@ -34,7 +34,6 @@ class WordService (
         val newWordEntity = req.to(subject)
         wordRepository.save(newWordEntity)
         
-        // Send WebSocket notification for word addition
         messagingTemplate.convertAndSend("/topic/subjects", mapOf(
             "type" to "WORD_ADDED",
             "subject" to req.subject,
@@ -50,7 +49,6 @@ class WordService (
             }
         wordRepository.delete(word)
         
-        // Send WebSocket notification for word deletion
         messagingTemplate.convertAndSend("/topic/subjects", mapOf(
             "type" to "WORD_DELETED",
             "wordId" to wordId
