@@ -14,10 +14,6 @@ class GameMonitoringService(
     private val messagingTemplate: SimpMessagingTemplate
 ) {
 
-    /**
-     * A new player has joined the game room.
-     * Notifies the lobby and the specific game room.
-     */
     fun notifyPlayerJoined(game: GameEntity, newPlayer: PlayerEntity, currentPlayers: List<PlayerEntity>) {
         val payload = mapOf(
             "type" to "PLAYER_JOINED",
@@ -27,16 +23,10 @@ class GameMonitoringService(
             "currentPlayers" to currentPlayers.size,
             "maxPlayers" to game.gameParticipants
         )
-        // Notify the specific game room
         messagingTemplate.convertAndSend("/topic/room.${game.gameNumber}", payload)
-        // Notify the lobby about the room update
         messagingTemplate.convertAndSend("/topic/lobby", payload)
     }
 
-    /**
-     * A player has left the game room.
-     * Notifies the lobby and the specific game room.
-     */
     fun notifyPlayerLeft(game: GameEntity, playerName: String, userId: Long, remainingPlayers: List<PlayerEntity>) {
         val payload = mapOf(
             "type" to "PLAYER_LEFT",
@@ -46,16 +36,10 @@ class GameMonitoringService(
             "currentPlayers" to remainingPlayers.size,
             "maxPlayers" to game.gameParticipants
         )
-        // Notify the specific game room
         messagingTemplate.convertAndSend("/topic/room.${game.gameNumber}", payload)
-        // Notify the lobby about the room update
         messagingTemplate.convertAndSend("/topic/lobby", payload)
     }
 
-    /**
-     * The game room has been deleted (e.g., last player left).
-     * Notifies the lobby to remove the room from the list.
-     */
     fun notifyRoomDeleted(gameNumber: Int) {
         val payload = mapOf(
             "type" to "ROOM_DELETED",
@@ -64,10 +48,7 @@ class GameMonitoringService(
         messagingTemplate.convertAndSend("/topic/lobby", payload)
     }
 
-    /**
-     * The game state has been updated (e.g., game started, new round).
-     * Broadcasts the new state to all players in the room.
-     */
+
     fun broadcastGameState(game: GameEntity, gameStateResponse: Any) {
         messagingTemplate.convertAndSend("/topic/game/${game.gameNumber}/state", gameStateResponse)
     }

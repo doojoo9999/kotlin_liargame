@@ -469,7 +469,7 @@ class GameService(
         return players.find { it.state == PlayerState.ACCUSED || it.state == PlayerState.DEFENDED }
     }
 
-
+    //테스트용도임!!!!!!!
     private fun createTestSubjects(): List<SubjectEntity> {
         logger.debug("Creating test subjects for testing")
 
@@ -534,7 +534,6 @@ class GameService(
             wordRepository.save(word)
         }
 
-        // Flush to ensure all words are saved to database
         wordRepository.flush()
         subjectRepository.flush()
 
@@ -590,9 +589,7 @@ class GameService(
         val player = playerRepository.findByUserIdAndGameInProgress(userId)
         player?.let {
             if (it.state == PlayerState.DISCONNECTED) {
-                // This is a simplified state restoration.
-                // A more robust implementation would store the previous state.
-                it.state = PlayerState.WAITING_FOR_HINT 
+                it.state = PlayerState.WAITING_FOR_HINT
                 playerRepository.save(it)
                 val gameState = getGameState(it.game, null)
                 gameMonitoringService.broadcastGameState(it.game, gameState)

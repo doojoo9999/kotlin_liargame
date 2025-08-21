@@ -35,3 +35,15 @@ class InvalidTurnException(userId: Long) : GameException(
     message = "It is not user $userId's turn.",
     userFriendlyMessage = "당신의 턴이 아닙니다."
 )
+
+class UserNotFoundException(message: String) : GameException(
+    errorCode = "USER_NOT_FOUND",
+    message = message,
+    userFriendlyMessage = "사용자를 찾을 수 없습니다."
+)
+
+class NotFoundException(message: String) : GameException(
+    errorCode = "NOT_FOUND",
+    message = message,
+    userFriendlyMessage = "요청한 대상을 찾을 수 없습니다."
+)
