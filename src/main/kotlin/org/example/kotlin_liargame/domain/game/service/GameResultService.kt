@@ -1,9 +1,9 @@
 package org.example.kotlin_liargame.domain.game.service
 
 import org.example.kotlin_liargame.domain.game.dto.response.*
-import org.example.kotlin_liargame.domain.game.model.GameHistory
+import org.example.kotlin_liargame.domain.game.model.GameHistorySummaryEntity
 import org.example.kotlin_liargame.domain.game.model.enum.WinningTeam
-import org.example.kotlin_liargame.domain.game.repository.GameHistoryRepository
+import org.example.kotlin_liargame.domain.game.repository.GameHistorySummaryRepository
 import org.example.kotlin_liargame.domain.game.repository.GameRepository
 import org.example.kotlin_liargame.domain.game.repository.PlayerRepository
 import org.springframework.context.annotation.Lazy
@@ -18,7 +18,7 @@ import java.time.Instant
 class GameResultService(
     private val gameRepository: GameRepository,
     private val playerRepository: PlayerRepository,
-    private val gameHistoryRepository: GameHistoryRepository,
+    private val gameHistorySummaryRepository: GameHistorySummaryRepository,
     private val messagingTemplate: SimpMessagingTemplate,
     private val taskScheduler: TaskScheduler,
     @Lazy private val topicGuessService: TopicGuessService
@@ -26,20 +26,22 @@ class GameResultService(
     
     fun processGameResult(gameNumber: Int, judgmentResult: FinalJudgmentResultResponse) {
         when {
+            // 라이어가 처형된 경우 -> 단어 추측 기회
             judgmentResult.isKilled && judgmentResult.isLiar -> {
-                endGameWithCitizenVictory(gameNumber)
+                startLiarGuessPhase(gameNumber, judgmentResult.accusedPlayerId)
             }
+            // 시민이 처형된 경우 -> 게임 종료 조건 확인
             judgmentResult.isKilled && !judgmentResult.isLiar -> {
-                val liarPlayer = findLiarInGame(gameNumber)
-                startLiarGuessPhase(gameNumber, liarPlayer.id)
-            }
-            !judgmentResult.isKilled -> {
                 val endCondition = checkGameEndConditions(gameNumber)
-                when (endCondition) {
-                    GameEndCondition.LIAR_VICTORY -> endGameWithLiarVictory(gameNumber)
-                    GameEndCondition.NEXT_ROUND -> startNextRound(gameNumber)
-                    else -> endGameWithCitizenVictory(gameNumber)
+                if (endCondition == GameEndCondition.NEXT_ROUND) {
+                    startNextRound(gameNumber)
+                } else {
+                    endGameWithLiarVictory(gameNumber)
                 }
+            }
+            // 처형되지 않은 경우 (과반수 실패) -> 다음 라운드
+            !judgmentResult.isKilled -> {
+                startNextRound(gameNumber)
             }
         }
     }
@@ -184,7 +186,7 @@ class GameResultService(
         val game = gameRepository.findByGameNumber(gameNumber)
             ?: throw IllegalArgumentException("Game not found")
         
-        val totalDuration = if (game.gameEndTime != null && game.createdAt != null) {
+        val totalDuration = if (game.gameEndTime != null) {
             java.time.Duration.between(game.createdAt, game.gameEndTime).seconds
         } else 0L
         
@@ -220,7 +222,7 @@ class GameResultService(
     private fun recordGameHistory(game: org.example.kotlin_liargame.domain.game.model.GameEntity, players: List<org.example.kotlin_liargame.domain.game.model.PlayerEntity>, winningTeam: WinningTeam) {
         val liar = players.firstOrNull { it.role.name == "LIAR" } ?: return
 
-        val history = GameHistory(
+        val history = GameHistorySummaryEntity(
             gameNumber = game.gameNumber,
             gameMode = game.gameMode,
             participants = players.map { it.nickname }.toSet(),
@@ -228,6 +230,6 @@ class GameResultService(
             winningTeam = winningTeam,
             gameRounds = game.gameCurrentRound
         )
-        gameHistoryRepository.save(history)
+        gameHistorySummaryRepository.save(history)
     }
 }
