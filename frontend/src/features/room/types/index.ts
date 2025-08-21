@@ -1,10 +1,14 @@
 export interface GameRoom {
   gameNumber: number;
   title: string;
+  host: string;
   maxPlayers: number;
   currentPlayers: number;
-  isPrivate: boolean;
-  status: 'WAITING' | 'IN_PROGRESS';
+  hasPassword: boolean;
+  subject: string | null;
+  subjects: string[];
+  state: 'WAITING' | 'IN_PROGRESS' | 'ENDED';
+  players: Player[];
 }
 
 export interface Player {
@@ -14,7 +18,7 @@ export interface Player {
   isReady: boolean;
   role?: 'LIAR' | 'CITIZEN';
   isEliminated: boolean;
-  hasVoted?: boolean;
+  hasVoted: boolean;
 }
 
 export interface GameStateResponse {
