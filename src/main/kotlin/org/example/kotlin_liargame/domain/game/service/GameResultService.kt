@@ -21,7 +21,8 @@ class GameResultService(
     private val gameHistorySummaryRepository: GameHistorySummaryRepository,
     private val messagingTemplate: SimpMessagingTemplate,
     private val taskScheduler: TaskScheduler,
-    @Lazy private val topicGuessService: TopicGuessService
+    @Lazy private val topicGuessService: TopicGuessService,
+    private val gameMonitoringService: GameMonitoringService
 ) {
     
     fun processGameResult(gameNumber: Int, judgmentResult: FinalJudgmentResultResponse) {
@@ -68,12 +69,23 @@ class GameResultService(
         val players = playerRepository.findByGame(game)
         
         game.endGame()
+        game.gameState = org.example.kotlin_liargame.domain.game.model.enum.GameState.ENDED
         gameRepository.save(game)
         
         recordGameHistory(game, players, WinningTeam.CITIZENS)
 
         sendModeratorMessage(gameNumber, "시민팀이 승리했습니다!")
         
+        val gameStateResponse = GameStateResponse.from(
+            game = game,
+            players = players,
+            currentUserId = null,
+            currentPhase = org.example.kotlin_liargame.domain.game.model.enum.GamePhase.ENDED,
+            winner = "CITIZEN",
+            reason = "라이어를 모두 찾아냈습니다."
+        )
+        gameMonitoringService.broadcastGameState(game, gameStateResponse)
+
         val citizens = players.filter { it.role.name == "CITIZEN" }
         val liars = players.filter { it.role.name == "LIAR" }
         
@@ -103,12 +115,23 @@ class GameResultService(
         val players = playerRepository.findByGame(game)
         
         game.endGame()
+        game.gameState = org.example.kotlin_liargame.domain.game.model.enum.GameState.ENDED
         gameRepository.save(game)
 
         recordGameHistory(game, players, WinningTeam.LIARS)
         
         sendModeratorMessage(gameNumber, "라이어팀이 승리했습니다!")
         
+        val gameStateResponse = GameStateResponse.from(
+            game = game,
+            players = players,
+            currentUserId = null,
+            currentPhase = org.example.kotlin_liargame.domain.game.model.enum.GamePhase.ENDED,
+            winner = "LIAR",
+            reason = "라이어가 단어를 맞혔거나, 시민이 라이어를 모두 찾아내지 못했습니다."
+        )
+        gameMonitoringService.broadcastGameState(game, gameStateResponse)
+
         val citizens = players.filter { it.role.name == "CITIZEN" }
         val liars = players.filter { it.role.name == "LIAR" }
         
