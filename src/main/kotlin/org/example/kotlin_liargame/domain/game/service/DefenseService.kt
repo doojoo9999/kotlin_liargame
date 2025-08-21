@@ -1,6 +1,10 @@
 package org.example.kotlin_liargame.domain.game.service
 
 import org.example.kotlin_liargame.domain.game.dto.response.*
+import org.example.kotlin_liargame.domain.game.model.GameEntity
+import org.example.kotlin_liargame.domain.game.model.PlayerEntity
+import org.example.kotlin_liargame.domain.game.model.enum.GamePhase
+import org.example.kotlin_liargame.domain.game.model.enum.PlayerState
 import org.example.kotlin_liargame.domain.game.repository.GameRepository
 import org.example.kotlin_liargame.domain.game.repository.PlayerRepository
 import org.example.kotlin_liargame.global.config.GameProperties
@@ -49,17 +53,8 @@ class DefenseService(
         )
     }
     
-    import org.example.kotlin_liargame.domain.game.model.GameEntity
-import org.example.kotlin_liargame.domain.game.model.PlayerEntity
-import org.example.kotlin_liargame.domain.game.model.enum.GamePhase
-import org.example.kotlin_liargame.domain.game.model.enum.PlayerState
-
-// ... (imports)
-
-// ... (class definition)
-    
     fun startDefensePhase(game: GameEntity, accusedPlayer: PlayerEntity): DefenseStartResponse {
-        game.currentPhase = GamePhase.DEFENSE
+        game.currentPhase = GamePhase.DEFENDING
         game.accusedPlayerId = accusedPlayer.id
         game.phaseEndTime = Instant.now().plusSeconds(gameProperties.defenseTimeSeconds)
         gameRepository.save(game)
@@ -207,7 +202,7 @@ import org.example.kotlin_liargame.domain.game.model.enum.PlayerState
         val game = gameRepository.findByGameNumber(gameNumber)
             ?: throw IllegalArgumentException("Game not found")
             
-        game.currentPhase = GamePhase.FINAL_VOTE
+        game.currentPhase = GamePhase.VOTING_FOR_SURVIVAL
         game.phaseEndTime = Instant.now().plusSeconds(gameProperties.finalVotingTimeSeconds)
         gameRepository.save(game)
 
