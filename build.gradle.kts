@@ -34,9 +34,6 @@ dependencies {
     runtimeOnly("com.h2database:h2")
     runtimeOnly("org.postgresql:postgresql")
     
-    // Migration
-    implementation("org.flywaydb:flyway-core:9.22.3")
-    
     // Connection pooling
     implementation("com.zaxxer:HikariCP")
     

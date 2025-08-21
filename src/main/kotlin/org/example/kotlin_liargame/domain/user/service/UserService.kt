@@ -30,7 +30,7 @@ class UserService(
             .orElseThrow { RuntimeException("User not found") }
     }
 
-    fun authenticate(nickname: String, password: String):UserEntity {
+    fun authenticate(nickname: String, password: String?):UserEntity {
         val user = userRepository.findByNickname(nickname)
             ?: throw RuntimeException("User not found")
         
@@ -38,7 +38,10 @@ class UserService(
             throw RuntimeException("Invalid password")
         }
         
-        return user
+        return user.let {
+            it.isAuthenticated = true
+            userRepository.save(it)
+        }
     }
 
     @Scheduled(cron = "0 0 0 * * *")
