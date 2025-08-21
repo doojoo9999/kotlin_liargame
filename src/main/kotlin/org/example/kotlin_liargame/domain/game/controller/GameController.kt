@@ -61,14 +61,9 @@ class GameController(
 
     
     @PostMapping("/start")
-    fun startGame(@Valid @RequestBody request: StartGameRequest, session: HttpSession): ResponseEntity<GameStateResponse> {
+    fun startGame(session: HttpSession): ResponseEntity<GameStateResponse> {
         return try {
-            // 기존 게임 시작 로직
-            val gameState = gameService.startGame(request, session)
-            
-            // 새로운 게임 진행 로직 추가
-            gameProgressService.initializeGameProgress(gameState.gameNumber)
-            
+            val gameState = gameProgressService.startGame(session)
             ResponseEntity.ok(gameState)
         } catch (e: Exception) {
             println("[ERROR] Failed to start game: ${e.message}")
@@ -78,13 +73,19 @@ class GameController(
     
     @PostMapping("/hint")
     fun giveHint(@Valid @RequestBody request: GiveHintRequest, session: HttpSession): ResponseEntity<GameStateResponse> {
-        val response = gameService.giveHint(request, session)
+        val response = gameProgressService.giveHint(request, session)
         return ResponseEntity.ok(response)
     }
     
     @PostMapping("/vote")
     fun vote(@Valid @RequestBody request: VoteRequest, session: HttpSession): ResponseEntity<GameStateResponse> {
-        val response = gameService.vote(request, session)
+        val response = votingService.vote(request, session)
+        return ResponseEntity.ok(response)
+    }
+
+    @PostMapping("/vote/final")
+    fun finalVote(@Valid @RequestBody request: FinalVotingRequest, session: HttpSession): ResponseEntity<GameStateResponse> {
+        val response = votingService.finalVote(request, session)
         return ResponseEntity.ok(response)
     }
     
@@ -107,21 +108,10 @@ class GameController(
         }
     }
     
-    @PostMapping("/defend")
-    fun defend(@RequestBody request: DefendRequest, session: HttpSession): ResponseEntity<GameStateResponse> {
-        val response = gameService.defend(request, session)
-        return ResponseEntity.ok(response)
-    }
-    
-    @PostMapping("/survival-vote")
-    fun survivalVote(@RequestBody request: SurvivalVoteRequest, session: HttpSession): ResponseEntity<GameStateResponse> {
-        val response = gameService.survivalVote(request, session)
-        return ResponseEntity.ok(response)
-    }
-    
     @PostMapping("/guess-word")
-    fun guessWord(@RequestBody request: GuessWordRequest, session: HttpSession): ResponseEntity<GameResultResponse> {
-        val response = gameService.guessWord(request, session)
+    fun guessWord(@RequestBody request: GuessWordRequest, session: HttpSession): ResponseEntity<LiarGuessResultResponse> {
+        val userId = sessionUtil.requireUserId(session)
+        val response = gameResultService.submitLiarGuess(request.gameNumber, userId, request.guess)
         return ResponseEntity.ok(response)
     }
     
@@ -177,37 +167,6 @@ class GameController(
             val status = errorHandler.getStatusForException(e)
             val message = errorHandler.getMessageForException(e, "Defense submission")
             errorHandler.createDefenseErrorResponse(request.gameNumber, status, message)
-        }
-    }
-
-    @PostMapping("/cast-final-judgment")
-    @Operation(summary = "최종 판결 투표", description = "플레이어가 처형/생존에 대해 투표합니다")
-    @ApiResponses(value = [
-        ApiResponse(responseCode = "200", description = "투표 성공"),
-        ApiResponse(responseCode = "400", description = "잘못된 요청 데이터"),
-        ApiResponse(responseCode = "401", description = "인증되지 않은 사용자"),
-        ApiResponse(responseCode = "403", description = "투표 권한 없음")
-    ])
-    fun castFinalJudgment(
-        @RequestBody @Valid request: CastFinalJudgmentRequest, 
-        session: HttpSession
-    ): ResponseEntity<FinalVoteResponse> {
-        return try {
-            
-            val userId = sessionUtil.getUserId(session)
-                ?: return errorHandler.createFinalVoteErrorResponse(
-                    request.gameNumber, 
-                    HttpStatus.UNAUTHORIZED, 
-                    "Not authenticated"
-                )
-            
-            val response = defenseService.castFinalVote(request.gameNumber, userId, request.voteForExecution)
-            ResponseEntity.ok(response)
-            
-        } catch (e: Exception) {
-            val status = errorHandler.getStatusForException(e)
-            val message = errorHandler.getMessageForException(e, "Final judgment")
-            errorHandler.createFinalVoteErrorResponse(request.gameNumber, status, message)
         }
     }
 
@@ -299,7 +258,6 @@ class GameController(
             
         } catch (e: Exception) {
             println("[ERROR] WebSocket topic guess failed: ${e.message}")
-            // 에러는 서비스 레벨에서 WebSocket으로 전송됨
         }
     }
 }

@@ -23,10 +23,4 @@ data class SendChatMessageRequest(
     fun isValidLength(): Boolean {
         return content.length <= 500
     }
-    
-    fun containsProfanity(): Boolean {
-        val profanityWords = listOf("욕설1", "욕설2", "비속어") // 실제 구현시 더 포괄적인 필터링 필요
-        val lowerContent = content.lowercase()
-        return profanityWords.any { lowerContent.contains(it) }
-    }
 }

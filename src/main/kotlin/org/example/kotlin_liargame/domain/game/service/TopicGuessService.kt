@@ -155,6 +155,10 @@ class TopicGuessService(
         val elapsed = java.time.Duration.between(guessStatus.startTime, Instant.now()).seconds
         return maxOf(0, guessStatus.guessTimeLimit - elapsed.toInt())
     }
+
+    fun isGuessingPhaseActive(gameNumber: Int): Boolean {
+        return liarGuessStatusMap.containsKey(gameNumber) && liarGuessStatusMap[gameNumber]?.guessSubmitted == false
+    }
     
     fun cleanupGuessStatus(gameNumber: Int) {
         liarGuessStatusMap.remove(gameNumber)
@@ -166,22 +170,18 @@ class TopicGuessService(
         val normalizedGuess = normalizeText(guess)
         val normalizedAnswer = normalizeText(correctAnswer)
         
-        // Exact match
         if (normalizedGuess == normalizedAnswer) {
             return true
         }
         
-        // Partial match (if answer contains guess or vice versa)
         if (normalizedAnswer.contains(normalizedGuess) || normalizedGuess.contains(normalizedAnswer)) {
             return true
         }
         
-        // Fuzzy matching using edit distance
         val editDistance = calculateEditDistance(normalizedGuess, normalizedAnswer)
         val maxLength = maxOf(normalizedGuess.length, normalizedAnswer.length)
         val similarity = 1.0 - (editDistance.toDouble() / maxLength)
         
-        // Allow if similarity is above 70%
         return similarity >= 0.7
     }
     

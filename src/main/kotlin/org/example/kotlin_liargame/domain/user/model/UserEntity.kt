@@ -13,8 +13,11 @@ class UserEntity (
     var isAuthenticated : Boolean = false,
     var hasTokenIssued : Boolean = false,
     var password : String? = null,
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    var role: UserRole = UserRole.USER,
     
-    // 게임 통계 필드들
     @Column(name = "total_games", nullable = false)
     var totalGames: Int = 0,
     
@@ -62,7 +65,6 @@ class UserEntity (
         this.hasTokenIssued = true
     }
     
-    // 게임 통계 관련 메서드들
     fun getWinRate(): Double {
         return if (totalGames > 0) (totalWins.toDouble() / totalGames.toDouble()) * 100 else 0.0
     }
@@ -97,13 +99,11 @@ class UserEntity (
             }
         }
         
-        // 랭킹 점수 업데이트
         rankingPoints += pointsChange
         if (rankingPoints < 0) {
             rankingPoints = 0
         }
         
-        // 최고 점수 업데이트
         if (rankingPoints > highestRankingPoints) {
             highestRankingPoints = rankingPoints
         }

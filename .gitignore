@@ -5,6 +5,11 @@ build/
 !**/src/main/**/build/
 !**/src/test/**/build/
 
+# Node
+node_modules/
+**/node_modules/
+
+
 ### STS ###
 .apt_generated
 .classpath
@@ -37,6 +42,8 @@ out/
 ### VS Code ###
 .vscode/
 
+node_modules
+
 ### Kotlin ###
 .kotlin
 
@@ -45,3 +52,9 @@ out/
 
 ## db ##
 /firebaseaccoutkey.json
+
+## ai ##
+.junie/
+.aiassistant/
+prompt.md
+.cursor

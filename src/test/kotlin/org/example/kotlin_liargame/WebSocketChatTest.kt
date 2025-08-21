@@ -112,7 +112,7 @@
 //        stompClient = WebSocketStompClient(sockJsClient)
 //        stompClient.messageConverter = MappingJackson2MessageConverter()
 //
-//        val url = "ws://119.201.51.128:${port}/ws"
+//        val url = "ws://localhost:${port}/ws"
 //        println("[DEBUG_LOG] Connecting to WebSocket at $url")
 //
 //        val sessionFuture = CompletableFuture<StompSession>()
@@ -199,7 +199,7 @@
 //        )
 //
 //        val restTemplate = org.springframework.boot.test.web.client.TestRestTemplate()
-//        val url = "http://119.201.51.128:${port}/api/v1/chat/send"
+//        val url = "http://localhost:${port}/api/v1/chat/send"
 //
 //
 //        val headers = org.springframework.http.HttpHeaders()
@@ -234,7 +234,7 @@
 //
 //
 //        val restTemplate = org.springframework.boot.test.web.client.TestRestTemplate()
-//        val url = "http://119.201.51.128:${port}/api/v1/chat/${gameNumber}"
+//        val url = "http://localhost:${port}/api/v1/chat/${gameNumber}"
 //
 //
 //        val headers = org.springframework.http.HttpHeaders()

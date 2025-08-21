@@ -2,7 +2,10 @@ package org.example.kotlin_liargame.domain.game.service
 
 import jakarta.servlet.http.HttpSession
 import org.example.kotlin_liargame.domain.chat.service.ChatService
-import org.example.kotlin_liargame.domain.game.dto.request.*
+import org.example.kotlin_liargame.domain.game.dto.request.CreateGameRoomRequest
+import org.example.kotlin_liargame.domain.game.dto.request.EndOfRoundRequest
+import org.example.kotlin_liargame.domain.game.dto.request.JoinGameRequest
+import org.example.kotlin_liargame.domain.game.dto.request.LeaveGameRequest
 import org.example.kotlin_liargame.domain.game.dto.response.GameResultResponse
 import org.example.kotlin_liargame.domain.game.dto.response.GameRoomListResponse
 import org.example.kotlin_liargame.domain.game.dto.response.GameStateResponse
@@ -17,7 +20,11 @@ import org.example.kotlin_liargame.domain.subject.model.SubjectEntity
 import org.example.kotlin_liargame.domain.subject.repository.SubjectRepository
 import org.example.kotlin_liargame.domain.user.repository.UserRepository
 import org.example.kotlin_liargame.domain.word.repository.WordRepository
-import org.springframework.messaging.simp.SimpMessagingTemplate
+import org.example.kotlin_liargame.global.exception.GameAlreadyStartedException
+import org.example.kotlin_liargame.global.exception.GameNotFoundException
+import org.example.kotlin_liargame.global.exception.PlayerNotInGameException
+import org.example.kotlin_liargame.global.exception.RoomFullException
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -30,9 +37,11 @@ class GameService(
     private val wordRepository: WordRepository,
     private val gameSubjectRepository: GameSubjectRepository,
     private val chatService: ChatService,
-    private val messagingTemplate: SimpMessagingTemplate,
-    private val defenseService: DefenseService
+    private val gameMonitoringService: GameMonitoringService,
+    private val defenseService: DefenseService,
+    private val topicGuessService: TopicGuessService
 ) {
+    private val logger = LoggerFactory.getLogger(this::class.java)
 
     private fun validateExistingOwner(session: HttpSession) {
         val userId = getCurrentUserId(session)
@@ -44,12 +53,12 @@ class GameService(
         for (game in activeGames) {
             val playerInGame = playerRepository.findByGameAndUserId(game, userId)
             if (playerInGame != null) {
-                println("[DEBUG] User already in game: gameId = ${game.gameNumber}, state = ${game.gameState}")
+                logger.debug("User already in game: gameId = ${game.gameNumber}, state = ${game.gameState}")
                 throw RuntimeException("이미 진행중인 게임에 참여하고 있습니다.")
             }
         }
 
-        println("[DEBUG] validateExistingOwner passed")
+        logger.debug("validateExistingOwner passed")
 
     }
 
@@ -98,8 +107,7 @@ class GameService(
         }
 
         val savedGame = gameRepository.save(newGame)
-        
-        // Save all selected subjects to GameSubjectEntity table
+
         selectedSubjects.forEach { subject ->
             val gameSubject = GameSubjectEntity(
                 game = savedGame,
@@ -148,16 +156,16 @@ class GameService(
 
     @Transactional
     fun joinGame(req: JoinGameRequest, session: HttpSession): GameStateResponse {
-        val game = gameRepository.findByGameNumber(req.gameNumber)
-            ?: throw RuntimeException("게임방을 찾을 수 없습니다: ${req.gameNumber}")
+        val game = gameRepository.findByGameNumberWithLock(req.gameNumber)
+            ?: throw GameNotFoundException(req.gameNumber)
 
         if (game.gameState != GameState.WAITING) {
-            throw RuntimeException("게임이 이미 시작되었습니다.")
+            throw GameAlreadyStartedException(req.gameNumber)
         }
 
         val currentPlayers = playerRepository.findByGame(game)
         if (currentPlayers.size >= game.gameParticipants) {
-            throw RuntimeException("게임방이 가득 찼습니다.")
+            throw RoomFullException(req.gameNumber)
         }
 
         val userId = getCurrentUserId(session)
@@ -168,63 +176,16 @@ class GameService(
             return getGameState(game, session)
         }
 
-        joinGame(game, userId, nickname)
+        val newPlayer = joinGame(game, userId, nickname)
 
-        val newPlayerCount = currentPlayers.size + 1
-
-        // Get all subjects for this game
-        val gameSubjects = gameSubjectRepository.findByGameWithSubject(game)
-        val subjectNames = gameSubjects.map { it.subject.content ?: "Unknown" }
-        val subjectDisplay = if (subjectNames.isNotEmpty()) {
-            subjectNames.joinToString(", ")
-        } else {
-            game.citizenSubject?.content ?: "주제 설정 중"
-        }
-
-        val roomUpdateMessage = mapOf(
-            "type" to "PLAYER_JOINED",
-            "gameNumber" to game.gameNumber,
-            "playerName" to nickname,
-            "userId" to userId,
-            "currentPlayers" to newPlayerCount,
-            "maxPlayers" to game.gameParticipants,
-            "roomData" to mapOf(
-                "gameNumber" to game.gameNumber,
-                "title" to "${game.gameName} #${game.gameNumber}",
-                "host" to game.gameOwner,
-                "currentPlayers" to newPlayerCount,
-                "maxPlayers" to game.gameParticipants,
-                "subject" to subjectDisplay,
-                "subjects" to subjectNames,
-                "state" to game.gameState.name,
-                "players" to playerRepository.findByGame(game).map { player ->
-                    mapOf(
-                        "id" to player.id,
-                        "userId" to player.userId,
-                        "nickname" to player.nickname,
-                        "isHost" to (player.nickname == game.gameOwner),
-                        "isAlive" to player.isAlive
-                    )
-                }
-            )
-        )
-
-        println("[DEBUG] Broadcasting room update: $roomUpdateMessage")
-
-        messagingTemplate.convertAndSend("/topic/room.${game.gameNumber}", roomUpdateMessage)
-
-        messagingTemplate.convertAndSend("/topic/lobby", mapOf(
-            "type" to "ROOM_UPDATED",
-            "gameNumber" to game.gameNumber,
-            "currentPlayers" to newPlayerCount,
-            "maxPlayers" to game.gameParticipants
-        ))
+        val allPlayers = playerRepository.findByGame(game)
+        gameMonitoringService.notifyPlayerJoined(game, newPlayer, allPlayers)
 
         return getGameState(game, session)
     }
 
 
-    private fun joinGame(game: GameEntity, userId: Long, nickname: String) {
+    private fun joinGame(game: GameEntity, userId: Long, nickname: String): PlayerEntity {
         val player = PlayerEntity(
             game = game,
             userId = userId,
@@ -238,14 +199,13 @@ class GameService(
             defense = null,
             votedFor = null
         )
-
-        playerRepository.save(player)
+        return playerRepository.save(player)
     }
 
     @Transactional
     fun leaveGame(req: LeaveGameRequest, session: HttpSession): Boolean {
-                    val game = gameRepository.findByGameNumber(req.gameNumber)
-            ?: throw RuntimeException("게임방을 찾을 수 없습니다: ${req.gameNumber}")
+                    val game = gameRepository.findByGameNumberWithLock(req.gameNumber)
+            ?: throw GameNotFoundException(req.gameNumber)
 
         val userId = getCurrentUserId(session)
         val nickname = getCurrentUserNickname(session)
@@ -260,15 +220,9 @@ class GameService(
 
             if (remainingPlayers.isEmpty()) {
                 // No players left, delete the room
-                println("[DEBUG] No players remaining, deleting room ${game.gameNumber}")
+                logger.debug("No players remaining, deleting room ${game.gameNumber}")
                 gameRepository.delete(game)
-                
-                // Notify lobby that room was deleted
-                messagingTemplate.convertAndSend("/topic/lobby", mapOf(
-                    "type" to "ROOM_DELETED",
-                    "gameNumber" to game.gameNumber
-                ))
-                
+                gameMonitoringService.notifyRoomDeleted(game.gameNumber)
                 return true
             } else if (wasOwner) {
                 // Transfer ownership to the oldest remaining player (earliest joinedAt timestamp)
@@ -276,59 +230,11 @@ class GameService(
                 if (newOwner != null) {
                     game.gameOwner = newOwner.nickname
                     gameRepository.save(game)
-                    println("[DEBUG] Transferred ownership from $nickname to ${newOwner.nickname} in room ${game.gameNumber} (joined at: ${newOwner.joinedAt})")
+                    logger.debug("Transferred ownership from $nickname to ${newOwner.nickname} in room ${game.gameNumber} (joined at: ${newOwner.joinedAt})")
                 }
             }
 
-            // Get all subjects for this game
-            val gameSubjects = gameSubjectRepository.findByGameWithSubject(game)
-            val subjectNames = gameSubjects.map { it.subject.content ?: "Unknown" }
-            val subjectDisplay = if (subjectNames.isNotEmpty()) {
-                subjectNames.joinToString(", ")
-            } else {
-                game.citizenSubject?.content ?: "주제 설정 중"
-            }
-
-            val roomUpdateMessage = mapOf(
-                "type" to "PLAYER_LEFT",
-                "gameNumber" to game.gameNumber,
-                "playerName" to nickname,
-                "userId" to userId,
-                "currentPlayers" to remainingPlayers.size,
-                "maxPlayers" to game.gameParticipants,
-                "ownershipTransferred" to wasOwner,
-                "newOwner" to if (wasOwner && remainingPlayers.isNotEmpty()) game.gameOwner else null,
-                "roomData" to mapOf(
-                    "gameNumber" to game.gameNumber,
-                    "title" to "${game.gameName} #${game.gameNumber}",
-                    "host" to game.gameOwner,
-                    "currentPlayers" to remainingPlayers.size,
-                    "maxPlayers" to game.gameParticipants,
-                    "subject" to subjectDisplay,
-                    "subjects" to subjectNames,
-                    "state" to game.gameState.name,
-                    "players" to remainingPlayers.map { player ->
-                        mapOf(
-                            "id" to player.id,
-                            "userId" to player.userId,
-                            "nickname" to player.nickname,
-                            "isHost" to (player.nickname == game.gameOwner),
-                            "isAlive" to player.isAlive
-                        )
-                    }
-                )
-            )
-
-            println("[DEBUG] Broadcasting player leave: $roomUpdateMessage")
-
-            messagingTemplate.convertAndSend("/topic/room.${game.gameNumber}", roomUpdateMessage)
-
-            messagingTemplate.convertAndSend("/topic/lobby", mapOf(
-                "type" to "ROOM_UPDATED",
-                "gameNumber" to game.gameNumber,
-                "currentPlayers" to remainingPlayers.size,
-                "maxPlayers" to game.gameParticipants
-            ))
+            gameMonitoringService.notifyPlayerLeft(game, nickname, userId, remainingPlayers)
 
             return true
         }
@@ -336,521 +242,16 @@ class GameService(
         return false
     }
 
-    @Transactional
-    fun startGame(req: StartGameRequest, session: HttpSession): GameStateResponse {
-
-        val nickname = getCurrentUserNickname(session)
-        val game = gameRepository.findByGameOwner(nickname)
-            ?: throw RuntimeException("게임??찾을 ???�습?�다. 먼�? 게임방을 ?�성?�주?�요.")
-
-        if (game.gameState != GameState.WAITING) {
-            throw RuntimeException("게임???��? 진행 중이거나 종료?�었?�니??")
-        }
-
-        val players = playerRepository.findByGame(game)
-        if (!game.canStart(players.size)) {
-            throw RuntimeException("게임???�작?�기 ?�한 ?�레?�어가 충분?��? ?�습?�다. (최소 3�? 최�? 15�?")
-        }
-
-
-        val selectedSubjects = if (game.citizenSubject != null) {
-            val subjects = mutableListOf<SubjectEntity>()
-            subjects.add(game.citizenSubject!!)
-
-            if (game.liarSubject != null && game.liarSubject != game.citizenSubject) {
-                subjects.add(game.liarSubject!!)
-            }
-
-            subjects
-        } else {
-
-            selectSubjects(req)
-        }
-
-        assignRolesAndSubjects(game, players, selectedSubjects)
-
-        game.startGame()
-        gameRepository.save(game)
-
-        return getGameState(game, session)
-    }
-
-    private fun selectSubjects(req: StartGameRequest): List<SubjectEntity> {
-        println("[DEBUG] selectSubjects called with request: $req")
-
-        val allSubjects = subjectRepository.findAll().toList()
-        println("[DEBUG] Found ${allSubjects.size} total subjects")
-        allSubjects.forEach { subject ->
-            println("[DEBUG] Available subject '${subject.content}' (ID: ${subject.id}) has ${subject.word.size} words")
-            subject.word.forEach { word ->
-                println("[DEBUG]   - Word: '${word.content}' (ID: ${word.id})")
-            }
-        }
-
-        val validSubjects = allSubjects.filter { it.word.size >= 2 }
-        if (validSubjects.isEmpty()) {
-            println("[DEBUG] No subjects with at least 2 words available in database, creating test subjects")
-            return createTestSubjects()
-        }
-
-        println("[DEBUG] Found ${validSubjects.size} valid subjects with at least 2 words")
-        validSubjects.forEach { subject ->
-            println("[DEBUG] Valid subject '${subject.content}' (ID: ${subject.id}) has ${subject.word.size} words")
-        }
-
-        val selectedSubjects = when {
-            req.subjectIds != null -> {
-                println("[DEBUG] Using specific subject IDs: ${req.subjectIds}")
-                req.subjectIds.map { subjectId ->
-                    println("[DEBUG] Looking up subject with ID: $subjectId")
-                    val subject = subjectRepository.findById(subjectId).orElseThrow {
-                        RuntimeException("Subject with ID $subjectId not found")
-                    }
-                    println("[DEBUG] Found subject '${subject.content}' (ID: ${subject.id}) with ${subject.word.size} words")
-
-                    if (subject.word.size < 2) {
-                        println("[DEBUG] Subject '${subject.content}' has insufficient words: ${subject.word.size}, but proceeding anyway")
-                    }
-                    subject
-                }
-            }
-
-            req.useAllSubjects -> {
-                println("[DEBUG] Using all valid subjects")
-                validSubjects
-            }
-
-            req.useRandomSubjects -> {
-                val count = req.randomSubjectCount ?: 1
-                println("[DEBUG] Using $count random subjects")
-                val randomCount = count.coerceAtMost(validSubjects.size)
-                if (randomCount < count) {
-                    println("[DEBUG] Requested ${count} random subjects, but only ${randomCount} valid subjects are available")
-                }
-                validSubjects.shuffled().take(randomCount)
-            }
-
-            else -> {
-                println("[DEBUG] Using default selection (one random subject)")
-                listOf(validSubjects.random())
-            }
-        }
-
-        if (selectedSubjects.isEmpty()) {
-            throw RuntimeException("No subjects were selected")
-        }
-
-        println("[DEBUG] Selected ${selectedSubjects.size} subjects")
-        selectedSubjects.forEach { subject ->
-            println("[DEBUG] Selected subject '${subject.content}' (ID: ${subject.id}) has ${subject.word.size} words")
-            subject.word.forEach { word ->
-                println("[DEBUG]   - Word: '${word.content}' (ID: ${word.id})")
-            }
-        }
-
-        return selectedSubjects
-    }
-
-
-    private fun assignRolesAndSubjects(
-        game: GameEntity,
-        players: List<PlayerEntity>,
-        subjects: List<SubjectEntity>
-    ) {
-        if (subjects.isEmpty()) {
-            throw RuntimeException("No subjects available for assignment")
-        }
-
-        val citizenSubject = subjects.first()
-        game.citizenSubject = citizenSubject
-
-        val liarSubject = if (subjects.size > 1) subjects[1] else citizenSubject
-        game.liarSubject = liarSubject
-
-        val liarCount = game.gameLiarCount.coerceAtMost(players.size - 1)
-        val liarIndices = players.indices.shuffled().take(liarCount)
-
-        players.forEachIndexed { index, player ->
-            val isLiar = index in liarIndices
-            val role = if (isLiar) PlayerRole.LIAR else PlayerRole.CITIZEN
-
-            val subject = when {
-                !isLiar -> subjects.random()
-
-                game.gameMode == GameMode.LIARS_DIFFERENT_WORD -> liarSubject
-
-                else -> citizenSubject
-            }
-
-            val updatedPlayer = PlayerEntity(
-                game = player.game,
-                userId = player.userId,
-                nickname = player.nickname,
-                isAlive = true,
-                role = role,
-                subject = subject,
-                state = PlayerState.WAITING_FOR_HINT,
-                votesReceived = 0,
-                hint = null,
-                defense = null,
-                votedFor = null
-            )
-
-            playerRepository.save(updatedPlayer)
-        }
-    }
-
-    @Transactional
-    fun giveHint(req: GiveHintRequest, session: HttpSession): GameStateResponse {
-
-                    val game = gameRepository.findByGameNumber(req.gameNumber)
-            ?: throw RuntimeException("Game not found")
-
-        if (game.gameState != GameState.IN_PROGRESS) {
-            throw RuntimeException("Game is not in progress")
-        }
-
-        val userId = getCurrentUserId(session)
-        val player = playerRepository.findByGameAndUserId(game, userId)
-            ?: throw RuntimeException("You are not in this game")
-
-        if (!player.isAlive) {
-            throw RuntimeException("You are eliminated from the game")
-        }
-
-        if (player.state != PlayerState.WAITING_FOR_HINT) {
-            throw RuntimeException("You have already given a hint")
-        }
-
-        player.giveHint(req.hint)
-        playerRepository.save(player)
-
-        val players = playerRepository.findByGame(game)
-        val allPlayersGaveHints = players.all { it.state == PlayerState.GAVE_HINT || !it.isAlive }
-
-        if (allPlayersGaveHints) {
-            players.forEach { p ->
-                if (p.isAlive) {
-                    p.setWaitingForVote()
-                    playerRepository.save(p)
-                }
-            }
-        }
-
-        return getGameState(game, session)
-    }
-
-    @Transactional
-    fun vote(req: VoteRequest, session: HttpSession): GameStateResponse {
-
-        val game = gameRepository.findByGameNumber(req.gameNumber)
-            ?: throw RuntimeException("Game not found")
-
-        if (game.gameState != GameState.IN_PROGRESS) {
-            throw RuntimeException("Game is not in progress")
-        }
-
-        val userId = getCurrentUserId(session)
-        val player = playerRepository.findByGameAndUserId(game, userId)
-            ?: throw RuntimeException("You are not in this game")
-
-        if (!player.isAlive) {
-            throw RuntimeException("You are eliminated from the game")
-        }
-
-        if (player.state != PlayerState.WAITING_FOR_VOTE) {
-            throw RuntimeException("You are not in the voting phase")
-        }
-
-        val targetPlayer = playerRepository.findById(req.targetPlayerId).orElse(null)
-            ?: throw RuntimeException("Target player not found")
-
-        if (targetPlayer.game.id != game.id) {
-            throw RuntimeException("Target player is not in this game")
-        }
-
-        if (!targetPlayer.isAlive) {
-            throw RuntimeException("Target player is eliminated from the game")
-        }
-
-        player.voteFor(targetPlayer.id)
-        playerRepository.save(player)
-
-        targetPlayer.receiveVote()
-        playerRepository.save(targetPlayer)
-
-        val players = playerRepository.findByGame(game)
-        val allPlayersVoted = players.all {
-            it.state == PlayerState.VOTED || !it.isAlive ||
-                    (it.state == PlayerState.WAITING_FOR_VOTE && it.hasVotingTimeExpired())
-        }
-
-        if (allPlayersVoted) {
-            players.forEach { p ->
-                if (p.isAlive && p.state == PlayerState.WAITING_FOR_VOTE && p.hasVotingTimeExpired()) {
-                    p.state = PlayerState.VOTED
-                    playerRepository.save(p)
-                }
-            }
-
-            val validVoters = players.filter { it.isAlive && it.votedFor != null }
-
-            if (validVoters.isNotEmpty()) {
-                val mostVotedPlayer = players.filter { it.isAlive }
-                    .maxByOrNull { it.votesReceived }
-
-                val tiedPlayers = players.filter { it.isAlive && it.votesReceived == mostVotedPlayer?.votesReceived }
-                if (tiedPlayers.size == 1 && mostVotedPlayer!!.votesReceived > 0 &&
-                    mostVotedPlayer.votesReceived > validVoters.size / 2) {
-                    mostVotedPlayer.accuse()
-                    playerRepository.save(mostVotedPlayer)
-                } else {
-                    players.forEach { p ->
-                        p.resetVotes()
-                        playerRepository.save(p)
-                    }
-
-                    if (!game.nextRound()) {
-                        game.endGame()
-                        gameRepository.save(game)
-                    } else {
-                        players.forEach { p ->
-                            if (p.isAlive) {
-                                p.resetForNewRound()
-                                playerRepository.save(p)
-                            }
-                        }
-                    }
-                }
-            } else {
-                players.forEach { p ->
-                    p.resetVotes()
-                    playerRepository.save(p)
-                }
-
-                if (!game.nextRound()) {
-                    game.endGame()
-                    gameRepository.save(game)
-                } else {
-                    players.forEach { p ->
-                        if (p.isAlive) {
-                            p.resetForNewRound()
-                            playerRepository.save(p)
-                        }
-                    }
-                }
-            }
-        }
-
-        return getGameState(game, session)
-    }
-
-    @Transactional
-    fun defend(req: DefendRequest, session: HttpSession): GameStateResponse {
-
-                    val game = gameRepository.findByGameNumber(req.gameNumber)
-            ?: throw RuntimeException("Game not found")
-
-        if (game.gameState != GameState.IN_PROGRESS) {
-            throw RuntimeException("Game is not in progress")
-        }
-
-        val userId = getCurrentUserId(session)
-        val player = playerRepository.findByGameAndUserId(game, userId)
-            ?: throw RuntimeException("You are not in this game")
-
-        if (!player.isAlive) {
-            throw RuntimeException("You are eliminated from the game")
-        }
-
-        if (player.state != PlayerState.ACCUSED) {
-            throw RuntimeException("You are not accused")
-        }
-
-        player.defend(req.defense)
-        playerRepository.save(player)
-
-        val players = playerRepository.findByGame(game)
-        players.forEach { p ->
-            if (p.isAlive && p.id != player.id) {
-                p.setWaitingForVote()
-                p.votedFor = null
-                playerRepository.save(p)
-            }
-        }
-
-        return getGameState(game, session)
-    }
-
-
-    @Transactional
-    fun survivalVote(req: SurvivalVoteRequest, session: HttpSession): GameStateResponse {
-
-                    val game = gameRepository.findByGameNumber(req.gameNumber)
-            ?: throw RuntimeException("Game not found")
-
-        if (game.gameState != GameState.IN_PROGRESS) {
-            throw RuntimeException("Game is not in progress")
-        }
-
-        val userId = getCurrentUserId(session)
-        val player = playerRepository.findByGameAndUserId(game, userId)
-            ?: throw RuntimeException("You are not in this game")
-
-        if (!player.isAlive) {
-            throw RuntimeException("You are eliminated from the game")
-        }
-
-        if (player.state != PlayerState.WAITING_FOR_VOTE) {
-            throw RuntimeException("You are not in the voting phase")
-        }
-
-        val accusedPlayer = playerRepository.findById(req.accusedPlayerId).orElse(null)
-            ?: throw RuntimeException("Accused player not found")
-
-        if (accusedPlayer.game.id != game.id) {
-            throw RuntimeException("Accused player is not in this game")
-        }
-
-        if (accusedPlayer.state != PlayerState.DEFENDED) {
-            throw RuntimeException("Accused player has not defended yet")
-        }
-
-        player.voteFor(if (req.voteToSurvive) -1 else -2)
-        playerRepository.save(player)
-
-        val players = playerRepository.findByGame(game)
-        val allPlayersVoted = players.all {
-            it.state == PlayerState.VOTED || !it.isAlive || it.id == accusedPlayer.id ||
-                    (it.state == PlayerState.WAITING_FOR_VOTE && it.hasVotingTimeExpired())
-        }
-
-        if (allPlayersVoted) {
-            players.forEach { p ->
-                if (p.isAlive && p.state == PlayerState.WAITING_FOR_VOTE && p.hasVotingTimeExpired()) {
-                    p.state = PlayerState.VOTED
-                    playerRepository.save(p)
-                }
-            }
-
-            val validVoters = players.filter { it.isAlive && it.votedFor != null && it.id != accusedPlayer.id }
-            val totalValidVotes = validVoters.size
-
-            if (totalValidVotes > 0) {
-                val surviveVotes = players.count { it.votedFor == -1L }
-                val eliminateVotes = players.count { it.votedFor == -2L }
-
-                if (surviveVotes >= eliminateVotes) {
-                    accusedPlayer.survive()
-                    playerRepository.save(accusedPlayer)
-
-                    players.forEach { p ->
-                        if (p.isAlive) {
-                            p.resetForNewRound()
-                            playerRepository.save(p)
-                        }
-                    }
-
-                    if (!game.nextRound()) {
-                        game.endGame()
-                        gameRepository.save(game)
-                    }
-                } else {
-                    accusedPlayer.eliminate()
-                    playerRepository.save(accusedPlayer)
-
-                    if (accusedPlayer.role == PlayerRole.LIAR) {
-                    } else {
-                        val remainingCitizens = players.count { it.isAlive && it.role == PlayerRole.CITIZEN }
-                        if (remainingCitizens == 0) {
-                            game.endGame()
-                            gameRepository.save(game)
-                        } else {
-                            players.forEach { p ->
-                                if (p.isAlive) {
-                                    p.resetForNewRound()
-                                    playerRepository.save(p)
-                                }
-                            }
-
-                            if (!game.nextRound()) {
-                                game.endGame()
-                                gameRepository.save(game)
-                            }
-                        }
-                    }
-                }
-            } else {
-                accusedPlayer.survive()
-                playerRepository.save(accusedPlayer)
-
-                players.forEach { p ->
-                    if (p.isAlive) {
-                        p.resetForNewRound()
-                        playerRepository.save(p)
-                    }
-                }
-
-                if (!game.nextRound()) {
-                    game.endGame()
-                    gameRepository.save(game)
-                }
-            }
-        }
-
-        return getGameState(game, session)
-    }
-
-
-    @Transactional
-    fun guessWord(req: GuessWordRequest, session: HttpSession): GameResultResponse {
-
-                    val game = gameRepository.findByGameNumber(req.gameNumber)
-            ?: throw RuntimeException("Game not found")
-
-        if (game.gameState != GameState.IN_PROGRESS) {
-            throw RuntimeException("Game is not in progress")
-        }
-
-        val userId = getCurrentUserId(session)
-        val player = playerRepository.findByGameAndUserId(game, userId)
-            ?: throw RuntimeException("You are not in this game")
-
-        if (player.role != PlayerRole.LIAR || player.isAlive) {
-            throw RuntimeException("Only eliminated liars can guess the word")
-        }
-
-        val citizenSubject = game.citizenSubject
-        if (citizenSubject == null) {
-            throw RuntimeException("Citizen subject not found")
-        }
-
-        val isCorrect = citizenSubject.word.any { word ->
-            req.guess.equals(word.content, ignoreCase = true)
-        }
-
-        game.endGame()
-        gameRepository.save(game)
-
-        val players = playerRepository.findByGame(game)
-        return GameResultResponse.from(
-            game = game,
-            players = players,
-            winningTeam = if (isCorrect) WinningTeam.LIARS else WinningTeam.CITIZENS,
-            correctGuess = isCorrect
-        )
-    }
-
     fun getGameState(req: Int, session: HttpSession): GameStateResponse {
         val game = gameRepository.findByGameNumber(req)
-            ?: throw RuntimeException("Game not found")
+            ?: throw GameNotFoundException(req)
 
         return getGameState(game, session)
     }
 
     fun getGameResult(req: Int, session: HttpSession): GameResultResponse {
         val game = gameRepository.findByGameNumber(req)
-            ?: throw RuntimeException("Game not found")
+            ?: throw GameNotFoundException(req)
 
         if (game.gameState != GameState.ENDED) {
             throw RuntimeException("Game is not ended")
@@ -878,20 +279,20 @@ class GameService(
         activeGames.forEach { game ->
             val players = playerRepository.findByGame(game)
             val gameSubjects = gameSubjectRepository.findByGameWithSubject(game)
-            val subjectNames = gameSubjects.map { it.subject.content ?: "Unknown" }
+            val subjectNames = gameSubjects.map { it.subject.content }
 
-            println("[DEBUG] Game ${game.gameNumber} (ID: ${game.id}): found ${players.size} players")
+            logger.debug("Game ${game.gameNumber} (ID: ${game.id}): found ${players.size} players")
             players.forEach { player ->
-                println("[DEBUG]   - Player: ${player.nickname} (ID: ${player.id}, User: ${player.userId})")
+                logger.debug("  - Player: ${player.nickname} (ID: ${player.id}, User: ${player.userId})")
             }
-            println("[DEBUG] Game ${game.gameNumber} subjects: $subjectNames")
+            logger.debug("Game ${game.gameNumber} subjects: $subjectNames")
 
             playerCounts[game.id] = players.size
             playersMap[game.id] = players
             gameSubjectsMap[game.id] = subjectNames
         }
 
-        println("[DEBUG] Player counts: $playerCounts")
+        logger.debug("Player counts: $playerCounts")
 
         return GameRoomListResponse.from(activeGames, playerCounts, playersMap, gameSubjectsMap)
     }
@@ -900,10 +301,10 @@ class GameService(
     @Transactional
     fun endOfRound(req: EndOfRoundRequest, session: HttpSession): GameStateResponse {
         val game = gameRepository.findByGameNumber(req.gameNumber)
-            ?: throw RuntimeException("Game not found")
+            ?: throw GameNotFoundException(req.gameNumber)
 
         if (game.gameState != GameState.IN_PROGRESS) {
-            throw RuntimeException("Game is not in progress")
+            throw GameAlreadyStartedException(req.gameNumber)
         }
 
         if (game.gameOwner != req.gameOwner) {
@@ -927,10 +328,10 @@ class GameService(
     @Transactional
     fun recoverGameState(gameNumber: Int, userId: Long): Map<String, Any> {
         val game = gameRepository.findByGameNumber(gameNumber)
-            ?: throw IllegalArgumentException("Game not found: $gameNumber")
+            ?: throw GameNotFoundException(gameNumber)
 
         val player = playerRepository.findByGameAndUserId(game, userId)
-            ?: throw IllegalArgumentException("Player not found in game")
+            ?: throw PlayerNotInGameException(userId, gameNumber)
 
         val defenseRecovery = defenseService.recoverGameState(gameNumber)
 
@@ -949,13 +350,13 @@ class GameService(
     }
 
 
-    private fun getGameState(game: GameEntity, session: HttpSession): GameStateResponse {
+    private fun getGameState(game: GameEntity, session: HttpSession?): GameStateResponse {
         val players = playerRepository.findByGame(game)
-        val currentUserId = getCurrentUserId(session)
+        val currentUserId = session?.let { getCurrentUserId(it) }
         val currentPhase = determineGamePhase(game, players)
         val accusedPlayer = findAccusedPlayer(players)
 
-        val currentPlayer = players.find { it.userId == currentUserId }
+        val currentPlayer = currentUserId?.let { players.find { p -> p.userId == it } }
         val isChatAvailable = if (currentPlayer != null) {
             chatService.isChatAvailable(game, currentPlayer)
         } else {
@@ -977,6 +378,10 @@ class GameService(
             GameState.WAITING -> GamePhase.WAITING_FOR_PLAYERS
             GameState.ENDED -> GamePhase.GAME_OVER
             GameState.IN_PROGRESS -> {
+                if (topicGuessService.isGuessingPhaseActive(game.gameNumber)) {
+                    return GamePhase.GUESSING_WORD
+                }
+
                 val allPlayersGaveHints = players.all { it.state == PlayerState.GAVE_HINT || !it.isAlive }
                 val allPlayersVoted = players.all { it.state == PlayerState.VOTED || !it.isAlive }
                 val accusedPlayer = findAccusedPlayer(players)
@@ -996,9 +401,9 @@ class GameService(
         return players.find { it.state == PlayerState.ACCUSED || it.state == PlayerState.DEFENDED }
     }
 
-
+    //테스트용도임!!!!!!!
     private fun createTestSubjects(): List<SubjectEntity> {
-        println("[DEBUG] Creating test subjects for testing")
+        logger.debug("Creating test subjects for testing")
 
         val animalSubject = SubjectEntity(
             content = "동물",
@@ -1061,16 +466,66 @@ class GameService(
             wordRepository.save(word)
         }
 
-        // Flush to ensure all words are saved to database
         wordRepository.flush()
         subjectRepository.flush()
 
         val subjects = subjectRepository.findAll().toList()
-        println("[DEBUG] Created test subjects: ${subjects.size}")
+        logger.debug("Created test subjects: ${subjects.size}")
         subjects.forEach { subject ->
-            println("[DEBUG] Test subject '${subject.content}' (ID: ${subject.id}) has ${subject.word.size} words")
+            logger.debug("Test subject '${subject.content}' (ID: ${subject.id}) has ${subject.word.size} words")
         }
 
         return subjects
+    }
+
+    fun findPlayerInActiveGame(userId: Long): PlayerEntity? {
+        return playerRepository.findByUserIdAndGameInProgress(userId)
+    }
+
+    @Transactional
+    fun leaveGameAsSystem(gameNumber: Int, userId: Long) {
+        val game = gameRepository.findByGameNumberWithLock(gameNumber) ?: return
+        val player = playerRepository.findByGameAndUserId(game, userId) ?: return
+
+        playerRepository.delete(player)
+
+        val remainingPlayers = playerRepository.findByGame(game)
+        if (remainingPlayers.isEmpty()) {
+            gameRepository.delete(game)
+            gameMonitoringService.notifyRoomDeleted(game.gameNumber)
+        } else {
+            if (game.gameOwner == player.nickname) {
+                val newOwner = remainingPlayers.minByOrNull { it.joinedAt }
+                newOwner?.let {
+                    game.gameOwner = it.nickname
+                    gameRepository.save(game)
+                }
+            }
+            gameMonitoringService.notifyPlayerLeft(game, player.nickname, userId, remainingPlayers)
+        }
+    }
+
+    @Transactional
+    fun handlePlayerDisconnection(userId: Long) {
+        val player = playerRepository.findByUserIdAndGameInProgress(userId)
+        player?.let {
+            it.state = PlayerState.DISCONNECTED
+            playerRepository.save(it)
+            val gameState = getGameState(it.game, null) // session is null for system event
+            gameMonitoringService.broadcastGameState(it.game, gameState)
+        }
+    }
+
+    @Transactional
+    fun handlePlayerReconnection(userId: Long) {
+        val player = playerRepository.findByUserIdAndGameInProgress(userId)
+        player?.let {
+            if (it.state == PlayerState.DISCONNECTED) {
+                it.state = PlayerState.WAITING_FOR_HINT
+                playerRepository.save(it)
+                val gameState = getGameState(it.game, null)
+                gameMonitoringService.broadcastGameState(it.game, gameState)
+            }
+        }
     }
 }

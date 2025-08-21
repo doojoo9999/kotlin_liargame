@@ -24,11 +24,11 @@ class PlayerEntity (
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    val role: PlayerRole,
+    var role: PlayerRole,
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "subject_id")
-    val subject: SubjectEntity,
+    var subject: SubjectEntity,
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -45,6 +45,9 @@ class PlayerEntity (
 
     @Column(nullable = true)
     var votedFor: Long? = null,
+
+    @Column(nullable = true)
+    var finalVote: Boolean? = null,
 
     @Column(nullable = true)
     var voteStartTime: Instant? = null,
