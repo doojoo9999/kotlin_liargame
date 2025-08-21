@@ -92,7 +92,7 @@ class AuthController(
             return ResponseEntity.ok(mapOf(
                 "authenticated" to true,
                 "userId" to userId,
-                "nickname" to (user.nickname ?: nickname ?: "Unknown"),
+                "nickname" to user.nickname,
                 "sessionId" to session.id
             ))
         } catch (e: Exception) {
