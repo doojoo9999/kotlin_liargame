@@ -21,7 +21,8 @@ export const useGameSocket = (gameNumber: number) => {
         // Update the query cache with the new game state
         queryClient.setQueryData(['game', gameNumber], gameState);
 
-      } catch (error)        console.error("Failed to parse game state update message:", error);
+      } catch (error) {
+        console.error("Failed to parse game state update message:", error);
       }
     });
 

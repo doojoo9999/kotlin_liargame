@@ -16,7 +16,7 @@ export function RoomList({ rooms }: RoomListProps) {
   const joinRoomMutation = useJoinRoomMutation();
 
   const handleJoinClick = (room: GameRoom) => {
-    if (room.isPrivate) {
+    if (room.hasPassword) {
       setSelectedRoom(room);
       openPasswordModal();
     } else {
@@ -49,15 +49,15 @@ export function RoomList({ rooms }: RoomListProps) {
   const rows = rooms.map((room) => (
     <Table.Tr key={room.gameNumber}>
       <Table.Td>
-        <Badge color={room.status === 'WAITING' ? 'green' : 'yellow'}>
-          {room.status === 'WAITING' ? '대기중' : '게임중'}
+        <Badge color={room.state === 'WAITING' ? 'green' : 'yellow'}>
+          {room.state === 'WAITING' ? '대기중' : '게임중'}
         </Badge>
       </Table.Td>
       <Table.Td>{room.title}</Table.Td>
       <Table.Td>
         <Group gap="xs">
-          {room.isPrivate ? <Lock size={16} /> : <LockOpen size={16} />}
-          <Text size="sm">{room.isPrivate ? '비공개' : '공개'}</Text>
+          {room.hasPassword ? <Lock size={16} /> : <LockOpen size={16} />}
+          <Text size="sm">{room.hasPassword ? '비공개' : '공개'}</Text>
         </Group>
       </Table.Td>
       <Table.Td>
@@ -66,7 +66,7 @@ export function RoomList({ rooms }: RoomListProps) {
       <Table.Td>
         <Button
           size="xs"
-          disabled={room.status !== 'WAITING'}
+          disabled={room.state !== 'WAITING'}
           onClick={() => handleJoinClick(room)}
           loading={joinRoomMutation.isPending && selectedRoom?.gameNumber !== room.gameNumber}
         >
