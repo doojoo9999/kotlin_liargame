@@ -7,6 +7,8 @@ enum class PlayerState {
     VOTED,
     ACCUSED,
     DEFENDED,
+    WAITING_FOR_FINAL_VOTE,
+    FINAL_VOTED,
     SURVIVED,
     ELIMINATED,
     DISCONNECTED
