@@ -13,6 +13,10 @@ class UserEntity (
     var isAuthenticated : Boolean = false,
     var hasTokenIssued : Boolean = false,
     var password : String? = null,
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    var role: UserRole = UserRole.USER,
     
     @Column(name = "total_games", nullable = false)
     var totalGames: Int = 0,
