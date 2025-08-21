@@ -35,7 +35,12 @@ class GameEntity(
     var liarSubject: SubjectEntity? = null,
 
     var currentPlayerId: Long? = null,
-    var turnStartedAt: Instant? = null
+    var turnStartedAt: Instant? = null,
+
+    @Column(columnDefinition = "TEXT")
+    var turnOrder: String? = null,
+    var currentTurnIndex: Int = 0,
+    var phaseEndTime: Instant? = null
 ) : BaseEntity() {
 
     @Id
