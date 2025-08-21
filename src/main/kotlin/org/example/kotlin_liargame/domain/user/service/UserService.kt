@@ -6,6 +6,7 @@ import org.example.kotlin_liargame.domain.user.dto.response.UserStatsResponse
 import org.example.kotlin_liargame.domain.user.model.UserEntity
 import org.example.kotlin_liargame.domain.user.repository.UserRepository
 import org.springframework.scheduling.annotation.Scheduled
+import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
@@ -14,12 +15,13 @@ import java.time.LocalDateTime
 @Transactional
 class UserService(
     private val userRepository: UserRepository,
-    private val gameHistorySummaryRepository: GameHistorySummaryRepository
+    private val gameHistorySummaryRepository: GameHistorySummaryRepository,
+    private val passwordEncoder: PasswordEncoder
 ) {
     fun createUser(req: UserAddRequest) {
         val user = UserEntity(
             nickname = req.nickname,
-            password = req.password, // TODO: Hashing
+            password = passwordEncoder.encode(req.password),
             profileImgUrl = ""
         )
         userRepository.save(user)
@@ -34,7 +36,7 @@ class UserService(
         val user = userRepository.findByNickname(nickname)
             ?: throw RuntimeException("User not found")
         
-        if (user.password != password) { // TODO: Hashing
+        if (!passwordEncoder.matches(password, user.password)) {
             throw RuntimeException("Invalid password")
         }
         
