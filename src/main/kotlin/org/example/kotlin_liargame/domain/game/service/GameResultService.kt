@@ -80,7 +80,7 @@ class GameResultService(
             game = game,
             players = players,
             currentUserId = null,
-            currentPhase = org.example.kotlin_liargame.domain.game.model.enum.GamePhase.ENDED,
+            currentPhase = org.example.kotlin_liargame.domain.game.model.enum.GamePhase.GAME_OVER,
             winner = "CITIZEN",
             reason = "라이어를 모두 찾아냈습니다."
         )
@@ -126,7 +126,7 @@ class GameResultService(
             game = game,
             players = players,
             currentUserId = null,
-            currentPhase = org.example.kotlin_liargame.domain.game.model.enum.GamePhase.ENDED,
+            currentPhase = org.example.kotlin_liargame.domain.game.model.enum.GamePhase.GAME_OVER,
             winner = "LIAR",
             reason = "라이어가 단어를 맞혔거나, 시민이 라이어를 모두 찾아내지 못했습니다."
         )
