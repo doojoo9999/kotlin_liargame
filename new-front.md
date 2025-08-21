@@ -134,40 +134,166 @@ frontend/
     *   **성공**: **라이어의 최종 승리**로 게임이 종료됩니다.
     *   **실패**: **시민의 최종 승리**로 게임이 종료됩니다.
 
-### 4.2. REST API 엔드포인트 상세
+### 4.2. REST API 엔드포인트 상세 (DTO 명세 포함)
+
+---
 
 #### **인증 (Auth)**
-- **`POST /api/v1/auth/login`**: 닉네임과 비밀번호로 로그인합니다.
-- **`POST /api/v1/auth/logout`**: 로그아웃합니다.
-- **`GET /api/v1/auth/me`**: 현재 세션 정보를 확인합니다.
+
+-   **`POST /api/v1/auth/login`**: 닉네임으로 로그인합니다. (세션 기반)
+    -   **Request Body**:
+        ```json
+        {
+          "nickname": "string",
+          "password": "string | null" // 현재 프로젝트에서는 nickname만 사용
+        }
+        ```
+    -   **Response Body (Success)**:
+        ```json
+        {
+          "success": true,
+          "userId": number,
+          "nickname": "string"
+        }
+        ```
+
+-   **`POST /api/v1/auth/logout`**: 로그아웃합니다.
+    -   **Request Body**: 없음
+    -   **Response Body (Success)**:
+        ```json
+        {
+          "success": true
+        }
+        ```
+
+-   **`GET /api/v1/auth/me`**: 현재 세션 정보를 확인합니다. (로그인 유지 확인용)
+    -   **Response Body (Success)**:
+        ```json
+        {
+          "authenticated": true,
+          "userId": number,
+          "nickname": "string",
+          "sessionId": "string"
+        }
+        ```
+
+---
 
 #### **게임 방 (Game Room)**
-- **`POST /api/v1/game/create`**: 새 게임 방을 생성합니다.
-- **`POST /api/v1/game/join`**: 기존 게임 방에 참여합니다.
-- **`POST /api/v1/game/leave`**: 게임 방에서 나갑니다.
-- **`GET /api/v1/game/rooms`**: 활성화된 게임 방 목록을 조회합니다.
+
+-   **`GET /api/v1/game/rooms`**: 활성화된 게임 방 목록을 조회합니다.
+    -   **Response Body (Success)**:
+        ```json
+        {
+          "gameRooms": [
+            {
+              "gameNumber": number,
+              "title": "string",
+              "host": "string",
+              "currentPlayers": number,
+              "maxPlayers": number,
+              "hasPassword": boolean,
+              "subject": "string | null",
+              "subjects": ["string"],
+              "state": "WAITING" | "IN_PROGRESS" | "ENDED",
+              "players": [
+                {
+                  "id": number,
+                  "nickname": "string",
+                  "isOwner": boolean,
+                  "isReady": boolean // (대기실에서 사용될 수 있음)
+                }
+              ]
+            }
+          ]
+        }
+        ```
+
+-   **`POST /api/v1/game/create`**: 새 게임 방을 생성합니다.
+    -   **Request Body**:
+        ```json
+        {
+          "nickname": "string | null", // (세션에 닉네임이 없을 경우)
+          "gameName": "string | null", // (없으면 "닉네임님의 방")
+          "gamePassword": "string | null",
+          "gameParticipants": number, // (3~15, 기본 5)
+          "gameTotalRounds": number, // (1~10, 기본 3)
+          "gameLiarCount": number, // (기본 1)
+          "gameMode": "LIARS_KNOW" | "CITIZENS_KNOW", // (기본 LIARS_KNOW)
+          "subjectIds": [number] | null,
+          "useRandomSubjects": boolean, // (기본 true)
+          "randomSubjectCount": number | null // (1~5, 기본 1)
+        }
+        ```
+    -   **Response Body (Success)**: `number` (생성된 방 번호)
+
+-   **`POST /api/v1/game/join`**: 기존 게임 방에 참여합니다.
+    -   **Request Body**:
+        ```json
+        {
+          "gameNumber": number,
+          "gamePassword": "string | null"
+        }
+        ```
+    -   **Response Body (Success)**: `GameStateResponse` (아래 `GameStateResponse` DTO 참고)
+
+-   **`POST /api/v1/game/leave`**: 게임 방에서 나갑니다.
+    -   **Request Body**:
+        ```json
+        {
+          "gameNumber": number
+        }
+        ```
+    -   **Response Body (Success)**: `boolean`
+
+---
 
 #### **게임 진행 (Game Progress)**
-- **`POST /api/v1/game/start`**: (방장이) 게임을 시작합니다. (Request Body 없음)
-- **`POST /api/v1/game/hint`**: 힌트(발언)를 제출합니다.
-- **`POST /api/v1/game/submit-defense`**: 피의자가 변론을 제출합니다.
-- **`POST /api/v1/game/submit-liar-guess`**: 탈락한 라이어가 단어를 추측하여 제출합니다.
 
-#### **투표 (Voting)**
-- **`POST /api/v1/game/vote`**: 라이어로 의심되는 플레이어에게 투표합니다. (`VoteRequest`)
-- **`POST /api/v1/game/vote/final`**: 피의자를 탈락시킬지 찬반 투표합니다. (`FinalVotingRequest`)
+-   **`POST /api/v1/game/start`**: (방장이) 게임을 시작합니다.
+    -   **Request Body**: 없음
+    -   **Response Body (Success)**: `GameStateResponse`
 
-#### **욕설/금지어 (Profanity)**
-- **`POST /api/v1/profanity/suggest`**: 사용자가 금지어를 제안합니다. (`SuggestProfanityRequest`)
+-   **`GET /api/v1/game/{gameNumber}`**: 특정 게임 방의 현재 상태를 조회합니다.
+    -   **Response Body (Success)**: `GameStateResponse`
 
-#### **관리자 (Admin)**
-- **`POST /api/v1/admin/login`**: 관리자 계정으로 로그인합니다. (`AdminLoginRequest`)
-- **`POST /api/v1/admin/grant-role/{userId}`**: 특정 사용자에게 관리자 권한을 부여합니다.
-- **`POST /api/v1/admin/terminate-room`**: 특정 게임 방을 강제로 종료합니다. (`TerminateRoomRequest`)
-- **`POST /api/v1/admin/games/{gameNumber}/kick`**: 특정 플레이어를 강제로 퇴장시킵니다. (`KickPlayerRequest`)
-- **`GET /api/v1/admin/profanity/requests`**: 승인 대기 중인 금지어 제안 목록을 조회합니다.
-- **`POST /api/v1/admin/profanity/approve/{requestId}`**: 금지어 제안을 승인합니다.
-- **`POST /api/v1/admin/profanity/reject/{requestId}`**: 금지어 제안을 반려합니다.
+---
+
+#### **핵심 DTO: `GameStateResponse`**
+
+> 이 DTO는 게임의 모든 상태를 담고 있으며, 방 참여, 게임 시작, 턴 변경 등 대부분의 게임 관련 API 요청에 대한 응답으로 사용됩니다. WebSocket을 통해 상태가 변경될 때도 이 DTO가 전송됩니다.
+
+```typescript
+interface GameStateResponse {
+  gameNumber: number;
+  gameName: string;
+  gameOwner: string;
+  gameParticipants: number;
+  gameCurrentRound: number;
+  gameTotalRounds: number;
+  gameLiarCount: number;
+  gameMode: 'LIARS_KNOW' | 'CITIZENS_KNOW';
+  gameState: 'WAITING' | 'IN_PROGRESS' | 'ENDED';
+  players: {
+    id: number;
+    nickname: string;
+    isOwner: boolean;
+    isReady: boolean;
+    role?: 'LIAR' | 'CITIZEN';
+    isEliminated: boolean;
+  }[];
+  currentPhase: 'WAITING' | 'SPEECH' | 'VOTE' | 'DEFENSE' | 'FINAL_VOTE' | 'LIAR_GUESS' | 'ENDED';
+  yourRole?: 'LIAR' | 'CITIZEN';
+  yourWord?: string;
+  accusedPlayer?: { id: number; nickname: string; /* ... */ };
+  isChatAvailable: boolean;
+  citizenSubject?: string;
+  liarSubject?: string;
+  subjects?: string[];
+}
+```
+
+*나머지 API(투표, 관리자 등)는 필요시 추가로 문서화합니다.*
 
 ### 4.3. WebSocket (STOMP) 프로토콜
 
