@@ -294,7 +294,6 @@ class GameController(
             
         } catch (e: Exception) {
             println("[ERROR] WebSocket topic guess failed: ${e.message}")
-            // 에러는 서비스 레벨에서 WebSocket으로 전송됨
         }
     }
 }

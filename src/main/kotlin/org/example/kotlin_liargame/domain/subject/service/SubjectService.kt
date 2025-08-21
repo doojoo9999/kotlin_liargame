@@ -23,7 +23,6 @@ class SubjectService (
         if (existingSubject == null) {
             val savedSubject = subjectRepository.save(subjectRequest.to())  // ✅ 저장된 엔티티 반환
             
-            // Send WebSocket notification for subject addition
             messagingTemplate.convertAndSend("/topic/subjects", mapOf(
                 "type" to "SUBJECT_ADDED",
                 "subject" to mapOf(
@@ -53,7 +52,6 @@ class SubjectService (
         subjectRepository.delete(subject)
         subjectRepository.flush()
         
-        // Send WebSocket notification for subject deletion
         messagingTemplate.convertAndSend("/topic/subjects", mapOf(
             "type" to "SUBJECT_DELETED",
             "subjectId" to subjectRequest.name
