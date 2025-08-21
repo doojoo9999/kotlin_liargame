@@ -2,6 +2,7 @@ package org.example.kotlin_liargame.domain.game.model
 
 import jakarta.persistence.*
 import org.example.kotlin_liargame.domain.game.model.enum.GameMode
+import org.example.kotlin_liargame.domain.game.model.enum.GamePhase
 import org.example.kotlin_liargame.domain.game.model.enum.GameState
 import org.example.kotlin_liargame.domain.subject.model.SubjectEntity
 import org.example.kotlin_liargame.global.base.BaseEntity
@@ -23,6 +24,9 @@ class GameEntity(
     @Column(name = "g_state")
     @Enumerated(EnumType.STRING)
     var gameState: GameState = GameState.WAITING,
+    @Column(name = "g_phase")
+    @Enumerated(EnumType.STRING)
+    var currentPhase: GamePhase = GamePhase.WAITING_FOR_PLAYERS,
     var gameOwner: String,
     var gameEndTime: Instant? = null,
 
@@ -35,6 +39,7 @@ class GameEntity(
     var liarSubject: SubjectEntity? = null,
 
     var currentPlayerId: Long? = null,
+    var accusedPlayerId: Long? = null,
     var turnStartedAt: Instant? = null,
 
     @Column(columnDefinition = "TEXT")
