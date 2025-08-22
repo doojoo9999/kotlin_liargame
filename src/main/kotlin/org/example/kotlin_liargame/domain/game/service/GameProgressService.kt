@@ -106,7 +106,17 @@ class GameProgressService(
             }
             return subjects
         }
-        return subjectRepository.findAll().shuffled().take(2)
+        
+        val approvedSubjects = subjectRepository.findByStatus(org.example.kotlin_liargame.domain.subject.model.enum.ContentStatus.APPROVED)
+        val validSubjects = approvedSubjects.filter { subject ->
+            subject.word.count { word -> word.status == org.example.kotlin_liargame.domain.subject.model.enum.ContentStatus.APPROVED } >= 5
+        }
+
+        if (validSubjects.size < 2) {
+            throw IllegalStateException("There are not enough approved subjects with at least 5 approved words to start a game.")
+        }
+
+        return validSubjects.shuffled().take(2)
     }
 
     private fun assignRolesAndSubjects(
