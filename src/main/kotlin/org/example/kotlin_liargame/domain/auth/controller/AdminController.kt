@@ -124,4 +124,24 @@ class AdminController(
         val result = adminService.terminateGameRoom(request.gameNumber)
         return ResponseEntity.ok(mapOf("success" to result))
     }
+
+    @GetMapping("/content/pending")
+    fun getPendingContents(session: HttpSession): ResponseEntity<Any> {
+        if (!checkAdmin(session)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ErrorResponse("UNAUTHORIZED", "관리자 권한이 필요합니다", "관리자 권한이 필요합니다"))
+        }
+        val pendingContents = adminService.getPendingContents()
+        return ResponseEntity.ok(pendingContents)
+    }
+
+    @PostMapping("/content/approve-all")
+    fun approveAllPendingContents(session: HttpSession): ResponseEntity<Any> {
+        if (!checkAdmin(session)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ErrorResponse("UNAUTHORIZED", "관리자 권한이 필요합니다", "관리자 권한이 필요합니다"))
+        }
+        adminService.approveAllPendingContents()
+        return ResponseEntity.ok(mapOf("success" to true))
+    }
 }
