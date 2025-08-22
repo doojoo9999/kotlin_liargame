@@ -1,6 +1,8 @@
 package org.example.kotlin_liargame.domain.word.service
 
 import jakarta.transaction.Transactional
+import org.example.kotlin_liargame.domain.config.ContentProperties
+import org.example.kotlin_liargame.domain.subject.model.enum.ContentStatus
 import org.example.kotlin_liargame.domain.subject.repository.SubjectRepository
 import org.example.kotlin_liargame.domain.word.dto.request.ApplyWordRequest
 import org.example.kotlin_liargame.domain.word.dto.response.WordListResponse
@@ -15,7 +17,8 @@ import org.springframework.stereotype.Service
 class WordService (
     private val wordRepository: WordRepository,
     private val subjectRepository: SubjectRepository,
-    private val messagingTemplate: SimpMessagingTemplate
+    private val messagingTemplate: SimpMessagingTemplate,
+    private val contentProperties: ContentProperties
 ){
     private val logger = LoggerFactory.getLogger(this::class.java)
 
@@ -32,6 +35,9 @@ class WordService (
             throw WordAlreadyExistsException("단어 '${req.word}'는 이미 주제 '${req.subject}'에 존재합니다.")
         }
         val newWordEntity = req.to(subject)
+        if (!contentProperties.manualApprovalRequired) {
+            newWordEntity.status = ContentStatus.APPROVED
+        }
         wordRepository.save(newWordEntity)
         
         messagingTemplate.convertAndSend("/topic/subjects", mapOf(
