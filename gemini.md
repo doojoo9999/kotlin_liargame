@@ -1,3 +1,5 @@
+개발 시 단일 진실 공급원: `root/new-front.md` 을 반드시 참고하십시오.
+
 천재적 사고 공식화 프롬프트 (Genius Thinking Formula Prompt)
 
 1. 현재 작성되어있는 CSS와 Component, Hook 을 최대한 활용해야 합니다. 각 파일이 가지는 책임과 역할을 분명히 설정하고, 너무 큰 역할을 하지 않도록 주의하세요.

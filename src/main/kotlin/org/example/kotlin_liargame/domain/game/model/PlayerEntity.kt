@@ -59,6 +59,9 @@ class PlayerEntity (
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long = 0
 
+    val hasVoted: Boolean
+        get() = votedFor != null
+
     fun giveHint(hint: String) {
         this.hint = hint
         this.state = PlayerState.GAVE_HINT

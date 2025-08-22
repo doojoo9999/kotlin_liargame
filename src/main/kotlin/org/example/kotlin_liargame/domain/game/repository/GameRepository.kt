@@ -28,4 +28,6 @@ interface GameRepository : JpaRepository<GameEntity, Long> {
 
     @Query("SELECT g FROM GameEntity g WHERE g.gameState = 'WAITING' AND g.createdAt < :time")
     fun findStaleWaitingGames(time: java.time.Instant): List<GameEntity>
+
+    fun findByGameOwnerAndGameStateIn(owner: String, states: List<GameState>): GameEntity?
 }

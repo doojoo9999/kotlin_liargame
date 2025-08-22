@@ -6,16 +6,20 @@ import org.example.kotlin_liargame.domain.game.dto.request.VoteRequest
 import org.example.kotlin_liargame.domain.game.dto.response.FinalJudgmentResultResponse
 import org.example.kotlin_liargame.domain.game.dto.response.GameStateResponse
 import org.example.kotlin_liargame.domain.game.dto.response.VoteResponse
+import org.example.kotlin_liargame.domain.game.model.GameEntity
+import org.example.kotlin_liargame.domain.game.model.enum.GamePhase
 import org.example.kotlin_liargame.domain.game.model.enum.GameState
 import org.example.kotlin_liargame.domain.game.model.enum.PlayerRole
 import org.example.kotlin_liargame.domain.game.model.enum.PlayerState
 import org.example.kotlin_liargame.domain.game.repository.GameRepository
 import org.example.kotlin_liargame.domain.game.repository.PlayerRepository
+import org.example.kotlin_liargame.global.config.GameProperties
 import org.springframework.context.annotation.Lazy
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.scheduling.TaskScheduler
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.Instant
 
 @Service
 @Transactional
@@ -26,8 +30,29 @@ class VotingService(
     private val taskScheduler: TaskScheduler,
     @Lazy private val defenseService: DefenseService,
     private val gameMonitoringService: GameMonitoringService,
-    @Lazy private val gameResultService: GameResultService
+    @Lazy private val gameResultService: GameResultService,
+    private val gameProperties: GameProperties,
+    @Lazy private val gameProgressService: GameProgressService
 ) {
+
+    @Transactional
+    fun startVotingPhase(game: GameEntity) {
+        game.currentPhase = GamePhase.VOTING_FOR_LIAR
+        game.phaseEndTime = Instant.now().plusSeconds(gameProperties.votingTimeSeconds)
+        gameRepository.save(game)
+
+        val players = playerRepository.findByGame(game)
+        players.forEach { player ->
+            if (player.isAlive) {
+                player.state = PlayerState.WAITING_FOR_VOTE
+            }
+        }
+        playerRepository.saveAll(players)
+
+        val gameStateResponse = getGameState(game, null)
+        gameMonitoringService.broadcastGameState(game, gameStateResponse)
+    }
+
 
     @Transactional
     fun castVote(gameNumber: Int, voterUserId: Long, targetPlayerId: Long): VoteResponse {
@@ -75,8 +100,7 @@ class VotingService(
         }
 
         if (allPlayersVoted) {
-            val gameStateResponse = getGameState(game, voterUserId)
-            gameMonitoringService.broadcastGameState(game, gameStateResponse)
+            processVoteResults(game)
         }
         
         return VoteResponse(
@@ -86,9 +110,32 @@ class VotingService(
         )
     }
 
+    private fun processVoteResults(game: GameEntity) {
+        val players = playerRepository.findByGame(game).filter { it.isAlive }
+        val maxVotes = players.maxOfOrNull { it.votesReceived } ?: 0
+
+        if (maxVotes == 0) {
+            // No votes cast, restart speech phase
+            gameProgressService.restartSpeechPhase(game)
+            return
+        }
+
+        val mostVotedPlayers = players.filter { it.votesReceived == maxVotes }
+
+        if (mostVotedPlayers.size > 1) {
+            // Tie-breaker: revote by restarting speech phase
+            gameProgressService.restartSpeechPhase(game)
+        } else {
+            // Single most-voted player
+            val accusedPlayer = mostVotedPlayers.first()
+            defenseService.startDefensePhase(game, accusedPlayer)
+        }
+    }
+
     @Transactional
     fun vote(req: VoteRequest, session: HttpSession): GameStateResponse {
         val userId = getCurrentUserId(session)
+            ?: throw RuntimeException("Not authenticated")
         castVote(req.gameNumber, userId, req.targetPlayerId)
         return getGameState(gameRepository.findByGameNumber(req.gameNumber)!!, session)
     }
@@ -96,6 +143,7 @@ class VotingService(
     @Transactional
     fun finalVote(req: FinalVotingRequest, session: HttpSession): GameStateResponse {
         val userId = getCurrentUserId(session)
+            ?: throw RuntimeException("Not authenticated")
         val game = gameRepository.findByGameNumberWithLock(req.gameNumber)
             ?: throw RuntimeException("Game not found")
 
@@ -142,12 +190,11 @@ class VotingService(
         return gameStateResponse
     }
 
-    private fun getCurrentUserId(session: HttpSession): Long {
-        return session.getAttribute("userId") as? Long
-            ?: throw RuntimeException("Not authenticated")
+    private fun getCurrentUserId(session: HttpSession?): Long? {
+        return session?.getAttribute("userId") as? Long
     }
 
-    private fun getGameState(game: org.example.kotlin_liargame.domain.game.model.GameEntity, session: HttpSession): GameStateResponse {
+    private fun getGameState(game: org.example.kotlin_liargame.domain.game.model.GameEntity, session: HttpSession?): GameStateResponse {
         val players = playerRepository.findByGame(game)
         val currentUserId = getCurrentUserId(session)
         return GameStateResponse.from(game, players, currentUserId, org.example.kotlin_liargame.domain.game.model.enum.GamePhase.VOTING_FOR_LIAR)
