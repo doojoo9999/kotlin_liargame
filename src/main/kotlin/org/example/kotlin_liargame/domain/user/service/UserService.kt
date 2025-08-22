@@ -18,13 +18,13 @@ class UserService(
     private val gameHistorySummaryRepository: GameHistorySummaryRepository,
     private val passwordEncoder: PasswordEncoder
 ) {
-    fun createUser(req: UserAddRequest) {
+    fun createUser(req: UserAddRequest): UserEntity {
         val user = UserEntity(
             nickname = req.nickname,
             password = passwordEncoder.encode(req.password),
             profileImgUrl = ""
         )
-        userRepository.save(user)
+        return userRepository.save(user)
     }
 
     fun findById(id: Long): UserEntity {
@@ -32,19 +32,21 @@ class UserService(
             .orElseThrow { RuntimeException("User not found") }
     }
 
-    fun authenticate(nickname: String, password: String?):UserEntity {
+    fun authenticate(nickname: String, password: String?): UserEntity {
         val user = userRepository.findByNickname(nickname)
-            ?: throw RuntimeException("User not found")
-        
-        if (!passwordEncoder.matches(password, user.password)) {
+            ?: createUser(UserAddRequest(nickname = nickname, password = password ?: ""))
+
+        val isNewUser = userRepository.findByNickname(nickname) == null
+        if (!isNewUser && !passwordEncoder.matches(password ?: "", user.password)) {
             throw RuntimeException("Invalid password")
         }
-        
-        return user.let {
-            it.isAuthenticated = true
-            userRepository.save(it)
+
+        return user.apply {
+            isAuthenticated = true
+            userRepository.save(this)
         }
     }
+
 
     @Scheduled(cron = "0 0 0 * * *")
     fun deactivateInactiveUsers() {
