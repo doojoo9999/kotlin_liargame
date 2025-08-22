@@ -44,22 +44,24 @@ class GameService(
     private val logger = LoggerFactory.getLogger(this::class.java)
 
     private fun validateExistingOwner(session: HttpSession) {
-        val userId = getCurrentUserId(session)
+        val nickname = getCurrentUserNickname(session)
+        val activeGameAsOwner = gameRepository.findByGameOwnerAndGameStateIn(
+            nickname,
+            listOf(GameState.WAITING, GameState.IN_PROGRESS)
+        )
 
-        val activeGames = gameRepository.findAll()
-            .filter { it.gameState == GameState.WAITING ||
-            it.gameState == GameState.IN_PROGRESS }
-
-        for (game in activeGames) {
-            val playerInGame = playerRepository.findByGameAndUserId(game, userId)
-            if (playerInGame != null) {
-                logger.debug("User already in game: gameId = ${game.gameNumber}, state = ${game.gameState}")
-                throw RuntimeException("이미 진행중인 게임에 참여하고 있습니다.")
-            }
+        if (activeGameAsOwner != null) {
+            logger.debug("User already owns an active game: gameId = ${activeGameAsOwner.gameNumber}, state = ${activeGameAsOwner.gameState}")
+            throw RuntimeException("이미 참여중인 게임이 있습니다.")
         }
 
-        logger.debug("validateExistingOwner passed")
-
+        val userId = getCurrentUserId(session)
+        val activeGameAsPlayer = playerRepository.findByUserIdAndGameInProgress(userId)
+        if (activeGameAsPlayer != null) {
+            logger.debug("User already in a game: gameId = ${activeGameAsPlayer.game.gameNumber}, state = ${activeGameAsPlayer.game.gameState}")
+            throw RuntimeException("이미 진행중인 게임에 참여하고 있습니다.")
+        }
+        logger.debug("validateExistingOwner passed for user: $nickname")
     }
 
     private fun findNextAvailableRoomNumber(): Int {
@@ -115,8 +117,6 @@ class GameService(
             )
             gameSubjectRepository.save(gameSubject)
         }
-
-        joinGame(savedGame, getCurrentUserId(session), nickname)
 
         return savedGame.gameNumber
     }
@@ -198,7 +198,7 @@ class GameService(
             nickname = nickname,
             isAlive = true,
             role = PlayerRole.CITIZEN,
-            subject = subjectRepository.findAll().first(),
+            subject = game.citizenSubject ?: throw IllegalStateException("게임에 시민 주제가 설정되지 않았습니다."),
             state = PlayerState.WAITING_FOR_HINT,
             votesReceived = 0,
             hint = null,
