@@ -59,7 +59,7 @@ data class GameStateResponse(
                 gameState = game.gameState,
                 players = players.map { PlayerResponse.from(it) },
                 currentPhase = currentPhase,
-                yourRole = currentPlayer?.role?.name,
+                                yourRole = currentPlayer?.role?.name,
                 yourWord = currentPlayer?.subject?.content,
                 accusedPlayer = accusedPlayer?.let { PlayerResponse.from(it) },
                 isChatAvailable = isChatAvailable,
