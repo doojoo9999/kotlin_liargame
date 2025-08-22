@@ -1,33 +1,23 @@
-import {useQueryClient} from '@tanstack/react-query';
 import {useEffect} from 'react';
-import {stompClient} from '../../../shared/socket/stompClient';
-import type {GameStateResponse} from '../../room/types';
+import {useGameStore} from '../stores/gameStore';
 
+/**
+ * A hook that connects a React component to the centralized game state store,
+ * ensuring it receives real-time updates via WebSocket.
+ *
+ * @param gameNumber The game number to subscribe to.
+ */
 export const useGameSocket = (gameNumber: number) => {
-  const queryClient = useQueryClient();
+    const { subscribeToGame, unsubscribeFromGame } = useGameStore();
 
-  useEffect(() => {
-    if (!gameNumber) return;
+    useEffect(() => {
+        if (gameNumber > 0) {
+            subscribeToGame(gameNumber);
+        }
 
-    // Ensure the client is trying to connect
-    stompClient.connect();
-
-    const destination = `/topic/game/${gameNumber}/state`;
-    const subscription = stompClient.subscribe(destination, (message) => {
-      try {
-        const gameState: GameStateResponse = JSON.parse(message.body);
-        console.log('Received game state update:', gameState);
-        
-        // Update the query cache with the new game state
-        queryClient.setQueryData(['game', gameNumber], gameState);
-
-      } catch (error) {
-        console.error("Failed to parse game state update message:", error);
-      }
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [gameNumber, queryClient]);
+        // Cleanup on component unmount
+        return () => {
+            unsubscribeFromGame();
+        };
+    }, [gameNumber, subscribeToGame, unsubscribeFromGame]);
 };

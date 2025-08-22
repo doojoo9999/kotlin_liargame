@@ -34,3 +34,7 @@ logging:
         org.springframework.security: DEBUG
 
 # JWT 관련 설정 모두 제거
+
+app:
+  content:
+    manual-approval-required: true

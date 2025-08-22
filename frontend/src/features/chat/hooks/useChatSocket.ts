@@ -1,42 +1,40 @@
-import {useEffect, useState} from 'react';
-import {stompClient} from '../../../shared/socket/stompClient';
-import type {ChatMessage} from '../types';
+import {useEffect} from 'react';
+import {useChatStore} from '../stores/chatStore';
 
+/**
+ * A hook that connects a React component to the centralized chat store.
+ * It handles subscribing and unsubscribing based on the component's lifecycle.
+ *
+ * @param gameNumber The game number for the chat room.
+ * @returns The chat messages and a function to send a new message.
+ */
 export const useChatSocket = (gameNumber: number) => {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+    const { messages, subscribeToChat, unsubscribeFromChat, sendMessage, clearMessages } = useChatStore((state) => ({
+        messages: state.messages,
+        subscribeToChat: state.subscribeToChat,
+        unsubscribeFromChat: state.unsubscribeFromChat,
+        sendMessage: state.sendMessage,
+        clearMessages: state.clearMessages,
+    }));
 
-  useEffect(() => {
-    if (!gameNumber) return;
+    useEffect(() => {
+        if (gameNumber > 0) {
+            subscribeToChat(gameNumber);
+        }
 
-    // The stompClient connection is likely already initiated by another hook,
-    // but calling connect() again is safe and ensures it's active.
-    stompClient.connect();
+        // Cleanup on component unmount
+        return () => {
+            unsubscribeFromChat();
+            clearMessages(); // Clear messages when leaving the room
+        };
+    }, [gameNumber, subscribeToChat, unsubscribeFromChat, clearMessages]);
 
-    const destination = `/topic/chat/${gameNumber}`;
-    const subscription = stompClient.subscribe(destination, (message) => {
-      try {
-        const chatMessage: ChatMessage = JSON.parse(message.body);
-        setMessages((prevMessages) => [...prevMessages, chatMessage]);
-      } catch (error) {
-        console.error("Failed to parse chat message:", error);
-      }
-    });
-
-    return () => {
-      subscription.unsubscribe();
+    const handleSendMessage = (content: string) => {
+        sendMessage(gameNumber, content);
     };
-  }, [gameNumber]);
 
-  const sendMessage = (content: string) => {
-    if (!stompClient.isActive()) {
-      console.error('STOMP client is not connected.');
-      // Optionally, you could queue the message to be sent upon connection.
-      return;
-    }
-    const destination = `/chat.send`;
-    const body = JSON.stringify({ gameNumber, content });
-    stompClient.publish(destination, body);
-  };
-
-  return { messages, sendMessage };
+    return {
+        messages,
+        sendMessage: handleSendMessage,
+    };
 };
