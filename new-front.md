@@ -88,252 +88,182 @@ frontend/
 
 ## 4. 백엔드 API 명세 (Frontend-Backend Interface) - 최종 업데이트
 
-### 4.1. 백엔드 아키텍처 개요
+### 4.1. 백엔드 아키텍처 개요 (리팩토링 후)
 
-백엔드는 역할과 책임에 따라 여러 서비스로 분리되었습니다. 프론트엔드 개발 시 각 서비스의 역할을 이해하면 API를 더 쉽게 파악할 수 있습니다.
+백엔드는 최근 대규모 리팩토링을 통해 **도메인 중심 아키텍처 (Domain-Driven Architecture)** 로 전환되었습니다. 각 도메인은 명확한 책임을 가지며, 관련된 모든 기능(Controller, Service, Repository, DTO)을 해당 도메인 패키지 내에서 관리합니다.
 
-- **`GameService`**: 게임 방의 생명주기(생성, 참여, 퇴장) 관리.
-- **`GameProgressService`**: 게임의 실제 진행(시작, 힌트 제공, 턴 관리) 담당.
-- **`VotingService`**: 라이어 지목 투표, 최종 찬반 투표 등 모든 투표 로직 전담.
-- **`DefenseService`**: 라이어로 지목된 플레이어의 변론 단계 관리.
-- **`TopicGuessService`**: 탈락한 라이어의 단어 추측 단계 관리.
-- **`GameResultService`**: 모든 게임 종료 조건(투표, 단어 추측 등)을 종합하여 최종 결과를 처리.
-- **`ChatService`**: 인게임 채팅 및 시스템 메시지 전송 관리.
-- **`ProfanityService`**: 채팅 욕설 필터링 및 사용자 금지어 제안 관리.
-- **`AdminService`**: 관리자 로그인, 권한 부여, 방 강제 종료 등 관리자 기능 총괄.
-- **`GameMonitoringService`**: WebSocket을 통해 게임 상태 변경을 모든 클라이언트에게 브로드캐스팅.
+-   **`domain/auth`**: 사용자 인증(로그인/로그아웃), 세션 관리 및 관리자 기능(로그인, 권한 부여)을 담당합니다.
+    -   `AuthController`, `AdminController`, `AdminService`
+-   **`domain/game`**: 게임의 핵심 로직 전체를 담당하며, 가장 복잡한 도메인입니다. 내부에 여러 서비스가 협력하여 게임을 진행시킵니다.
+    -   `GameController`
+    -   `GameService`: 게임 방의 생명주기(생성, 참여, 퇴장, 상태 조회) 관리.
+    -   `GameProgressService`: 게임의 실제 진행(시작, 힌트 제공, 턴 관리) 담당.
+    -   `VotingService`: 라이어 지목 투표, 최종 찬반 투표 등 모든 투표 로직 전담.
+    -   `DefenseService`: 라이어로 지목된 플레이어의 변론 단계 관리.
+    -   `GameResultService`: 모든 게임 종료 조건(투표, 단어 추측 등)을 종합하여 최종 결과를 처리.
+    -   `GameMonitoringService`: WebSocket을 통해 게임 상태 변경을 모든 클라이언트에게 브로드캐스팅.
+    -   `GameTerminationService`, `GameCleanupService`, `TurnTimeoutService` 등 게임의 예외상황 및 보조 기능을 담당하는 서비스들이 추가되었습니다.
+-   **`domain/chat`**: 인게임 채팅 및 시스템 메시지 전송을 관리합니다.
+    -   `ChatController`, `ChatService`
+-   **`domain/subject`**: 게임 주제(카테고리) 및 단어 관리를 담당합니다.
+    -   `SubjectController`, `SubjectService`
+-   **`domain/profanity`**: 채팅 욕설 필터링 및 사용자 금지어 제안을 관리합니다.
+    -   `ProfanityService`
 
-### 4.1.1. 프론트엔드-백엔드 핵심 아키텍처 원칙
+#### 4.1.1. 프론트엔드-백엔드 핵심 아키텍처 원칙
 
-이 프로젝트는 **서버 중심 아키텍처(Server-Authoritative Architecture)**를 따릅니다. 이는 모든 상태 변경의 최종 권한과 책임이 백엔드에 있음을 의미합니다. 프론트엔드는 이 원칙을 반드시 준수해야 합니다.
+(이 섹션은 기존과 동일하게 유지됩니다. 서버 중심 아키텍처는 프로젝트의 핵심 원칙입니다.)
 
-- **백엔드는 '상태'와 '규칙'의 단일 진실 공급원(Single Source of Truth)입니다.**
-    - 예시: "방이 가득 찼는가?", "지금 투표할 시간인가?", "주인을 잃은 방을 삭제해야 하는가?" 와 같은 모든 판단은 백엔드가 내립니다.
-- **프론트엔드의 역할은 '사용자 액션 요청'과 '상태 표시'입니다.**
-    - 예시: 사용자가 '나가기' 버튼을 누르면, 프론트엔드는 자신이 마지막 플레이어인지 판단하지 않고, 단순히 "제가 이 방에서 나가겠습니다" (`/api/v1/game/leave`) 라는 요청을 백엔드에 보냅니다.
-- **상태 동기화는 백엔드가 주도합니다.**
-    - 예시: 백엔드는 `leave` 요청을 처리한 후, 방이 삭제되어야 한다고 판단하면 `/topic/lobby`로 `ROOM_DELETED` 메시지를 브로드캐스팅합니다. 프론트엔드는 이 메시지를 수신하여 로비 화면으로 이동하는 등 UI를 업데이트할 뿐입니다.
+이 프로젝트는 **서버 중심 아키텍처(Server-Authoritative Architecture)** 를 따릅니다. 이는 모든 상태 변경의 최종 권한과 책임이 백엔드에 있음을 의미합니다. 프론트엔드는 이 원칙을 반드시 준수해야 합니다.
+
+-   **백엔드는 '상태'와 '규칙'의 단일 진실 공급원(Single Source of Truth)입니다.**
+-   **프론트엔드의 역할은 '사용자 액션 요청'과 '상태 표시'입니다.**
+-   **상태 동기화는 백엔드가 주도합니다.**
 
 **이 원칙을 통해 데이터 정합성을 보장하고, 보안을 강화하며, 여러 클라이언트 간의 상태를 일관되게 유지할 수 있습니다.**
 
-### 4.1.2. 핵심 게임 흐름 (수정됨)
+#### 4.1.2. 핵심 게임 흐름 (수정됨)
 
-1.  **힌트 제공**: 모든 플레이어가 순서대로 힌트를 제공합니다.
-2.  **라이어 지목 투표**: 힌트를 바탕으로 라이어로 의심되는 사람에게 투표합니다.
-3.  **최다 득표자 발생**:
-    *   **동점**: 재투표를 진행합니다.
-    *   **단독 최다 득표**: 해당 플레이어는 '피의자'가 되어 '변론' 단계로 넘어갑니다.
-4.  **변론**: 피의자는 정해진 시간 동안 자신이 라이어가 아님을 변론합니다.
-5.  **최종 찬반 투표**: 다른 플레이어들은 변론을 듣고 피의자를 탈락시킬지 여부를 투표합니다.
-6.  **투표 결과**:
-    *   **과반수 반대 (생존)**: 피의자는 생존하고, 게임은 다음 라운드로 진행되거나 남은 인원 수에 따라 라이어 승리로 끝납니다.
-    *   **과반수 찬성 (탈락)**:
-        *   **탈락자가 시민인 경우**: 남은 인원 수에 따라 다음 라운드로 진행되거나 라이어 승리로 끝납니다.
-        *   **탈락자가 라이어인 경우**: 라이어에게 **'단어 추측'** 이라는 마지막 기회가 주어집니다.
-7.  **라이어 단어 추측**: 탈락한 라이어는 시민의 단어를 추측합니다.
-    *   **성공**: **라이어의 최종 승리**로 게임이 종료됩니다.
-    *   **실패**: **시민의 최종 승리**로 게임이 종료됩니다.
+(이 섹션은 기존과 동일하게 유지됩니다. 게임의 기본 흐름은 변경되지 않았습니다.)
 
-### 4.2. REST API 엔드포인트 상세 (DTO 명세 포함)
+1.  **힌트 제공** -> **라이어 지목 투표** -> **최다 득표자 발생**
+2.  (단독 최다 득표 시) -> **변론** -> **최종 찬반 투표**
+3.  (과반수 찬성으로 탈락 시) -> **탈락자 신분 확인**
+4.  (탈락자가 라이어일 경우) -> **라이어 단어 추측** -> **최종 승패 결정**
+
+### 4.2. REST API 엔드포인트 상세
 
 ---
 
-#### **인증 (Auth)**
+#### **인증 (Auth) API (`/api/v1/auth`)**
 
--   **`POST /api/v1/auth/login`**: 닉네임으로 로그인합니다. (세션 기반)
-    -   **Request Body**:
-        ```json
-        {
-          "nickname": "string",
-          "password": "string | null" // 현재 프로젝트에서는 nickname만 사용
-        }
-        ```
-    -   **Response Body (Success)**:
-        ```json
-        {
-          "success": true,
-          "userId": number,
-          "nickname": "string"
-        }
-        ```
-
--   **`POST /api/v1/auth/logout`**: 로그아웃합니다.
-    -   **Request Body**: 없음
-    -   **Response Body (Success)**:
-        ```json
-        {
-          "success": true
-        }
-        ```
-
--   **`GET /api/v1/auth/me`**: 현재 세션 정보를 확인합니다. (로그인 유지 확인용)
-    -   **Response Body (Success)**:
-        ```json
-        {
-          "authenticated": true,
-          "userId": number,
-          "nickname": "string",
-          "sessionId": "string"
-        }
-        ```
+-   **`POST /login`**: 닉네임으로 로그인합니다.
+    -   Request: `{ "nickname": "string", "password": "string | null" }`
+    -   Response: `{ "success": true, "userId": number, "nickname": "string" }`
+-   **`POST /logout`**: 로그아웃합니다.
+    -   Response: `{ "success": true }`
+-   **`GET /me`**: 현재 세션 정보를 확인합니다. (로그인 유지 확인용)
+    -   Response: `{ "authenticated": true, "userId": number, "nickname": "string", "sessionId": "string" }`
+-   **`POST /refresh-session`**: 현재 세션을 갱신합니다.
+    -   Response: `{ "success": true, "userId": number, "nickname": "string", "sessionId": "string" }`
 
 ---
 
-#### **게임 방 (Game Room)**
+#### **관리자 (Admin) API (`/api/v1/admin`)**
 
--   **`GET /api/v1/game/rooms`**: 활성화된 게임 방 목록을 조회합니다.
-    -   **Response Body (Success)**:
-        ```json
-        {
-          "gameRooms": [
-            {
-              "gameNumber": number,
-              "title": "string",
-              "host": "string",
-              "currentPlayers": number,
-              "maxPlayers": number,
-              "hasPassword": boolean,
-              "subject": "string | null",
-              "subjects": ["string"],
-              "state": "WAITING" | "IN_PROGRESS" | "ENDED",
-              "players": [
-                {
-                  "id": number,
-                  "nickname": "string",
-                  "isOwner": boolean,
-                  "isReady": boolean // (대기실에서 사용될 수 있음)
-                }
-              ]
-            }
-          ]
-        }
-        ```
-
--   **`POST /api/v1/game/create`**: 새 게임 방을 생성합니다.
-    -   **Request Body**:
-        ```json
-        {
-          "nickname": "string | null", // (세션에 닉네임이 없을 경우)
-          "gameName": "string | null", // (없으면 "닉네임님의 방")
-          "gamePassword": "string | null",
-          "gameParticipants": number, // (3~15, 기본 5)
-          "gameTotalRounds": number, // (1~10, 기본 3)
-          "gameLiarCount": number, // (기본 1)
-          "gameMode": "LIARS_KNOW" | "CITIZENS_KNOW", // (기본 LIARS_KNOW)
-          "subjectIds": [number] | null,
-          "useRandomSubjects": boolean, // (기본 true)
-          "randomSubjectCount": number | null // (1~5, 기본 1)
-        }
-        ```
-    -   **Response Body (Success)**: `number` (생성된 방 번호)
-
--   **`POST /api/v1/game/join`**: 기존 게임 방에 참여합니다.
-    -   **Request Body**:
-        ```json
-        {
-          "gameNumber": number,
-          "gamePassword": "string | null"
-        }
-        ```
-    -   **Response Body (Success)**: `GameStateResponse` (아래 `GameStateResponse` DTO 참고)
-
--   **`POST /api/v1/game/leave`**: 게임 방에서 나갑니다.
-    -   **Request Body**:
-        ```json
-        {
-          "gameNumber": number
-        }
-        ```
-    -   **Response Body (Success)**: `boolean`
+-   **`POST /login`**: 관리자로 로그인합니다.
+-   **`POST /games/{gameNumber}/kick`**: 플레이어를 강제 퇴장시킵니다.
+-   **`POST /terminate-room`**: 게임 방을 강제 종료합니다.
+-   **`GET /profanity/requests`**: 승인 대기 중인 비속어 요청 목록을 가져옵니다.
+-   **`POST /profanity/approve/{requestId}`**: 비속어 요청을 승인합니다.
+-   **`POST /profanity/reject/{requestId}`**: 비속어 요청을 거절합니다.
+-   *(그 외 콘텐츠 관리, 권한 부여 API 등이 존재)*
 
 ---
 
-#### **게임 진행 (Game Progress)**
+#### **게임 (Game) API (`/api/v1/game`)**
 
--   **`POST /api/v1/game/start`**: (방장이) 게임을 시작합니다.
-    -   **Request Body**: 없음
-    -   **Response Body (Success)**: `GameStateResponse`
-
--   **`GET /api/v1/game/{gameNumber}`**: 특정 게임 방의 현재 상태를 조회합니다.
-    -   **Response Body (Success)**: `GameStateResponse`
+-   **`GET /rooms`**: 활성화된 게임 방 목록을 조회합니다.
+    -   Response: `GameRoomListResponse`
+-   **`POST /create`**: 새 게임 방을 생성합니다.
+    -   Request: `CreateGameRoomRequest`
+    -   Response: `number` (생성된 방 번호)
+-   **`POST /join`**: 기존 게임 방에 참여합니다.
+    -   Request: `{ "gameNumber": number, "gamePassword": "string | null" }`
+    -   Response: `GameStateResponse`
+-   **`POST /leave`**: 게임 방에서 나갑니다.
+    -   Request: `{ "gameNumber": number }`
+    -   Response: `boolean`
+-   **`GET /{gameNumber}`**: 특정 게임 방의 현재 상태를 조회합니다.
+    -   Response: `GameStateResponse`
+-   **`POST /start`**: (방장이) 게임을 시작합니다.
+    -   Response: `GameStateResponse`
+-   **`POST /hint`**: 현재 턴인 플레이어가 힌트를 제출합니다.
+    -   Request: `GiveHintRequest`
+    -   Response: `GameStateResponse`
+-   **`POST /cast-vote`**: 라이어로 의심되는 플레이어에게 투표합니다.
+    -   Request: `CastVoteRequest` (`{ "gameNumber": number, "targetPlayerId": number }`)
+    -   Response: `VoteResponse`
+-   **`POST /submit-defense`**: 피의자로 지목된 플레이어가 변론을 제출합니다.
+    -   Request: `SubmitDefenseRequest`
+    -   Response: `DefenseSubmissionResponse`
+-   **`POST /vote/final`**: 피의자의 탈락 여부를 찬반 투표합니다.
+    -   Request: `FinalVotingRequest`
+    -   Response: `GameStateResponse`
+-   **`POST /submit-liar-guess`**: 탈락한 라이어가 단어를 추측합니다.
+    -   Request: `SubmitLiarGuessRequest` (`{ "gameNumber": number, "guess": "string" }`)
+    -   Response: `LiarGuessResultResponse`
+-   **`GET /result/{gameNumber}`**: 종료된 게임의 결과 정보를 조회합니다.
+    -   Response: `GameResultResponse`
+-   **`GET /recover-state/{gameNumber}`**: 재연결 시 현재 게임 상태를 복구합니다.
+    -   Response: `Map<String, Any>` (게임 상태에 따라 다른 복구 데이터)
 
 ---
 
-#### **핵심 DTO: `GameStateResponse`**
+#### **채팅 (Chat) API (`/api/v1/chat`)**
 
-> 이 DTO는 게임의 모든 상태를 담고 있으며, 방 참여, 게임 시작, 턴 변경 등 대부분의 게임 관련 API 요청에 대한 응답으로 사용됩니다. WebSocket을 통해 상태가 변경될 때도 이 DTO가 전송됩니다.
+-   **`POST /send`**: (HTTP) 채팅 메시지를 전송합니다.
+    -   Request: `SendChatMessageRequest` (`{ "gameNumber": number, "content": "string" }`)
+-   **`GET /history`**: 특정 방의 채팅 기록을 조회합니다.
+    -   Query Params: `gameNumber`, `type`, `round`, `limit`
+-   **`POST /speech/complete`**: 발언(힌트) 제공이 완료되었음을 서버에 알립니다.
+    -   Request: `{ "gameNumber": number }`
 
-```typescript
-interface GameStateResponse {
-  gameNumber: number;
-  gameName: string;
-  gameOwner: string;
-  gameParticipants: number;
-  gameCurrentRound: number;
-  gameTotalRounds: number;
-  gameLiarCount: number;
-  gameMode: 'LIARS_KNOW' | 'CITIZENS_KNOW';
-  gameState: 'WAITING' | 'IN_PROGRESS' | 'ENDED';
-  players: {
-    id: number;
-    nickname: string;
-    isOwner: boolean;
-    isReady: boolean;
-    role?: 'LIAR' | 'CITIZEN';
-    isEliminated: boolean;
-  }[];
-  currentPhase: 'WAITING' | 'SPEECH' | 'VOTE' | 'DEFENSE' | 'FINAL_VOTE' | 'LIAR_GUESS' | 'ENDED';
-  yourRole?: 'LIAR' | 'CITIZEN';
-  yourWord?: string;
-  accusedPlayer?: { id: number; nickname: string; /* ... */ };
-  isChatAvailable: boolean;
-  citizenSubject?: string;
-  liarSubject?: string;
-  subjects?: string[];
-}
-```
+---
 
-*나머지 API(투표, 관리자 등)는 필요시 추가로 문서화합니다.*
+#### **주제 (Subject) API (`/api/v1/subjects`)**
+
+-   **`GET /listsubj`**: 모든 주제 목록을 조회합니다.
+-   **`POST /applysubj`**: 새로운 주제를 제안(생성)합니다.
+-   **`DELETE /delsubj/{id}`**: 주제를 삭제합니다.
+
+---
 
 ### 4.3. WebSocket (STOMP) 프로토콜
 
-- **연결 Endpoint**: `/ws`
+-   **연결 Endpoint**: `/ws`
 
 #### **클라이언트 -> 서버 (MessageMapping)**
 
-- **채팅 메시지 전송**:
-    - **Destination**: `/chat.send`
-    - **Payload**: `SendChatMessageRequest` (`{ "gameNumber": number, "content": "string" }`)
-    - **설명**: 게임 중 채팅 메시지를 서버로 전송합니다. `ChatService`가 메시지를 받아 DB에 저장하고, 해당 게임 방의 모든 클라이언트에게 `/topic/chat/{gameNumber}`로 메시지를 브로드캐스팅합니다.
+-   **채팅 메시지 전송**:
+    -   **Destination**: `/chat.send`
+    -   **Payload**: `SendChatMessageRequest` (`{ "gameNumber": number, "content": "string" }`)
+    -   **설명**: 게임 중 채팅 메시지를 서버로 전송합니다. `ChatService`가 메시지를 처리하여 해당 게임 방 토픽으로 브로드캐스팅합니다.
 
-- **발언(힌트) 완료 알림**:
-    - **Destination**: `/speech/complete`
-    - **Payload**: `CompleteSpeechRequest` (`{ "gameNumber": number }`)
-    - **설명**: `GameProgressService`의 `markPlayerAsSpoken`을 호출하여 해당 플레이어의 발언이 끝났음을 기록합니다. 모든 플레이어가 발언을 마치면 자동으로 투표 단계로 전환되고, 새로운 게임 상태가 브로드캐스팅됩니다.
+-   **실시간 투표**:
+    -   **Destination**: `/game/{gameNumber}/vote`
+    -   **Payload**: `CastVoteRequest` (`{ "targetPlayerId": number }`)
+    -   **설명**: 라이어 지목 투표를 실시간으로 제출합니다.
+
+-   **라이어 단어 추측**:
+    -   **Destination**: `/game/{gameNumber}/guess-topic`
+    -   **Payload**: `SubmitLiarGuessRequest` (`{ "guess": "string" }`)
+    -   **설명**: 탈락한 라이어가 단어를 추측하여 제출합니다.
 
 #### **서버 -> 클라이언트 (Topic)**
 
-- **게임 상태 업데이트 (가장 중요)**:
-    - **Topic**: `/topic/game/{gameNumber}/state`
-    - **Payload**: `GameStateResponse` DTO
-    - **설명**: 게임 시작, 힌트 제출, 투표 완료 등 게임의 주요 상태가 변경될 때마다 서버가 이 토픽으로 최신 게임 상태 전체를 전송합니다. **클라이언트는 이 데이터를 받아 화면 전체를 업데이트하는 것을 기본 전략으로 삼아야 합니다.**
+-   **게임 상태 전체 업데이트 (가장 중요)**:
+    -   **Topic**: `/topic/game/{gameNumber}/state`
+    -   **Payload**: `GameStateResponse` DTO
+    -   **설명**: 게임 시작, 턴 변경, 투표 종료 등 게임의 주요 상태가 변경될 때마다 서버가 이 토픽으로 최신 게임 상태 전체를 전송합니다. **클라이언트는 이 데이터를 받아 화면 전체를 업데이트하는 것을 기본 전략으로 삼아야 합니다.**
 
-- **게임 이벤트 수신 (최적화)**:
-    - **Topic**: `/topic/game/{gameNumber}/events`
-    - **Payload**: `PlayerVotedEvent` | `HintSubmittedEvent` | `TurnChangedEvent` 등
-    - **설명**: 투표, 힌트 제출 등 빈번하게 발생하는 작은 변화들을 실시간으로 전달합니다. 클라이언트는 이 이벤트를 사용하여 전체 상태를 다시 요청하지 않고도 UI의 일부(예: 투표 현황)를 즉시 업데이트하여 반응성을 높일 수 있습니다.
+-   **실시간 게임 이벤트 수신 (최적화)**:
+    -   **Topic**: `/topic/game/{gameNumber}/events`
+    -   **Payload**: `PlayerVotedEvent` | `HintSubmittedEvent` | `TurnChangedEvent` 등
+    -   **설명**: 투표, 힌트 제출 등 빈번하게 발생하는 작은 변화들을 실시간으로 전달하여 UI의 일부를 즉시 업데이트할 수 있습니다.
 
-- **플레이어 입/퇴장 및 방 정보 변경**:
-    - **Topic**: `/topic/room/{gameNumber}`
-    - **Payload**: `{ "type": "PLAYER_JOINED" | "PLAYER_LEFT", "playerName": "string", "currentPlayers": number, ... }`
-    - **설명**: 대기실에서 플레이어가 들어오거나 나갈 때, 방장 변경 등 방 정보가 업데이트될 때마다 전송됩니다.
+-   **플레이어 입/퇴장 및 방 정보 변경**:
+    -   **Topic**: `/topic/room.{gameNumber}`
+    -   **Payload**: `{ "type": "PLAYER_JOINED" | "PLAYER_LEFT", "playerName": "string", ... }`
+    -   **설명**: 대기실에서 플레이어가 들어오거나 나갈 때, 방 정보가 업데이트될 때마다 전송됩니다.
 
-- **로비 업데이트**:
-    - **Topic**: `/topic/lobby`
-    - **Payload**: `{ "type": "ROOM_DELETED" | "ROOM_UPDATED", "gameNumber": number, ... }`
-    - **설명**: 방이 삭제되거나, 방의 인원수가 변경될 때 로비에 있는 모든 클라이언트에게 전송됩니다.
+-   **로비 업데이트**:
+    -   **Topic**: `/topic/lobby`
+    -   **Payload**: `{ "type": "ROOM_DELETED" | "ROOM_UPDATED" | "PLAYER_JOINED" | "PLAYER_LEFT", ... }`
+    -   **설명**: 방이 삭제되거나, 방의 상태(인원 등)가 변경될 때 로비에 있는 모든 클라이언트에게 전송됩니다.
 
-- **채팅 메시지 수신**:
-    - **Topic**: `/topic/chat/{gameNumber}`
-    - **Payload**: `ChatMessageResponse` DTO
-    - **설명**: 새로운 채팅 메시지(유저 메시지, 시스템 메시지)가 도착했을 때 수신합니다.
+-   **채팅 메시지 수신**:
+    -   **Topic**: `/topic/chat.${gameNumber}`
+    -   **Payload**: `ChatMessageResponse` DTO
+    -   **설명**: 새로운 채팅 메시지(유저 메시지, 시스템 메시지)가 도착했을 때 수신합니다.
+
