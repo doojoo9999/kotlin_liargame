@@ -6,5 +6,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties
 data class GameProperties(
     val turnTimeoutSeconds: Long = 60L,
     val minPlayers: Int = 3,
-    val maxPlayers: Int = 15
+    val maxPlayers: Int = 15,
+    val votingTimeSeconds: Long = 60L,
+    val defenseTimeSeconds: Long = 60L,
+    val finalVotingTimeSeconds: Long = 30L
 )

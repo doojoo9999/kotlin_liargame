@@ -2,18 +2,19 @@ package org.example.kotlin_liargame.domain.auth.service
 
 import io.micrometer.core.instrument.MeterRegistry
 import org.example.kotlin_liargame.domain.auth.dto.request.AdminLoginRequest
-import org.example.kotlin_liargame.domain.auth.dto.response.AdminGameInfo
-import org.example.kotlin_liargame.domain.auth.dto.response.AdminPlayerInfo
-import org.example.kotlin_liargame.domain.auth.dto.response.AdminPlayersResponse
-import org.example.kotlin_liargame.domain.auth.dto.response.AdminStatsResponse
+import org.example.kotlin_liargame.domain.auth.dto.response.*
 import org.example.kotlin_liargame.domain.game.repository.GameRepository
 import org.example.kotlin_liargame.domain.game.repository.PlayerRepository
 import org.example.kotlin_liargame.domain.game.service.GameMonitoringService
 import org.example.kotlin_liargame.domain.game.service.GameService
+import org.example.kotlin_liargame.domain.subject.model.enum.ContentStatus
+import org.example.kotlin_liargame.domain.subject.repository.SubjectRepository
 import org.example.kotlin_liargame.domain.user.model.UserEntity
 import org.example.kotlin_liargame.domain.user.model.UserRole
 import org.example.kotlin_liargame.domain.user.repository.UserRepository
+import org.example.kotlin_liargame.domain.word.repository.WordRepository
 import org.slf4j.LoggerFactory
+import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.util.concurrent.atomic.AtomicInteger
@@ -24,9 +25,12 @@ class AdminService(
     private val gameRepository: GameRepository,
     private val playerRepository: PlayerRepository,
     private val userRepository: UserRepository,
+    private val subjectRepository: SubjectRepository,
+    private val wordRepository: WordRepository,
     private val gameMonitoringService: GameMonitoringService,
     private val gameService: GameService,
-    private val meterRegistry: MeterRegistry
+    private val meterRegistry: MeterRegistry,
+    private val passwordEncoder: PasswordEncoder
 ) {
     private val logger = LoggerFactory.getLogger(this::class.java)
     private val activeGamesGauge = meterRegistry.gauge("liargame.games.active", AtomicInteger(0))
@@ -36,8 +40,7 @@ class AdminService(
         val user = userRepository.findByNickname(request.nickname)
             ?: throw IllegalArgumentException("사용자를 찾을 수 없습니다.")
 
-        // TODO: Implement password hashing
-        if (user.password != request.password) {
+        if (!passwordEncoder.matches(request.password, user.password)) {
             logger.debug("관리자 로그인 실패: 잘못된 비밀번호")
             throw IllegalArgumentException("잘못된 비밀번호입니다.")
         }
@@ -154,5 +157,26 @@ class AdminService(
 
         logger.debug("플레이어 강제 퇴장 완료")
         return true
+    }
+
+    @Transactional(readOnly = true)
+    fun getPendingContents(): PendingContentResponse {
+        val pendingSubjects = subjectRepository.findByStatus(ContentStatus.PENDING)
+            .map { PendingSubjectInfo(id = it.id, content = it.content) }
+
+        val pendingWords = wordRepository.findByStatus(ContentStatus.PENDING)
+            .map { PendingWordInfo(id = it.id, content = it.content, subject = it.subject?.content ?: "") }
+
+        return PendingContentResponse(pendingSubjects, pendingWords)
+    }
+
+    fun approveAllPendingContents() {
+        val pendingSubjects = subjectRepository.findByStatus(ContentStatus.PENDING)
+        pendingSubjects.forEach { it.status = ContentStatus.APPROVED }
+        subjectRepository.saveAll(pendingSubjects)
+
+        val pendingWords = wordRepository.findByStatus(ContentStatus.PENDING)
+        pendingWords.forEach { it.status = ContentStatus.APPROVED }
+        wordRepository.saveAll(pendingWords)
     }
 }

@@ -132,7 +132,7 @@ class GameTerminationService(
                 alivePlayers.isEmpty() -> {
                     autoTerminateGame(gameNumber, AbnormalCondition.ALL_PLAYERS_DISCONNECTED)
                 }
-                isGameStuck(gameNumber) -> {
+                isGameStuck() -> {
                     autoTerminateGame(gameNumber, AbnormalCondition.GAME_STUCK)
                 }
                 isGameTimeoutExceeded(game) -> {
@@ -186,7 +186,7 @@ class GameTerminationService(
         }
     }
 
-    private fun isGameStuck(gameNumber: Int): Boolean {
+    private fun isGameStuck(): Boolean {
         // Implementation would check last activity timestamp
         // For now, return false - can be enhanced based on requirements
         return false

@@ -14,6 +14,7 @@ import org.example.kotlin_liargame.domain.game.repository.PlayerRepository
 import org.example.kotlin_liargame.domain.subject.model.SubjectEntity
 import org.example.kotlin_liargame.domain.subject.repository.SubjectRepository
 import org.example.kotlin_liargame.global.config.GameProperties
+import org.springframework.context.annotation.Lazy
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
@@ -24,7 +25,8 @@ class GameProgressService(
     private val playerRepository: PlayerRepository,
     private val subjectRepository: SubjectRepository,
     private val gameMonitoringService: GameMonitoringService,
-    private val gameProperties: GameProperties
+    private val gameProperties: GameProperties,
+    @Lazy private val votingService: VotingService
 ) {
 
     @Transactional
@@ -45,6 +47,10 @@ class GameProgressService(
         val selectedSubjects = selectSubjects(game)
         assignRolesAndSubjects(game, players, selectedSubjects)
 
+        // Initialize turn order
+        game.turnOrder = players.shuffled().joinToString(",") { it.nickname }
+        game.currentTurnIndex = 0
+
         game.startGame()
         val savedGame = gameRepository.save(game)
 
@@ -57,16 +63,21 @@ class GameProgressService(
     }
 
     fun startNewTurn(game: GameEntity) {
-        val alivePlayers = playerRepository.findByGameAndIsAlive(game, true)
-        if (alivePlayers.isEmpty()) {
-            // Handle game end logic
+        val turnOrder = game.turnOrder?.split(',') ?: emptyList()
+        if (turnOrder.isEmpty() || game.currentTurnIndex >= turnOrder.size) {
+            // All players have spoken, move to voting phase
+            votingService.startVotingPhase(game)
             return
         }
 
-        val nextPlayer = alivePlayers.first()
+        val nextPlayerNickname = turnOrder[game.currentTurnIndex]
+        val players = playerRepository.findByGame(game)
+        val nextPlayer = players.find { it.nickname == nextPlayerNickname }
+            ?: throw RuntimeException("Player not found in turn order")
 
         game.currentPlayerId = nextPlayer.id
         game.turnStartedAt = Instant.now()
+        game.phaseEndTime = Instant.now().plusSeconds(gameProperties.turnTimeoutSeconds)
         gameRepository.save(game)
 
         gameMonitoringService.notifyTurnChanged(game.gameNumber, nextPlayer.id, game.turnStartedAt!!)
@@ -95,7 +106,17 @@ class GameProgressService(
             }
             return subjects
         }
-        return subjectRepository.findAll().shuffled().take(2)
+        
+        val approvedSubjects = subjectRepository.findByStatus(org.example.kotlin_liargame.domain.subject.model.enum.ContentStatus.APPROVED)
+        val validSubjects = approvedSubjects.filter { subject ->
+            subject.word.count { word -> word.status == org.example.kotlin_liargame.domain.subject.model.enum.ContentStatus.APPROVED } >= 5
+        }
+
+        if (validSubjects.size < 2) {
+            throw IllegalStateException("There are not enough approved subjects with at least 5 approved words to start a game.")
+        }
+
+        return validSubjects.shuffled().take(2)
     }
 
     private fun assignRolesAndSubjects(
@@ -133,18 +154,39 @@ class GameProgressService(
             ?: throw RuntimeException("Game not found")
 
         val userId = getCurrentUserId(session)
+            ?: throw RuntimeException("Not authenticated")
         
         markPlayerAsSpoken(req.gameNumber, userId)
         gameMonitoringService.notifyHintSubmitted(req.gameNumber, userId, req.hint)
         
-        val players = playerRepository.findByGame(game)
-        val allPlayersGaveHints = players.all { it.state == PlayerState.GAVE_HINT || !it.isAlive }
+        // Advance the turn
+        game.currentTurnIndex++
+        gameRepository.save(game)
 
-        if (allPlayersGaveHints) {
-            startNewTurn(game)
-        }
+        startNewTurn(game)
 
         return getGameState(game, session)
+    }
+
+    @Transactional
+    fun restartSpeechPhase(game: GameEntity) {
+        // Reset player states and votes for a new speech round
+        val players = playerRepository.findByGame(game)
+        players.forEach { player ->
+            if (player.isAlive) {
+                player.state = PlayerState.WAITING_FOR_HINT
+                player.votesReceived = 0
+                player.votedFor = null
+            }
+        }
+        playerRepository.saveAll(players)
+
+        // Reset turn order to start from the beginning of the round
+        game.currentTurnIndex = 0
+        gameRepository.save(game)
+
+        // Start the new turn (which will be the first player's speech)
+        startNewTurn(game)
     }
 
     @Transactional
@@ -171,9 +213,8 @@ class GameProgressService(
         return playerRepository.save(player)
     }
 
-    private fun getCurrentUserId(session: HttpSession): Long {
-        return session.getAttribute("userId") as? Long
-            ?: throw RuntimeException("Not authenticated")
+    private fun getCurrentUserId(session: HttpSession?): Long? {
+        return session?.getAttribute("userId") as? Long
     }
 
     private fun getCurrentUserNickname(session: HttpSession): String {
@@ -184,6 +225,16 @@ class GameProgressService(
     private fun getGameState(game: GameEntity, session: HttpSession?): GameStateResponse {
         val players = playerRepository.findByGame(game)
         val currentUserId = session?.let { getCurrentUserId(it) }
-        return GameStateResponse.from(game, players, currentUserId, org.example.kotlin_liargame.domain.game.model.enum.GamePhase.GIVING_HINTS)
+        val turnOrder = game.turnOrder?.split(',')
+
+        return GameStateResponse.from(
+            game = game,
+            players = players,
+            currentUserId = currentUserId,
+            currentPhase = game.currentPhase,
+            turnOrder = turnOrder,
+            currentTurnIndex = game.currentTurnIndex,
+            phaseEndTime = game.phaseEndTime?.toString()
+        )
     }
 }

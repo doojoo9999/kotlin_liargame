@@ -1,8 +1,13 @@
 package org.example.kotlin_liargame.domain.game.service
 
 import org.example.kotlin_liargame.domain.game.dto.response.*
+import org.example.kotlin_liargame.domain.game.model.GameEntity
+import org.example.kotlin_liargame.domain.game.model.PlayerEntity
+import org.example.kotlin_liargame.domain.game.model.enum.GamePhase
+import org.example.kotlin_liargame.domain.game.model.enum.PlayerState
 import org.example.kotlin_liargame.domain.game.repository.GameRepository
 import org.example.kotlin_liargame.domain.game.repository.PlayerRepository
+import org.example.kotlin_liargame.global.config.GameProperties
 import org.springframework.context.annotation.Lazy
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.scheduling.TaskScheduler
@@ -20,7 +25,8 @@ class DefenseService(
     private val playerRepository: PlayerRepository,
     private val messagingTemplate: SimpMessagingTemplate,
     private val taskScheduler: TaskScheduler,
-    @Lazy private val gameResultService: GameResultService
+    @Lazy private val gameResultService: GameResultService,
+    private val gameProperties: GameProperties
 ) {
 
     private val gameDefenseStatusMap = ConcurrentHashMap<Int, DefenseStatus>()
@@ -47,41 +53,43 @@ class DefenseService(
         )
     }
     
-    fun startDefensePhase(gameNumber: Int, accusedPlayerId: Long): DefenseStartResponse {
-        gameRepository.findByGameNumber(gameNumber)
-            ?: throw IllegalArgumentException("Game not found")
-            
-        val accusedPlayer = playerRepository.findById(accusedPlayerId)
-            .orElseThrow { IllegalArgumentException("Accused player not found") }
-        
-        gameDefenseStatusMap[gameNumber] = DefenseStatus(accusedPlayerId = accusedPlayerId)
-        defenseTimerMap[gameNumber] = true
+    fun startDefensePhase(game: GameEntity, accusedPlayer: PlayerEntity): DefenseStartResponse {
+        game.currentPhase = GamePhase.DEFENDING
+        game.accusedPlayerId = accusedPlayer.id
+        game.phaseEndTime = Instant.now().plusSeconds(gameProperties.defenseTimeSeconds)
+        gameRepository.save(game)
+
+        accusedPlayer.state = PlayerState.ACCUSED
+        playerRepository.save(accusedPlayer)
+
+        gameDefenseStatusMap[game.gameNumber] = DefenseStatus(accusedPlayerId = accusedPlayer.id)
+        defenseTimerMap[game.gameNumber] = true
         
         val defenseStartMessage = DefenseStartMessage(
-            gameNumber = gameNumber,
-            accusedPlayerId = accusedPlayerId,
+            gameNumber = game.gameNumber,
+            accusedPlayerId = accusedPlayer.id,
             accusedPlayerNickname = accusedPlayer.nickname,
-            defenseTimeLimit = 60,
+            defenseTimeLimit = gameProperties.defenseTimeSeconds.toInt(),
             timestamp = Instant.now()
         )
         
         messagingTemplate.convertAndSend(
-            "/topic/game/$gameNumber/defense-start",
+            "/topic/game/${game.gameNumber}/defense-start",
             defenseStartMessage
         )
         
         sendModeratorMessage(
-            gameNumber,
-            "${accusedPlayer.nickname}님, 60초 동안 변론해 주세요."
+            game.gameNumber,
+            "${accusedPlayer.nickname}님, ${gameProperties.defenseTimeSeconds}초 동안 변론해 주세요."
         )
         
-        startDefenseTimer(gameNumber)
+        startDefenseTimer(game.gameNumber, gameProperties.defenseTimeSeconds)
         
         return DefenseStartResponse(
-            gameNumber = gameNumber,
-            accusedPlayerId = accusedPlayerId,
+            gameNumber = game.gameNumber,
+            accusedPlayerId = accusedPlayer.id,
             accusedPlayerNickname = accusedPlayer.nickname,
-            defenseTimeLimit = 60,
+            defenseTimeLimit = gameProperties.defenseTimeSeconds.toInt(),
             success = true
         )
     }
@@ -139,14 +147,14 @@ class DefenseService(
         )
     }
     
-    private fun startDefenseTimer(gameNumber: Int) {
+    private fun startDefenseTimer(gameNumber: Int, defenseTimeSeconds: Long) {
         val task = taskScheduler.schedule({
             if (defenseTimerMap[gameNumber] == true) {
                 // 시간 종료 - 빈 변론으로 처리
                 defenseTimerMap[gameNumber] = false
                 handleDefenseTimeout(gameNumber)
             }
-        }, Instant.now().plusSeconds(60))
+        }, Instant.now().plusSeconds(defenseTimeSeconds))
         
         addScheduledTask(gameNumber, task)
     }
@@ -194,6 +202,10 @@ class DefenseService(
         val game = gameRepository.findByGameNumber(gameNumber)
             ?: throw IllegalArgumentException("Game not found")
             
+        game.currentPhase = GamePhase.VOTING_FOR_SURVIVAL
+        game.phaseEndTime = Instant.now().plusSeconds(gameProperties.finalVotingTimeSeconds)
+        gameRepository.save(game)
+
         val defenseStatus = gameDefenseStatusMap[gameNumber]
             ?: throw IllegalStateException("No defense status found")
         
@@ -201,6 +213,11 @@ class DefenseService(
             .orElseThrow { IllegalArgumentException("Accused player not found") }
         
         val players = playerRepository.findByGame(game).filter { it.isAlive }
+        players.forEach { player ->
+            player.state = PlayerState.WAITING_FOR_FINAL_VOTE
+        }
+        playerRepository.saveAll(players)
+
         val votingStatus = mutableMapOf<Long, Boolean?>()
         players.forEach { player ->
             votingStatus[player.id] = null
@@ -214,7 +231,7 @@ class DefenseService(
             accusedPlayerId = defenseStatus.accusedPlayerId,
             accusedPlayerNickname = accusedPlayer.nickname,
             defenseText = defenseStatus.defenseText ?: "",
-            votingTimeLimit = 30,
+            votingTimeLimit = gameProperties.finalVotingTimeSeconds.toInt(),
             timestamp = Instant.now()
         )
         
@@ -228,14 +245,14 @@ class DefenseService(
             "${accusedPlayer.nickname}님을 처형할지 투표해 주세요. (찬성/반대)"
         )
         
-        startFinalVotingTimer(gameNumber)
+        startFinalVotingTimer(gameNumber, gameProperties.finalVotingTimeSeconds)
         
         return FinalVotingStartResponse(
             gameNumber = gameNumber,
             accusedPlayerId = defenseStatus.accusedPlayerId,
             accusedPlayerNickname = accusedPlayer.nickname,
             defenseText = defenseStatus.defenseText ?: "",
-            votingTimeLimit = 30,
+            votingTimeLimit = gameProperties.finalVotingTimeSeconds.toInt(),
             success = true
         )
     }
@@ -277,13 +294,13 @@ class DefenseService(
         )
     }
     
-    private fun startFinalVotingTimer(gameNumber: Int) {
+    private fun startFinalVotingTimer(gameNumber: Int, finalVotingTimeSeconds: Long) {
         val task = taskScheduler.schedule({
             if (finalVotingTimerMap[gameNumber] == true) {
                 finalVotingTimerMap[gameNumber] = false
                 handleFinalVotingTimeout(gameNumber)
             }
-        }, Instant.now().plusSeconds(30))
+        }, Instant.now().plusSeconds(finalVotingTimeSeconds))
         
         addScheduledTask(gameNumber, task)
     }

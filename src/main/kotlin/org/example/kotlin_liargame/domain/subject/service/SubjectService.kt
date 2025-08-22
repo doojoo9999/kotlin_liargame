@@ -1,9 +1,11 @@
 package org.example.kotlin_liargame.domain.subject.service
 
+import org.example.kotlin_liargame.domain.config.ContentProperties
 import org.example.kotlin_liargame.domain.subject.dto.request.SubjectRequest
 import org.example.kotlin_liargame.domain.subject.dto.response.SubjectResponse
 import org.example.kotlin_liargame.domain.subject.exception.SubjectAlreadyExistsException
 import org.example.kotlin_liargame.domain.subject.model.SubjectEntity
+import org.example.kotlin_liargame.domain.subject.model.enum.ContentStatus
 import org.example.kotlin_liargame.domain.subject.repository.SubjectRepository
 import org.example.kotlin_liargame.domain.word.repository.WordRepository
 import org.springframework.messaging.simp.SimpMessagingTemplate
@@ -12,16 +14,21 @@ import org.springframework.transaction.annotation.Transactional
 
 @Service
 class SubjectService (
-    val subjectRepository: SubjectRepository,
-    val wordRepository: WordRepository,
-    private val messagingTemplate: SimpMessagingTemplate
+    private val subjectRepository: SubjectRepository,
+    private val wordRepository: WordRepository,
+    private val messagingTemplate: SimpMessagingTemplate,
+    private val contentProperties: ContentProperties
 ){
 
     @Transactional
     fun applySubject(subjectRequest: SubjectRequest): SubjectEntity {
         val existingSubject = subjectRepository.findByContent(subjectRequest.name)
         if (existingSubject == null) {
-            val savedSubject = subjectRepository.save(subjectRequest.to())  // ✅ 저장된 엔티티 반환
+            val newSubject = subjectRequest.to()
+            if (!contentProperties.manualApprovalRequired) {
+                newSubject.status = ContentStatus.APPROVED
+            }
+            val savedSubject = subjectRepository.save(newSubject)  // ✅ 저장된 엔티티 반환
             
             messagingTemplate.convertAndSend("/topic/subjects", mapOf(
                 "type" to "SUBJECT_ADDED",

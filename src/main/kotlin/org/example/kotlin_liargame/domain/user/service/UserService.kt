@@ -6,6 +6,7 @@ import org.example.kotlin_liargame.domain.user.dto.response.UserStatsResponse
 import org.example.kotlin_liargame.domain.user.model.UserEntity
 import org.example.kotlin_liargame.domain.user.repository.UserRepository
 import org.springframework.scheduling.annotation.Scheduled
+import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
@@ -14,15 +15,16 @@ import java.time.LocalDateTime
 @Transactional
 class UserService(
     private val userRepository: UserRepository,
-    private val gameHistorySummaryRepository: GameHistorySummaryRepository
+    private val gameHistorySummaryRepository: GameHistorySummaryRepository,
+    private val passwordEncoder: PasswordEncoder
 ) {
-    fun createUser(req: UserAddRequest) {
+    fun createUser(req: UserAddRequest): UserEntity {
         val user = UserEntity(
             nickname = req.nickname,
-            password = req.password, // TODO: Hashing
+            password = passwordEncoder.encode(req.password),
             profileImgUrl = ""
         )
-        userRepository.save(user)
+        return userRepository.save(user)
     }
 
     fun findById(id: Long): UserEntity {
@@ -30,19 +32,21 @@ class UserService(
             .orElseThrow { RuntimeException("User not found") }
     }
 
-    fun authenticate(nickname: String, password: String?):UserEntity {
+    fun authenticate(nickname: String, password: String?): UserEntity {
         val user = userRepository.findByNickname(nickname)
-            ?: throw RuntimeException("User not found")
-        
-        if (user.password != password) { // TODO: Hashing
+            ?: createUser(UserAddRequest(nickname = nickname, password = password ?: ""))
+
+        val isNewUser = userRepository.findByNickname(nickname) == null
+        if (!isNewUser && !passwordEncoder.matches(password ?: "", user.password)) {
             throw RuntimeException("Invalid password")
         }
-        
-        return user.let {
-            it.isAuthenticated = true
-            userRepository.save(it)
+
+        return user.apply {
+            isAuthenticated = true
+            userRepository.save(this)
         }
     }
+
 
     @Scheduled(cron = "0 0 0 * * *")
     fun deactivateInactiveUsers() {
