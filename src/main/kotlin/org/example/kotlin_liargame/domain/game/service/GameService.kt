@@ -122,18 +122,24 @@ class GameService(
     }
 
     private fun selectSubjectsForGameRoom(req: CreateGameRoomRequest): List<SubjectEntity> {
-        val allSubjects = subjectRepository.findAll().toList()
-        val validSubjects = allSubjects.filter { it.word.size >= 5 }
+        val allSubjects = subjectRepository.findByStatus(org.example.kotlin_liargame.domain.subject.model.enum.ContentStatus.APPROVED)
+        val validSubjects = allSubjects.filter { subject ->
+            subject.word.count { word -> word.status == org.example.kotlin_liargame.domain.subject.model.enum.ContentStatus.APPROVED } >= 5
+        }
 
         if (validSubjects.isEmpty()) {
-            return createTestSubjects()
+            // return createTestSubjects() // In production, this might need a better fallback
+            throw IllegalStateException("There are not enough approved subjects with at least 5 approved words to start a game.")
         }
 
         val selectedSubjects = when {
             req.subjectIds != null -> {
                 req.subjectIds.mapNotNull { subjectId ->
                     subjectRepository.findById(subjectId).orElse(null)
-                }.filter { it.word.size >= 5 }
+                }.filter { subject ->
+                    subject.status == org.example.kotlin_liargame.domain.subject.model.enum.ContentStatus.APPROVED &&
+                    subject.word.count { word -> word.status == org.example.kotlin_liargame.domain.subject.model.enum.ContentStatus.APPROVED } >= 5
+                }
             }
 
             req.useRandomSubjects -> {
@@ -369,7 +375,8 @@ class GameService(
             currentUserId = currentUserId,
             currentPhase = currentPhase,
             accusedPlayer = accusedPlayer,
-            isChatAvailable = isChatAvailable
+            isChatAvailable = isChatAvailable,
+            phaseEndTime = game.phaseEndTime?.toString()
         )
     }
 
