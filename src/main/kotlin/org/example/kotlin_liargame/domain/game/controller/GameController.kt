@@ -70,13 +70,19 @@ class GameController(
             ResponseEntity.badRequest().body(null)
         }
     }
-    
+
     @PostMapping("/hint")
     fun giveHint(@Valid @RequestBody request: GiveHintRequest, session: HttpSession): ResponseEntity<GameStateResponse> {
-        val response = gameProgressService.giveHint(request, session)
-        return ResponseEntity.ok(response)
+        return try {
+            val response = gameProgressService.giveHint(request, session)
+            ResponseEntity.ok(response)
+        } catch (e: Exception) {
+            val status = errorHandler.getStatusForException(e)
+            val message = errorHandler.getMessageForException(e, "Give hint")
+            ResponseEntity.status(status).body(null)
+        }
     }
-    
+
     @PostMapping("/vote")
     fun vote(@Valid @RequestBody request: VoteRequest, session: HttpSession): ResponseEntity<GameStateResponse> {
         val response = votingService.vote(request, session)
