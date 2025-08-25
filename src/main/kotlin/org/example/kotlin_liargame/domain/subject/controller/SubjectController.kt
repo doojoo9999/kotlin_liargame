@@ -36,6 +36,12 @@ class SubjectController (
         return subjectService.findAll()
     }
 
+    @PostMapping("/approve-pending")
+    fun approveAllPendingSubjects(): ResponseEntity<List<SubjectResponse>> {
+        val approvedSubjects = subjectService.approveAllPendingSubjects()
+        return ResponseEntity.ok(approvedSubjects)
+    }
+
     @ExceptionHandler(SubjectAlreadyExistsException::class)
     fun handleSubjectAlreadyExistsException(e: SubjectAlreadyExistsException): ResponseEntity<Map<String, String?>> {
         return ResponseEntity

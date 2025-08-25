@@ -1,10 +1,11 @@
 import {zodResolver} from '@hookform/resolvers/zod';
-import {Alert, Button, Group, Modal, Radio, Slider, Stack, Switch, Text, TextInput} from '@mantine/core';
+import {Alert, Button, Checkbox, Group, Modal, Radio, SimpleGrid, Slider, Stack, Text, TextInput} from '@mantine/core';
 import {Controller, useForm} from 'react-hook-form';
 import {useCreateRoomMutation} from '../hooks/useCreateRoomMutation';
 import type {CreateRoomFormInputs} from './createRoomSchema';
 import {createRoomSchema} from './createRoomSchema';
 import {useUserStore} from '../../../shared/stores/userStore';
+import {useSubjectsQuery} from '../../subject/hooks/useSubjectsQuery';
 import {useEffect, useState} from 'react';
 import {AlertCircle, Check} from 'lucide-react';
 
@@ -43,6 +44,7 @@ export function CreateRoomModal({ opened, onClose }: CreateRoomModalProps) {
   });
 
   const createRoomMutation = useCreateRoomMutation();
+  const { data: subjectsData } = useSubjectsQuery();
   const watchedParticipants = watch('gameParticipants');
   const watchedLiarCount = watch('gameLiarCount');
 
@@ -152,7 +154,7 @@ export function CreateRoomModal({ opened, onClose }: CreateRoomModalProps) {
               control={control}
               render={({ field }) => (
                 <Radio.Group {...field}>
-                  <Stack gap="xs">
+                  <SimpleGrid cols={2} spacing="md">
                     <Radio
                       value="LIARS_KNOW"
                       label="라이어인 것을 아는 모드"
@@ -163,7 +165,7 @@ export function CreateRoomModal({ opened, onClose }: CreateRoomModalProps) {
                       label="라이어가 다른 답을 받는 모드"
                       description="라이어가 시민과 다른 주제를 받습니다"
                     />
-                  </Stack>
+                  </SimpleGrid>
                 </Radio.Group>
               )}
             />
@@ -234,69 +236,83 @@ export function CreateRoomModal({ opened, onClose }: CreateRoomModalProps) {
             <Controller
               name="gameLiarCount"
               control={control}
-              render={({ field }) => (
-                <Slider
-                  {...field}
-                  min={1}
-                  max={Math.min(5, Math.max(1, watchedParticipants - 1))}
-                  step={1}
-                  marks={[
-                    { value: 1, label: '1명' },
-                    { value: Math.min(3, Math.max(1, watchedParticipants - 1)), label: `${Math.min(3, Math.max(1, watchedParticipants - 1))}명` },
-                    { value: Math.min(5, Math.max(1, watchedParticipants - 1)), label: `${Math.min(5, Math.max(1, watchedParticipants - 1))}명` },
-                  ].filter((mark, index, array) =>
-                    array.findIndex(m => m.value === mark.value) === index
-                  )}
-                />
-              )}
+              render={({ field }) => {
+                const maxLiarCount = Math.min(5, Math.max(1, watchedParticipants - 1));
+                const marks = [];
+
+                // 1명은 항상 표시
+                marks.push({ value: 1, label: '1명' });
+
+                // 2명부터 maxLiarCount까지 표시
+                for (let i = 2; i <= maxLiarCount; i++) {
+                  marks.push({ value: i, label: `${i}명` });
+                }
+
+                return (
+                  <Slider
+                    {...field}
+                    min={1}
+                    max={maxLiarCount}
+                    step={1}
+                    marks={marks}
+                  />
+                );
+              }}
             />
             {errors.gameLiarCount && (
               <Text size="xs" c="red" mt="xs">{errors.gameLiarCount.message}</Text>
             )}
           </div>
 
-          {/* 주제 설정 */}
+          {/* 주제 선택 */}
           <div>
-            <Text size="sm" fw={500} mb="xs">주제 설정</Text>
+            <Group justify="space-between" align="center" mb="xs">
+              <Text size="sm" fw={500}>주제 선택</Text>
+              <Checkbox
+                label="전체 선택"
+                size="sm"
+                checked={subjectsData?.length > 0 && watch('subjectIds').length === subjectsData?.length}
+                indeterminate={watch('subjectIds').length > 0 && watch('subjectIds').length < (subjectsData?.length || 0)}
+                onChange={event => {
+                  if (event.currentTarget.checked) {
+                    // 모든 주제 선택
+                    setValue('subjectIds', subjectsData?.map(s => s.id) || []);
+                  } else {
+                    // 모든 주제 선택 해제
+                    setValue('subjectIds', []);
+                  }
+                }}
+              />
+            </Group>
+
+            <Text size="xs" c="dimmed" mb="xs">
+              선택한 주제 중 랜덤으로 문제가 출제됩니다
+            </Text>
+
             <Controller
-              name="useRandomSubjects"
+              name="subjectIds"
               control={control}
-              render={({ field: { value, onChange, ...field } }) => (
-                <Switch
-                  {...field}
-                  checked={value}
-                  onChange={onChange}
-                  label="랜덤 주제 사용"
-                  description="체크하면 게임에서 랜덤하게 주제를 선택합니다"
-                />
+              render={({ field: { value, onChange } }) => (
+                <SimpleGrid cols={3} spacing="xs">
+                  {subjectsData?.map(subject => (
+                    <Checkbox
+                      key={subject.id}
+                      value={subject.id}
+                      checked={value.includes(subject.id)}
+                      onChange={event => {
+                        if (event.currentTarget.checked) {
+                          onChange([...value, subject.id]);
+                        } else {
+                          onChange(value.filter(id => id !== subject.id));
+                        }
+                      }}
+                      label={subject.name}
+                      size="sm"
+                    />
+                  ))}
+                </SimpleGrid>
               )}
             />
-
-            {watch('useRandomSubjects') && (
-              <div style={{ marginTop: '12px' }}>
-                <Group justify="space-between" mb="xs">
-                  <Text size="sm" fw={500}>랜덤 주제 개수</Text>
-                  <Text size="sm" c="dimmed">{watch('randomSubjectCount')}개</Text>
-                </Group>
-                <Controller
-                  name="randomSubjectCount"
-                  control={control}
-                  render={({ field }) => (
-                    <Slider
-                      {...field}
-                      min={1}
-                      max={5}
-                      step={1}
-                      marks={[
-                        { value: 1, label: '1개' },
-                        { value: 3, label: '3개' },
-                        { value: 5, label: '5개' },
-                      ]}
-                    />
-                  )}
-                />
-              </div>
-            )}
           </div>
 
           <Button type="submit" loading={createRoomMutation.isPending} fullWidth mt="lg" size="md">
