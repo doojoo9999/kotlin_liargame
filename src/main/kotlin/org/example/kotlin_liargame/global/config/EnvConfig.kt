@@ -12,7 +12,7 @@ class EnvConfig {
         try {
             val dotenv = Dotenv.configure()
                 .directory(".")
-                .filename("..env")
+                .filename(".env")
                 .load()
             
             // 환경변수들을 시스템 프로퍼티로 설정
@@ -20,10 +20,10 @@ class EnvConfig {
                 System.setProperty(entry.key, entry.value)
             }
             
-            println("✅ ..env 파일 로드 완료")
+            println("✅ .env 파일 로드 완료")
             println("📊 로드된 환경변수: ${dotenv.entries().size}개")
         } catch (e: Exception) {
-            println("⚠️ ..env 파일 로드 실패: ${e.message}")
+            println("⚠️ .env 파일 로드 실패: ${e.message}")
             println("🔍 현재 디렉토리: ${System.getProperty("user.dir")}")
         }
     }
