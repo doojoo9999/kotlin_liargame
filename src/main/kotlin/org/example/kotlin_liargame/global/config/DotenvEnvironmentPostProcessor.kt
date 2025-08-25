@@ -12,7 +12,7 @@ class DotenvEnvironmentPostProcessor : EnvironmentPostProcessor {
 			.ignoreIfMalformed()
 			.ignoreIfMissing()
 			.directory(".")
-			.filename("..env")
+			.filename(".env")
 			.load()
 
 		val entries = dotenv.entries()

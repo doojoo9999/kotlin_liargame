@@ -67,15 +67,11 @@ class GameService(
     private fun findNextAvailableRoomNumber(): Int {
         val activeGames = gameRepository.findAllActiveGames()
         val usedNumbers = activeGames.map { it.gameNumber }.toSet()
-
-
         for (number in 1..999) {
             if (!usedNumbers.contains(number)) {
                 return number
             }
         }
-
-
         throw RuntimeException("모든 방 번호(1-999)가 모두 사용중입니다. 나중에 다시 시도해주세요.")
     }
 
@@ -89,10 +85,13 @@ class GameService(
             ?: throw RuntimeException("Not authenticated")
     }
 
+    // 세션이 없거나 userId가 없는 경우 null을 반환(관찰자 허용용)
+    private fun getOptionalUserId(session: HttpSession?): Long? {
+        return session?.getAttribute("userId") as? Long
+    }
 
     @Transactional
     fun createGameRoom(req: CreateGameRoomRequest, session: HttpSession): Int {
-
         val nickname = getCurrentUserNickname(session)
         validateExistingOwner(session)
 
@@ -128,7 +127,6 @@ class GameService(
         }
 
         if (validSubjects.isEmpty()) {
-            // return createTestSubjects() // In production, this might need a better fallback
             throw IllegalStateException("There are not enough approved subjects with at least 5 approved words to start a game.")
         }
 
@@ -138,16 +136,14 @@ class GameService(
                     subjectRepository.findById(subjectId).orElse(null)
                 }.filter { subject ->
                     subject.status == org.example.kotlin_liargame.domain.subject.model.enum.ContentStatus.APPROVED &&
-                    subject.word.count { word -> word.status == org.example.kotlin_liargame.domain.subject.model.enum.ContentStatus.APPROVED } >= 5
+                            subject.word.count { word -> word.status == org.example.kotlin_liargame.domain.subject.model.enum.ContentStatus.APPROVED } >= 5
                 }
             }
-
             req.useRandomSubjects -> {
                 val count = req.randomSubjectCount ?: 1
                 val randomCount = count.coerceAtMost(validSubjects.size)
                 validSubjects.shuffled().take(randomCount)
             }
-
             else -> {
                 listOf(validSubjects.random())
             }
@@ -190,7 +186,6 @@ class GameService(
         return getGameState(game, session)
     }
 
-
     private fun joinGame(game: GameEntity, userId: Long, nickname: String): PlayerEntity {
         val player = PlayerEntity(
             game = game,
@@ -210,7 +205,7 @@ class GameService(
 
     @Transactional
     fun leaveGame(req: LeaveGameRequest, session: HttpSession): Boolean {
-                    val game = gameRepository.findByGameNumberWithLock(req.gameNumber)
+        val game = gameRepository.findByGameNumberWithLock(req.gameNumber)
             ?: throw GameNotFoundException(req.gameNumber)
 
         val userId = getCurrentUserId(session)
@@ -221,17 +216,14 @@ class GameService(
         if (deletedCount > 0) {
             val remainingPlayers = playerRepository.findByGame(game)
 
-            // Check if the leaving player was the room owner
             val wasOwner = game.gameOwner == nickname
 
             if (remainingPlayers.isEmpty()) {
-                // No players left, delete the room
                 logger.debug("No players remaining, deleting room ${game.gameNumber}")
                 gameRepository.delete(game)
                 gameMonitoringService.notifyRoomDeleted(game.gameNumber)
                 return true
             } else if (wasOwner) {
-                // Transfer ownership to the oldest remaining player (earliest joinedAt timestamp)
                 val newOwner = remainingPlayers.minByOrNull { it.joinedAt }
                 if (newOwner != null) {
                     game.gameOwner = newOwner.nickname
@@ -303,7 +295,6 @@ class GameService(
         return GameRoomListResponse.from(activeGames, playerCounts, playersMap, gameSubjectsMap)
     }
 
-
     @Transactional
     fun endOfRound(req: EndOfRoundRequest, session: HttpSession): GameStateResponse {
         val game = gameRepository.findByGameNumber(req.gameNumber)
@@ -355,14 +346,16 @@ class GameService(
         )
     }
 
-
     private fun getGameState(game: GameEntity, session: HttpSession?): GameStateResponse {
         val players = playerRepository.findByGame(game)
-        val currentUserId = session?.let { getCurrentUserId(it) }
+
+        // 인증이 없어도 상태 조회는 허용: 없으면 null
+        val currentUserId = getOptionalUserId(session)
+
         val currentPhase = determineGamePhase(game, players)
         val accusedPlayer = findAccusedPlayer(players)
 
-        val currentPlayer = currentUserId?.let { players.find { p -> p.userId == it } }
+        val currentPlayer = currentUserId?.let { uid -> players.find { p -> p.userId == uid } }
         val isChatAvailable = if (currentPlayer != null) {
             chatService.isChatAvailable(game, currentPlayer)
         } else {
@@ -408,7 +401,7 @@ class GameService(
         return players.find { it.state == PlayerState.ACCUSED || it.state == PlayerState.DEFENDED }
     }
 
-    //테스트용도임!!!!!!!
+    // 테스트 도우미(미사용)
     private fun createTestSubjects(): List<SubjectEntity> {
         logger.debug("Creating test subjects for testing")
 
