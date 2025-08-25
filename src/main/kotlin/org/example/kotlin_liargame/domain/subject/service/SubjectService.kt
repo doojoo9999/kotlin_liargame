@@ -8,6 +8,7 @@ import org.example.kotlin_liargame.domain.subject.model.SubjectEntity
 import org.example.kotlin_liargame.domain.subject.model.enum.ContentStatus
 import org.example.kotlin_liargame.domain.subject.repository.SubjectRepository
 import org.example.kotlin_liargame.domain.word.repository.WordRepository
+import org.example.kotlin_liargame.domain.word.service.ForbiddenWordService
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -17,11 +18,15 @@ class SubjectService (
     private val subjectRepository: SubjectRepository,
     private val wordRepository: WordRepository,
     private val messagingTemplate: SimpMessagingTemplate,
-    private val contentProperties: ContentProperties
+    private val contentProperties: ContentProperties,
+    private val forbiddenWordService: ForbiddenWordService
 ){
 
     @Transactional
     fun applySubject(subjectRequest: SubjectRequest): SubjectEntity {
+        // 금지된 단어 검증
+        forbiddenWordService.validateWord(subjectRequest.name)
+
         val existingSubject = subjectRepository.findByContent(subjectRequest.name)
         if (existingSubject == null) {
             val newSubject = subjectRequest.to()
@@ -67,7 +72,7 @@ class SubjectService (
 
     @Transactional(readOnly = true)
     fun findAll() : List<SubjectResponse>{
-        return subjectRepository.findAll().map { subjectEntity ->
+        return subjectRepository.findByStatus(ContentStatus.APPROVED).map { subjectEntity ->
             SubjectResponse.from(subjectEntity)
         }
     }

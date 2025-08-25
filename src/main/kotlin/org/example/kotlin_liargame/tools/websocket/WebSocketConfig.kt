@@ -34,7 +34,7 @@ class WebSocketConfig(
     
     override fun registerStompEndpoints(registry: StompEndpointRegistry) {
         registry.addEndpoint("/ws")
-            .setAllowedOrigins("*")
+            .setAllowedOriginPatterns(*getAllowedOriginPatterns())
             .addInterceptors(object : HandshakeInterceptor {
                 override fun beforeHandshake(
                     request: ServerHttpRequest,
@@ -78,6 +78,29 @@ class WebSocketConfig(
             .withSockJS()
     }
     
+    private fun getAllowedOriginPatterns(): Array<String> {
+        val profile = System.getProperty("spring.profiles.active") ?: "dev"
+
+        return when (profile) {
+            "prod" -> arrayOf(
+                "https://liargame.com",
+                "https://www.liargame.com",
+                "https://api.liargame.com"
+            )
+            "staging" -> arrayOf(
+                "https://staging.liargame.com",
+                "http://localhost:3000",
+                "http://localhost:5173"
+            )
+            else -> arrayOf(
+                "http://localhost:3000",
+                "http://localhost:5173",
+                "http://127.0.0.1:3000",
+                "http://127.0.0.1:5173"
+            )
+        }
+    }
+
     override fun configureClientInboundChannel(registration: ChannelRegistration) {
         registration.interceptors(object : ChannelInterceptor {
             override fun preSend(message: Message<*>, channel: MessageChannel): Message<*>? {

@@ -31,7 +31,8 @@ class SecurityConfig {
     @Bean
     fun corsConfigurationSource(): CorsConfigurationSource {
         val configuration = CorsConfiguration()
-        configuration.allowedOrigins = listOf("http://localhost:5173")
+        // allowedOrigins 대신 allowedOriginPatterns 사용
+        configuration.allowedOriginPatterns = getAllowedOriginPatterns()
         configuration.allowedMethods = listOf("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
         configuration.allowedHeaders = listOf("*")
         configuration.allowCredentials = true
@@ -39,5 +40,28 @@ class SecurityConfig {
         val source = UrlBasedCorsConfigurationSource()
         source.registerCorsConfiguration("/**", configuration)
         return source
+    }
+
+    private fun getAllowedOriginPatterns(): List<String> {
+        val profile = System.getProperty("spring.profiles.active") ?: "dev"
+
+        return when (profile) {
+            "prod" -> listOf(
+                "https://liargame.com",
+                "https://www.liargame.com",
+                "https://api.liargame.com"
+            )
+            "staging" -> listOf(
+                "https://staging.liargame.com",
+                "http://localhost:3000",
+                "http://localhost:5173"
+            )
+            else -> listOf(
+                "http://localhost:3000",
+                "http://localhost:5173",
+                "http://127.0.0.1:3000",
+                "http://127.0.0.1:5173"
+            )
+        }
     }
 }

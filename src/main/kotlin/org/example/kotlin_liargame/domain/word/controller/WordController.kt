@@ -2,6 +2,7 @@ package org.example.kotlin_liargame.domain.word.controller
 
 import org.example.kotlin_liargame.domain.word.dto.request.ApplyWordRequest
 import org.example.kotlin_liargame.domain.word.dto.response.WordListResponse
+import org.example.kotlin_liargame.domain.word.exception.ForbiddenWordException
 import org.example.kotlin_liargame.domain.word.exception.SubjectNotFoundException
 import org.example.kotlin_liargame.domain.word.exception.WordAlreadyExistsException
 import org.example.kotlin_liargame.domain.word.service.WordService
@@ -45,6 +46,13 @@ class WordController (
     fun handleWordAlreadyExistsException(e: WordAlreadyExistsException): ResponseEntity<Map<String, String?>> {
         return ResponseEntity
             .status(HttpStatus.CONFLICT)
+            .body(mapOf("message" to e.message))
+    }
+
+    @ExceptionHandler(ForbiddenWordException::class)
+    fun handleForbiddenWordException(e: ForbiddenWordException): ResponseEntity<Map<String, String?>> {
+        return ResponseEntity
+            .status(HttpStatus.BAD_REQUEST)
             .body(mapOf("message" to e.message))
     }
 
