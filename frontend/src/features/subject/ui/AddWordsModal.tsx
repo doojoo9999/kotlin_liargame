@@ -35,9 +35,18 @@ export function AddWordsModal({ opened, onClose }: AddWordsModalProps) {
   // Refetch subjects when modal opens to ensure we have the latest data
   useEffect(() => {
     if (opened) {
+      // 모달이 열릴 때 즉시 새로고침하고 약간의 지연 후 한 번 더 새로고침
       refetch();
+
+      // 짧은 지연 후 한 번 더 새로고침 (WebSocket 이벤트 처리 시간 고려)
+      const timeoutId = setTimeout(() => {
+        refetch();
+      }, 500);
+
       setShowSuccess(false);
       setErrorMessage('');
+
+      return () => clearTimeout(timeoutId);
     }
   }, [opened, refetch]);
 

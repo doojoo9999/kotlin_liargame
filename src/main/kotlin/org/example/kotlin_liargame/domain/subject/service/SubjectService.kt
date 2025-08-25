@@ -76,4 +76,27 @@ class SubjectService (
             SubjectResponse.from(subjectEntity)
         }
     }
+
+    @Transactional
+    fun approveAllPendingSubjects(): List<SubjectResponse> {
+        val pendingSubjects = subjectRepository.findByStatus(ContentStatus.PENDING)
+        val approvedSubjects = mutableListOf<SubjectEntity>()
+
+        pendingSubjects.forEach { subject ->
+            subject.status = ContentStatus.APPROVED
+            val savedSubject = subjectRepository.save(subject)
+            approvedSubjects.add(savedSubject)
+
+            // WebSocket으로 승인 알림 발송
+            messagingTemplate.convertAndSend("/topic/subjects", mapOf(
+                "type" to "SUBJECT_ADDED",
+                "subject" to mapOf(
+                    "id" to savedSubject.id,
+                    "name" to savedSubject.content
+                )
+            ))
+        }
+
+        return approvedSubjects.map { SubjectResponse.from(it) }
+    }
 }

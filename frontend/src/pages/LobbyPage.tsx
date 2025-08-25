@@ -6,7 +6,7 @@ import {useNavigate} from 'react-router-dom';
 import {useLogoutMutation} from '../features/auth';
 import {CreateRoomModal, RoomList, useLobbySocket, useRoomsQuery} from '../features/room';
 import {useUserStore} from '../shared/stores/userStore';
-import {AddSubjectModal, AddWordsModal} from '../features/subject';
+import {AddSubjectModal, AddWordsModal, useSubjectWebSocketEvents} from '../features/subject';
 
 export function LobbyPage() {
   const nickname = useUserStore((state) => state.nickname);
@@ -19,6 +19,7 @@ export function LobbyPage() {
   const navigate = useNavigate();
 
   useLobbySocket();
+  useSubjectWebSocketEvents();
 
   const handleLogout = () => {
     logoutMutation.mutate();

@@ -5,6 +5,7 @@ export * from './hooks/useApplySubjectMutation';
 export * from './hooks/useApplyWordMutation';
 export * from './hooks/useApplySubjectWithWordsMutation';
 export * from './hooks/useSubjectsQuery';
+export * from './hooks/useSubjectWebSocketEvents';
 export * from './ui/AddSubjectModal';
 export * from './ui/AddWordsModal';
 export * from './ui/AddSubjectWordsModal';
