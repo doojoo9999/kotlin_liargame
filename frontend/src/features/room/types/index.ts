@@ -1,3 +1,8 @@
+export interface LobbyUpdatePayload {
+  type: 'ROOM_CREATED' | 'ROOM_UPDATED' | 'ROOM_DELETED';
+  gameRoom: GameRoom;
+}
+
 export interface GameRoom {
   gameNumber: number;
   title: string;
