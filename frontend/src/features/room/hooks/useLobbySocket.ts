@@ -1,9 +1,9 @@
-import { useEffect } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import type { IMessage } from '@stomp/stompjs';
-import { socketManager } from '../../../shared/socket/SocketManager';
-import { logger } from '../../../shared/utils/logger';
-import type { GameRoom, LobbyUpdatePayload } from '../types';
+import {useEffect} from 'react';
+import {useQueryClient} from '@tanstack/react-query';
+import type {IMessage} from '@stomp/stompjs';
+import {socketManager} from '../../../shared/socket/SocketManager';
+import {logger} from '../../../shared/utils';
+import type {GameRoom, LobbyUpdatePayload} from '../types';
 
 const LOBBY_TOPIC = '/topic/lobby';
 
@@ -15,7 +15,7 @@ function isLobbyUpdatePayload(payload: unknown): payload is LobbyUpdatePayload {
     (p.type === 'ROOM_CREATED' || p.type === 'ROOM_UPDATED' || p.type === 'ROOM_DELETED') &&
     typeof p.gameRoom === 'object' &&
     p.gameRoom !== null &&
-    typeof p.gameRoom.gameNumber === 'number'
+    true
   );
 }
 
@@ -33,7 +33,7 @@ export const useLobbySocket = () => {
         }
 
         const payload = parsedData;
-        const queryKey = ['rooms'];
+        const queryKey = ['rooms', 'list'];
 
         queryClient.setQueryData<GameRoom[]>(queryKey, (oldData = []) => {
           if (!oldData) return [payload.gameRoom];
@@ -61,22 +61,15 @@ export const useLobbySocket = () => {
       }
     };
 
-    // Use a flag to prevent multiple subscriptions
-    let isSubscribed = false;
-
-    const subscribe = async () => {
-      if (!isSubscribed) {
-        isSubscribed = true;
-        await socketManager.subscribe(LOBBY_TOPIC, handleLobbyUpdate);
-      }
-    };
-
-    // Call the async subscribe function
-    void subscribe();
+    // Subscribe to lobby updates
+    const subscribePromise = socketManager.subscribe(LOBBY_TOPIC, handleLobbyUpdate);
 
     // Cleanup on component unmount
     return () => {
-      socketManager.unsubscribe(LOBBY_TOPIC);
+      // Wait for subscription to complete before unsubscribing
+      void subscribePromise.then(() => {
+        socketManager.unsubscribe(LOBBY_TOPIC);
+      });
     };
   }, [queryClient]);
 };

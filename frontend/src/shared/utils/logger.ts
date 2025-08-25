@@ -1,6 +1,6 @@
 
 
-const LOG_PREFIX = '[Junie]';
+const LOG_PREFIX = '[LOG]';
 
 const log = (level: 'log' | 'info' | 'warn' | 'error', ...args: unknown[]) => {
     console[level](`${LOG_PREFIX} [${level.toUpperCase()}]`, ...args);

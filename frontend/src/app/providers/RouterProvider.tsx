@@ -1,4 +1,5 @@
 import {createBrowserRouter, RouterProvider as DomRouterProvider} from 'react-router-dom';
+import {AppProvider} from "./AppProvider";
 import {GameRoomPage} from '../../pages/GameRoomPage';
 import {LobbyPage} from '../../pages/LobbyPage';
 import {LoginPage} from '../../pages/LoginPage';
@@ -27,5 +28,7 @@ const router = createBrowserRouter([
 ]);
 
 export function RouterProvider() {
-  return <DomRouterProvider router={router} />;
+    return (<AppProvider>
+     <DomRouterProvider router={router} />
+    </AppProvider>);
 }

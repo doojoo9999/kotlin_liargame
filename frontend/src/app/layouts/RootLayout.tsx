@@ -2,7 +2,6 @@ import {Box, Button, Container, Group, Text} from '@mantine/core';
 import {Outlet, useLocation} from 'react-router-dom';
 import {useLogoutMutation} from '../../features/auth';
 import {useUserStore} from '../../shared/stores/userStore';
-import {AppProvider} from '../providers/AppProvider';
 
 export function RootLayout() {
   const nickname = useUserStore((state) => state.nickname);
@@ -17,7 +16,7 @@ export function RootLayout() {
   };
 
   return (
-    <AppProvider>
+    <>
       {showHeader && (
         <Box component="header" py="md" px="lg" style={{ borderBottom: '1px solid var(--mantine-color-gray-2)' }}>
           <Container fluid>
@@ -38,6 +37,6 @@ export function RootLayout() {
       <main>
         <Outlet />
       </main>
-    </AppProvider>
+    </>
   );
 }
