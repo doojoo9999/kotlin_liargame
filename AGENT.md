@@ -1,7 +1,3 @@
-# 새로운 프런트엔드 재구축 계획 및 AI 실행 프롬프트
-
-이 문서는 기존 프런트엔드 프로젝트의 문제를 해결하고, 유지보수성과 확장성이 뛰어난 새로운 프로젝트를 구축하기 위한 계획과 AI 실행 지침을 담고 있습니다.
-
 ## 1. 기존 프런트엔드 기술 스택 분석
 
 `package.json` 분석 결과, 프로젝트는 다음과 같은 최신 기술 스택을 사용하고 있었습니다. 라이브러리 선택 자체는 훌륭하나, 구조적인 문제와 각 라이브러리의 역할 분담이 명확하지 않아 에러가 발생했을 가능성이 높습니다.
@@ -13,8 +9,6 @@
 - **네트워킹**: `axios` (HTTP), `@stomp/stompjs` + `sockjs-client` (WebSocket)
 - **유틸리티**: `dayjs`, `lodash-es`, `react-window`
 - **개발 환경**: `Vite`, `ESLint`
-
-## 2. 새로운 프런트엔드 재구축을 위한 제안
 
 ### 핵심 철학
 - **모듈성 (Modularity)**: 기능을 독립적인 모듈 단위로 개발하여 결합도를 낮추고 재사용성을 높입니다. (Feature-Sliced Design)
@@ -35,9 +29,7 @@
 | **네트워킹** | Axios, STOMP.js | `axios`는 중앙화된 인스턴스(apiClient)로 관리. `STOMP`는 WebSocket 연결/구독/메시지 처리를 위한 래퍼(wrapper)로 관리. |
 | **아이콘/애니메이션**| Lucide-React, Framer Motion | 경량 아이콘 및 선언적 애니메이션. |
 
-### 새로운 디렉터리 구조 (Feature-Sliced Design)
-
-기존의 `pages`, `components`, `hooks`를 기능 중심으로 재편성하여 응집도를 높입니다.
+디렉터리 구조 (Feature-Sliced Design)
 
 ```
 frontend/
@@ -73,8 +65,6 @@ frontend/
 ---
 
 ## 3. AI 에이전트를 위한 실행 프롬프트
-
-**역할**: 당신은 React 및 최신 프런트엔드 기술 스택에 매우 능숙한 전문가입니다. Feature-Sliced Design 아키텍처를 적용하여 확장 가능하고 안정적인 웹 애플리케이션을 처음부터 구축하는 임무를 받았습니다.
 
 **목표**: '실시간 라이어 게임' 프런트엔드 프로젝트를 Vite, React, Mantine, TanStack Query, Zustand를 사용하여 재구축합니다. 제공된 `new-front.md`의 아키텍처와 규칙을 100% 준수해야 합니다.
 
