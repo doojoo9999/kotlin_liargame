@@ -9,7 +9,8 @@ data class PlayerResponse(
     val state: String,
     val hint: String? = null,
     val defense: String? = null,
-    val votesReceived: Int? = null
+    val votesReceived: Int? = null,
+    val hasVoted: Boolean = false
 ) {
     companion object {
         fun from(player: PlayerEntity): PlayerResponse {
@@ -20,7 +21,8 @@ data class PlayerResponse(
                 state = player.state.name,
                 hint = player.hint,
                 defense = player.defense,
-                votesReceived = player.votesReceived
+                votesReceived = player.votesReceived,
+                hasVoted = player.hasVoted
             )
         }
     }

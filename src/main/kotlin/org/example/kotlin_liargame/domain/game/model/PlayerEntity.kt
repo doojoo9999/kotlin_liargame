@@ -24,11 +24,11 @@ class PlayerEntity (
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    val role: PlayerRole,
+    var role: PlayerRole,
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "subject_id")
-    val subject: SubjectEntity,
+    var subject: SubjectEntity,
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -47,6 +47,9 @@ class PlayerEntity (
     var votedFor: Long? = null,
 
     @Column(nullable = true)
+    var finalVote: Boolean? = null,
+
+    @Column(nullable = true)
     var voteStartTime: Instant? = null,
 
     @Column(nullable = false)
@@ -55,6 +58,9 @@ class PlayerEntity (
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long = 0
+
+    val hasVoted: Boolean
+        get() = votedFor != null
 
     fun giveHint(hint: String) {
         this.hint = hint

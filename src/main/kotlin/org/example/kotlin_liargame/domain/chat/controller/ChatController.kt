@@ -1,6 +1,7 @@
 package org.example.kotlin_liargame.domain.chat.controller
 
 import jakarta.servlet.http.HttpSession
+import jakarta.validation.Valid
 import org.example.kotlin_liargame.domain.chat.dto.request.CompleteSpeechRequest
 import org.example.kotlin_liargame.domain.chat.dto.request.GetChatHistoryRequest
 import org.example.kotlin_liargame.domain.chat.dto.request.SendChatMessageRequest
@@ -25,7 +26,7 @@ class ChatController(
 
     @PostMapping("/send")
     fun sendMessage(
-        @RequestBody request: SendChatMessageRequest,
+        @Valid @RequestBody request: SendChatMessageRequest,
         session: HttpSession
     ): ResponseEntity<ChatMessageResponse> {
         val response = chatService.sendMessage(request, session)
@@ -35,7 +36,7 @@ class ChatController(
     
     @MessageMapping("/chat.send")
     fun handleChatMessage(
-        @Payload request: SendChatMessageRequest,
+        @Valid @Payload request: SendChatMessageRequest,
         headerAccessor: SimpMessageHeaderAccessor
     ) {
         try {
@@ -47,18 +48,17 @@ class ChatController(
             println("[DEBUG] SessionAttributes: ${headerAccessor.sessionAttributes?.keys}")
 
             // 다양한 방법으로 사용자 인증 정보 추출 시도
-            var userId: Long? = null
             var sessionAttributes = headerAccessor.sessionAttributes
 
             // 1. WebSocket 세션 속성에서 직접 userId 추출 시도
-            userId = sessionAttributes?.get("userId") as? Long
+            var userId = sessionAttributes?.get("userId") as? Long
             if (userId != null) {
                 println("[DEBUG] Found userId in WebSocket session attributes: $userId")
             }
 
             // 2. HttpSession에서 userId 추출 시도
             if (userId == null) {
-                val httpSession = sessionAttributes?.get("HTTP.SESSION") as? jakarta.servlet.http.HttpSession
+                val httpSession = sessionAttributes?.get("HTTP.SESSION") as? HttpSession
                 if (httpSession != null) {
                     userId = httpSession.getAttribute("userId") as? Long
                     if (userId != null) {

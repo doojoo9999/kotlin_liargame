@@ -13,6 +13,7 @@ import org.example.kotlin_liargame.domain.game.model.enum.GamePhase
 import org.example.kotlin_liargame.domain.game.model.enum.GameState
 import org.example.kotlin_liargame.domain.game.repository.GameRepository
 import org.example.kotlin_liargame.domain.game.repository.PlayerRepository
+import org.example.kotlin_liargame.domain.profanity.service.ProfanityService
 import org.example.kotlin_liargame.tools.websocket.WebSocketSessionManager
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.stereotype.Service
@@ -29,7 +30,8 @@ class ChatService(
     private val gameRepository: GameRepository,
     private val playerRepository: PlayerRepository,
     private val messagingTemplate: SimpMessagingTemplate,
-    private val webSocketSessionManager: WebSocketSessionManager
+    private val webSocketSessionManager: WebSocketSessionManager,
+    private val profanityService: ProfanityService
 ) {
     private val postRoundChatWindows = ConcurrentHashMap<Int, Instant>()
 
@@ -98,15 +100,18 @@ class ChatService(
     }
     
     private fun sendMessageWithUserId(req: SendChatMessageRequest, userId: Long): ChatMessageResponse {
-        req.validate()
-        
+        val approvedWords = profanityService.getApprovedWords()
+        val lowerContent = req.content.lowercase()
+        if (approvedWords.any { lowerContent.contains(it) }) {
+            throw IllegalArgumentException("메시지에 부적절한 단어가 포함되어 있습니다.")
+        }
+
         val game = gameRepository.findByGameNumber(req.gameNumber)
             ?: throw RuntimeException("Game not found")
         
         val player = playerRepository.findByGameAndUserId(game, userId)
             ?: throw RuntimeException("You are not in this game")
         
-        // 기존 로직 유지, 복잡한 JWT 파싱 로직 모두 제거
         val messageType = determineMessageType(game, player)
             ?: throw RuntimeException("Chat not available")
         
@@ -124,33 +129,12 @@ class ChatService(
 
     @Transactional
     fun sendMessage(req: SendChatMessageRequest, session: HttpSession): ChatMessageResponse {
-        req.validate()
-        
         val userId = getCurrentUserId(session)
-        val game = gameRepository.findByGameNumber(req.gameNumber)
-            ?: throw RuntimeException("Game not found")
-        
-        val player = playerRepository.findByGameAndUserId(game, userId)
-            ?: throw RuntimeException("You are not in this game")
-        
-        // 기존 로직 유지, 복잡한 JWT 파싱 로직 모두 제거
-        val messageType = determineMessageType(game, player)
-            ?: throw RuntimeException("Chat not available")
-        
-        val chatMessage = ChatMessageEntity(
-            game = game,
-            player = player,
-            content = req.content,
-            type = messageType
-        )
-        
-        return ChatMessageResponse.from(chatMessageRepository.save(chatMessage))
+        return sendMessageWithUserId(req, userId)
     }
 
     @Transactional(readOnly = true)
     fun getChatHistory(req: GetChatHistoryRequest): List<ChatMessageResponse> {
-        req.validate()
-        
         println("[DEBUG] ========== getChatHistory Debug Start ==========")
         println("[DEBUG] Request: gameNumber=${req.gameNumber}, type=${req.type}, limit=${req.limit}")
         
@@ -235,7 +219,7 @@ class ChatService(
     
 
     fun startPostRoundChat(gameNumber: Int) {
-        val game = gameRepository.findByGameNumber(gameNumber)
+        gameRepository.findByGameNumber(gameNumber)
             ?: throw RuntimeException("Game not found")
 
         val endTime = Instant.now().plusSeconds(POST_ROUND_CHAT_DURATION)

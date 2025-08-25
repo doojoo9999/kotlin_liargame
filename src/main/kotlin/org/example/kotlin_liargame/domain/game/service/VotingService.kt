@@ -1,8 +1,20 @@
 package org.example.kotlin_liargame.domain.game.service
 
-import org.example.kotlin_liargame.domain.game.dto.response.*
+import jakarta.servlet.http.HttpSession
+import org.example.kotlin_liargame.domain.game.dto.request.FinalVotingRequest
+import org.example.kotlin_liargame.domain.game.dto.request.VoteRequest
+import org.example.kotlin_liargame.domain.game.dto.response.FinalJudgmentResultResponse
+import org.example.kotlin_liargame.domain.game.dto.response.GameStateResponse
+import org.example.kotlin_liargame.domain.game.dto.response.VoteResponse
+import org.example.kotlin_liargame.domain.game.model.GameEntity
+import org.example.kotlin_liargame.domain.game.model.enum.GamePhase
+import org.example.kotlin_liargame.domain.game.model.enum.GameState
+import org.example.kotlin_liargame.domain.game.model.enum.PlayerRole
+import org.example.kotlin_liargame.domain.game.model.enum.PlayerState
 import org.example.kotlin_liargame.domain.game.repository.GameRepository
 import org.example.kotlin_liargame.domain.game.repository.PlayerRepository
+import org.example.kotlin_liargame.global.config.GameProperties
+import org.springframework.context.annotation.Lazy
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.scheduling.TaskScheduler
 import org.springframework.stereotype.Service
@@ -16,214 +28,180 @@ class VotingService(
     private val playerRepository: PlayerRepository,
     private val messagingTemplate: SimpMessagingTemplate,
     private val taskScheduler: TaskScheduler,
-    private val defenseService: DefenseService
+    @Lazy private val defenseService: DefenseService,
+    private val gameMonitoringService: GameMonitoringService,
+    @Lazy private val gameResultService: GameResultService,
+    private val gameProperties: GameProperties,
+    @Lazy private val gameProgressService: GameProgressService
 ) {
-    
-    // 투표 상태 관리
-    private val gameVotingStatusMap = mutableMapOf<Int, MutableMap<Long, Long?>>() // gameNumber -> (voterPlayerId -> targetPlayerId)
-    private val votingTimerMap = mutableMapOf<Int, Boolean>() // gameNumber -> isActive
-    
-    fun sendModeratorMessage(gameNumber: Int, message: String) {
-        val moderatorMessage = ModeratorMessage(
-            type = "MODERATOR",
-            content = message,
-            timestamp = Instant.now()
-        )
-        
-        messagingTemplate.convertAndSend(
-            "/topic/game/$gameNumber/moderator",
-            moderatorMessage
-        )
-    }
-    
-    fun startVoting(gameNumber: Int): VotingStartResponse {
-        val game = gameRepository.findByGameNumber(gameNumber)
-            ?: throw IllegalArgumentException("Game not found")
-            
+
+    @Transactional
+    fun startVotingPhase(game: GameEntity) {
+        game.currentPhase = GamePhase.VOTING_FOR_LIAR
+        game.phaseEndTime = Instant.now().plusSeconds(gameProperties.votingTimeSeconds)
+        gameRepository.save(game)
+
         val players = playerRepository.findByGame(game)
-        
-        // 투표 상태 초기화
-        gameVotingStatusMap[gameNumber] = players.associate { it.id to null }.toMutableMap()
-        votingTimerMap[gameNumber] = true
-        
-        // 투표 가능한 플레이어 목록 전송 (자신 제외)
-        val votingData = VotingStartMessage(
-            gameNumber = gameNumber,
-            availablePlayers = players.map { PlayerVotingInfo(it.id, it.nickname) },
-            votingTimeLimit = 60, // 60초 투표 시간
-            timestamp = Instant.now()
-        )
-        
-        messagingTemplate.convertAndSend(
-            "/topic/game/$gameNumber/voting",
-            votingData
-        )
-        
-        // 투표 타이머 시작 (60초)
-        startVotingTimer(gameNumber)
-        
-        return VotingStartResponse(
-            gameNumber = gameNumber,
-            players = players,
-            votingTimeLimit = 60
-        )
+        players.forEach { player ->
+            if (player.isAlive) {
+                player.state = PlayerState.WAITING_FOR_VOTE
+            }
+        }
+        playerRepository.saveAll(players)
+
+        val gameStateResponse = getGameState(game, null)
+        gameMonitoringService.broadcastGameState(game, gameStateResponse)
     }
-    
-    fun castVote(gameNumber: Int, voterPlayerId: Long, targetPlayerId: Long): VoteResponse {
-        val votingStatus = gameVotingStatusMap[gameNumber]
-            ?: throw IllegalStateException("Voting not started for this game")
-            
-        if (!votingTimerMap[gameNumber]!!) {
-            throw IllegalStateException("Voting time has expired")
+
+
+    @Transactional
+    fun castVote(gameNumber: Int, voterUserId: Long, targetPlayerId: Long): VoteResponse {
+        val game = gameRepository.findByGameNumberWithLock(gameNumber)
+            ?: throw RuntimeException("Game not found")
+
+        if (game.gameState != GameState.IN_PROGRESS) {
+            throw RuntimeException("Game is not in progress")
         }
-        
-        // 자신에게 투표 방지
-        if (voterPlayerId == targetPlayerId) {
-            throw IllegalArgumentException("Cannot vote for yourself")
+
+        val voter = playerRepository.findByGameAndUserId(game, voterUserId)
+            ?: throw RuntimeException("You are not in this game")
+
+        if (!voter.isAlive) {
+            throw RuntimeException("You are eliminated from the game")
         }
-        
-        // 투표 기록
-        votingStatus[voterPlayerId] = targetPlayerId
-        
-        val voterPlayer = playerRepository.findById(voterPlayerId)
-            .orElseThrow { IllegalArgumentException("Voter not found") }
-        val targetPlayer = playerRepository.findById(targetPlayerId)
-            .orElseThrow { IllegalArgumentException("Target player not found") }
-        
-        // 투표 현황 브로드캐스트
-        broadcastVotingProgress(gameNumber)
-        
-        // 모든 플레이어가 투표했는지 확인
-        if (checkAllPlayersVoted(gameNumber)) {
-            processVotingResults(gameNumber)
+
+        if (voter.state != PlayerState.WAITING_FOR_VOTE) {
+            throw RuntimeException("You are not in the voting phase")
+        }
+
+        val targetPlayer = playerRepository.findById(targetPlayerId).orElse(null)
+            ?: throw RuntimeException("Target player not found")
+
+        if (targetPlayer.game.id != game.id) {
+            throw RuntimeException("Target player is not in this game")
+        }
+
+        if (!targetPlayer.isAlive) {
+            throw RuntimeException("Target player is eliminated from the game")
+        }
+
+        voter.voteFor(targetPlayer.id)
+        playerRepository.save(voter)
+
+        targetPlayer.receiveVote()
+        playerRepository.save(targetPlayer)
+
+        gameMonitoringService.notifyPlayerVoted(gameNumber, voter.id, targetPlayer.id)
+
+        val players = playerRepository.findByGame(game)
+        val allPlayersVoted = players.all {
+            it.state == PlayerState.VOTED || !it.isAlive ||
+                    (it.state == PlayerState.WAITING_FOR_VOTE && it.hasVotingTimeExpired())
+        }
+
+        if (allPlayersVoted) {
+            processVoteResults(game)
         }
         
         return VoteResponse(
-            voterNickname = voterPlayer.nickname,
+            voterNickname = voter.nickname,
             targetNickname = targetPlayer.nickname,
             success = true
         )
     }
-    
-    private fun startVotingTimer(gameNumber: Int) {
-        taskScheduler.schedule({
-            if (votingTimerMap[gameNumber] == true) {
-                // 시간 종료 - 강제 투표 결과 처리
-                votingTimerMap[gameNumber] = false
-                processVotingResults(gameNumber)
-            }
-        }, Instant.now().plusSeconds(60))
-    }
-    
-    private fun checkAllPlayersVoted(gameNumber: Int): Boolean {
-        val votingStatus = gameVotingStatusMap[gameNumber] ?: return false
-        return votingStatus.values.all { it != null }
-    }
-    
-    private fun broadcastVotingProgress(gameNumber: Int) {
-        val votingStatus = gameVotingStatusMap[gameNumber] ?: return
-        val totalPlayers = votingStatus.size
-        val votedPlayers = votingStatus.values.count { it != null }
-        
-        messagingTemplate.convertAndSend(
-            "/topic/game/$gameNumber/voting-progress",
-            VotingProgressMessage(
-                gameNumber = gameNumber,
-                votedCount = votedPlayers,
-                totalCount = totalPlayers,
-                timestamp = Instant.now()
-            )
-        )
-    }
-    
-    fun processVotingResults(gameNumber: Int): VotingResultResponse {
-        val votingStatus = gameVotingStatusMap[gameNumber]
-            ?: throw IllegalStateException("No voting data found")
-            
-        votingTimerMap[gameNumber] = false
-        
-        // 투표 결과 집계
-        val voteCountMap = mutableMapOf<Long, Int>()
-        votingStatus.values.filterNotNull().forEach { targetId ->
-            voteCountMap[targetId] = voteCountMap.getOrDefault(targetId, 0) + 1
+
+    private fun processVoteResults(game: GameEntity) {
+        val players = playerRepository.findByGame(game).filter { it.isAlive }
+        val maxVotes = players.maxOfOrNull { it.votesReceived } ?: 0
+
+        if (maxVotes == 0) {
+            // No votes cast, restart speech phase
+            gameProgressService.restartSpeechPhase(game)
+            return
         }
-        
-        // 최다 득표자 찾기
-        val maxVotes = voteCountMap.values.maxOrNull() ?: 0
-        val topVotedPlayers = voteCountMap.filter { it.value == maxVotes }.keys.toList()
-        
-        val resultMessage = when {
-            topVotedPlayers.isEmpty() -> {
-                // 아무도 투표받지 않음
-                "아무도 투표받지 않았습니다. 다시 투표합니다."
-            }
-            topVotedPlayers.size == 1 -> {
-                // 단독 최다 득표
-                val accusedPlayer = playerRepository.findById(topVotedPlayers.first())
-                    .orElseThrow { IllegalArgumentException("Player not found") }
-                "${accusedPlayer.nickname}님이 가장 많은 표를 받았습니다."
-            }
-            else -> {
-                // 동점 상황
-                val tiedPlayerNames = topVotedPlayers.map { playerId ->
-                    playerRepository.findById(playerId)
-                        .orElseThrow { IllegalArgumentException("Player not found") }
-                        .nickname
-                }
-                "동점입니다: ${tiedPlayerNames.joinToString(", ")}. 재투표를 진행합니다."
-            }
-        }
-        
-        // 투표 결과 발표
-        val game = gameRepository.findByGameNumber(gameNumber)
-            ?: throw IllegalArgumentException("Game not found")
-        sendModeratorMessage(gameNumber, resultMessage)
-        
-        val response = VotingResultResponse(
-            gameNumber = gameNumber,
-            voteResults = voteCountMap,
-            accusedPlayerId = if (topVotedPlayers.size == 1) topVotedPlayers.first() else null,
-            isTie = topVotedPlayers.size > 1,
-            needRevote = topVotedPlayers.isEmpty() || topVotedPlayers.size > 1
-        )
-        
-        // 결과 브로드캐스트
-        messagingTemplate.convertAndSend(
-            "/topic/game/$gameNumber/voting-result",
-            response
-        )
-        
-        // 단독 최다 득표자가 있으면 변론 단계로 이동
-        if (topVotedPlayers.size == 1) {
-            scheduleDefensePhase(gameNumber, topVotedPlayers.first())
+
+        val mostVotedPlayers = players.filter { it.votesReceived == maxVotes }
+
+        if (mostVotedPlayers.size > 1) {
+            // Tie-breaker: revote by restarting speech phase
+            gameProgressService.restartSpeechPhase(game)
         } else {
-            // 동점이거나 무투표면 재투표
-            scheduleRevote(gameNumber)
+            // Single most-voted player
+            val accusedPlayer = mostVotedPlayers.first()
+            defenseService.startDefensePhase(game, accusedPlayer)
+        }
+    }
+
+    @Transactional
+    fun vote(req: VoteRequest, session: HttpSession): GameStateResponse {
+        val userId = getCurrentUserId(session)
+            ?: throw RuntimeException("Not authenticated")
+        castVote(req.gameNumber, userId, req.targetPlayerId)
+        return getGameState(gameRepository.findByGameNumber(req.gameNumber)!!, session)
+    }
+
+    @Transactional
+    fun finalVote(req: FinalVotingRequest, session: HttpSession): GameStateResponse {
+        val userId = getCurrentUserId(session)
+            ?: throw RuntimeException("Not authenticated")
+        val game = gameRepository.findByGameNumberWithLock(req.gameNumber)
+            ?: throw RuntimeException("Game not found")
+
+        val voter = playerRepository.findByGameAndUserId(game, userId)
+            ?: throw RuntimeException("You are not in this game")
+
+        // 최종 투표는 변론이 끝난 플레이어들만 가능
+        if (!voter.isAlive || voter.state != PlayerState.DEFENDED) {
+            throw IllegalStateException("It's not the time for a final vote.")
+        }
+
+        voter.finalVote = req.voteForExecution
+        voter.state = PlayerState.FINAL_VOTED
+        playerRepository.save(voter)
+
+        val players = playerRepository.findByGame(game)
+        val alivePlayers = players.filter { it.isAlive }
+        val allVoted = alivePlayers.none { it.state == PlayerState.DEFENDED }
+
+        if (allVoted) {
+            val accusedPlayer = players.find { it.state == PlayerState.ACCUSED || it.state == PlayerState.DEFENDED }
+                ?: throw IllegalStateException("No accused player found.")
+
+            val votesForExecution = alivePlayers.count { it.finalVote == true }
+            val votesAgainstExecution = alivePlayers.count { it.finalVote == false }
+            val isExecuted = votesForExecution > votesAgainstExecution
+
+            val judgmentResult = FinalJudgmentResultResponse(
+                gameNumber = game.gameNumber,
+                accusedPlayerId = accusedPlayer.id,
+                accusedPlayerNickname = accusedPlayer.nickname,
+                isKilled = isExecuted,
+                isLiar = accusedPlayer.role == PlayerRole.LIAR,
+                executionVotes = votesForExecution,
+                survivalVotes = votesAgainstExecution,
+                totalVotes = alivePlayers.size
+            )
+            
+            gameResultService.processGameResult(game.gameNumber, judgmentResult)
         }
         
-        return response
+        val gameStateResponse = getGameState(game, session)
+        gameMonitoringService.broadcastGameState(game, gameStateResponse)
+        return gameStateResponse
     }
-    
-    private fun scheduleDefensePhase(gameNumber: Int, accusedPlayerId: Long) {
-        taskScheduler.schedule({
-            // DefenseService를 통해 변론 단계 시작
-            defenseService.startDefensePhase(gameNumber, accusedPlayerId)
-            
-            // 변론 단계로 변경
-            messagingTemplate.convertAndSend(
-                "/topic/game/$gameNumber/phase",
-                GamePhaseMessage(
-                    phase = "DEFENDING",
-                    timestamp = Instant.now(),
-                    additionalData = mapOf("accusedPlayerId" to accusedPlayerId)
-                )
-            )
-        }, Instant.now().plusSeconds(3))
+
+    private fun getCurrentUserId(session: HttpSession?): Long? {
+        return session?.getAttribute("userId") as? Long
     }
-    
-    private fun scheduleRevote(gameNumber: Int) {
-        taskScheduler.schedule({
-            startVoting(gameNumber)
-        }, Instant.now().plusSeconds(5))
+
+    private fun getGameState(game: org.example.kotlin_liargame.domain.game.model.GameEntity, session: HttpSession?): GameStateResponse {
+        val players = playerRepository.findByGame(game)
+        val currentUserId = getCurrentUserId(session)
+        return GameStateResponse.from(game, players, currentUserId, org.example.kotlin_liargame.domain.game.model.enum.GamePhase.VOTING_FOR_LIAR)
+    }
+
+    private fun getGameState(game: org.example.kotlin_liargame.domain.game.model.GameEntity, userId: Long): GameStateResponse {
+        val players = playerRepository.findByGame(game)
+        return GameStateResponse.from(game, players, userId, org.example.kotlin_liargame.domain.game.model.enum.GamePhase.VOTING_FOR_LIAR)
     }
 }

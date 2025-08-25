@@ -1,0 +1,135 @@
+spring:
+  application:
+    name: kotlin_liargame
+
+  # PostgreSQL 데이터베이스 설정
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:liargame}
+    username: ${DB_USERNAME:liargame_user}
+    password: ${DB_PASSWORD:liargame_password}
+
+    # HikariCP 연결 풀 설정
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      idle-timeout: 300000
+      connection-timeout: 20000
+      max-lifetime: 1200000
+      leak-detection-threshold: 60000
+      pool-name: LiarGameHikariCP
+
+  # JPA 설정 최적화
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: validate  # 프로덕션에서는 validate 사용
+      naming:
+        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+    properties:
+      hibernate:
+        # 배치 처리 최적화
+        jdbc:
+          batch_size: 25
+          batch_versioned_data: true
+        order_inserts: true
+        order_updates: true
+        # 쿼리 최적화
+        default_batch_fetch_size: 16
+        # 통계 수집
+        generate_statistics: false
+        # 캐시 설정
+        cache:
+          use_second_level_cache: false
+          use_query_cache: false
+        # 로깅 (프로덕션에서는 false)
+        show_sql: false
+        format_sql: false
+    show-sql: false
+
+  # Flyway 마이그레이션 설정
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    validate-on-migrate: true
+    clean-disabled: true  # 프로덕션에서는 clean 비활성화
+
+  # 세션 설정
+  session:
+    store-type: memory
+    timeout: 30m
+
+  # MVC 설정
+  mvc:
+    pathmatch:
+      matching-strategy: ant_path_matcher
+
+# 서버 설정
+server:
+  port: ${SERVER_PORT:8080}
+  servlet:
+    session:
+      timeout: 30m
+      cookie:
+        secure: true  # HTTPS 환경에서만 쿠키 전송
+        http-only: true  # XSS 방지
+        same-site: strict  # CSRF 방지
+  # 압축 설정
+  compression:
+    enabled: true
+    mime-types: text/html,text/xml,text/plain,text/css,text/javascript,application/javascript,application/json
+    min-response-size: 1024
+
+# 로깅 설정
+logging:
+  level:
+    root: INFO
+    org.example.kotlin_liargame: INFO
+    org.springframework.security: WARN
+    org.hibernate.SQL: WARN
+    org.hibernate.type.descriptor.sql.BasicBinder: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: logs/liargame-prod.log
+    max-size: 100MB
+    max-history: 30
+
+# Actuator 설정
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when-authorized
+      show-components: always
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+  health:
+    db:
+      enabled: true
+    diskspace:
+      enabled: true
+
+# 커스텀 애플리케이션 설정
+app:
+  websocket:
+    max-connections: 1000
+    heartbeat-interval: 30000
+    message-size-limit: 8192
+  game:
+    max-rooms: 100
+    max-players-per-room: 8
+    game-timeout: 1800000  # 30분
+  security:
+    rate-limit:
+      enabled: true
+      requests-per-minute: 60
+      burst-capacity: 100

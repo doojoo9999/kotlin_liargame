@@ -1,112 +1,60 @@
 package org.example.kotlin_liargame.domain.game.service
 
 import org.example.kotlin_liargame.domain.game.dto.response.*
+import org.example.kotlin_liargame.domain.game.model.GameHistorySummaryEntity
+import org.example.kotlin_liargame.domain.game.model.enum.WinningTeam
+import org.example.kotlin_liargame.domain.game.repository.GameHistorySummaryRepository
 import org.example.kotlin_liargame.domain.game.repository.GameRepository
 import org.example.kotlin_liargame.domain.game.repository.PlayerRepository
+import org.springframework.context.annotation.Lazy
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.scheduling.TaskScheduler
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
-import java.util.concurrent.ConcurrentHashMap
 
 @Service  
 @Transactional
 class GameResultService(
     private val gameRepository: GameRepository,
     private val playerRepository: PlayerRepository,
+    private val gameHistorySummaryRepository: GameHistorySummaryRepository,
     private val messagingTemplate: SimpMessagingTemplate,
-    private val taskScheduler: TaskScheduler
+    private val taskScheduler: TaskScheduler,
+    @Lazy private val topicGuessService: TopicGuessService,
+    private val gameMonitoringService: GameMonitoringService
 ) {
-    private val liarGuessStatusMap = ConcurrentHashMap<Int, LiarGuessStatus>()
     
     fun processGameResult(gameNumber: Int, judgmentResult: FinalJudgmentResultResponse) {
         when {
+            // 라이어가 처형된 경우 -> 단어 추측 기회
             judgmentResult.isKilled && judgmentResult.isLiar -> {
-                endGameWithCitizenVictory(gameNumber)
+                startLiarGuessPhase(gameNumber, judgmentResult.accusedPlayerId)
             }
+            // 시민이 처형된 경우 -> 게임 종료 조건 확인
             judgmentResult.isKilled && !judgmentResult.isLiar -> {
-                val liarPlayer = findLiarInGame(gameNumber)
-                startLiarGuessPhase(gameNumber, liarPlayer.id)
-            }
-            !judgmentResult.isKilled -> {
                 val endCondition = checkGameEndConditions(gameNumber)
-                when (endCondition) {
-                    GameEndCondition.LIAR_VICTORY -> endGameWithLiarVictory(gameNumber)
-                    GameEndCondition.NEXT_ROUND -> startNextRound(gameNumber)
-                    else -> endGameWithCitizenVictory(gameNumber)
+                if (endCondition == GameEndCondition.NEXT_ROUND) {
+                    startNextRound(gameNumber)
+                } else {
+                    endGameWithLiarVictory(gameNumber)
                 }
+            }
+            // 처형되지 않은 경우 (과반수 실패) -> 다음 라운드
+            !judgmentResult.isKilled -> {
+                startNextRound(gameNumber)
             }
         }
     }
     
     fun startLiarGuessPhase(gameNumber: Int, liarPlayerId: Long): LiarGuessStartResponse {
-        val game = gameRepository.findByGameNumber(gameNumber)
-            ?: throw IllegalArgumentException("Game not found")
-        val liarPlayer = playerRepository.findById(liarPlayerId)
-            .orElseThrow { IllegalArgumentException("Liar player not found") }
-        
-        val guessStatus = LiarGuessStatus(
-            liarPlayerId = liarPlayerId,
-            guessTimeLimit = 30,
-            startTime = Instant.now()
-        )
-        liarGuessStatusMap[gameNumber] = guessStatus
-        
-        sendModeratorMessage(gameNumber, "라이어님, 주제를 맞춰보세요!")
-        
-        val citizenSubject = game.citizenSubject?.content ?: "Unknown"
-        val response = LiarGuessStartResponse(
-            gameNumber = gameNumber,
-            liarPlayer = PlayerResultInfo.from(liarPlayer),
-            citizenSubject = citizenSubject
-        )
-        
-        messagingTemplate.convertAndSend(
-            "/topic/game/$gameNumber/liar-guess-start",
-            response
-        )
-        
-        startLiarGuessTimer(gameNumber)
-        
-        return response
+        return topicGuessService.startLiarGuessPhase(gameNumber, liarPlayerId)
     }
     
     fun submitLiarGuess(gameNumber: Int, liarPlayerId: Long, guess: String): LiarGuessResultResponse {
-        val guessStatus = liarGuessStatusMap[gameNumber]
-            ?: throw IllegalStateException("No liar guess phase active")
+        val response = topicGuessService.submitLiarGuess(gameNumber, liarPlayerId, guess)
         
-        if (guessStatus.liarPlayerId != liarPlayerId) {
-            throw IllegalArgumentException("Only the liar can submit a guess")
-        }
-        
-        if (guessStatus.guessSubmitted) {
-            throw IllegalStateException("Guess already submitted")
-        }
-        
-        val game = gameRepository.findByGameNumber(gameNumber)
-            ?: throw IllegalArgumentException("Game not found")
-        
-        val correctAnswer = game.citizenSubject?.content ?: ""
-        
-        val normalizedGuess = guess.trim().lowercase()
-        val normalizedAnswer = correctAnswer.trim().lowercase()
-        val isCorrect = normalizedGuess == normalizedAnswer
-        
-        guessStatus.guessSubmitted = true
-        guessStatus.guessText = guess
-        
-        val winner = if (isCorrect) "LIARS" else "CITIZENS"
-        
-        val response = LiarGuessResultResponse(
-            gameNumber = gameNumber,
-            liarGuess = guess,
-            correctAnswer = correctAnswer,
-            isCorrect = isCorrect,
-            winner = winner
-        )
-        
-        if (isCorrect) {
+        if (response.isCorrect) {
             endGameWithLiarVictory(gameNumber)
         } else {
             endGameWithCitizenVictory(gameNumber)
@@ -121,10 +69,23 @@ class GameResultService(
         val players = playerRepository.findByGame(game)
         
         game.endGame()
+        game.gameState = org.example.kotlin_liargame.domain.game.model.enum.GameState.ENDED
         gameRepository.save(game)
         
+        recordGameHistory(game, players, WinningTeam.CITIZENS)
+
         sendModeratorMessage(gameNumber, "시민팀이 승리했습니다!")
         
+        val gameStateResponse = GameStateResponse.from(
+            game = game,
+            players = players,
+            currentUserId = null,
+            currentPhase = org.example.kotlin_liargame.domain.game.model.enum.GamePhase.GAME_OVER,
+            winner = "CITIZEN",
+            reason = "라이어를 모두 찾아냈습니다."
+        )
+        gameMonitoringService.broadcastGameState(game, gameStateResponse)
+
         val citizens = players.filter { it.role.name == "CITIZEN" }
         val liars = players.filter { it.role.name == "LIAR" }
         
@@ -143,7 +104,7 @@ class GameResultService(
             response
         )
         
-        liarGuessStatusMap.remove(gameNumber)
+        topicGuessService.cleanupGuessStatus(gameNumber)
         
         return response
     }
@@ -154,10 +115,23 @@ class GameResultService(
         val players = playerRepository.findByGame(game)
         
         game.endGame()
+        game.gameState = org.example.kotlin_liargame.domain.game.model.enum.GameState.ENDED
         gameRepository.save(game)
+
+        recordGameHistory(game, players, WinningTeam.LIARS)
         
         sendModeratorMessage(gameNumber, "라이어팀이 승리했습니다!")
         
+        val gameStateResponse = GameStateResponse.from(
+            game = game,
+            players = players,
+            currentUserId = null,
+            currentPhase = org.example.kotlin_liargame.domain.game.model.enum.GamePhase.GAME_OVER,
+            winner = "LIAR",
+            reason = "라이어가 단어를 맞혔거나, 시민이 라이어를 모두 찾아내지 못했습니다."
+        )
+        gameMonitoringService.broadcastGameState(game, gameStateResponse)
+
         val citizens = players.filter { it.role.name == "CITIZEN" }
         val liars = players.filter { it.role.name == "LIAR" }
         
@@ -176,7 +150,7 @@ class GameResultService(
             response
         )
         
-        liarGuessStatusMap.remove(gameNumber)
+        topicGuessService.cleanupGuessStatus(gameNumber)
         
         return response
     }
@@ -231,20 +205,11 @@ class GameResultService(
         }
     }
     
-    private fun startLiarGuessTimer(gameNumber: Int) {
-        taskScheduler.schedule({
-            val guessStatus = liarGuessStatusMap[gameNumber]
-            if (guessStatus != null && !guessStatus.guessSubmitted) {
-                endGameWithCitizenVictory(gameNumber)
-            }
-        }, Instant.now().plusSeconds(30))
-    }
-    
     private fun calculateGameStatistics(gameNumber: Int): GameStatistics {
         val game = gameRepository.findByGameNumber(gameNumber)
             ?: throw IllegalArgumentException("Game not found")
         
-        val totalDuration = if (game.gameEndTime != null && game.createdAt != null) {
+        val totalDuration = if (game.gameEndTime != null) {
             java.time.Duration.between(game.createdAt, game.gameEndTime).seconds
         } else 0L
         
@@ -253,8 +218,8 @@ class GameResultService(
             currentRound = game.gameCurrentRound,
             totalDuration = totalDuration,
             averageRoundDuration = if (game.gameCurrentRound > 0) totalDuration / game.gameCurrentRound else 0L,
-            totalVotes = 0, // 실제 구현에서는 투표 수 계산 필요
-            correctGuesses = 0 // 실제 구현에서는 정답 추측 수 계산 필요
+            totalVotes = 0,
+            correctGuesses = 0
         )
     }
     
@@ -275,5 +240,19 @@ class GameResultService(
                 timestamp = Instant.now()
             )
         )
+    }
+
+    private fun recordGameHistory(game: org.example.kotlin_liargame.domain.game.model.GameEntity, players: List<org.example.kotlin_liargame.domain.game.model.PlayerEntity>, winningTeam: WinningTeam) {
+        val liar = players.firstOrNull { it.role.name == "LIAR" } ?: return
+
+        val history = GameHistorySummaryEntity(
+            gameNumber = game.gameNumber,
+            gameMode = game.gameMode,
+            participants = players.map { it.nickname }.toSet(),
+            liarNickname = liar.nickname,
+            winningTeam = winningTeam,
+            gameRounds = game.gameCurrentRound
+        )
+        gameHistorySummaryRepository.save(history)
     }
 }

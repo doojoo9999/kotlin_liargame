@@ -2,6 +2,7 @@ package org.example.kotlin_liargame.domain.word.model
 
 import jakarta.persistence.*
 import org.example.kotlin_liargame.domain.subject.model.SubjectEntity
+import org.example.kotlin_liargame.domain.subject.model.enum.ContentStatus
 import org.example.kotlin_liargame.global.base.BaseEntity
 
 @Entity
@@ -9,6 +10,9 @@ import org.example.kotlin_liargame.global.base.BaseEntity
 class WordEntity (
 
     val content : String,
+
+    @Enumerated(EnumType.STRING)
+    var status: ContentStatus = ContentStatus.PENDING,
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "subject_id")

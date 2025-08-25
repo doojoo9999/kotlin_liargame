@@ -23,4 +23,6 @@ interface PlayerRepository : JpaRepository<PlayerEntity, Long> {
     @Modifying
     fun deleteByGameIdAndUserId(gameId: Long, userId: Long): Int
 
+    @Query("SELECT p FROM PlayerEntity p WHERE p.userId = :userId AND p.game.gameState = 'IN_PROGRESS'")
+    fun findByUserIdAndGameInProgress(userId: Long): PlayerEntity?
 }
