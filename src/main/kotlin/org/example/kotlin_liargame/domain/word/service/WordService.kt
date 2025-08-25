@@ -18,13 +18,16 @@ class WordService (
     private val wordRepository: WordRepository,
     private val subjectRepository: SubjectRepository,
     private val messagingTemplate: SimpMessagingTemplate,
-    private val contentProperties: ContentProperties
+    private val contentProperties: ContentProperties,
+    private val forbiddenWordService: ForbiddenWordService
 ){
     private val logger = LoggerFactory.getLogger(this::class.java)
 
 
     @Transactional
     fun applyWord(req: ApplyWordRequest) {
+        // 금지된 단어 검증
+        forbiddenWordService.validateWord(req.word)
 
         val subject = subjectRepository.findByContent(req.subject)
             ?: throw SubjectNotFoundException("주제 '${req.subject}'를 찾을 수 없습니다.")

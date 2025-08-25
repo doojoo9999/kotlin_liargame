@@ -1,15 +1,15 @@
 import {zodResolver} from '@hookform/resolvers/zod';
-import {Alert, Button, Group, Modal, Select, Stack, Textarea} from '@mantine/core';
+import {Alert, Button, Group, Modal, Select, Stack, TextInput} from '@mantine/core';
 import {Controller, useForm} from 'react-hook-form';
 import {z} from 'zod';
 import {useApplyWordMutation} from '../hooks/useApplyWordMutation';
 import {useSubjectsQuery} from '../hooks/useSubjectsQuery';
-import {AlertCircle} from 'lucide-react';
-import {useEffect} from 'react';
+import {AlertCircle, Check} from 'lucide-react';
+import {useEffect, useState} from 'react';
 
 const schema = z.object({
   subject: z.string().min(1, '주제를 선택하세요'),
-  wordsRaw: z.string().min(1, '답안을 입력하세요'),
+  word: z.string().min(1, '답안을 입력하세요').max(50, '답안은 50자 이하로 입력하세요'),
 });
 
 export type AddWordsForm = z.infer<typeof schema>;
@@ -17,37 +17,57 @@ export type AddWordsForm = z.infer<typeof schema>;
 interface AddWordsModalProps {
   opened: boolean;
   onClose: () => void;
-  preSelectedSubject?: string;
 }
 
-export function AddWordsModal({ opened, onClose, preSelectedSubject }: AddWordsModalProps) {
-  const { control, register, handleSubmit, reset, setValue, formState: { errors } } = useForm<AddWordsForm>({
+export function AddWordsModal({ opened, onClose }: AddWordsModalProps) {
+  const { control, register, handleSubmit, reset, formState: { errors } } = useForm<AddWordsForm>({
     resolver: zodResolver(schema),
-    defaultValues: { subject: '', wordsRaw: '' },
+    defaultValues: { subject: '', word: '' },
   });
 
-  const { data: subjects, isLoading: isLoadingSubjects } = useSubjectsQuery();
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [lastAddedWord, setLastAddedWord] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const { data: subjects, isLoading: isLoadingSubjects, refetch } = useSubjectsQuery();
   const mutation = useApplyWordMutation();
 
-  // Set pre-selected subject when provided
+  // Refetch subjects when modal opens to ensure we have the latest data
   useEffect(() => {
-    if (preSelectedSubject) {
-      setValue('subject', preSelectedSubject);
+    if (opened) {
+      refetch();
+      setShowSuccess(false);
+      setErrorMessage('');
     }
-  }, [preSelectedSubject, setValue]);
+  }, [opened, refetch]);
 
   const onSubmit = (values: AddWordsForm) => {
-    const words = values.wordsRaw
-      .split(/\r?\n|,/)
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0);
+    setErrorMessage('');
+    setShowSuccess(false);
 
     mutation.mutate(
-      { subject: values.subject, words },
+      { subject: values.subject, words: [values.word.trim()] },
       {
         onSuccess: () => {
-          reset();
-          onClose();
+          setLastAddedWord(values.word.trim());
+          setShowSuccess(true);
+          // 주제는 유지하고 답안 입력 필드만 초기화
+          reset({ subject: values.subject, word: '' });
+
+          // Hide success message after 3 seconds
+          setTimeout(() => {
+            setShowSuccess(false);
+          }, 3000);
+        },
+        onError: (error: any) => {
+          // Extract specific error message from response
+          if (error?.response?.data?.message) {
+            setErrorMessage(error.response.data.message);
+          } else if (error?.message) {
+            setErrorMessage(error.message);
+          } else {
+            setErrorMessage('답안 추가에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+          }
         },
       }
     );
@@ -58,13 +78,25 @@ export function AddWordsModal({ opened, onClose, preSelectedSubject }: AddWordsM
     label: subject.name,
   })) || [];
 
+  const handleClose = () => {
+    setShowSuccess(false);
+    setErrorMessage('');
+    onClose();
+  };
+
   return (
-    <Modal opened={opened} onClose={onClose} title="답안 추가" centered size="lg">
+    <Modal opened={opened} onClose={handleClose} title="답안 추가" centered size="lg">
       <form onSubmit={handleSubmit(onSubmit)}>
         <Stack>
-          {mutation.isError && (
+          {errorMessage && (
             <Alert icon={<AlertCircle size={16} />} color="red" variant="light" title="오류">
-              답안 추가에 실패했습니다. 잠시 후 다시 시도해 주세요.
+              {errorMessage}
+            </Alert>
+          )}
+
+          {showSuccess && (
+            <Alert icon={<Check size={16} />} color="green" variant="light" title="성공">
+              답안 '{lastAddedWord}'가 성공적으로 추가되었습니다.
             </Alert>
           )}
 
@@ -78,24 +110,23 @@ export function AddWordsModal({ opened, onClose, preSelectedSubject }: AddWordsM
                 required
                 data={subjectOptions}
                 error={errors.subject?.message}
-                disabled={isLoadingSubjects || !!preSelectedSubject}
+                disabled={isLoadingSubjects}
+                searchable
                 {...field}
               />
             )}
           />
 
-          <Textarea
-            label="답안(단어) 목록"
-            placeholder="각 줄에 하나씩 입력하거나, 쉼표로 구분하여 입력하세요&#10;예:&#10;사자&#10;호랑이&#10;코끼리"
-            minRows={6}
-            autosize
+          <TextInput
+            label="답안(단어)"
+            placeholder="예: 사자"
             required
-            error={errors.wordsRaw?.message}
-            {...register('wordsRaw')}
+            error={errors.word?.message}
+            {...register('word')}
           />
 
           <Group justify="flex-end" mt="md">
-            <Button variant="outline" onClick={onClose}>
+            <Button variant="outline" onClick={handleClose}>
               취소
             </Button>
             <Button type="submit" loading={mutation.isPending}>

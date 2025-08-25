@@ -1,7 +1,7 @@
 import {Alert, Button, Center, Container, Group, Loader, Stack, Text, Title} from '@mantine/core';
 import {useDisclosure} from '@mantine/hooks';
 import {AlertCircle, Plus} from 'lucide-react';
-import {useEffect, useState} from 'react';
+import {useEffect} from 'react';
 import {useNavigate} from 'react-router-dom';
 import {useLogoutMutation} from '../features/auth';
 import {CreateRoomModal, RoomList, useLobbySocket, useRoomsQuery} from '../features/room';
@@ -16,7 +16,6 @@ export function LobbyPage() {
   const [createModalOpened, { open: openCreateModal, close: closeCreateModal }] = useDisclosure(false);
   const [subjectModalOpened, { open: openSubjectModal, close: closeSubjectModal }] = useDisclosure(false);
   const [wordsModalOpened, { open: openWordsModal, close: closeWordsModal }] = useDisclosure(false);
-  const [preSelectedSubject, setPreSelectedSubject] = useState<string>('');
   const navigate = useNavigate();
 
   useLobbySocket();
@@ -31,28 +30,16 @@ export function LobbyPage() {
     }
   }, [isLoggedIn, navigate]);
 
-  const handleSubjectAdded = (subjectName: string) => {
-    setPreSelectedSubject(subjectName);
-    openWordsModal();
-  };
-
-  const handleWordsModalClose = () => {
-    setPreSelectedSubject('');
-    closeWordsModal();
-  };
-
   return (
     <>
       <CreateRoomModal opened={createModalOpened} onClose={closeCreateModal} />
       <AddSubjectModal
         opened={subjectModalOpened}
         onClose={closeSubjectModal}
-        onSubjectAdded={handleSubjectAdded}
       />
       <AddWordsModal
         opened={wordsModalOpened}
-        onClose={handleWordsModalClose}
-        preSelectedSubject={preSelectedSubject}
+        onClose={closeWordsModal}
       />
 
       <Container size="md" py="xl">
