@@ -1,8 +1,8 @@
 import {create} from 'zustand';
 import {socketManager} from '../../../shared/socket/SocketManager';
-import {logger} from '../../../shared/utils/logger';
-import {queryClient} from '../../../shared/api/queryClient';
-import type {GameStateResponse} from '../../room/types';
+import {logger} from '../../../shared/utils';
+import {queryClient} from '../../../app/providers/QueryProvider';
+import type {GameStateResponse} from '../../room';
 
 interface GameStoreState {
     currentSubscription: string | null;
