@@ -144,4 +144,116 @@ class AdminController(
         adminService.approveAllPendingContents()
         return ResponseEntity.ok(mapOf("success" to true))
     }
+
+    @PostMapping("/cleanup/stale-games")
+    fun cleanupStaleGames(session: HttpSession): ResponseEntity<Any> {
+        if (!checkAdmin(session)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ErrorResponse("UNAUTHORIZED", "관리자 권한이 필요합니다", "관리자 권한이 필요합니다"))
+        }
+
+        return try {
+            val cleanedCount = adminService.cleanupStaleGames()
+            logger.debug("오래된 게임방 정리 완료: {}개", cleanedCount)
+            ResponseEntity.ok(mapOf(
+                "success" to true,
+                "cleanedGames" to cleanedCount,
+                "message" to "${cleanedCount}개의 오래된 게임방이 정리되었습니다."
+            ))
+        } catch (e: Exception) {
+            logger.error("게임방 정리 중 오류 발생", e)
+            ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ErrorResponse(
+                    errorCode = "CLEANUP_ERROR",
+                    message = "게임방 정리 중 오류가 발생했습니다",
+                    userFriendlyMessage = "게임방 정리 중 오류가 발생했습니다."
+                ))
+        }
+    }
+
+    @PostMapping("/cleanup/disconnected-players")
+    fun cleanupDisconnectedPlayers(session: HttpSession): ResponseEntity<Any> {
+        if (!checkAdmin(session)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ErrorResponse("UNAUTHORIZED", "관리자 권한이 필요합니다", "관리자 권한이 필요합니다"))
+        }
+
+        return try {
+            // 실제 연결이 끊어진 플레이��들을 정리
+            val cleanedCount = adminService.cleanupDisconnectedPlayers()
+            logger.debug("연결 해제된 플레이어 정리 완료: {}명", cleanedCount)
+            ResponseEntity.ok(mapOf(
+                "success" to true,
+                "cleanedPlayers" to cleanedCount,
+                "message" to "${cleanedCount}명의 연결 해제된 플레이어가 정리되었습니다."
+            ))
+        } catch (e: Exception) {
+            logger.error("연결 해제된 플레이어 정리 중 오류 발생", e)
+            ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ErrorResponse(
+                    errorCode = "CLEANUP_ERROR",
+                    message = "연결 해제된 플레이어 정리 중 오류가 발생했습니다",
+                    userFriendlyMessage = "연결 해제된 플레이어 정리 중 오류가 발생했습니다."
+                ))
+        }
+    }
+
+    @PostMapping("/cleanup/empty-games")
+    fun cleanupEmptyGames(session: HttpSession): ResponseEntity<Any> {
+        if (!checkAdmin(session)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ErrorResponse("UNAUTHORIZED", "관리자 권한이 필요합니다", "관리자 권한이 필요합니다"))
+        }
+
+        return try {
+            val cleanedCount = adminService.cleanupEmptyGames()
+            logger.debug("빈 게임방 정리 완료: {}개", cleanedCount)
+            ResponseEntity.ok(mapOf(
+                "success" to true,
+                "cleanedGames" to cleanedCount,
+                "message" to "${cleanedCount}개의 빈 게임방이 정리되었습니다."
+            ))
+        } catch (e: Exception) {
+            logger.error("빈 게임방 정리 중 오류 발생", e)
+            ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ErrorResponse(
+                    errorCode = "CLEANUP_ERROR",
+                    message = "빈 게임방 정리 중 오류가 발생했습니다",
+                    userFriendlyMessage = "빈 게임방 정리 중 오류가 발생했습니다."
+                ))
+        }
+    }
+
+    @GetMapping("/statistics")
+    fun getGameStatistics(session: HttpSession): ResponseEntity<Any> {
+        if (!checkAdmin(session)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ErrorResponse("UNAUTHORIZED", "관리자 권한이 필요합니다", "관리자 권한이 필요합니다"))
+        }
+
+        val statistics = adminService.getGameStatistics()
+        return ResponseEntity.ok(statistics)
+    }
+
+    @GetMapping("/games")
+    fun getAllActiveGames(session: HttpSession): ResponseEntity<Any> {
+        if (!checkAdmin(session)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ErrorResponse("UNAUTHORIZED", "관리자 권한이 필요합니다", "관리자 권한이 필요합니다"))
+        }
+
+        val games = adminService.getAllActiveGames()
+        return ResponseEntity.ok(mapOf("games" to games))
+    }
+
+    @GetMapping("/players")
+    fun getAllPlayers(session: HttpSession): ResponseEntity<Any> {
+        if (!checkAdmin(session)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ErrorResponse("UNAUTHORIZED", "관리자 권한이 필요합니다", "관리자 권한이 필요합니다"))
+        }
+
+        val players = adminService.getAllPlayers()
+        return ResponseEntity.ok(players)
+    }
 }
