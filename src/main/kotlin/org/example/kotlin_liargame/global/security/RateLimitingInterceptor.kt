@@ -16,7 +16,6 @@ class RateLimitingInterceptor(
         response: HttpServletResponse,
         handler: Any
     ): Boolean {
-        // 관리자 엔드포인트나 헬스체크는 제외
         val requestURI = request.requestURI
         if (shouldSkipRateLimit(requestURI)) {
             return true
@@ -29,15 +28,11 @@ class RateLimitingInterceptor(
             return false
         }
         
-        // Rate limit 헤더 추가
         addRateLimitHeaders(response, clientId)
         
         return true
     }
-    
-    /**
-     * Rate limiting을 건너뛸 엔드포인트 확인
-     */
+
     private fun shouldSkipRateLimit(requestURI: String): Boolean {
         val skipPaths = listOf(
             "/actuator/health",
@@ -51,11 +46,8 @@ class RateLimitingInterceptor(
         return skipPaths.any { requestURI.startsWith(it) }
     }
     
-    /**
-     * 클라이언트 식별자 생성 (세션 ID 우선, 없으면 IP 주소)
-     */
+
     private fun getClientIdentifier(request: HttpServletRequest): String {
-        // 1. 세션 ID 사용 (로그인한 사용자)
         val session = request.getSession(false)
         if (session != null) {
             val userId = session.getAttribute("userId")
@@ -65,14 +57,10 @@ class RateLimitingInterceptor(
             return "session:${session.id}"
         }
         
-        // 2. IP 주소 사용 (익명 사용자)
         val clientIp = getClientIpAddress(request)
         return "ip:$clientIp"
     }
-    
-    /**
-     * 클라이언트 IP 주소 추출 (프록시 고려)
-     */
+
     private fun getClientIpAddress(request: HttpServletRequest): String {
         val xForwardedFor = request.getHeader("X-Forwarded-For")
         if (!xForwardedFor.isNullOrBlank()) {
@@ -86,10 +74,7 @@ class RateLimitingInterceptor(
         
         return request.remoteAddr ?: "unknown"
     }
-    
-    /**
-     * Rate limit 초과 시 응답 처리
-     */
+
     private fun handleRateLimitExceeded(response: HttpServletResponse, clientId: String) {
         response.status = HttpStatus.TOO_MANY_REQUESTS.value()
         response.contentType = "application/json;charset=UTF-8"
@@ -110,14 +95,10 @@ class RateLimitingInterceptor(
         
         response.writer.write(errorResponse)
         response.addHeader("Retry-After", "60")
-        
-        // 로깅
+
         println("[SECURITY] Rate limit exceeded for client: $clientId, requests: ${status.apiRequestsInLastMinute}/${status.apiRequestsPerMinuteLimit}")
     }
-    
-    /**
-     * Rate limit 관련 헤더 추가
-     */
+
     private fun addRateLimitHeaders(response: HttpServletResponse, clientId: String) {
         val status = rateLimitingService.getClientRequestStatus(clientId)
         
