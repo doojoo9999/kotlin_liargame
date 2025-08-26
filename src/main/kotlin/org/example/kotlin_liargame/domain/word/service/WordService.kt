@@ -71,4 +71,29 @@ class WordService (
         }
     }
 
+    @Transactional
+    fun approveAllPendingWords(): List<WordListResponse> {
+        val pendingWords = wordRepository.findByStatus(ContentStatus.PENDING)
+
+        val approvedWords = pendingWords.map { word ->
+            word.status = ContentStatus.APPROVED
+            wordRepository.save(word)
+            word
+        }
+
+        // WebSocket으로 승인된 단어들에 대한 알림 전송
+        approvedWords.forEach { word ->
+            messagingTemplate.convertAndSend("/topic/subjects", mapOf(
+                "type" to "WORD_APPROVED",
+                "wordId" to word.id,
+                "subject" to word.subject?.content,
+                "word" to word.content
+            ))
+        }
+
+        logger.info("일괄 승인된 단어 수: ${approvedWords.size}")
+
+        return approvedWords.map { WordListResponse.from(it) }
+    }
+
 }

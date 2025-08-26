@@ -76,5 +76,5 @@ export const useSubjectWebSocketEvents = () => {
         console.log('[DEBUG] Unsubscribed from /topic/subjects');
       }
     };
-  }, [queryClient]);
+  }, []);
 };

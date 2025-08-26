@@ -1,23 +1,34 @@
-import {useEffect} from 'react';
+import {useEffect, useRef} from 'react';
 import {useGameStore} from '../stores/gameStore';
 
 /**
- * A hook that connects a React component to the centralized game state store,
- * ensuring it receives real-time updates via WebSocket.
- *
- * @param gameNumber The game number to subscribe to.
+ * 올바른 Zustand 패턴을 사용한 GameSocket 훅
  */
 export const useGameSocket = (gameNumber: number) => {
-    const { subscribeToGame, unsubscribeFromGame } = useGameStore();
+    const actions = useGameStore((state) => state.actions);
+    const hasInitialized = useRef(false);
 
     useEffect(() => {
-        if (gameNumber > 0) {
-            subscribeToGame(gameNumber);
+        // gameNumber가 유효하지 않으면 구독하지 않음
+        if (!gameNumber || gameNumber <= 0) {
+            return;
         }
 
-        // Cleanup on component unmount
+        // React Strict Mode에서 중복 실행 방지
+        if (hasInitialized.current) {
+            return;
+        }
+        hasInitialized.current = true;
+
+        console.log('[useGameSocket] Initializing for game:', gameNumber);
+
+        // 비동기 구독
+        actions.subscribeToGame(gameNumber);
+
         return () => {
-            unsubscribeFromGame();
+            console.log('[useGameSocket] Cleanup for game:', gameNumber);
+            actions.unsubscribeFromGame();
+            hasInitialized.current = false;
         };
-    }, [gameNumber, subscribeToGame, unsubscribeFromGame]);
+    }, [gameNumber]); // actions는 의존성에서 제외 (Zustand actions는 안정적)
 };

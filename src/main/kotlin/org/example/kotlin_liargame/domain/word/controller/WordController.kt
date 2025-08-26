@@ -35,6 +35,12 @@ class WordController (
         return wordService.findAll()
     }
 
+    @PostMapping("/approve-pending")
+    fun approveAllPendingWords(): ResponseEntity<List<WordListResponse>> {
+        val approvedWords = wordService.approveAllPendingWords()
+        return ResponseEntity.ok(approvedWords)
+    }
+
     @ExceptionHandler(SubjectNotFoundException::class)
     fun handleSubjectNotFoundException(e: SubjectNotFoundException): ResponseEntity<Map<String, String?>> {
         return ResponseEntity
