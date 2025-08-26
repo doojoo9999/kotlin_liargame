@@ -30,16 +30,17 @@ class ChatController(
         session: HttpSession
     ): ResponseEntity<ChatMessageResponse> {
         val response = chatService.sendMessage(request, session)
-        messagingTemplate.convertAndSend("/topic/chat.${request.gameNumber}", response)
+        messagingTemplate.convertAndSend("/topic/chat/${request.gameNumber}", response)
         return ResponseEntity.ok(response)
     }
     
-    @MessageMapping("/chat.send")
+    @MessageMapping("/chat.send")  // "/send"에서 "/chat.send"로 변경하여 프론트엔드와 일치시킴
     fun handleChatMessage(
         @Valid @Payload request: SendChatMessageRequest,
         headerAccessor: SimpMessageHeaderAccessor
     ) {
         try {
+            println("[DEBUG] ========== WebSocket Chat Message Debug Start ==========")
             println("[DEBUG] WebSocket chat message received: gameNumber=${request.gameNumber}, content='${request.content}'")
 
             // 세션 액세서의 모든 정보 로깅
@@ -70,7 +71,7 @@ class ChatController(
                         }
                         sessionAttributes["userId"] = userId
                         
-                        // nickname도 함께 저장
+                        // nickname�� 함께 저장
                         val nickname = httpSession.getAttribute("nickname") as? String
                         if (nickname != null) {
                             sessionAttributes["nickname"] = nickname
@@ -92,23 +93,33 @@ class ChatController(
                 println("[DEBUG] Final session attribute: $key = $value")
             }
 
+            println("[DEBUG] Attempting to send chat message via ChatService...")
+
             // ChatService 호출 (userId가 null이어도 ChatService에서 처리)
             val response = chatService.sendMessageViaWebSocket(request, sessionAttributes, headerAccessor.sessionId)
-            messagingTemplate.convertAndSend("/topic/chat.${request.gameNumber}", response)
-            
-            println("[DEBUG] WebSocket chat message sent successfully")
-            
+
+            println("[DEBUG] ChatService returned response: $response")
+            println("[DEBUG] Broadcasting message to /topic/chat/${request.gameNumber}")
+
+            messagingTemplate.convertAndSend("/topic/chat/${request.gameNumber}", response)
+
+            println("[DEBUG] WebSocket chat message sent successfully to topic")
+            println("[DEBUG] ========== WebSocket Chat Message Debug End ==========")
+
         } catch (e: Exception) {
+            println("[ERROR] ========== WebSocket Chat Error Debug Start ==========")
             println("[ERROR] WebSocket chat error: ${e.message}")
+            println("[ERROR] Error type: ${e.javaClass.simpleName}")
             e.printStackTrace()
-            
+            println("[ERROR] ========== WebSocket Chat Error Debug End ==========")
+
             // Send error message back to the client
             val errorMessage = mapOf(
                 "error" to true,
                 "message" to (e.message ?: "Unknown error occurred"),
                 "gameNumber" to request.gameNumber
             )
-            messagingTemplate.convertAndSend("/topic/chat.error.${request.gameNumber}", errorMessage)
+            messagingTemplate.convertAndSend("/topic/chat/error/${request.gameNumber}", errorMessage)
         }
     }
 
@@ -117,7 +128,7 @@ class ChatController(
         @RequestParam gameNumber: Int,
         @RequestParam(required = false) type: String?,
         @RequestParam(required = false) round: Int?,
-        @RequestParam(required = false, defaultValue = "50") limit: Int
+        @RequestParam(required = false, defaultValue = "100") limit: Int
     ): ResponseEntity<List<ChatMessageResponse>> {
         val messageType = type?.let { 
             ChatMessageType.valueOf(it) 
