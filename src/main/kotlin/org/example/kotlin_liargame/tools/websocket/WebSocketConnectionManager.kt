@@ -59,21 +59,19 @@ class WebSocketConnectionManager(
     fun handleDisconnection(sessionId: String) {
         val connectionState = connectionStates[sessionId]
         if (connectionState != null) {
-            connectionState.status = ConnectionStatus.DISCONNECTED
-            connectionState.disconnectedAt = Instant.now()
-            
-            heartbeatTasks[sessionId]?.cancel(false)
-            heartbeatTasks.remove(sessionId)
-            
             println("[CONNECTION] WebSocket disconnected: $sessionId (userId: ${connectionState.userId})")
 
-            connectionState.userId?.let {
-                gameService.handlePlayerDisconnection(it)
+            connectionState.userId?.let { userId ->
+                val player = gameService.findPlayerInActiveGame(userId)
+                player?.let {
+                    gameService.handlePlayerDisconnection(userId)
+                }
             }
-            
+
+            // 실시간 정리를 위해 3초로 단축 (10초에서 3초로)
             taskScheduler.schedule({
                 cleanupConnection(sessionId)
-            }, Instant.now().plusSeconds(300)) // 5 minutes grace period
+            }, Instant.now().plusSeconds(3)) // 더 빠른 실시간 정리
         }
     }
 
@@ -82,9 +80,8 @@ class WebSocketConnectionManager(
         connectionState?.userId?.let { userId ->
             val player = gameService.findPlayerInActiveGame(userId)
             player?.let {
-                if (it.state == org.example.kotlin_liargame.domain.game.model.enum.PlayerState.DISCONNECTED) {
-                    gameService.leaveGameAsSystem(it.game.gameNumber, userId)
-                }
+                // DISCONNECTED 상태 체크 없이 즉시 게임에서 제거
+                gameService.leaveGameAsSystem(it.game.gameNumber, userId)
             }
         }
 

@@ -71,5 +71,5 @@ export const useLobbySocket = () => {
         socketManager.unsubscribe(LOBBY_TOPIC);
       });
     };
-  }, [queryClient]);
+  }, []);
 };
