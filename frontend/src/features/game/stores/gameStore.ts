@@ -1,4 +1,5 @@
 import {create} from 'zustand';
+import {subscribeWithSelector} from 'zustand/middleware';
 import {socketManager} from '../../../shared/socket/SocketManager';
 import {logger} from '../../../shared/utils';
 import {queryClient} from '../../../app/providers/QueryProvider';
@@ -6,41 +7,77 @@ import type {GameStateResponse} from '../../room';
 
 interface GameStoreState {
     currentSubscription: string | null;
-    subscribeToGame: (gameNumber: number) => void;
-    unsubscribeFromGame: () => void;
+    isSubscribing: boolean;
+    // 액션들을 별도로 분리
+    actions: {
+        subscribeToGame: (gameNumber: number) => Promise<void>;
+        unsubscribeFromGame: () => void;
+        updateGameState: (gameNumber: number, gameState: GameStateResponse) => void;
+    };
 }
 
-export const useGameStore = create<GameStoreState>((set, get) => ({
-    currentSubscription: null,
-    subscribeToGame: (gameNumber) => {
-        const { currentSubscription } = get();
-        const destination = `/topic/game/${gameNumber}/state`;
+export const useGameStore = create<GameStoreState>()(
+    subscribeWithSelector((set, get) => ({
+        currentSubscription: null,
+        isSubscribing: false,
 
-        if (currentSubscription === destination) {
-            return;
-        }
+        actions: {
+            subscribeToGame: async (gameNumber: number) => {
+                const state = get();
+                const destination = `/topic/game/${gameNumber}/state`;
 
-        if (currentSubscription) {
-            get().unsubscribeFromGame();
-        }
+                // 구독 중이거나 이미 같은 구독이 있으면 무시
+                if (state.isSubscribing || state.currentSubscription === destination) {
+                    logger.debugLog('Already subscribed or subscribing to game:', destination);
+                    return;
+                }
 
-        socketManager.subscribe(destination, (message) => {
-            try {
-                const gameState: GameStateResponse = JSON.parse(message.body);
-                logger.debugLog('Received game state update in store:', gameState);
+                set({ isSubscribing: true });
+
+                try {
+                    // 기존 구독 정리
+                    if (state.currentSubscription) {
+                        logger.debugLog('Unsubscribing from previous game:', state.currentSubscription);
+                        socketManager.unsubscribe(state.currentSubscription);
+                    }
+
+                    // 새 구독 등록
+                    logger.debugLog('Subscribing to game:', destination);
+                    await socketManager.subscribe(destination, (message) => {
+                        try {
+                            const gameState: GameStateResponse = JSON.parse(message.body);
+                            logger.debugLog('Received game state update in store:', gameState);
+
+                            // 별도 액션으로 게임 상태 업데이트
+                            get().actions.updateGameState(gameNumber, gameState);
+                        } catch (error) {
+                            logger.errorLog('Failed to parse game state message in store:', error);
+                        }
+                    });
+
+                    set({
+                        currentSubscription: destination,
+                        isSubscribing: false
+                    });
+                } catch (error) {
+                    logger.errorLog('Failed to subscribe to game:', error);
+                    set({ isSubscribing: false });
+                }
+            },
+
+            unsubscribeFromGame: () => {
+                const state = get();
+                if (state.currentSubscription) {
+                    logger.debugLog('Unsubscribing from game socket:', state.currentSubscription);
+                    socketManager.unsubscribe(state.currentSubscription);
+                    set({ currentSubscription: null });
+                }
+            },
+
+            updateGameState: (gameNumber: number, gameState: GameStateResponse) => {
+                // React Query를 통해 캐시 업데이트 (상태 변경 없음)
                 queryClient.setQueryData(['game', gameNumber], gameState);
-            } catch (error) {
-                logger.errorLog('Failed to parse game state message in store:', error);
             }
-        });
-
-        set({ currentSubscription: destination });
-    },
-    unsubscribeFromGame: () => {
-        const { currentSubscription } = get();
-        if (currentSubscription) {
-            socketManager.unsubscribe(currentSubscription);
-            set({ currentSubscription: null });
         }
-    },
-}));
+    }))
+);
