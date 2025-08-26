@@ -51,35 +51,51 @@ class ChatService(
         sessionAttributes: Map<String, Any>?,
         webSocketSessionId: String?
     ): ChatMessageResponse {
-        println("[DEBUG] WebSocket message: sessionAttributes = ${sessionAttributes?.keys}, sessionId = $webSocketSessionId")
+        // 세션에서 userId 추출
+        var userId = sessionAttributes?.get("userId") as? Long
 
-        // 디버깅을 위해 세션 속성 출력
+        // WebSocket 세션에서 userId를 찾을 수 없는 경우 HTTP 세션에서 찾기
+        if (userId == null) {
+            val httpSession = sessionAttributes?.get("HTTP.SESSION") as? HttpSession
+            if (httpSession != null) {
+                userId = httpSession.getAttribute("userId") as? Long
+                println("[DEBUG] Using userId from HTTP session: $userId")
+            }
+        }
+
+        // WebSocketSessionManager에서 userId 찾기
+        if (userId == null && webSocketSessionId != null) {
+            userId = webSocketSessionManager.getUserId(webSocketSessionId)
+            println("[DEBUG] Using userId from WebSocketSessionManager: $userId")
+        }
+
+        // 디버깅: WebSocket 메시지의 세션 정보
+        println("[DEBUG] WebSocket message: sessionAttributes = ${sessionAttributes?.keys}, sessionId = $webSocketSessionId")
         sessionAttributes?.forEach { (key, value) ->
             println("[DEBUG] Session attribute: $key = $value")
         }
 
-        // 1차: 세션 속성에서 직접 userId 추출 시도
-        var userId = sessionAttributes?.get("userId") as? Long
+        // HTTP 세션 값 확인
+        val httpSession = sessionAttributes?.get("HTTP.SESSION") as? HttpSession
+        if (httpSession != null) {
+            val httpUserId = httpSession.getAttribute("userId") as? Long
+            val httpNickname = httpSession.getAttribute("nickname") as? String
+            println("[DEBUG] HTTP Session values - userId: $httpUserId, nickname: $httpNickname")
 
-        // 2차: WebSocketSessionManager를 통한 fallback 인증 시도
-        if (userId == null && webSocketSessionId != null) {
-            println("[DEBUG] Attempting fallback authentication via WebSocketSessionManager for sessionId: $webSocketSessionId")
-            userId = webSocketSessionManager.getUserId(webSocketSessionId)
-            if (userId != null) {
-                println("[DEBUG] Found userId via WebSocketSessionManager: $userId")
+            if (userId == null) {
+                userId = httpUserId
+                println("[DEBUG] Using userId from HTTP session: $userId")
             }
         }
 
-        // 3차: 최후의 수단으로 게임 참가자 중에서 추정 (임시 해결책)
+        // 싱글 플레이어 게임의 경우 userId 자동 결정
         if (userId == null) {
-            println("[WARN] No userId found through normal channels, attempting game-based fallback")
             val game = gameRepository.findByGameNumber(req.gameNumber)
             if (game != null) {
                 val players = playerRepository.findByGame(game)
                 if (players.size == 1) {
-                    // 게임에 플레이어가 1명만 있는 경우, 해당 플레이어로 추정
                     userId = players.first().userId
-                    println("[DEBUG] Single player game detected, using userId: $userId")
+                    println("[DEBUG] Single player game, using userId: $userId")
                 } else {
                     println("[DEBUG] Multiple players in game, cannot determine user without authentication")
                 }
@@ -90,12 +106,26 @@ class ChatService(
             // 인증 실패 시 더 자세한 오류 정보
             println("[ERROR] WebSocket authentication failed. Session attributes available: ${sessionAttributes?.keys}")
             println("[ERROR] WebSocketSessionId: $webSocketSessionId")
+            println("[ERROR] HTTP Session userId: ${httpSession?.getAttribute("userId")}")
             println("[ERROR] WebSocketSessionManager state:")
             webSocketSessionManager.printSessionInfo()
             throw RuntimeException("Not authenticated via WebSocket")
         }
 
         println("[DEBUG] WebSocket message authenticated for userId: $userId")
+
+        // WebSocketSessionManager에서 플레이어의 현재 게임 번호 확인
+        val playerCurrentGame = webSocketSessionManager.getPlayerGame(userId)
+        if (playerCurrentGame != null && playerCurrentGame != req.gameNumber) {
+            println("[WARN] Player $userId is trying to send message to game ${req.gameNumber}, but is registered in game $playerCurrentGame")
+            // 플레이어의 현재 게임으로 메시지 전송하도록 gameNumber 업데이트
+            val correctedRequest = SendChatMessageRequest(
+                gameNumber = playerCurrentGame,
+                content = req.content
+            )
+            return sendMessageWithUserId(correctedRequest, userId)
+        }
+
         return sendMessageWithUserId(req, userId)
     }
     
@@ -106,12 +136,33 @@ class ChatService(
             throw IllegalArgumentException("메시지에 부적절한 단어가 포함되어 있습니다.")
         }
 
+        println("[DEBUG] Looking for game with gameNumber: ${req.gameNumber}")
         val game = gameRepository.findByGameNumber(req.gameNumber)
             ?: throw RuntimeException("Game not found")
         
+        println("[DEBUG] Found game: ${game.gameName} (ID: ${game.id})")
+
+        // 게임의 모든 플레이어 조회하여 디버깅
+        val allPlayers = playerRepository.findByGame(game)
+        println("[DEBUG] All players in game ${req.gameNumber}:")
+        allPlayers.forEach { player ->
+            println("[DEBUG]   - Player ID: ${player.id}, UserId: ${player.userId}, Nickname: ${player.nickname}")
+        }
+
+        println("[DEBUG] Looking for player with userId: $userId in game: ${req.gameNumber}")
         val player = playerRepository.findByGameAndUserId(game, userId)
-            ?: throw RuntimeException("You are not in this game")
-        
+
+        if (player == null) {
+            println("[ERROR] Player not found! userId: $userId, gameNumber: ${req.gameNumber}")
+            println("[ERROR] Available players in this game:")
+            allPlayers.forEach { p ->
+                println("[ERROR]   - UserId: ${p.userId}, Nickname: ${p.nickname}")
+            }
+            throw RuntimeException("You are not in this game")
+        }
+
+        println("[DEBUG] Found player: ${player.nickname} (ID: ${player.id})")
+
         val messageType = determineMessageType(game, player)
             ?: throw RuntimeException("Chat not available")
         
@@ -269,6 +320,38 @@ class ChatService(
         return players.find { 
             it.state == org.example.kotlin_liargame.domain.game.model.enum.PlayerState.ACCUSED || 
             it.state == org.example.kotlin_liargame.domain.game.model.enum.PlayerState.DEFENDED 
+        }
+    }
+
+    /**
+     * 플레이어의 모든 채팅 메시지를 삭제합니다.
+     * 외래 키 제약 조건 위반을 방지하기 위해 플레이어 삭제 전에 호출되어야 합니다.
+     */
+    @Transactional
+    fun deletePlayerChatMessages(playerId: Long): Int {
+        return try {
+            val deletedCount = chatMessageRepository.deleteByPlayerId(playerId)
+            println("[CHAT] Deleted $deletedCount chat messages for player ID: $playerId")
+            deletedCount
+        } catch (e: Exception) {
+            println("[ERROR] Failed to delete chat messages for player ID: $playerId - ${e.message}")
+            0
+        }
+    }
+
+    /**
+     * 게임의 모든 채팅 메시지를 삭제합니다.
+     * 외래 키 제약 조건 위반을 방지하기 위해 게임 삭제 전에 호출되어야 합니다.
+     */
+    @Transactional
+    fun deleteGameChatMessages(game: GameEntity): Int {
+        return try {
+            val deletedCount = chatMessageRepository.deleteByGame(game)
+            println("[CHAT] Deleted $deletedCount chat messages for game: ${game.gameNumber}")
+            deletedCount
+        } catch (e: Exception) {
+            println("[ERROR] Failed to delete chat messages for game: ${game.gameNumber} - ${e.message}")
+            0
         }
     }
 }
