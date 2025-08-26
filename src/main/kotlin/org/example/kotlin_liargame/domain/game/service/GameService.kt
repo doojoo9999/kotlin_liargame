@@ -24,6 +24,7 @@ import org.example.kotlin_liargame.global.exception.GameAlreadyStartedException
 import org.example.kotlin_liargame.global.exception.GameNotFoundException
 import org.example.kotlin_liargame.global.exception.PlayerNotInGameException
 import org.example.kotlin_liargame.global.exception.RoomFullException
+import org.example.kotlin_liargame.tools.websocket.WebSocketSessionManager
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -39,7 +40,8 @@ class GameService(
     private val chatService: ChatService,
     private val gameMonitoringService: GameMonitoringService,
     private val defenseService: DefenseService,
-    private val topicGuessService: TopicGuessService
+    private val topicGuessService: TopicGuessService,
+    private val webSocketSessionManager: WebSocketSessionManager
 ) {
     private val logger = LoggerFactory.getLogger(this::class.java)
 
@@ -175,10 +177,16 @@ class GameService(
 
         val existingPlayer = playerRepository.findByGameAndUserId(game, userId)
         if (existingPlayer != null) {
+            // 기존 플레이어도 WebSocket 세션에 게임 번호 등록
+            webSocketSessionManager.registerPlayerInGame(userId, req.gameNumber)
             return getGameState(game, session)
         }
 
         val newPlayer = joinGame(game, userId, nickname)
+
+        // WebSocket 세션에 플레이어의 게임 번호 등록
+        webSocketSessionManager.registerPlayerInGame(userId, req.gameNumber)
+        logger.debug("Registered player {} in game {} for WebSocket session management", userId, req.gameNumber)
 
         val allPlayers = playerRepository.findByGame(game)
         gameMonitoringService.notifyPlayerJoined(game, newPlayer, allPlayers)
@@ -214,6 +222,10 @@ class GameService(
         val deletedCount = playerRepository.deleteByGameIdAndUserId(game.id, userId)
 
         if (deletedCount > 0) {
+            // WebSocket 세션에서 플레이어 제거
+            webSocketSessionManager.removePlayerFromGame(userId)
+            logger.debug("Removed player {} from WebSocket session management", userId)
+
             val remainingPlayers = playerRepository.findByGame(game)
 
             val wasOwner = game.gameOwner == nickname
@@ -487,10 +499,26 @@ class GameService(
         val game = gameRepository.findByGameNumberWithLock(gameNumber) ?: return
         val player = playerRepository.findByGameAndUserId(game, userId) ?: return
 
+        // 플레이어 삭제 전에 해당 플레이어의 채팅 메시지들을 먼저 삭제
+        logger.debug("플레이어 삭제 전 채팅 메시지 정리: playerId={}, nickname={}", player.id, player.nickname)
+        chatService.deletePlayerChatMessages(player.id)
+
         playerRepository.delete(player)
 
         val remainingPlayers = playerRepository.findByGame(game)
         if (remainingPlayers.isEmpty()) {
+            // 게임 삭제 전에 해당 게임의 모든 채팅 메시지도 삭제
+            logger.debug("게임 삭제 전 모든 채팅 메시지 정리: gameNumber={}", game.gameNumber)
+            chatService.deleteGameChatMessages(game)
+
+            // 게임 삭제 전에 game_subject 테이블의 관련 레코드들을 먼저 삭제
+            logger.debug("게임 삭제 전 game_subject 관계 정리: gameNumber={}", game.gameNumber)
+            val gameSubjects = gameSubjectRepository.findByGame(game)
+            if (gameSubjects.isNotEmpty()) {
+                gameSubjectRepository.deleteAll(gameSubjects)
+                logger.debug("game_subject 레코드 {}개 삭제됨", gameSubjects.size)
+            }
+
             gameRepository.delete(game)
             gameMonitoringService.notifyRoomDeleted(game.gameNumber)
         } else {
@@ -509,10 +537,11 @@ class GameService(
     fun handlePlayerDisconnection(userId: Long) {
         val player = playerRepository.findByUserIdAndGameInProgress(userId)
         player?.let {
-            it.state = PlayerState.DISCONNECTED
-            playerRepository.save(it)
-            val gameState = getGameState(it.game, null) // session is null for system event
-            gameMonitoringService.broadcastGameState(it.game, gameState)
+            logger.debug("플레이어 연결 해제 처리: userId={}, gameNumber={}, nickname={}",
+                userId, it.game.gameNumber, it.nickname)
+
+            // 연결 해제된 플레이어는 게임��서 즉시 제거
+            leaveGameAsSystem(it.game.gameNumber, userId)
         }
     }
 
@@ -520,12 +549,9 @@ class GameService(
     fun handlePlayerReconnection(userId: Long) {
         val player = playerRepository.findByUserIdAndGameInProgress(userId)
         player?.let {
-            if (it.state == PlayerState.DISCONNECTED) {
-                it.state = PlayerState.WAITING_FOR_HINT
-                playerRepository.save(it)
-                val gameState = getGameState(it.game, null)
-                gameMonitoringService.broadcastGameState(it.game, gameState)
-            }
+            // DISCONNECTED 상태 체크 제거 - 연결 해제된 플레이어는 이미 게임에서 제거됨
+            // 재연결 시에는 새로 게임에 참여해야 함
+            logger.debug("플레이어 재연결 시도: userId={}, 하지만 연결 해제된 플레이어는 이미 게임에서 제거되었습니���", userId)
         }
     }
 }
