@@ -54,13 +54,16 @@ class SecurityConfig {
             "staging" -> listOf(
                 "https://staging.liargame.com",
                 "http://localhost:3000",
-                "http://localhost:5173"
+                "http://localhost:5173",
+                "http://localhost:5174"
             )
             else -> listOf(
                 "http://localhost:3000",
                 "http://localhost:5173",
                 "http://127.0.0.1:3000",
-                "http://127.0.0.1:5173"
+                "http://127.0.0.1:5173",
+                "http://localhost:5174",
+                "http://127.0.0.1:5174"
             )
         }
     }
