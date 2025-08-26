@@ -3,6 +3,8 @@ package org.example.kotlin_liargame.domain.auth.service
 import io.micrometer.core.instrument.MeterRegistry
 import org.example.kotlin_liargame.domain.auth.dto.request.AdminLoginRequest
 import org.example.kotlin_liargame.domain.auth.dto.response.*
+import org.example.kotlin_liargame.domain.chat.service.ChatService
+import org.example.kotlin_liargame.domain.game.model.enum.GameState
 import org.example.kotlin_liargame.domain.game.repository.GameRepository
 import org.example.kotlin_liargame.domain.game.repository.PlayerRepository
 import org.example.kotlin_liargame.domain.game.service.GameMonitoringService
@@ -17,6 +19,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.Instant
 import java.util.concurrent.atomic.AtomicInteger
 
 @Service
@@ -29,6 +32,7 @@ class AdminService(
     private val wordRepository: WordRepository,
     private val gameMonitoringService: GameMonitoringService,
     private val gameService: GameService,
+    private val chatService: ChatService,
     private val meterRegistry: MeterRegistry,
     private val passwordEncoder: PasswordEncoder
 ) {
@@ -178,5 +182,149 @@ class AdminService(
         val pendingWords = wordRepository.findByStatus(ContentStatus.PENDING)
         pendingWords.forEach { it.status = ContentStatus.APPROVED }
         wordRepository.saveAll(pendingWords)
+    }
+
+    @Transactional
+    fun cleanupStaleGames(): Int {
+        logger.debug("오래된 게임방 정리 시작")
+
+        // 24시간 이상 된 WAITING 상태 게임들 정리
+        val oneDayAgo = Instant.now().minusSeconds(24 * 60 * 60)
+        val staleWaitingGames = gameRepository.findByGameStateAndCreatedAtBefore(GameState.WAITING, oneDayAgo)
+
+        // 3시간 이상 된 IN_PROGRESS 상태 게임들 정리 (비정상 종료된 게임들)
+        val threeHoursAgo = Instant.now().minusSeconds(3 * 60 * 60)
+        val staleInProgressGames = gameRepository.findByGameStateAndModifiedAtBefore(GameState.IN_PROGRESS, threeHoursAgo)
+
+        val allStaleGames = staleWaitingGames + staleInProgressGames
+
+        allStaleGames.forEach { game ->
+            logger.debug("오래된 게임방 삭제: gameNumber={}, state={}, created={}",
+                game.gameNumber, game.gameState, game.createdAt)
+
+            // 플레이어들 정리
+            playerRepository.deleteByGame(game)
+
+            // 게임 삭제
+            gameRepository.delete(game)
+
+            // 모니터링 서비스에 알림
+            gameMonitoringService.notifyRoomDeleted(game.gameNumber)
+        }
+
+        logger.debug("오래된 게임방 정리 완료: {}개 삭제", allStaleGames.size)
+        return allStaleGames.size
+    }
+
+    @Transactional
+    fun cleanupEmptyGames(): Int {
+        logger.debug("빈 게임방 정리 시작")
+
+        // 플레이어가 없는 게임��들 찾기
+        val allGames = gameRepository.findByGameStateNot(GameState.ENDED)
+        val emptyGames = allGames.filter { game ->
+            val playerCount = playerRepository.countByGame(game)
+            playerCount == 0
+        }
+
+        emptyGames.forEach { game ->
+            logger.debug("빈 게임방 삭제: gameNumber={}, state={}",
+                game.gameNumber, game.gameState)
+
+            // 게임 삭제 전에 해당 게임의 모든 채팅 메시지 삭제
+            try {
+                chatService.deleteGameChatMessages(game)
+            } catch (e: Exception) {
+                logger.warn("게임 {}의 채팅 메시지 삭제 중 오류: {}", game.gameNumber, e.message)
+            }
+
+            // 게임 삭제
+            gameRepository.delete(game)
+
+            // 모니터링 서비스에 알림
+            gameMonitoringService.notifyRoomDeleted(game.gameNumber)
+        }
+
+        logger.debug("빈 게임방 정리 완료: {}개 삭제", emptyGames.size)
+        return emptyGames.size
+    }
+
+    @Transactional(readOnly = true)
+    fun getGameStatistics(): Map<String, Any> {
+        val totalGames = gameRepository.count()
+        val waitingGames = gameRepository.countByGameState(GameState.WAITING)
+        val inProgressGames = gameRepository.countByGameState(GameState.IN_PROGRESS)
+        val endedGames = gameRepository.countByGameState(GameState.ENDED)
+        val totalPlayers = playerRepository.count()
+
+        // DISCONNECTED 상태를 사용하지 않으므로 모든 플레이어가 활성 상태
+        val activePlayers = totalPlayers
+        val disconnectedPlayers = 0L // 연결 해제된 플레이어는 즉시 제거됨
+
+        return mapOf(
+            "totalGames" to totalGames,
+            "waitingGames" to waitingGames,
+            "inProgressGames" to inProgressGames,
+            "endedGames" to endedGames,
+            "totalPlayers" to totalPlayers,
+            "activePlayers" to activePlayers,
+            "disconnectedPlayers" to disconnectedPlayers
+        )
+    }
+
+    @Transactional
+    fun cleanupDisconnectedPlayers(): Int {
+        logger.debug("연결 해제된 플레이어 정리 시작")
+
+        // 실제로 WebSocket 연결이 없는 플레이어들을 찾아서 정리
+        val allPlayers = playerRepository.findAll()
+        var cleanedCount = 0
+
+        allPlayers.forEach { player ->
+            val userId = player.userId
+            if (userId != null) {
+                // WebSocketSessionManager에서 해당 사용자의 활성 연결 확인
+                val isConnected = try {
+                    // 여기서는 단순히 게임에 참여한 지 오래된 플레이어들을 정리
+                    val timeSinceJoined = java.time.Duration.between(player.joinedAt, java.time.Instant.now())
+                    // 10분 이상 된 WAITING 상태 게임의 플레이어들을 정리 (연결이 끊어진 것으로 간주)
+                    if (player.game.gameState == GameState.WAITING && timeSinceJoined.toMinutes() > 10) {
+                        false
+                    } else {
+                        true
+                    }
+                } catch (e: Exception) {
+                    logger.warn("플레이어 연결 상태 확인 중 오류: userId={}, error={}", userId, e.message)
+                    false
+                }
+
+                if (!isConnected) {
+                    logger.debug("고아 플레이어 정리: gameNumber={}, nickname={}, joinedAt={}",
+                        player.game.gameNumber, player.nickname, player.joinedAt)
+
+                    // 각 플레이어 정리를 별도 트랜잭션으로 처리하여 한 플레이어의 오류가 전체를 중단시키지 않도록 함
+                    try {
+                        cleanupSinglePlayer(player.game.gameNumber, userId)
+                        cleanedCount++
+                    } catch (e: Exception) {
+                        logger.warn("플레이어 {}(게임 {}) 정리 중 오류: {}",
+                            player.nickname, player.game.gameNumber, e.message, e)
+                    }
+                }
+            }
+        }
+
+        logger.debug("고아 플레이어 정리 완료: {}명 정리", cleanedCount)
+        return cleanedCount
+    }
+
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    fun cleanupSinglePlayer(gameNumber: Int, userId: Long) {
+        try {
+            gameService.leaveGameAsSystem(gameNumber, userId)
+        } catch (e: Exception) {
+            logger.error("단일 플레이어 정리 실패: gameNumber={}, userId={}", gameNumber, userId, e)
+            throw e
+        }
     }
 }
