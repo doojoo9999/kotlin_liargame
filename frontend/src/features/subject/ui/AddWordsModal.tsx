@@ -32,13 +32,10 @@ export function AddWordsModal({ opened, onClose }: AddWordsModalProps) {
   const { data: subjects, isLoading: isLoadingSubjects, refetch } = useSubjectsQuery();
   const mutation = useApplyWordMutation();
 
-  // Refetch subjects when modal opens to ensure we have the latest data
   useEffect(() => {
     if (opened) {
-      // 모달이 열릴 때 즉시 새로고침하고 약간의 지연 후 한 번 더 새로고침
       refetch();
 
-      // 짧은 지연 후 한 번 더 새로고침 (WebSocket 이벤트 처리 시간 고려)
       const timeoutId = setTimeout(() => {
         refetch();
       }, 500);
@@ -60,16 +57,13 @@ export function AddWordsModal({ opened, onClose }: AddWordsModalProps) {
         onSuccess: () => {
           setLastAddedWord(values.word.trim());
           setShowSuccess(true);
-          // 주제는 유지하고 답안 입력 필드만 초기화
           reset({ subject: values.subject, word: '' });
 
-          // Hide success message after 3 seconds
           setTimeout(() => {
             setShowSuccess(false);
           }, 3000);
         },
         onError: (error: any) => {
-          // Extract specific error message from response
           if (error?.response?.data?.message) {
             setErrorMessage(error.response.data.message);
           } else if (error?.message) {
