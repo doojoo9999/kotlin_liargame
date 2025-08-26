@@ -29,7 +29,7 @@ class WebSocketConfig(
     
     override fun configureMessageBroker(config: MessageBrokerRegistry) {
         config.enableSimpleBroker("/topic")
-        config.setApplicationDestinationPrefixes("/app")
+        config.setApplicationDestinationPrefixes("/app") // "/chat" 프리픽스 제거
     }
     
     override fun registerStompEndpoints(registry: StompEndpointRegistry) {
@@ -117,24 +117,15 @@ class WebSocketConfig(
 
                             if (httpSession != null) {
                                 println("[DEBUG] HTTP Session details: ${httpSession.id}")
-                                try {
-                                    httpSession.attributeNames.asIterator().forEach { attrName ->
-                                        println("[DEBUG]   - $attrName: ${httpSession.getAttribute(attrName)}")
-                                    }
-                                } catch (e: Exception) {
-                                    println("[WARN] Error reading session attributes: ${e.message}")
-                                }
 
-                                sessionId?.let { wsSessionId ->
-                                    webSocketSessionManager.storeSession(wsSessionId, httpSession)
-                                }
-
+                                // HTTP 세션에서 최신 사용자 정보 가져오기
                                 val userId = httpSession.getAttribute("userId") as? Long
                                 val nickname = httpSession.getAttribute("nickname") as? String
 
-                                println("[DEBUG] Session values - userId: $userId, nickname: $nickname")
+                                println("[DEBUG] Current session values - userId: $userId, nickname: $nickname")
 
                                 if (userId != null) {
+                                    // WebSocket 세션 속성을 HTTP 세션의 최신 정보로 업데이트
                                     accessor.sessionAttributes = accessor.sessionAttributes ?: mutableMapOf()
                                     accessor.sessionAttributes!!["userId"] = userId
 
@@ -142,39 +133,31 @@ class WebSocketConfig(
                                         accessor.sessionAttributes!!["nickname"] = nickname
                                     }
 
-                                    println("[DEBUG] WebSocket session authenticated with userId: $userId, nickname: $nickname")
+                                    println("[DEBUG] WebSocket session updated with current user: userId=$userId, nickname=$nickname")
+
+                                    // WebSocketSessionManager에 최신 정보 저장
+                                    sessionId?.let { wsSessionId ->
+                                        webSocketSessionManager.storeSession(wsSessionId, httpSession)
+                                    }
+                                } else {
+                                    println("[WARN] No userId found in HTTP session")
+                                }
+
+                                // 세션의 모든 속성 로깅
+                                try {
+                                    httpSession.attributeNames.asIterator().forEach { attrName ->
+                                        println("[DEBUG]   - HTTP Session attribute: $attrName: ${httpSession.getAttribute(attrName)}")
+                                    }
+                                } catch (e: Exception) {
+                                    println("[WARN] Error reading session attributes: ${e.message}")
                                 }
                                 
-                                // Register connection with ConnectionManager for advanced monitoring
+                                // Register connection with ConnectionManager
                                 sessionId?.let { wsSessionId ->
                                     connectionManager.registerConnection(wsSessionId, userId)
                                 }
                             } else {
                                 println("[WARN] No HTTP session found in WebSocket connection")
-
-                                try {
-                                    val headers = message.headers
-                                    println("[DEBUG] All headers:")
-                                    headers.forEach { (key, value) ->
-                                        println("[DEBUG]   - $key: $value")
-                                    }
-
-                                    if (accessor.sessionAttributes != null) {
-                                        println("[DEBUG] Session attributes:")
-                                        accessor.sessionAttributes!!.forEach { (key, value) ->
-                                            println("[DEBUG]   - $key: $value")
-                                        }
-                                    } else {
-                                        println("[DEBUG] No session attributes available")
-                                    }
-                                } catch (e: Exception) {
-                                    println("[DEBUG] Failed to read headers: ${e.message}")
-                                }
-                                
-                                // Register connection even without userId for monitoring
-                                sessionId?.let { wsSessionId ->
-                                    connectionManager.registerConnection(wsSessionId, null)
-                                }
                             }
                         } catch (e: Exception) {
                             println("[ERROR] Failed to extract userId from HTTP session: ${e.message}")
