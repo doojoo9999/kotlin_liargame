@@ -12,6 +12,8 @@ interface PlayerRepository : JpaRepository<PlayerEntity, Long> {
     
     fun findByGameAndUserId(game: GameEntity, userId: Long): PlayerEntity?
     
+    fun findByNickname(nickname: String): PlayerEntity?
+
     fun countByGame(game: GameEntity): Int
     
     fun findByGameAndIsAlive(game: GameEntity, isAlive: Boolean): List<PlayerEntity>

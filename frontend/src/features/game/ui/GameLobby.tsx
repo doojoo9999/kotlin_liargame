@@ -14,8 +14,21 @@ export function GameLobby({ gameState }: GameLobbyProps) {
   const currentUserNickname = useUserStore((state) => state.nickname);
   const isOwner = currentUserNickname === gameState.gameOwner;
   const isRoomFull = gameState.players.length >= gameState.gameParticipants;
+  const canStartGame = isOwner && gameState.players.length >= 2 && gameState.players.length <= gameState.gameParticipants;
   const startGameMutation = useStartGameMutation(gameState.gameNumber);
   const leaveRoomMutation = useLeaveRoomMutation();
+
+  // 디버깅을 위한 로그
+  console.log('[GameLobby] Debug info:', {
+    currentUserNickname,
+    gameOwner: gameState.gameOwner,
+    isOwner,
+    playersLength: gameState.players.length,
+    gameParticipants: gameState.gameParticipants,
+    isRoomFull,
+    canStartGame,
+    players: gameState.players
+  });
 
   const handleStartGame = () => {
     startGameMutation.mutate();
@@ -62,9 +75,9 @@ export function GameLobby({ gameState }: GameLobbyProps) {
             size="lg"
             onClick={handleStartGame}
             loading={startGameMutation.isPending}
-            disabled={gameState.players.length < 2} // 최소 2명 필요
+            disabled={!canStartGame}
           >
-            게임 시작
+            게임 시작 {!canStartGame && `(${gameState.players.length}/${gameState.gameParticipants})`}
           </Button>
         )}
         <Button

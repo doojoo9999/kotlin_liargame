@@ -112,8 +112,9 @@ class VotingService(
     }
 
     private fun processVoteResults(game: GameEntity) {
-        val players = playerRepository.findByGame(game).filter { it.isAlive }
-        val maxVotes = players.maxOfOrNull { it.votesReceived } ?: 0
+        // findByGameAndIsAlive 사용으로 성능 개선 및 코드 간소화
+        val alivePlayers = playerRepository.findByGameAndIsAlive(game, true)
+        val maxVotes = alivePlayers.maxOfOrNull { it.votesReceived } ?: 0
 
         if (maxVotes == 0) {
             // No votes cast, restart speech phase
@@ -121,7 +122,7 @@ class VotingService(
             return
         }
 
-        val mostVotedPlayers = players.filter { it.votesReceived == maxVotes }
+        val mostVotedPlayers = alivePlayers.filter { it.votesReceived == maxVotes }
 
         if (mostVotedPlayers.size > 1) {
             // Tie-breaker: revote by restarting speech phase
@@ -160,7 +161,8 @@ class VotingService(
         playerRepository.save(voter)
 
         val players = playerRepository.findByGame(game)
-        val alivePlayers = players.filter { it.isAlive }
+        // findByGameAndIsAlive 사용으로 성능 개선 및 코드 간소화
+        val alivePlayers = playerRepository.findByGameAndIsAlive(game, true)
         val allVoted = alivePlayers.none { it.state == PlayerState.DEFENDED }
 
         if (allVoted) {

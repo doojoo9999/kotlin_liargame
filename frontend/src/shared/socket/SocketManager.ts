@@ -113,6 +113,19 @@ class SocketManager {
         }
     }
 
+    // 호환성을 위한 on/off 메서드
+    public on(event: string, callback: (message: IMessage) => void): void {
+        logger.warnLog(`on() method called with event: ${event}. Use subscribe() instead.`);
+        // 이벤트 기반 구독을 위한 래퍼
+        void this.subscribe(`/topic/${event}`, callback);
+    }
+
+    public off(event: string): void {
+        logger.warnLog(`off() method called with event: ${event}. Use unsubscribe() instead.`);
+        // 이벤트 기반 구독 해제를 위한 래퍼
+        this.unsubscribe(`/topic/${event}`);
+    }
+
     private connect(): Promise<void> {
         const currentState = useSocketStore.getState().connectionState;
         if (currentState === 'connected') {

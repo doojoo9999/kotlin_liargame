@@ -249,10 +249,16 @@ class AdminService(
                                 true
                             }
 
-                            // 2. 방장이 접속해 있지 않고 5분 이상 된 경우
-                            !hasOwner && gameAge.toMinutes() >= 5 -> {
-                                logger.debug("방장 부재 게임방: gameNumber={}, 경과시간={}분",
-                                    game.gameNumber, gameAge.toMinutes())
+                            // 2. 방장이 접속해 있지 않고 10분 이상 활동이 없는 경우
+                            !hasOwner && {
+                                val lastActivity = game.lastActivityAt ?: gameCreatedAtInstant
+                                val timeSinceLastActivity = java.time.Duration.between(lastActivity, currentTime)
+                                timeSinceLastActivity.toMinutes() >= 10
+                            }() -> {
+                                val lastActivity = game.lastActivityAt ?: gameCreatedAtInstant
+                                val timeSinceLastActivity = java.time.Duration.between(lastActivity, currentTime)
+                                logger.debug("방장 부재 게임방: gameNumber={}, 마지막 활동 후 경과시간={}분",
+                                    game.gameNumber, timeSinceLastActivity.toMinutes())
                                 true
                             }
 

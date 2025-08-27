@@ -48,11 +48,18 @@ class ChatController(
             // 임시: 인증 없이 메시지 처리
             println("[DEBUG] Attempting TEMPORARY message processing without authentication...")
 
+            // 메시지 내용 검증 및 sanitize
+            if (!request.isValidLength()) {
+                throw IllegalArgumentException("메시지 길이가 유효하지 않습니다.")
+            }
+
+            val sanitizedContent = request.getSanitizedContent()
+
             // 임시 응답 메시지 생성
             val tempResponse = mapOf(
                 "id" to System.currentTimeMillis(),
-                "playerNickname" to "TestUser",
-                "content" to request.content,
+                "playerNickname" to (request.playerNickname ?: "익명"),
+                "content" to sanitizedContent,
                 "type" to "USER",
                 "timestamp" to java.time.Instant.now().toString()
             )

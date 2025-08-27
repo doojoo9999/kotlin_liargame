@@ -115,7 +115,8 @@ class ChatService(
             // 플레이어의 현재 게임으로 메시지 전송하도록 gameNumber 업데이트
             val correctedRequest = SendChatMessageRequest(
                 gameNumber = playerCurrentGame,
-                content = req.content
+                content = req.content,
+                playerNickname = req.playerNickname
             )
             return sendMessageWithUserId(correctedRequest, userId)
         }
@@ -124,11 +125,19 @@ class ChatService(
     }
     
     private fun sendMessageWithUserId(req: SendChatMessageRequest, userId: Long): ChatMessageResponse {
+        // 욕설 필터링
         val approvedWords = profanityService.getApprovedWords()
         val lowerContent = req.content.lowercase()
         if (approvedWords.any { lowerContent.contains(it) }) {
             throw IllegalArgumentException("메시지에 부적절한 단어가 포함되어 있습니다.")
         }
+
+        // 메시지 내용 검증 및 sanitize
+        if (!req.isValidLength()) {
+            throw IllegalArgumentException("메시지 길이가 유효하지 않습니다.")
+        }
+
+        val sanitizedContent = req.getSanitizedContent()
 
         println("[DEBUG] Looking for game with gameNumber: ${req.gameNumber}")
         val game = gameRepository.findByGameNumber(req.gameNumber)
@@ -163,10 +172,14 @@ class ChatService(
         val chatMessage = ChatMessageEntity(
             game = game,
             player = player,
-            content = req.content,
+            content = sanitizedContent,
             type = messageType
         )
         
+        // 채팅 입력 시 게임의 마지막 활동 시간 업데이트 (부재 시간 초기화)
+        game.lastActivityAt = java.time.Instant.now()
+        gameRepository.save(game)
+
         return ChatMessageResponse.from(chatMessageRepository.save(chatMessage))
     }
 

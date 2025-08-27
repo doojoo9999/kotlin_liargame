@@ -3,6 +3,7 @@ import {subscribeWithSelector} from 'zustand/middleware';
 import {socketManager} from '../../../shared/socket/SocketManager';
 import {logger} from '../../../shared/utils';
 import type {ChatMessage} from '../types';
+import {useUserStore} from '../../../shared/stores/userStore';
 
 interface RawChatMessage {
     id?: number;
@@ -115,7 +116,9 @@ export const useChatStore = create<ChatStoreState>()(
             sendMessage: async (gameNumber: number, content: string) => {
                 try {
                     const destination = `/app/chat.send`;
-                    const body = { gameNumber, content };
+                    // 닉네임을 zustand에서 가져옴
+                    const playerNickname = useUserStore.getState().nickname;
+                    const body = { gameNumber, content, playerNickname };
 
                     console.log('[ChatStore] Attempting to send message:', { destination, body });
                     console.log('[ChatStore] Socket connection state:', socketManager);

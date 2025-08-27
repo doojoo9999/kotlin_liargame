@@ -65,6 +65,9 @@ data class CreateGameRoomRequest(
             gameOwner = gameOwner,
             citizenSubject = null,
             liarSubject = null
-        )
+        ).apply {
+            // 게임 생성 시 마지막 활동 시간을 현재 시간으로 초기화
+            lastActivityAt = java.time.Instant.now()
+        }
     }
 }

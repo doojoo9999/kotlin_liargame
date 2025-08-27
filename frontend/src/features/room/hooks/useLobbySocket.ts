@@ -4,6 +4,8 @@ import type {IMessage} from '@stomp/stompjs';
 import {socketManager} from '../../../shared/socket/SocketManager';
 import {logger} from '../../../shared/utils';
 import type {GameRoom, LobbyUpdatePayload} from '../types';
+import {useLeaveRoomMutation} from './useLeaveRoomMutation';
+import {useSocketStore} from '../../../shared/stores/socketStore';
 
 const LOBBY_TOPIC = '/topic/lobby';
 
@@ -21,6 +23,8 @@ function isLobbyUpdatePayload(payload: unknown): payload is LobbyUpdatePayload {
 
 export const useLobbySocket = () => {
   const queryClient = useQueryClient();
+  const leaveRoomMutation = useLeaveRoomMutation();
+  const connectionState = useSocketStore((state) => state.connectionState);
 
   useEffect(() => {
     const handleLobbyUpdate = (message: IMessage) => {
@@ -64,12 +68,19 @@ export const useLobbySocket = () => {
     // Subscribe to lobby updates
     const subscribePromise = socketManager.subscribe(LOBBY_TOPIC, handleLobbyUpdate);
 
-    // Cleanup on component unmount
     return () => {
-      // Wait for subscription to complete before unsubscribing
       void subscribePromise.then(() => {
         socketManager.unsubscribe(LOBBY_TOPIC);
       });
     };
-  }, []);
+  }, [queryClient]);
+
+  useEffect(() => {
+    if (connectionState === 'idle') {
+      const currentRoomId = sessionStorage.getItem('currentRoomId');
+      if (currentRoomId) {
+        leaveRoomMutation.mutate(currentRoomId);
+      }
+    }
+  }, [connectionState, leaveRoomMutation]);
 };
