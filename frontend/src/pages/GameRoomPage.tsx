@@ -2,6 +2,7 @@ import {Alert, Button, Center, Container, Group, Loader, SimpleGrid, Stack, Text
 import {AlertCircle} from 'lucide-react';
 import {useNavigate, useParams} from 'react-router-dom';
 import {ChatBox, useChatSocket} from '../features/chat';
+import {ChatDebugInfo} from '../features/chat/ui/ChatDebugInfo';
 import {GameInProgress, GameLobby, useGameSocket, useGameStateQuery} from '../features/game';
 import {getChatHistory} from '../features/chat/api/getChatHistory';
 import {useAuth} from '../features/auth';
@@ -19,14 +20,33 @@ export function GameRoomPage() {
   useGameSocket(parsedGameNumber);
   const { messages, sendMessage } = useChatSocket(parsedGameNumber);
 
-  // 인증되지 않은 사용자 처리
+  // 인증되지 않은 사용자 처리 - 더 관대한 정책 적용
   useEffect(() => {
-    if (!isAuthLoading && (!authData?.authenticated || isAuthError)) {
-      console.warn('[GameRoomPage] User not authenticated, redirecting to login');
-      alert('로그인이 필요합니다. 로그인 페이지로 이동합니다.');
-      navigate('/login');
+    // 인증 상태 체크를 더 신중하게 처리
+    if (!isAuthLoading && isAuthError) {
+      // 네트워크 오류 등 일시적인 문제일 수 있으므로 즉시 리다이렉트하지 않음
+      console.warn('[GameRoomPage] Auth error detected, but not redirecting immediately:', isAuthError);
+      return;
     }
-  }, [authData, isAuthLoading, isAuthError, navigate]);
+
+    if (!isAuthLoading && !authData?.authenticated) {
+      // 인증 데이터가 없는 경우에만 리다이렉트
+      console.warn('[GameRoomPage] User not authenticated, redirecting to login');
+
+      // 사용자에게 더 나은 안내 메시지 제공
+      const confirmRedirect = confirm(
+        '로그인 세션이 만료되었습니다. 로그인 페이지로 이동하시겠습니까?\n' +
+        '취소를 선택하면 페이지를 새로고침하여 다시 시도할 수 있습니다.'
+      );
+
+      if (confirmRedirect) {
+        navigate('/login');
+      } else {
+        // 사용자가 취소를 선택하면 페이지 새로고침
+        window.location.reload();
+      }
+    }
+  }, [authData?.authenticated, isAuthLoading, isAuthError, navigate]);
 
   // 임시 디버깅: 채팅 히스토리 확인
   const checkChatHistory = async () => {
@@ -114,6 +134,7 @@ export function GameRoomPage() {
               현재 사용자 확인
             </Button>
           </Group>
+          <ChatDebugInfo gameNumber={parsedGameNumber} />
         </Stack>
       </SimpleGrid>
     </Container>
