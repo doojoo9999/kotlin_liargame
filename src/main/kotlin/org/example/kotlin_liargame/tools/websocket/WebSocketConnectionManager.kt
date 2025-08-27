@@ -27,9 +27,9 @@ class WebSocketConnectionManager(
     private val reconnectionAttempts = ConcurrentHashMap<String, Int>()
     
     companion object {
-        private const val HEARTBEAT_INTERVAL_SECONDS = 30L
-        private const val CONNECTION_TIMEOUT_SECONDS = 90L
-        private const val MAX_RECONNECTION_ATTEMPTS = 5
+        private const val HEARTBEAT_INTERVAL_SECONDS = 10L // 30초에서 10초로 단축
+        private const val CONNECTION_TIMEOUT_SECONDS = 25L // 90초에서 25초로 단축
+        private const val MAX_RECONNECTION_ATTEMPTS = 3 // 5회에서 3회로 단축
     }
 
     fun registerConnection(sessionId: String, userId: Long?) {
@@ -68,10 +68,8 @@ class WebSocketConnectionManager(
                 }
             }
 
-            // 실시간 정리를 위해 3초로 단축 (10초에서 3초로)
-            taskScheduler.schedule({
-                cleanupConnection(sessionId)
-            }, Instant.now().plusSeconds(3)) // 더 빠른 실시간 정리
+            // 즉시 정리 (3초 대기 제거)
+            cleanupConnection(sessionId)
         }
     }
 
