@@ -22,7 +22,8 @@ class GameResultService(
     private val messagingTemplate: SimpMessagingTemplate,
     private val taskScheduler: TaskScheduler,
     @Lazy private val topicGuessService: TopicGuessService,
-    private val gameMonitoringService: GameMonitoringService
+    private val gameMonitoringService: GameMonitoringService,
+    @Lazy private val chatService: org.example.kotlin_liargame.domain.chat.service.ChatService
 ) {
     
     fun processGameResult(gameNumber: Int, judgmentResult: FinalJudgmentResultResponse) {
@@ -233,26 +234,38 @@ class GameResultService(
     }
     
     private fun sendModeratorMessage(gameNumber: Int, message: String) {
-        messagingTemplate.convertAndSend(
-            "/topic/game/$gameNumber/moderator",
-            ModeratorMessage(
-                content = message,
-                timestamp = Instant.now()
+        try {
+            val game = gameRepository.findByGameNumber(gameNumber) ?: return
+            chatService.sendSystemMessage(game, message)
+        } catch (e: Exception) {
+            // ChatService 호출 실패 시 WebSocket으로만 전송
+            messagingTemplate.convertAndSend(
+                "/topic/game/$gameNumber/moderator",
+                mapOf(
+                    "content" to message,
+                    "timestamp" to Instant.now().toString(),
+                    "type" to "MODERATOR_MESSAGE"
+                )
             )
-        )
+        }
     }
 
     private fun recordGameHistory(game: org.example.kotlin_liargame.domain.game.model.GameEntity, players: List<org.example.kotlin_liargame.domain.game.model.PlayerEntity>, winningTeam: WinningTeam) {
-        val liar = players.firstOrNull { it.role.name == "LIAR" } ?: return
+        try {
+            val liar = players.firstOrNull { it.role == org.example.kotlin_liargame.domain.game.model.enum.PlayerRole.LIAR } ?: return
 
-        val history = GameHistorySummaryEntity(
-            gameNumber = game.gameNumber,
-            gameMode = game.gameMode,
-            participants = players.map { it.nickname }.toSet(),
-            liarNickname = liar.nickname,
-            winningTeam = winningTeam,
-            gameRounds = game.gameCurrentRound
-        )
-        gameHistorySummaryRepository.save(history)
+            val history = GameHistorySummaryEntity(
+                gameNumber = game.gameNumber,
+                gameMode = game.gameMode,
+                participants = players.map { it.nickname }.toSet(),
+                liarNickname = liar.nickname,
+                winningTeam = winningTeam,
+                gameRounds = game.gameCurrentRound
+            )
+            gameHistorySummaryRepository.save(history)
+        } catch (e: Exception) {
+            // 히스토리 저장 실패 시 로그만 남김
+            println("[GameResultService] Failed to record game history: ${e.message}")
+        }
     }
 }

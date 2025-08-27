@@ -19,7 +19,6 @@ import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
@@ -31,18 +30,13 @@ class ChatService(
     private val playerRepository: PlayerRepository,
     private val messagingTemplate: SimpMessagingTemplate,
     private val webSocketSessionManager: WebSocketSessionManager,
-    private val profanityService: ProfanityService
+    private val profanityService: ProfanityService,
+    private val gameProperties: org.example.kotlin_liargame.global.config.GameProperties,
+    private val gameStateService: org.example.kotlin_liargame.global.redis.GameStateService,
+    private val sessionService: org.example.kotlin_liargame.global.session.SessionService,
+    private val gameMessagingService: org.example.kotlin_liargame.global.messaging.GameMessagingService
 ) {
-    private val postRoundChatWindows = ConcurrentHashMap<Int, Instant>()
-
     private val scheduler: ScheduledExecutorService = Executors.newScheduledThreadPool(1)
-
-    private val POST_ROUND_CHAT_DURATION = 7L
-
-    fun getCurrentUserId(session: HttpSession): Long {
-        return session.getAttribute("userId") as? Long
-            ?: throw RuntimeException("Not authenticated")
-    }
 
     // WebSocket용 별도 메서드
     @Transactional
@@ -180,7 +174,7 @@ class ChatService(
 
     @Transactional
     fun sendMessage(req: SendChatMessageRequest, session: HttpSession): ChatMessageResponse {
-        val userId = getCurrentUserId(session)
+        val userId = sessionService.getCurrentUserId(session)
         return sendMessageWithUserId(req, userId)
     }
 
@@ -264,7 +258,7 @@ class ChatService(
     }
 
     fun isPostRoundChatAvailable(game: GameEntity): Boolean {
-        val endTime = postRoundChatWindows[game.gameNumber] ?: return false
+        val endTime = gameStateService.getPostRoundChatWindow(game.gameNumber) ?: return false
         return Instant.now().isBefore(endTime)
     }
     
@@ -273,27 +267,23 @@ class ChatService(
         gameRepository.findByGameNumber(gameNumber)
             ?: throw RuntimeException("Game not found")
 
-        val endTime = Instant.now().plusSeconds(POST_ROUND_CHAT_DURATION)
-        postRoundChatWindows[gameNumber] = endTime
+        val endTime = Instant.now().plusSeconds(gameProperties.postRoundChatDurationSeconds)
 
-        messagingTemplate.convertAndSend("/topic/chat.status.$gameNumber", mapOf(
-            "type" to "POST_ROUND_CHAT_STARTED",
-            "gameNumber" to gameNumber,
+        // Redis에 상태 저장
+        gameStateService.setPostRoundChatWindow(gameNumber, endTime)
+
+        gameMessagingService.sendChatStatusUpdate(gameNumber, "POST_ROUND_CHAT_STARTED", mapOf(
             "endTime" to endTime.toString()
         ))
 
         scheduler.schedule({
             stopPostRoundChat(gameNumber)
-        }, POST_ROUND_CHAT_DURATION, TimeUnit.SECONDS)
+        }, gameProperties.postRoundChatDurationSeconds, TimeUnit.SECONDS)
     }
 
     private fun stopPostRoundChat(gameNumber: Int) {
-        postRoundChatWindows.remove(gameNumber)
-
-        messagingTemplate.convertAndSend("/topic/chat.status.$gameNumber", mapOf(
-            "type" to "POST_ROUND_CHAT_ENDED",
-            "gameNumber" to gameNumber
-        ))
+        gameStateService.removePostRoundChatWindow(gameNumber)
+        gameMessagingService.sendChatStatusUpdate(gameNumber, "POST_ROUND_CHAT_ENDED")
     }
     
     /**

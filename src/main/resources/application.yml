@@ -45,9 +45,31 @@ spring:
 
 game:
   properties:
-    turn-timeout-seconds: 60
+    # 플레이어 설정
     min-players: 3
     max-players: 15
+
+    # 시간 제한 설정 (초 단위)
+    turn-timeout-seconds: 60
+    voting-time-seconds: 60
+    defense-time-seconds: 60
+    final-voting-time-seconds: 30
+    topic-guess-time-seconds: 30
+
+    # 채팅 설정
+    post-round-chat-duration-seconds: 7
+    max-message-length: 500
+
+    # 게임 관리 설정
+    max-game-duration-hours: 2
+    session-extension-minutes: 5
+    phase-transition-delay-seconds: 3
+
+    # AI 판정 설정
+    answer-similarity-threshold: 0.7
+
+    # 게임 정리 설정
+    game-cleanup-interval-seconds: 30
 
 management:
   endpoints:
@@ -69,5 +91,3 @@ logging:
         root: INFO
         org.example.kotlin_liargame: DEBUG
         org.springframework.security: DEBUG
-
-# JWT 관련 설정 모두 제거

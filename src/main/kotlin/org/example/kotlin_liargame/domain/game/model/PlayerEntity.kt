@@ -49,11 +49,16 @@ class PlayerEntity (
     @Column(nullable = true)
     var finalVote: Boolean? = null,
 
+    // 게임 시작 시 할당받은 단어 저장
     @Column(nullable = true)
-    var voteStartTime: Instant? = null,
+    var assignedWord: String? = null,
 
     @Column(nullable = false)
-    val joinedAt: Instant = Instant.now()
+    val joinedAt: Instant = Instant.now(),
+
+    // 투표 시작 시간 추가
+    @Column(nullable = true)
+    var voteStartTime: Instant? = null
 ){
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -78,7 +78,6 @@ class GameController(
             ResponseEntity.ok(response)
         } catch (e: Exception) {
             val status = errorHandler.getStatusForException(e)
-            val message = errorHandler.getMessageForException(e, "Give hint")
             ResponseEntity.status(status).body(null)
         }
     }

@@ -32,7 +32,8 @@ class VotingService(
     private val gameMonitoringService: GameMonitoringService,
     @Lazy private val gameResultService: GameResultService,
     private val gameProperties: GameProperties,
-    @Lazy private val gameProgressService: GameProgressService
+    @Lazy private val gameProgressService: GameProgressService,
+    private val sessionService: org.example.kotlin_liargame.global.session.SessionService
 ) {
 
     @Transactional
@@ -134,15 +135,14 @@ class VotingService(
 
     @Transactional
     fun vote(req: VoteRequest, session: HttpSession): GameStateResponse {
-        val userId = getCurrentUserId(session)
-            ?: throw RuntimeException("Not authenticated")
+        val userId = sessionService.getCurrentUserId(session)
         castVote(req.gameNumber, userId, req.targetPlayerId)
         return getGameState(gameRepository.findByGameNumber(req.gameNumber)!!, session)
     }
 
     @Transactional
     fun finalVote(req: FinalVotingRequest, session: HttpSession): GameStateResponse {
-        val userId = getCurrentUserId(session)
+        val userId = sessionService.getCurrentUserId(session)
             ?: throw RuntimeException("Not authenticated")
         val game = gameRepository.findByGameNumberWithLock(req.gameNumber)
             ?: throw RuntimeException("Game not found")
@@ -190,13 +190,9 @@ class VotingService(
         return gameStateResponse
     }
 
-    private fun getCurrentUserId(session: HttpSession?): Long? {
-        return session?.getAttribute("userId") as? Long
-    }
-
     private fun getGameState(game: org.example.kotlin_liargame.domain.game.model.GameEntity, session: HttpSession?): GameStateResponse {
         val players = playerRepository.findByGame(game)
-        val currentUserId = getCurrentUserId(session)
+        val currentUserId = sessionService.getOptionalUserId(session)
         return GameStateResponse.from(game, players, currentUserId, org.example.kotlin_liargame.domain.game.model.enum.GamePhase.VOTING_FOR_LIAR)
     }
 

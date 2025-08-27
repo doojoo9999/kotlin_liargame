@@ -16,3 +16,10 @@ export * from './ui/LiarGuessPhase';
 export * from './ui/PlayerList';
 export * from './ui/SpeechPhase';
 export * from './ui/VotePhase';
+// New UI components
+export * from './ui/RoleCard';
+export * from './ui/HintInput';
+export * from './ui/VotingPanel';
+export * from './ui/LiarGuessInput';
+export * from './ui/GamePhaseIndicator';
+export * from './ui/TurnIndicator';

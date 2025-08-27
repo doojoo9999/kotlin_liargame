@@ -26,7 +26,6 @@ import org.example.kotlin_liargame.tools.websocket.WebSocketSessionManager
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import java.time.Instant
 
 @Service
 class GameService(
@@ -40,12 +39,14 @@ class GameService(
     private val gameMonitoringService: GameMonitoringService,
     private val defenseService: DefenseService,
     private val topicGuessService: TopicGuessService,
-    private val webSocketSessionManager: WebSocketSessionManager
+    private val webSocketSessionManager: WebSocketSessionManager,
+    private val gameProperties: org.example.kotlin_liargame.global.config.GameProperties,
+    private val sessionService: org.example.kotlin_liargame.global.session.SessionService
 ) {
     private val logger = LoggerFactory.getLogger(this::class.java)
 
     private fun validateExistingOwner(session: HttpSession) {
-        val nickname = getCurrentUserNickname(session)
+        val nickname = sessionService.getCurrentUserNickname(session)
         val activeGameAsOwner = gameRepository.findByGameOwnerAndGameStateIn(
             nickname,
             listOf(GameState.WAITING, GameState.IN_PROGRESS)
@@ -56,7 +57,7 @@ class GameService(
             throw RuntimeException("이미 참여중인 게임이 있습니다.")
         }
 
-        val userId = getCurrentUserId(session)
+        val userId = sessionService.getCurrentUserId(session)
         val activeGameAsPlayer = playerRepository.findByUserIdAndGameInProgress(userId)
         if (activeGameAsPlayer != null) {
             logger.debug("User already in a game: gameId = ${activeGameAsPlayer.game.gameNumber}, state = ${activeGameAsPlayer.game.gameState}")
@@ -76,24 +77,9 @@ class GameService(
         throw RuntimeException("모든 방 번호(1-999)가 모두 사용중입니다. 나중에 다시 시도해주세요.")
     }
 
-    private fun getCurrentUserId(session: HttpSession): Long {
-        return session.getAttribute("userId") as? Long
-            ?: throw RuntimeException("Not authenticated")
-    }
-
-    private fun getCurrentUserNickname(session: HttpSession): String {
-        return session.getAttribute("nickname") as? String
-            ?: throw RuntimeException("Not authenticated")
-    }
-
-    // 세션이 없거나 userId가 없는 경우 null을 반환(관찰자 허용용)
-    private fun getOptionalUserId(session: HttpSession?): Long? {
-        return session?.getAttribute("userId") as? Long
-    }
-
     @Transactional
     fun createGameRoom(req: CreateGameRoomRequest, session: HttpSession): Int {
-        val nickname = getCurrentUserNickname(session)
+        val nickname = sessionService.getCurrentUserNickname(session)
         validateExistingOwner(session)
 
         val nextRoomNumber = findNextAvailableRoomNumber()
@@ -171,8 +157,8 @@ class GameService(
             throw RoomFullException(req.gameNumber)
         }
 
-        val userId = getCurrentUserId(session)
-        val nickname = getCurrentUserNickname(session)
+        val userId = sessionService.getCurrentUserId(session)
+        val nickname = sessionService.getCurrentUserNickname(session)
 
         val existingPlayer = playerRepository.findByGameAndUserId(game, userId)
         if (existingPlayer != null) {
@@ -215,8 +201,8 @@ class GameService(
         val game = gameRepository.findByGameNumberWithLock(req.gameNumber)
             ?: throw GameNotFoundException(req.gameNumber)
 
-        val userId = getCurrentUserId(session)
-        val nickname = getCurrentUserNickname(session)
+        val userId = sessionService.getCurrentUserId(session)
+        val nickname = sessionService.getCurrentUserNickname(session)
 
         val deletedCount = playerRepository.deleteByGameIdAndUserId(game.id, userId)
 
@@ -361,7 +347,7 @@ class GameService(
         val players = playerRepository.findByGame(game)
 
         // 인증이 없어도 상태 조회는 허용: 없으면 null
-        val currentUserId = getOptionalUserId(session)
+        val currentUserId = sessionService.getOptionalUserId(session)
 
         val currentPhase = determineGamePhase(game, players)
         val accusedPlayer = findAccusedPlayer(players)
@@ -635,17 +621,15 @@ class GameService(
         }
 
         // 게임 시작 시간 연장 (createdAt 대신 gameStartDeadline 사용)
-        val currentTime = Instant.now()
-        val extensionMinutes = 5L
 
         if (game.gameStartDeadline == null) {
             // 첫 번째 연장인 경우 - 생성 시간에서 20분 + 연장시간
             // LocalDateTime을 Instant로 변환
             val createdAtInstant = game.createdAt.atZone(java.time.ZoneId.systemDefault()).toInstant()
-            game.gameStartDeadline = createdAtInstant.plusSeconds((20 + extensionMinutes) * 60)
+            game.gameStartDeadline = createdAtInstant.plusSeconds((20 + gameProperties.sessionExtensionMinutes) * 60)
         } else {
             // 이미 연장된 경우 - 기존 데드라인에서 연장
-            game.gameStartDeadline = game.gameStartDeadline!!.plusSeconds(extensionMinutes * 60)
+            game.gameStartDeadline = game.gameStartDeadline!!.plusSeconds(gameProperties.sessionExtensionMinutes * 60)
         }
 
         // nullable 필드 안전하게 처리

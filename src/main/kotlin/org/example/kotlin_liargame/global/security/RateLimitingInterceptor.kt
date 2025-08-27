@@ -35,12 +35,29 @@ class RateLimitingInterceptor(
 
     private fun shouldSkipRateLimit(requestURI: String): Boolean {
         val skipPaths = listOf(
+            // Health check endpoints
             "/actuator/health",
             "/actuator/info",
             "/actuator/metrics",
             "/actuator/prometheus",
             "/api/v1/admin/health",
-            "/h2-console"
+            "/h2-console",
+
+            // WebSocket related endpoints
+            "/ws",
+            "/ws/info",
+            "/sockjs",
+
+            // Frequently called authentication endpoints that should not be rate limited
+            "/api/v1/auth/me",
+
+            // Game state queries - these are called frequently during gameplay
+            "/api/v1/game/",
+
+            // Static resources
+            "/favicon.ico",
+            "/static",
+            "/assets"
         )
         
         return skipPaths.any { requestURI.startsWith(it) }

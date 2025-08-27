@@ -1,11 +1,14 @@
 package org.example.kotlin_liargame.domain.game.service
 
-import org.example.kotlin_liargame.domain.game.dto.EnhancedLiarGuessStatus
 import org.example.kotlin_liargame.domain.game.dto.LiarSpecificMessage
 import org.example.kotlin_liargame.domain.game.dto.StatusMessage
-import org.example.kotlin_liargame.domain.game.dto.response.*
+import org.example.kotlin_liargame.domain.game.dto.response.LiarGuessResultResponse
+import org.example.kotlin_liargame.domain.game.dto.response.LiarGuessStartResponse
+import org.example.kotlin_liargame.domain.game.dto.response.PlayerResultInfo
 import org.example.kotlin_liargame.domain.game.repository.GameRepository
 import org.example.kotlin_liargame.domain.game.repository.PlayerRepository
+import org.example.kotlin_liargame.global.redis.EnhancedLiarGuessStatus
+import org.example.kotlin_liargame.global.redis.GameStateService
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.scheduling.TaskScheduler
 import org.springframework.stereotype.Service
@@ -22,10 +25,13 @@ class TopicGuessService(
     private val gameRepository: GameRepository,
     private val playerRepository: PlayerRepository,
     private val messagingTemplate: SimpMessagingTemplate,
-    private val taskScheduler: TaskScheduler
+    private val taskScheduler: TaskScheduler,
+    private val gameProperties: org.example.kotlin_liargame.global.config.GameProperties,
+    private val gameStateService: GameStateService,
+    private val gameMessagingService: org.example.kotlin_liargame.global.messaging.GameMessagingService
 ) {
     
-    private val liarGuessStatusMap = ConcurrentHashMap<Int, EnhancedLiarGuessStatus>()
+    // ScheduledFuture와 ReentrantLock은 직렬화가 어려우므로 로컬에서 관리
     private val timerTasks = ConcurrentHashMap<Int, ScheduledFuture<*>>()
     private val gameLocks = ConcurrentHashMap<Int, ReentrantLock>()
     
@@ -38,14 +44,16 @@ class TopicGuessService(
             
             val guessStatus = EnhancedLiarGuessStatus(
                 liarPlayerId = liarPlayerId,
-                guessTimeLimit = 30,
+                guessTimeLimit = gameProperties.topicGuessTimeSeconds.toInt(),
                 startTime = Instant.now(),
-                remainingTime = 30
+                remainingTime = gameProperties.topicGuessTimeSeconds.toInt()
             )
-            liarGuessStatusMap[gameNumber] = guessStatus
-            
+
+            // Redis에 상태 저장
+            gameStateService.setLiarGuessStatus(gameNumber, guessStatus)
+
             // Send different messages to liar and other players
-            sendLiarSpecificMessage(gameNumber, liarPlayerId, "주제를 맞춰보세요! (30초)")
+            sendLiarSpecificMessage(gameNumber, liarPlayerId, "주제를 맞춰보세요! (${gameProperties.topicGuessTimeSeconds}초)")
             sendOtherPlayersMessage(gameNumber, liarPlayerId, "라이어가 주제를 생각중입니다...")
             
             val citizenSubject = game.citizenSubject?.content ?: "Unknown"
@@ -70,7 +78,7 @@ class TopicGuessService(
     
     fun submitLiarGuess(gameNumber: Int, liarPlayerId: Long, guess: String): LiarGuessResultResponse {
         try {
-            val guessStatus = liarGuessStatusMap[gameNumber]
+            val guessStatus = gameStateService.getLiarGuessStatus(gameNumber)
                 ?: throw IllegalStateException("No liar guess phase active for game $gameNumber")
             
             if (guessStatus.liarPlayerId != liarPlayerId) {
@@ -97,6 +105,9 @@ class TopicGuessService(
             guessStatus.guessText = guess
             guessStatus.isCorrect = isCorrect
             
+            // Redis에 상태 업데이트
+            gameStateService.setLiarGuessStatus(gameNumber, guessStatus)
+
             val winner = if (isCorrect) "LIARS" else "CITIZENS"
             
             val response = LiarGuessResultResponse(
@@ -120,13 +131,16 @@ class TopicGuessService(
     
     fun handleGuessTimeout(gameNumber: Int): Boolean {
         try {
-            val guessStatus = liarGuessStatusMap[gameNumber] ?: return false
-            
+            val guessStatus = gameStateService.getLiarGuessStatus(gameNumber) ?: return false
+
             if (!guessStatus.guessSubmitted) {
                 guessStatus.guessSubmitted = true
                 guessStatus.isCorrect = false
                 guessStatus.timedOut = true
                 
+                // Redis에 상태 업데이트
+                gameStateService.setLiarGuessStatus(gameNumber, guessStatus)
+
                 val response = LiarGuessResultResponse(
                     gameNumber = gameNumber,
                     liarGuess = "",
@@ -151,17 +165,17 @@ class TopicGuessService(
     }
     
     fun getRemainingTime(gameNumber: Int): Int {
-        val guessStatus = liarGuessStatusMap[gameNumber] ?: return 0
+        val guessStatus = gameStateService.getLiarGuessStatus(gameNumber) ?: return 0
         val elapsed = java.time.Duration.between(guessStatus.startTime, Instant.now()).seconds
         return maxOf(0, guessStatus.guessTimeLimit - elapsed.toInt())
     }
 
     fun isGuessingPhaseActive(gameNumber: Int): Boolean {
-        return liarGuessStatusMap.containsKey(gameNumber) && liarGuessStatusMap[gameNumber]?.guessSubmitted == false
+        return gameStateService.getLiarGuessStatus(gameNumber)?.let { !it.guessSubmitted } ?: false
     }
     
     fun cleanupGuessStatus(gameNumber: Int) {
-        liarGuessStatusMap.remove(gameNumber)
+        gameStateService.removeLiarGuessStatus(gameNumber)
         timerTasks[gameNumber]?.cancel(false)
         timerTasks.remove(gameNumber)
     }
@@ -182,7 +196,7 @@ class TopicGuessService(
         val maxLength = maxOf(normalizedGuess.length, normalizedAnswer.length)
         val similarity = 1.0 - (editDistance.toDouble() / maxLength)
         
-        return similarity >= 0.7
+        return similarity >= gameProperties.answerSimilarityThreshold
     }
     
     private fun normalizeText(text: String): String {
@@ -221,21 +235,17 @@ class TopicGuessService(
     private fun startEnhancedLiarGuessTimer(gameNumber: Int) {
         val timerTask = taskScheduler.scheduleAtFixedRate({
             try {
-                val guessStatus = liarGuessStatusMap[gameNumber]
+                val guessStatus = gameStateService.getLiarGuessStatus(gameNumber)
                 if (guessStatus != null && !guessStatus.guessSubmitted) {
                     val remainingTime = getRemainingTime(gameNumber)
                     guessStatus.remainingTime = remainingTime
                     
-                    // Send countdown update
-                    messagingTemplate.convertAndSend(
-                        "/topic/game/$gameNumber/countdown",
-                        CountdownUpdateResponse(
-                            gameNumber = gameNumber,
-                            remainingTime = remainingTime,
-                            phase = "LIAR_GUESS"
-                        )
-                    )
-                    
+                    // Redis에 상태 업데이트
+                    gameStateService.setLiarGuessStatus(gameNumber, guessStatus)
+
+                    // 중앙화된 메시지 서비스 사용
+                    gameMessagingService.sendCountdownUpdate(gameNumber, remainingTime, "LIAR_GUESS")
+
                     if (remainingTime <= 0) {
                         handleGuessTimeout(gameNumber)
                         timerTasks[gameNumber]?.cancel(false)
@@ -279,13 +289,7 @@ class TopicGuessService(
     }
     
     private fun sendModeratorMessage(gameNumber: Int, message: String) {
-        messagingTemplate.convertAndSend(
-            "/topic/game/$gameNumber/moderator",
-            ModeratorMessage(
-                content = message,
-                timestamp = Instant.now()
-            )
-        )
+        gameMessagingService.sendModeratorMessage(gameNumber, message)
     }
     
     private fun getCorrectAnswer(gameNumber: Int): String {
@@ -293,9 +297,3 @@ class TopicGuessService(
         return game?.citizenSubject?.content ?: ""
     }
 }
-
-
-
-
-
-

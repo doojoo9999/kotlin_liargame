@@ -37,5 +37,12 @@ export const useAuth = () => {
     queryFn: fetchCurrentUser,
     retry: false,
     staleTime: 1000 * 60 * 5, // 5분
+    // Reduce unnecessary refetches to avoid rate limiting
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: true, // Only refetch on reconnect for auth check
+    // Keep auth data in cache longer
+    gcTime: 1000 * 60 * 10, // 10분
+    // Don't retry if rate limited
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
 };

@@ -8,6 +8,8 @@ import org.example.kotlin_liargame.domain.game.model.enum.PlayerState
 import org.example.kotlin_liargame.domain.game.repository.GameRepository
 import org.example.kotlin_liargame.domain.game.repository.PlayerRepository
 import org.example.kotlin_liargame.global.config.GameProperties
+import org.example.kotlin_liargame.global.redis.DefenseStatus
+import org.example.kotlin_liargame.global.redis.GameStateService
 import org.springframework.context.annotation.Lazy
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.scheduling.TaskScheduler
@@ -26,31 +28,16 @@ class DefenseService(
     private val messagingTemplate: SimpMessagingTemplate,
     private val taskScheduler: TaskScheduler,
     @Lazy private val gameResultService: GameResultService,
-    private val gameProperties: GameProperties
+    private val gameProperties: GameProperties,
+    private val gameStateService: GameStateService,
+    private val gameMessagingService: org.example.kotlin_liargame.global.messaging.GameMessagingService
 ) {
 
-    private val gameDefenseStatusMap = ConcurrentHashMap<Int, DefenseStatus>()
-
-    private val gameFinalVotingStatusMap = ConcurrentHashMap<Int, MutableMap<Long, Boolean?>>()
-
-    private val defenseTimerMap = ConcurrentHashMap<Int, Boolean>()
-    private val finalVotingTimerMap = ConcurrentHashMap<Int, Boolean>()
+    // ScheduledFuture는 직렬화가 어려우므로 로컬에서 관리
     private val scheduledTasksMap = ConcurrentHashMap<Int, MutableList<ScheduledFuture<*>>>()
     
-    data class DefenseStatus(
-        val accusedPlayerId: Long,
-        val defenseText: String? = null,
-        val isDefenseSubmitted: Boolean = false
-    )
-    
     fun sendModeratorMessage(gameNumber: Int, message: String) {
-        messagingTemplate.convertAndSend(
-            "/topic/game/$gameNumber/moderator",
-            ModeratorMessage(
-                content = message,
-                timestamp = Instant.now()
-            )
-        )
+        gameMessagingService.sendModeratorMessage(gameNumber, message)
     }
     
     fun startDefensePhase(game: GameEntity, accusedPlayer: PlayerEntity): DefenseStartResponse {
@@ -62,9 +49,10 @@ class DefenseService(
         accusedPlayer.state = PlayerState.ACCUSED
         playerRepository.save(accusedPlayer)
 
-        gameDefenseStatusMap[game.gameNumber] = DefenseStatus(accusedPlayerId = accusedPlayer.id)
-        defenseTimerMap[game.gameNumber] = true
-        
+        // Redis에 상태 저장
+        gameStateService.setDefenseStatus(game.gameNumber, DefenseStatus(accusedPlayerId = accusedPlayer.id))
+        gameStateService.setDefenseTimer(game.gameNumber, true)
+
         val defenseStartMessage = DefenseStartMessage(
             gameNumber = game.gameNumber,
             accusedPlayerId = accusedPlayer.id,
@@ -95,7 +83,7 @@ class DefenseService(
     }
     
     fun submitDefense(gameNumber: Int, playerId: Long, defenseText: String): DefenseSubmissionResponse {
-        val defenseStatus = gameDefenseStatusMap[gameNumber]
+        val defenseStatus = gameStateService.getDefenseStatus(gameNumber)
             ?: throw IllegalStateException("No defense phase active")
             
         if (defenseStatus.accusedPlayerId != playerId) {
@@ -106,18 +94,19 @@ class DefenseService(
             throw IllegalStateException("Defense already submitted")
         }
         
-        if (!defenseTimerMap[gameNumber]!!) {
+        if (!gameStateService.getDefenseTimer(gameNumber)) {
             throw IllegalStateException("Defense time has expired")
         }
         
         val player = playerRepository.findById(playerId)
             .orElseThrow { IllegalArgumentException("Player not found") }
         
-        gameDefenseStatusMap[gameNumber] = defenseStatus.copy(
+        // Redis에 업데이트된 상태 저장
+        gameStateService.setDefenseStatus(gameNumber, defenseStatus.copy(
             defenseText = defenseText,
             isDefenseSubmitted = true
-        )
-        
+        ))
+
         val submissionMessage = DefenseSubmissionMessage(
             gameNumber = gameNumber,
             playerId = playerId,
@@ -149,9 +138,9 @@ class DefenseService(
     
     private fun startDefenseTimer(gameNumber: Int, defenseTimeSeconds: Long) {
         val task = taskScheduler.schedule({
-            if (defenseTimerMap[gameNumber] == true) {
+            if (gameStateService.getDefenseTimer(gameNumber)) {
                 // 시간 종료 - 빈 변론으로 처리
-                defenseTimerMap[gameNumber] = false
+                gameStateService.setDefenseTimer(gameNumber, false)
                 handleDefenseTimeout(gameNumber)
             }
         }, Instant.now().plusSeconds(defenseTimeSeconds))
@@ -160,17 +149,17 @@ class DefenseService(
     }
     
     private fun handleDefenseTimeout(gameNumber: Int) {
-        val defenseStatus = gameDefenseStatusMap[gameNumber] ?: return
-        
+        val defenseStatus = gameStateService.getDefenseStatus(gameNumber) ?: return
+
         if (!defenseStatus.isDefenseSubmitted) {
             val accusedPlayer = playerRepository.findById(defenseStatus.accusedPlayerId)
                 .orElseThrow { IllegalArgumentException("Player not found") }
             
-            gameDefenseStatusMap[gameNumber] = defenseStatus.copy(
+            gameStateService.setDefenseStatus(gameNumber, defenseStatus.copy(
                 defenseText = "",
                 isDefenseSubmitted = true
-            )
-            
+            ))
+
             sendModeratorMessage(
                 gameNumber,
                 "${accusedPlayer.nickname}님의 변론 시간이 종료되었습니다."
@@ -193,8 +182,8 @@ class DefenseService(
     private fun scheduleFinalVoting(gameNumber: Int) {
         val task = taskScheduler.schedule({
             startFinalVoting(gameNumber)
-        }, Instant.now().plusSeconds(3))
-        
+        }, Instant.now().plusSeconds(gameProperties.phaseTransitionDelaySeconds))
+
         addScheduledTask(gameNumber, task)
     }
     
@@ -206,7 +195,7 @@ class DefenseService(
         game.phaseEndTime = Instant.now().plusSeconds(gameProperties.finalVotingTimeSeconds)
         gameRepository.save(game)
 
-        val defenseStatus = gameDefenseStatusMap[gameNumber]
+        val defenseStatus = gameStateService.getDefenseStatus(gameNumber)
             ?: throw IllegalStateException("No defense status found")
         
         val accusedPlayer = playerRepository.findById(defenseStatus.accusedPlayerId)
@@ -223,9 +212,9 @@ class DefenseService(
             votingStatus[player.id] = null
         }
         
-        gameFinalVotingStatusMap[gameNumber] = votingStatus
-        finalVotingTimerMap[gameNumber] = true
-        
+        gameStateService.setFinalVotingStatus(gameNumber, votingStatus)
+        gameStateService.setFinalVotingTimer(gameNumber, true)
+
         val finalVotingMessage = FinalVotingStartMessage(
             gameNumber = gameNumber,
             accusedPlayerId = defenseStatus.accusedPlayerId,
@@ -258,7 +247,7 @@ class DefenseService(
     }
     
     fun castFinalVote(gameNumber: Int, voterPlayerId: Long, voteForExecution: Boolean): FinalVoteResponse {
-        val votingStatus = gameFinalVotingStatusMap[gameNumber]
+        val votingStatus = gameStateService.getFinalVotingStatus(gameNumber)
             ?: throw IllegalStateException("No final voting active")
             
         if (!votingStatus.containsKey(voterPlayerId)) {
@@ -269,19 +258,20 @@ class DefenseService(
             throw IllegalStateException("Player has already voted")
         }
         
-        if (!finalVotingTimerMap[gameNumber]!!) {
+        if (!gameStateService.getFinalVotingTimer(gameNumber)) {
             throw IllegalStateException("Final voting time has expired")
         }
         
         val voterPlayer = playerRepository.findById(voterPlayerId)
-            .orElseThrow { IllegalArgumentException("Voter not found") }
-        
+            .orElseThrow { IllegalArgumentException("Voter player not found") }
+
         votingStatus[voterPlayerId] = voteForExecution
-        
+        gameStateService.setFinalVotingStatus(gameNumber, votingStatus)
+
         broadcastFinalVotingProgress(gameNumber)
         
         if (checkAllPlayersFinalVoted(gameNumber)) {
-            finalVotingTimerMap[gameNumber] = false
+            gameStateService.setFinalVotingTimer(gameNumber, false)
             processFinalVotingResults(gameNumber)
         }
         
@@ -296,8 +286,8 @@ class DefenseService(
     
     private fun startFinalVotingTimer(gameNumber: Int, finalVotingTimeSeconds: Long) {
         val task = taskScheduler.schedule({
-            if (finalVotingTimerMap[gameNumber] == true) {
-                finalVotingTimerMap[gameNumber] = false
+            if (gameStateService.getFinalVotingTimer(gameNumber)) {
+                gameStateService.setFinalVotingTimer(gameNumber, false)
                 handleFinalVotingTimeout(gameNumber)
             }
         }, Instant.now().plusSeconds(finalVotingTimeSeconds))
@@ -306,8 +296,8 @@ class DefenseService(
     }
     
     private fun handleFinalVotingTimeout(gameNumber: Int) {
-        val votingStatus = gameFinalVotingStatusMap[gameNumber] ?: return
-        
+        val votingStatus = gameStateService.getFinalVotingStatus(gameNumber) ?: return
+
         votingStatus.entries.filter { it.value == null }.forEach { entry ->
             val randomVote = Random.nextBoolean()
             votingStatus[entry.key] = randomVote
@@ -322,35 +312,27 @@ class DefenseService(
     }
     
     private fun checkAllPlayersFinalVoted(gameNumber: Int): Boolean {
-        val votingStatus = gameFinalVotingStatusMap[gameNumber] ?: return false
+        val votingStatus = gameStateService.getFinalVotingStatus(gameNumber) ?: return false
         return votingStatus.values.all { it != null }
     }
     
     private fun broadcastFinalVotingProgress(gameNumber: Int) {
-        val votingStatus = gameFinalVotingStatusMap[gameNumber] ?: return
+        val votingStatus = gameStateService.getFinalVotingStatus(gameNumber) ?: return
         val totalPlayers = votingStatus.size
         val votedPlayers = votingStatus.values.count { it != null }
         
-        messagingTemplate.convertAndSend(
-            "/topic/game/$gameNumber/final-voting-progress",
-            FinalVotingProgressMessage(
-                gameNumber = gameNumber,
-                votedCount = votedPlayers,
-                totalCount = totalPlayers,
-                timestamp = Instant.now()
-            )
-        )
+        gameMessagingService.sendProgressUpdate(gameNumber, votedPlayers, totalPlayers, "FINAL_VOTING")
     }
     
     fun processFinalVotingResults(gameNumber: Int): FinalVotingResultResponse {
-        val votingStatus = gameFinalVotingStatusMap[gameNumber]
+        val votingStatus = gameStateService.getFinalVotingStatus(gameNumber)
             ?: throw IllegalStateException("No final voting data found")
             
-        val defenseStatus = gameDefenseStatusMap[gameNumber]
+        val defenseStatus = gameStateService.getDefenseStatus(gameNumber)
             ?: throw IllegalStateException("No defense status found")
         
-        finalVotingTimerMap[gameNumber] = false
-        
+        gameStateService.setFinalVotingTimer(gameNumber, false)
+
         val executionVotes = votingStatus.values.count { it == true }
         val survivalVotes = votingStatus.values.count { it == false }
         val totalVotes = votingStatus.size
@@ -412,11 +394,10 @@ class DefenseService(
     }
 
     fun cleanupGameState(gameNumber: Int) {
-        gameDefenseStatusMap.remove(gameNumber)
-        gameFinalVotingStatusMap.remove(gameNumber)
-        defenseTimerMap.remove(gameNumber)
-        finalVotingTimerMap.remove(gameNumber)
-        
+        // Redis 상태 정리는 GameStateService에 위임
+        gameStateService.cleanupGameState(gameNumber)
+
+        // 로컬 ScheduledFuture 정리
         scheduledTasksMap[gameNumber]?.forEach { task ->
             if (!task.isDone) {
                 task.cancel(false)
@@ -426,9 +407,9 @@ class DefenseService(
     }
     
     fun recoverGameState(gameNumber: Int): DefenseRecoveryResponse {
-        val defenseStatus = gameDefenseStatusMap[gameNumber]
-        val finalVotingStatus = gameFinalVotingStatusMap[gameNumber]
-        
+        val defenseStatus = gameStateService.getDefenseStatus(gameNumber)
+        val finalVotingStatus = gameStateService.getFinalVotingStatus(gameNumber)
+
         return DefenseRecoveryResponse(
             gameNumber = gameNumber,
             hasActiveDefense = defenseStatus != null && !defenseStatus.isDefenseSubmitted,
