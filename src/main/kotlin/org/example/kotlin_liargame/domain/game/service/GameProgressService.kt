@@ -26,12 +26,14 @@ class GameProgressService(
     private val subjectRepository: SubjectRepository,
     private val gameMonitoringService: GameMonitoringService,
     private val gameProperties: GameProperties,
-    @Lazy private val votingService: VotingService
+    @Lazy private val votingService: VotingService,
+    @Lazy private val chatService: org.example.kotlin_liargame.domain.chat.service.ChatService,
+    private val sessionService: org.example.kotlin_liargame.global.session.SessionService
 ) {
 
     @Transactional
     fun startGame(session: HttpSession): GameStateResponse {
-        val nickname = getCurrentUserNickname(session)
+        val nickname = sessionService.getCurrentUserNickname(session)
         val game = gameRepository.findByGameOwner(nickname)
             ?: throw RuntimeException("게임을 찾을 수 없습니다. 먼저 게임방을 생성해주세요.")
 
@@ -54,9 +56,29 @@ class GameProgressService(
         game.startGame()
         val savedGame = gameRepository.save(game)
 
+        // 게임 시작 사회자 메시지들 전송
+        try {
+            chatService.sendSystemMessage(savedGame, "🎮 게임이 시작되었습니다!")
+            chatService.sendSystemMessage(savedGame, "📝 각자 받은 주제에 대한 힌트를 차례대로 말해주세요.")
+
+            // 게임 모드에 따른 안내 메시지
+            when (savedGame.gameMode) {
+                GameMode.LIARS_KNOW -> {
+                    chatService.sendSystemMessage(savedGame, "🤫 라이어는 자신이 라이어임을 알고 있습니다. 다른 사람들의 힌트를 잘 들어보세요!")
+                }
+                GameMode.LIARS_DIFFERENT_WORD -> {
+                    chatService.sendSystemMessage(savedGame, "🎭 라이어는 다른 주제의 단어를 받았습니다.")
+                }
+            }
+
+            chatService.sendSystemMessage(savedGame, "⏰ 각 플레이어는 ${gameProperties.turnTimeoutSeconds}초 안에 힌트를 말해야 합니다.")
+        } catch (e: Exception) {
+            println("[GameProgressService] Could not send system message: ${e.message}")
+        }
+
         startNewTurn(savedGame)
 
-        val gameStateResponse = getGameState(savedGame, session)
+        val gameStateResponse = getGameStateResponse(savedGame, session)
         gameMonitoringService.broadcastGameState(savedGame, gameStateResponse)
 
         return gameStateResponse
@@ -79,6 +101,13 @@ class GameProgressService(
         game.turnStartedAt = Instant.now()
         game.phaseEndTime = Instant.now().plusSeconds(gameProperties.turnTimeoutSeconds)
         gameRepository.save(game)
+
+        // 턴 시작 사회자 메시지 전송
+        try {
+            chatService.sendSystemMessage(game, "🎯 ${nextPlayer.nickname}님의 차례입니다! 힌트를 말해주세요. (${gameProperties.turnTimeoutSeconds}초)")
+        } catch (e: Exception) {
+            println("[GameProgressService] Could not send turn start message: ${e.message}")
+        }
 
         gameMonitoringService.notifyTurnChanged(game.gameNumber, nextPlayer.id, game.turnStartedAt!!)
     }
@@ -136,6 +165,18 @@ class GameProgressService(
         val liarCount = game.gameLiarCount.coerceAtMost(players.size - 1)
         val liarIndices = players.indices.shuffled().take(liarCount).toSet()
 
+        // 시민용 단어 선택 (한 게임에서 모든 시민은 같은 단어를 받음)
+        val citizenWords = citizenSubject.word.filter {
+            it.status == org.example.kotlin_liargame.domain.subject.model.enum.ContentStatus.APPROVED
+        }
+        val selectedCitizenWord = citizenWords.randomOrNull()?.content ?: citizenSubject.content
+
+        // 라이어용 단어 선택 (다른 주제 모드일 때)
+        val liarWords = liarSubject.word.filter {
+            it.status == org.example.kotlin_liargame.domain.subject.model.enum.ContentStatus.APPROVED
+        }
+        val selectedLiarWord = liarWords.randomOrNull()?.content ?: liarSubject.content
+
         players.forEachIndexed { index, player ->
             player.role = if (liarIndices.contains(index)) PlayerRole.LIAR else PlayerRole.CITIZEN
             player.subject = when {
@@ -143,6 +184,14 @@ class GameProgressService(
                 game.gameMode == GameMode.LIARS_DIFFERENT_WORD -> liarSubject
                 else -> citizenSubject
             }
+
+            // 플레이어별 할당된 단어 저장 (hint 필드 재활용)
+            player.assignedWord = when {
+                player.role == PlayerRole.CITIZEN -> selectedCitizenWord
+                game.gameMode == GameMode.LIARS_DIFFERENT_WORD -> selectedLiarWord
+                else -> null // 라이어인 것을 아는 모드에서는 단어를 받지 않음
+            }
+
             player.state = PlayerState.WAITING_FOR_HINT
         }
         playerRepository.saveAll(players)
@@ -153,9 +202,8 @@ class GameProgressService(
         val game = gameRepository.findByGameNumber(req.gameNumber)
             ?: throw RuntimeException("Game not found")
 
-        val userId = getCurrentUserId(session)
-            ?: throw RuntimeException("Not authenticated")
-        
+        val userId = sessionService.getCurrentUserId(session)
+
         markPlayerAsSpoken(req.gameNumber, userId)
         gameMonitoringService.notifyHintSubmitted(req.gameNumber, userId, req.hint)
         
@@ -165,7 +213,7 @@ class GameProgressService(
 
         startNewTurn(game)
 
-        return getGameState(game, session)
+        return getGameStateResponse(game, session)
     }
 
     @Transactional
@@ -213,18 +261,9 @@ class GameProgressService(
         return playerRepository.save(player)
     }
 
-    private fun getCurrentUserId(session: HttpSession?): Long? {
-        return session?.getAttribute("userId") as? Long
-    }
-
-    private fun getCurrentUserNickname(session: HttpSession): String {
-        return session.getAttribute("nickname") as? String
-            ?: throw RuntimeException("Not authenticated")
-    }
-    
-    private fun getGameState(game: GameEntity, session: HttpSession?): GameStateResponse {
+    private fun getGameStateResponse(game: GameEntity, session: HttpSession?): GameStateResponse {
         val players = playerRepository.findByGame(game)
-        val currentUserId = session?.let { getCurrentUserId(it) }
+        val currentUserId = sessionService.getOptionalUserId(session)
         val turnOrder = game.turnOrder?.split(',')
 
         return GameStateResponse.from(

@@ -116,7 +116,7 @@ class WebSocketSessionManager(
                 disconnectMessage
             )
             
-            checkGameContinuity(gameNumber, userId, nickname)
+            checkGameContinuity(gameNumber, nickname)
             
             println("[INFO] Notified game $gameNumber about player $userId ($nickname) disconnection")
             
@@ -124,7 +124,7 @@ class WebSocketSessionManager(
             println("[ERROR] Failed to handle player disconnection: ${e.message}")
         }
     }
-    private fun checkGameContinuity(gameNumber: Int, disconnectedUserId: Long, nickname: String?) {
+    private fun checkGameContinuity(gameNumber: Int, nickname: String?) {
         try {
             val remainingPlayers = playerGameMap.values.count { it == gameNumber }
             
