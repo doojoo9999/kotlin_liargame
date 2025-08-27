@@ -60,8 +60,57 @@ class SocketManager {
     }
 
     public async publish(destination: string, body: string) {
-        await this.connect();
-        this.client.publish({ destination, body });
+        try {
+            console.log('[SocketManager] Attempting to publish message:', { destination, body });
+            console.log('[SocketManager] Current client state:', {
+                active: this.client.active,
+                connected: this.client.connected,
+                state: this.client.state
+            });
+
+            await this.connect();
+
+            if (!this.client.connected) {
+                console.error('[SocketManager] Client not connected, cannot publish message');
+                throw new Error('WebSocket client is not connected');
+            }
+
+            console.log('[SocketManager] Publishing message to:', destination);
+            this.client.publish({ destination, body });
+            console.log('[SocketManager] Message published successfully');
+        } catch (error) {
+            console.error('[SocketManager] Failed to publish message:', error);
+            throw error;
+        }
+    }
+
+    public disconnect() {
+        try {
+            console.log('[SocketManager] 연결 해제 시작');
+
+            // 모든 구독 해제
+            this.subscriptions.forEach((subInfo, destination) => {
+                if (subInfo.subscription) {
+                    console.log('[SocketManager] 구독 해제:', destination);
+                    subInfo.subscription.unsubscribe();
+                }
+            });
+            this.subscriptions.clear();
+
+            // STOMP 클라이언트 비활성화
+            if (this.client.active) {
+                console.log('[SocketManager] STOMP 클라이언트 비활성화');
+                this.client.deactivate();
+            }
+
+            // 연결 상태 초기화
+            useSocketStore.getState().setConnectionState('idle');
+            this.connectionPromise = null;
+
+            console.log('[SocketManager] 연결 해제 완료');
+        } catch (error) {
+            console.error('[SocketManager] 연결 해제 중 오류:', error);
+        }
     }
 
     private connect(): Promise<void> {
