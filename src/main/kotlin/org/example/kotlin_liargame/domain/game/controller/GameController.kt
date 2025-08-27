@@ -266,4 +266,63 @@ class GameController(
             println("[ERROR] WebSocket topic guess failed: ${e.message}")
         }
     }
+
+    @PostMapping("/{gameNumber}/kick-owner")
+    @Operation(summary = "방장 강퇴 및 권한 이양", description = "시간 초과로 인한 방장 강퇴 후 다음 플레이어에게 권한 이양")
+    @ApiResponses(value = [
+        ApiResponse(responseCode = "200", description = "방장 강퇴 및 권한 이양 성공"),
+        ApiResponse(responseCode = "400", description = "잘못된 요청"),
+        ApiResponse(responseCode = "404", description = "게임방을 찾을 수 없음")
+    ])
+    fun kickOwnerAndTransferOwnership(
+        @PathVariable gameNumber: Int,
+        session: HttpSession
+    ): ResponseEntity<Map<String, Any>> {
+        return try {
+            val result = gameService.kickOwnerAndTransferOwnership(gameNumber)
+            ResponseEntity.ok(mapOf(
+                "success" to true as Any,
+                "message" to "방장이 강퇴되고 권한이 이양되었습니다." as Any,
+                "newOwner" to result.newOwner as Any,
+                "kickedPlayer" to result.kickedPlayer as Any
+            ))
+        } catch (e: IllegalArgumentException) {
+            ResponseEntity.badRequest().body(mapOf(
+                "success" to false as Any,
+                "message" to (e.message ?: "잘못된 요청입니다.") as Any
+            ))
+        } catch (e: Exception) {
+            ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(mapOf(
+                "success" to false as Any,
+                "message" to "방장 강퇴 처리 중 오류가 발생했습니다." as Any
+            ))
+        }
+    }
+
+    @PostMapping("/{gameNumber}/extend-time")
+    @Operation(summary = "게임 시작 시간 연장", description = "방장이 게임 시작 시간을 5분 연장")
+    fun extendGameStartTime(
+        @PathVariable gameNumber: Int,
+        session: HttpSession
+    ): ResponseEntity<Map<String, Any>> {
+        return try {
+            val userId = sessionUtil.getUserId(session)
+            val result = gameService.extendGameStartTime(gameNumber, userId)
+            ResponseEntity.ok(mapOf(
+                "success" to true as Any,
+                "message" to "게임 시작 시간이 5분 연장되었습니다." as Any,
+                "extendedUntil" to result.extendedUntil as Any
+            ))
+        } catch (e: IllegalArgumentException) {
+            ResponseEntity.badRequest().body(mapOf(
+                "success" to false as Any,
+                "message" to (e.message ?: "잘못된 요청입니다.") as Any
+            ))
+        } catch (e: Exception) {
+            ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(mapOf(
+                "success" to false as Any,
+                "message" to "시간 연장 처리 중 오류가 발생했습니다." as Any
+            ))
+        }
+    }
 }
