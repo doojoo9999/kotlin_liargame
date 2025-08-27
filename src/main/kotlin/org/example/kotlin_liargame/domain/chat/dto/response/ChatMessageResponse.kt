@@ -6,21 +6,21 @@ import java.time.Instant
 
 data class ChatMessageResponse(
     val id: Long,
-    val playerId: Long,
-    val playerNickname: String,
+    val gameNumber: Int,
+    val playerNickname: String?, // 시스템 메시지의 경우 null
     val content: String,
     val timestamp: Instant,
     val type: ChatMessageType
 ) {
     companion object {
-        fun from(chatMessage: ChatMessageEntity): ChatMessageResponse {
+        fun from(entity: ChatMessageEntity): ChatMessageResponse {
             return ChatMessageResponse(
-                id = chatMessage.id,
-                playerId = chatMessage.player.id,
-                playerNickname = chatMessage.player.nickname,
-                content = chatMessage.content,
-                timestamp = chatMessage.timestamp,
-                type = chatMessage.type
+                id = entity.id,
+                gameNumber = entity.game.gameNumber,
+                playerNickname = entity.player?.nickname, // 시스템 메시지의 경우 null
+                content = entity.content,
+                timestamp = entity.timestamp,
+                type = entity.type
             )
         }
     }
