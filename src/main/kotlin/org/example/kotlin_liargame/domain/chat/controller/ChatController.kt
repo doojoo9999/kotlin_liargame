@@ -42,68 +42,27 @@ class ChatController(
         try {
             println("[DEBUG] ========== WebSocket Chat Message Debug Start ==========")
             println("[DEBUG] WebSocket chat message received: gameNumber=${request.gameNumber}, content='${request.content}'")
+            println("[DEBUG] Request object: $request")
+            println("[DEBUG] HeaderAccessor: $headerAccessor")
 
-            // 세션 액세서의 모든 정보 로깅
-            println("[DEBUG] MessageHeaders: ${headerAccessor.messageHeaders.keys}")
-            println("[DEBUG] SessionId: ${headerAccessor.sessionId}")
-            println("[DEBUG] SessionAttributes: ${headerAccessor.sessionAttributes?.keys}")
+            // 임시: 인증 없이 메시지 처리
+            println("[DEBUG] Attempting TEMPORARY message processing without authentication...")
 
-            // 다양한 방법으로 사용자 인증 정보 추출 시도
-            var sessionAttributes = headerAccessor.sessionAttributes
+            // 임시 응답 메시지 생성
+            val tempResponse = mapOf(
+                "id" to System.currentTimeMillis(),
+                "playerNickname" to "TestUser",
+                "content" to request.content,
+                "type" to "USER",
+                "timestamp" to java.time.Instant.now().toString()
+            )
 
-            // 1. WebSocket 세션 속성에서 직접 userId 추출 시도
-            var userId = sessionAttributes?.get("userId") as? Long
-            if (userId != null) {
-                println("[DEBUG] Found userId in WebSocket session attributes: $userId")
-            }
-
-            // 2. HttpSession에서 userId 추출 시도
-            if (userId == null) {
-                val httpSession = sessionAttributes?.get("HTTP.SESSION") as? HttpSession
-                if (httpSession != null) {
-                    userId = httpSession.getAttribute("userId") as? Long
-                    if (userId != null) {
-                        println("[DEBUG] Found userId in HTTP session: $userId")
-                        // WebSocket 세션에 userId 저장
-                        if (sessionAttributes == null) {
-                            sessionAttributes = mutableMapOf()
-                            headerAccessor.sessionAttributes = sessionAttributes
-                        }
-                        sessionAttributes["userId"] = userId
-                        
-                        // nickname�� 함께 저장
-                        val nickname = httpSession.getAttribute("nickname") as? String
-                        if (nickname != null) {
-                            sessionAttributes["nickname"] = nickname
-                        }
-                    }
-                } else {
-                    println("[DEBUG] No HTTP session found in WebSocket connection")
-                }
-            }
-
-            // 3. 세션 속성이 없는 경우 빈 맵으로 초기화
-            if (sessionAttributes == null) {
-                sessionAttributes = mutableMapOf()
-                headerAccessor.sessionAttributes = sessionAttributes
-            }
-
-            // 모든 세션 속성 정보 로깅
-            sessionAttributes.forEach { (key, value) ->
-                println("[DEBUG] Final session attribute: $key = $value")
-            }
-
-            println("[DEBUG] Attempting to send chat message via ChatService...")
-
-            // ChatService 호출 (userId가 null이어도 ChatService에서 처리)
-            val response = chatService.sendMessageViaWebSocket(request, sessionAttributes, headerAccessor.sessionId)
-
-            println("[DEBUG] ChatService returned response: $response")
+            println("[DEBUG] Created temporary response: $tempResponse")
             println("[DEBUG] Broadcasting message to /topic/chat/${request.gameNumber}")
 
-            messagingTemplate.convertAndSend("/topic/chat/${request.gameNumber}", response)
+            messagingTemplate.convertAndSend("/topic/chat/${request.gameNumber}", tempResponse)
 
-            println("[DEBUG] WebSocket chat message sent successfully to topic")
+            println("[DEBUG] TEMPORARY WebSocket chat message sent successfully to topic")
             println("[DEBUG] ========== WebSocket Chat Message Debug End ==========")
 
         } catch (e: Exception) {
