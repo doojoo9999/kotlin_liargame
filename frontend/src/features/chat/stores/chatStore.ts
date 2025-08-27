@@ -34,7 +34,7 @@ interface ChatStoreState {
     actions: {
         subscribeToChat: (gameNumber: number) => Promise<void>;
         unsubscribeFromChat: () => void;
-        sendMessage: (gameNumber: number, content: string) => void;
+        sendMessage: (gameNumber: number, content: string) => Promise<void>;
         clearMessages: () => void;
         addMessage: (message: ChatMessage) => void;
     };
@@ -70,15 +70,25 @@ export const useChatStore = create<ChatStoreState>()(
                     logger.debugLog('Subscribing to chat:', destination);
                     await socketManager.subscribe(destination, (message) => {
                         try {
+                            console.log('[ChatStore] === WEBSOCKET MESSAGE RECEIVED ===');
+                            console.log('[ChatStore] Raw message object:', message);
+                            console.log('[ChatStore] Message body:', message.body);
+                            console.log('[ChatStore] Message headers:', message.headers);
                             logger.debugLog('[ChatStore] Raw WebSocket message received:', message.body);
+
                             const rawMessage: RawChatMessage = JSON.parse(message.body);
+                            console.log('[ChatStore] Parsed raw message:', rawMessage);
                             logger.debugLog('[ChatStore] Parsed raw message:', rawMessage);
+
                             const formattedMessage = mapRawMessageToChatMessage(rawMessage);
+                            console.log('[ChatStore] Formatted message:', formattedMessage);
                             logger.debugLog('[ChatStore] Formatted message:', formattedMessage);
 
                             // 별도 액션으로 메시지 추가
                             get().actions.addMessage(formattedMessage);
+                            console.log('[ChatStore] === MESSAGE ADDED TO STORE ===');
                         } catch (error) {
+                            console.error('[ChatStore] Failed to parse chat message:', error);
                             logger.errorLog('Failed to parse chat message in store:', error);
                         }
                     });
@@ -102,12 +112,33 @@ export const useChatStore = create<ChatStoreState>()(
                 }
             },
 
-            sendMessage: (gameNumber: number, content: string) => {
-                const destination = `/app/chat.send`; // "/chat.send"에서 "/app/chat.send"로 변경
-                const body = { gameNumber, content };
-                console.log('[ChatStore] Sending message:', { destination, body });
-                logger.debugLog('[ChatStore] Sending WebSocket message:', body);
-                socketManager.publish(destination, JSON.stringify(body));
+            sendMessage: async (gameNumber: number, content: string) => {
+                try {
+                    const destination = `/app/chat.send`;
+                    const body = { gameNumber, content };
+
+                    console.log('[ChatStore] Attempting to send message:', { destination, body });
+                    console.log('[ChatStore] Socket connection state:', socketManager);
+
+                    // 메시지 내용 검증
+                    if (!content || content.trim().length === 0) {
+                        console.error('[ChatStore] Empty message content, not sending');
+                        throw new Error('메시지 내용이 비어있습니다.');
+                    }
+
+                    if (!gameNumber || gameNumber <= 0) {
+                        console.error('[ChatStore] Invalid game number, not sending');
+                        throw new Error('유효하지 않은 게임 번호입니다.');
+                    }
+
+                    logger.debugLog('[ChatStore] Sending WebSocket message:', body);
+                    await socketManager.publish(destination, JSON.stringify(body));
+                    console.log('[ChatStore] Message sent successfully');
+                } catch (error) {
+                    console.error('[ChatStore] Failed to send message:', error);
+                    logger.errorLog('Failed to send chat message:', error);
+                    throw error; // 에러를 다시 던져서 ChatInput에서 처리할 수 있도록 함
+                }
             },
 
             clearMessages: () => {
