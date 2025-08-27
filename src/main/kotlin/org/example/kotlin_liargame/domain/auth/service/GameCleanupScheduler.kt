@@ -22,13 +22,30 @@ class GameCleanupScheduler(
     }
 
     /**
-     * 매 10초마다 연결 해제된 플레이어 정리 실행 (실시간 정리)
+     * 매 5초마다 WebSocket 연결 상태 체크 및 정리 (사용자 요청에 따라 유지)
+     */
+    @Scheduled(fixedRate = 5000) // 5초 = 5 * 1000ms
+    fun monitorWebSocketConnections() {
+        logger.debug("=== WebSocket 연결 상태 모니터링 시작 ===")
+        try {
+            // 실제 연결이 끊어진 플레이어들만 정리 (브라우저 종료 감지)
+            val cleanedPlayers = adminService.cleanupOrphanedPlayers()
+            if (cleanedPlayers > 0) {
+                logger.info("WebSocket 연결 끊김 감지 및 정리: {}명 정리", cleanedPlayers)
+            }
+        } catch (e: Exception) {
+            logger.error("WebSocket 연결 상태 모니터링 중 오류 발생", e)
+        }
+    }
+
+    /**
+     * 매 10초마다 연결 해제된 플레이어 정리 실행
      */
     @Scheduled(fixedRate = 10000) // 10초 = 10 * 1000ms
     fun cleanupDisconnectedPlayersRealtime() {
         logger.debug("=== 실시간 연결 해제 플레이어 정리 시작 ===")
         try {
-            // 실제 연결이 끊어진 플레이어들을 정리
+            // 로그아웃 버튼 클릭 등으로 명시적으로 연결 해제된 플레이어들 정리
             val cleanedPlayers = adminService.cleanupDisconnectedPlayers()
             if (cleanedPlayers > 0) {
                 logger.info("실시간 고아 플레이어 정리 완료: {}명 정리", cleanedPlayers)
@@ -39,18 +56,18 @@ class GameCleanupScheduler(
     }
 
     /**
-     * 매 30초마다 빈 게임방 정리 (플레이어가 없는 방)
+     * 매 30초마다 개선된 게임방 정리 (방장 접속 상태 고려)
      */
     @Scheduled(fixedRate = 30000) // 30초 = 30 * 1000ms
     fun cleanupEmptyGamesRealtime() {
-        logger.debug("=== 실시간 빈 게임방 정리 시작 ===")
+        logger.debug("=== 개선된 게임방 정리 시작 ===")
         try {
             val cleanedGames = adminService.cleanupEmptyGames()
             if (cleanedGames > 0) {
-                logger.info("실시간 빈 게임방 정리 완료: {}개 게임방 삭제", cleanedGames)
+                logger.info("개선된 게임방 정리 완료: {}개 게임방 삭제", cleanedGames)
             }
         } catch (e: Exception) {
-            logger.error("실시간 빈 게임방 정리 중 오류 발생", e)
+            logger.error("개선된 게임방 정리 중 오류 발생", e)
         }
     }
 
