@@ -45,7 +45,13 @@ class GameEntity(
     @Column(columnDefinition = "TEXT")
     var turnOrder: String? = null,
     var currentTurnIndex: Int = 0,
-    var phaseEndTime: Instant? = null
+    var phaseEndTime: Instant? = null,
+
+    // 게임 시작 시간 연장을 위한 필드
+    var gameStartDeadline: Instant? = null,
+
+    @Column(nullable = true)
+    var timeExtensionCount: Int? = null
 ) : BaseEntity() {
 
     @Id
