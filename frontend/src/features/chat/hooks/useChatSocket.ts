@@ -42,6 +42,19 @@ export const useChatSocket = (gameNumber: number) => {
 
     return {
         messages,
-        sendMessage: (content: string) => actions.sendMessage(gameNumber, content),
+        sendMessage: async (content: string) => {
+            console.log('[useChatSocket] sendMessage called with content:', content);
+            console.log('[useChatSocket] gameNumber:', gameNumber);
+            console.log('[useChatSocket] actions.sendMessage:', actions.sendMessage);
+
+            try {
+                const result = await actions.sendMessage(gameNumber, content);
+                console.log('[useChatSocket] sendMessage completed successfully');
+                return result;
+            } catch (error) {
+                console.error('[useChatSocket] sendMessage failed:', error);
+                throw error;
+            }
+        },
     };
 };
