@@ -145,6 +145,14 @@ class GameService(
 
     @Transactional
     fun joinGame(req: JoinGameRequest, session: HttpSession): GameStateResponse {
+        logger.debug("=== Join Game Request Debug ===")
+        logger.debug("Game Number: ${req.gameNumber}")
+        logger.debug("Session ID: ${session.id}")
+        logger.debug("Session Attributes: ${session.attributeNames.toList()}")
+        session.attributeNames.asIterator().forEach { attrName ->
+            logger.debug("Session[$attrName] = ${session.getAttribute(attrName)}")
+        }
+
         val game = gameRepository.findByGameNumberWithLock(req.gameNumber)
             ?: throw GameNotFoundException(req.gameNumber)
 
@@ -157,26 +165,33 @@ class GameService(
             throw RoomFullException(req.gameNumber)
         }
 
-        val userId = sessionService.getCurrentUserId(session)
-        val nickname = sessionService.getCurrentUserNickname(session)
+        try {
+            val userId = sessionService.getCurrentUserId(session)
+            val nickname = sessionService.getCurrentUserNickname(session)
+            logger.debug("Successfully retrieved session info: userId=$userId, nickname=$nickname")
 
-        val existingPlayer = playerRepository.findByGameAndUserId(game, userId)
-        if (existingPlayer != null) {
-            // 기존 플레이어도 WebSocket 세션에 게임 번호 등록
+            val existingPlayer = playerRepository.findByGameAndUserId(game, userId)
+            if (existingPlayer != null) {
+                // 기존 플레이어도 WebSocket 세션에 게임 번호 등록
+                webSocketSessionManager.registerPlayerInGame(userId, req.gameNumber)
+                return getGameState(game, session)
+            }
+
+            val newPlayer = joinGame(game, userId, nickname)
+
+            // WebSocket 세션에 플레이어의 게임 번호 등록
             webSocketSessionManager.registerPlayerInGame(userId, req.gameNumber)
+            logger.debug("Registered player {} in game {} for WebSocket session management", userId, req.gameNumber)
+
+            val allPlayers = playerRepository.findByGame(game)
+            gameMonitoringService.notifyPlayerJoined(game, newPlayer, allPlayers)
+
             return getGameState(game, session)
+        } catch (e: RuntimeException) {
+            logger.error("Session authentication failed during join game: ${e.message}")
+            logger.error("Available session attributes: ${session.attributeNames.toList()}")
+            throw RuntimeException("세션 인증에 실패했습니다. 다시 로그인해주세요: ${e.message}")
         }
-
-        val newPlayer = joinGame(game, userId, nickname)
-
-        // WebSocket 세션에 플레이어의 게임 번호 등록
-        webSocketSessionManager.registerPlayerInGame(userId, req.gameNumber)
-        logger.debug("Registered player {} in game {} for WebSocket session management", userId, req.gameNumber)
-
-        val allPlayers = playerRepository.findByGame(game)
-        gameMonitoringService.notifyPlayerJoined(game, newPlayer, allPlayers)
-
-        return getGameState(game, session)
     }
 
     private fun joinGame(game: GameEntity, userId: Long, nickname: String): PlayerEntity {
@@ -193,6 +208,11 @@ class GameService(
             defense = null,
             votedFor = null
         )
+
+        // 게임 참가 시 마지막 활동 시간 업데이트 (부재 시간 초기화)
+        game.lastActivityAt = java.time.Instant.now()
+        gameRepository.save(game)
+
         return playerRepository.save(player)
     }
 
@@ -217,8 +237,24 @@ class GameService(
 
             if (remainingPlayers.isEmpty()) {
                 logger.debug("No players remaining, deleting room ${game.gameNumber}")
-                gameRepository.delete(game)
-                gameMonitoringService.notifyRoomDeleted(game.gameNumber)
+
+                try {
+                    chatService.deleteGameChatMessages(game)
+
+                    val gameSubjects = gameSubjectRepository.findByGame(game)
+                    if (gameSubjects.isNotEmpty()) {
+                        gameSubjectRepository.deleteAll(gameSubjects)
+                        logger.debug("Deleted ${gameSubjects.size} game_subject records for game ${game.gameNumber}")
+                    }
+
+                    gameRepository.delete(game)
+                    gameMonitoringService.notifyRoomDeleted(game.gameNumber)
+                    logger.debug("Successfully deleted game ${game.gameNumber}")
+                } catch (e: Exception) {
+                    logger.error("Failed to delete game ${game.gameNumber}: ${e.message}", e)
+                    throw RuntimeException("게임방 삭제 중 오류가 발생했습니다: ${e.message}")
+                }
+
                 return true
             } else if (wasOwner) {
                 val newOwner = remainingPlayers.minByOrNull { it.joinedAt }
@@ -553,11 +589,13 @@ class GameService(
             throw IllegalArgumentException("대기 중인 게임방에서만 방장 강퇴가 가능합니다.")
         }
 
-        val players = playerRepository.findByGame(game)
-        if (players.size < 2) {
+        // countByGame 사용으로 성능 개선
+        val playerCount = playerRepository.countByGame(game)
+        if (playerCount < 2) {
             throw IllegalArgumentException("플레이어가 2명 이상 있어야 방장 강퇴가 가능합니다.")
         }
 
+        val players = playerRepository.findByGame(game)
         // 현재 방장 찾기
         val currentOwner = players.find { it.nickname == game.gameOwner }
             ?: throw IllegalArgumentException("현재 방장을 찾을 수 없습니다.")

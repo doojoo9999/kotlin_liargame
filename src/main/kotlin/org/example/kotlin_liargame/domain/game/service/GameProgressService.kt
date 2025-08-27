@@ -26,26 +26,37 @@ class GameProgressService(
     private val subjectRepository: SubjectRepository,
     private val gameMonitoringService: GameMonitoringService,
     private val gameProperties: GameProperties,
-    @Lazy private val votingService: VotingService,
-    @Lazy private val chatService: org.example.kotlin_liargame.domain.chat.service.ChatService,
+    @field:Lazy private val votingService: VotingService,
+    @field:Lazy private val chatService: org.example.kotlin_liargame.domain.chat.service.ChatService,
     private val sessionService: org.example.kotlin_liargame.global.session.SessionService
 ) {
 
     @Transactional
     fun startGame(session: HttpSession): GameStateResponse {
         val nickname = sessionService.getCurrentUserNickname(session)
-        val game = gameRepository.findByGameOwner(nickname)
-            ?: throw RuntimeException("게임을 찾을 수 없습니다. 먼저 게임방을 생성해주세요.")
+
+        // 현재 사용자가 참여하고 있는 게임을 찾습니다
+        val player = playerRepository.findByNickname(nickname)
+            ?: throw RuntimeException("게임에 참여하지 않았습니다. 먼저 게임방에 입장해주세요.")
+
+        val game = player.game
+
+        // 방장 권한 확인
+        if (game.gameOwner != nickname) {
+            throw RuntimeException("게임 시작 권한이 없습니다. 방장만 게임을 시작할 수 있습니다.")
+        }
 
         if (game.gameState != GameState.WAITING) {
             throw RuntimeException("게임이 이미 진행 중이거나 종료되었습니다.")
         }
 
-        val players = playerRepository.findByGame(game)
-        if (players.size < gameProperties.minPlayers || players.size > gameProperties.maxPlayers) {
+        // countByGame 사용으로 성능 개선
+        val playerCount = playerRepository.countByGame(game)
+        if (playerCount < gameProperties.minPlayers || playerCount > gameProperties.maxPlayers) {
             throw RuntimeException("게임을 시작하기 위한 플레이어가 충분하지 않습니다. (최소 ${gameProperties.minPlayers}명, 최대 ${gameProperties.maxPlayers}명)")
         }
 
+        val players = playerRepository.findByGame(game)
         val selectedSubjects = selectSubjects(game)
         assignRolesAndSubjects(game, players, selectedSubjects)
 
@@ -207,7 +218,7 @@ class GameProgressService(
         markPlayerAsSpoken(req.gameNumber, userId)
         gameMonitoringService.notifyHintSubmitted(req.gameNumber, userId, req.hint)
         
-        // Advance the turn
+        // Advance turn
         game.currentTurnIndex++
         gameRepository.save(game)
 
@@ -229,11 +240,11 @@ class GameProgressService(
         }
         playerRepository.saveAll(players)
 
-        // Reset turn order to start from the beginning of the round
+        // Reset turn order to start from the beginning of round
         game.currentTurnIndex = 0
         gameRepository.save(game)
 
-        // Start the new turn (which will be the first player's speech)
+        // Start new turn (which will be first player's speech)
         startNewTurn(game)
     }
 
@@ -250,11 +261,11 @@ class GameProgressService(
             ?: throw RuntimeException("You are not in this game")
 
         if (!player.isAlive) {
-            throw RuntimeException("You are eliminated from the game")
+            throw RuntimeException("You are eliminated from game")
         }
 
         if (player.state != PlayerState.WAITING_FOR_HINT) {
-            throw RuntimeException("You have already spoken or are not in the hint phase")
+            throw RuntimeException("You have already spoken or are not in hint phase")
         }
 
         player.state = PlayerState.GAVE_HINT

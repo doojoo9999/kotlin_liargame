@@ -50,6 +50,9 @@ class GameEntity(
     // 게임 시작 시간 연장을 위한 필드
     var gameStartDeadline: Instant? = null,
 
+    // 마지막 활동 시간 (채팅, 게임 액션 등)
+    var lastActivityAt: Instant? = null,
+
     @Column(nullable = true)
     var timeExtensionCount: Int? = null
 ) : BaseEntity() {

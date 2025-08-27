@@ -8,6 +8,9 @@ import jakarta.validation.Valid
 import org.example.kotlin_liargame.domain.game.dto.request.*
 import org.example.kotlin_liargame.domain.game.dto.response.*
 import org.example.kotlin_liargame.domain.game.service.*
+import org.example.kotlin_liargame.global.exception.GameAlreadyStartedException
+import org.example.kotlin_liargame.global.exception.GameNotFoundException
+import org.example.kotlin_liargame.global.exception.RoomFullException
 import org.example.kotlin_liargame.global.util.ControllerErrorHandler
 import org.example.kotlin_liargame.global.util.SessionUtil
 import org.springframework.http.HttpStatus
@@ -41,9 +44,23 @@ class GameController(
         return try {
             val response = gameService.joinGame(request, session)
             ResponseEntity.ok(response)
-        } catch (e: Exception) {
-            println("[ERROR] Failed to join game: ${e.message}")
+        } catch (e: GameNotFoundException) {
+            println("[ERROR] Game not found: ${e.message}")
+            ResponseEntity.status(404).body(null)
+        } catch (e: GameAlreadyStartedException) {
+            println("[ERROR] Game already started: ${e.message}")
+            ResponseEntity.status(409).body(null)
+        } catch (e: RoomFullException) {
+            println("[ERROR] Room is full: ${e.message}")
+            ResponseEntity.status(409).body(null)
+        } catch (e: RuntimeException) {
+            println("[ERROR] Runtime exception during join: ${e.message}")
+            e.printStackTrace()
             ResponseEntity.badRequest().body(null)
+        } catch (e: Exception) {
+            println("[ERROR] Unexpected error during join: ${e.message}")
+            e.printStackTrace()
+            ResponseEntity.status(500).body(null)
         }
     }
 
