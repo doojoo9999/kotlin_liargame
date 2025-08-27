@@ -16,7 +16,7 @@ class ChatMessageEntity(
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "player_id")
-    val player: PlayerEntity,
+    val player: PlayerEntity?, // 시스템 메시지의 경우 null 가능
 
     @Column(nullable = false)
     val content: String,
