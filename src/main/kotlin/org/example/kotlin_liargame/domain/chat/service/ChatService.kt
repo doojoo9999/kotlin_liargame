@@ -208,7 +208,7 @@ class ChatService(
         val allMessages = chatMessageRepository.findByGame(game)
         println("[DEBUG] All messages in database for game ${req.gameNumber}: ${allMessages.size}")
         allMessages.forEach { msg ->
-            println("[DEBUG]   - Message ID: ${msg.id}, Player: ${msg.player.nickname}, Content: '${msg.content}', Type: ${msg.type}, Time: ${msg.timestamp}")
+            println("[DEBUG]   - Message ID: ${msg.id}, Player: ${msg.player?.nickname ?: "SYSTEM"}, Content: '${msg.content}', Type: ${msg.type}, Time: ${msg.timestamp}")
         }
         
         // 필터링 적용
@@ -296,6 +296,27 @@ class ChatService(
         ))
     }
     
+    /**
+     * 시스템 메시지 전송 (사회자 메시지, 게임 상태 변화 알림 등)
+     */
+    @Transactional
+    fun sendSystemMessage(game: GameEntity, message: String) {
+        val systemMessage = ChatMessageEntity(
+            game = game,
+            player = null, // 시스템 메시지는 플레이어가 없음
+            content = message,
+            type = ChatMessageType.SYSTEM
+        )
+
+        val savedMessage = chatMessageRepository.save(systemMessage)
+        val response = ChatMessageResponse.from(savedMessage)
+
+        // WebSocket으로 모든 게임 참가자에게 실시간 전송
+        messagingTemplate.convertAndSend("/topic/chat.${game.gameNumber}", response)
+
+        println("[DEBUG] System message sent to game ${game.gameNumber}: $message")
+    }
+
     private fun determineGamePhase(game: GameEntity, players: List<PlayerEntity>): GamePhase {
         return when (game.gameState) {
             GameState.WAITING -> GamePhase.WAITING_FOR_PLAYERS
