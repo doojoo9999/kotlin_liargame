@@ -128,7 +128,24 @@ class WebSocketSessionManager(
         try {
             val remainingPlayers = playerGameMap.values.count { it == gameNumber }
             
-            if (remainingPlayers < 3) {
+            println("[DEBUG] Game $gameNumber continuity check: $remainingPlayers players remaining after $nickname disconnection")
+
+            if (remainingPlayers == 0) {
+                // 방에 아무도 없으면 게임 종료
+                val gameEndMessage = mapOf(
+                    "type" to "GAME_ENDED",
+                    "reason" to "ALL_PLAYERS_DISCONNECTED",
+                    "message" to "모든 플레이어가 연결 해제되어 게임이 종료됩니다",
+                    "timestamp" to Instant.now()
+                )
+
+                messagingTemplate.convertAndSend(
+                    "/topic/game/$gameNumber/game-status",
+                    gameEndMessage
+                )
+
+                println("[INFO] Game $gameNumber ended - all players disconnected")
+            } else if (remainingPlayers < 3) {
                 val gameEndMessage = mapOf(
                     "type" to "GAME_INTERRUPTED",
                     "reason" to "INSUFFICIENT_PLAYERS",
