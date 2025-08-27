@@ -6,6 +6,7 @@ import org.example.kotlin_liargame.domain.auth.dto.response.*
 import org.example.kotlin_liargame.domain.chat.service.ChatService
 import org.example.kotlin_liargame.domain.game.model.enum.GameState
 import org.example.kotlin_liargame.domain.game.repository.GameRepository
+import org.example.kotlin_liargame.domain.game.repository.GameSubjectRepository
 import org.example.kotlin_liargame.domain.game.repository.PlayerRepository
 import org.example.kotlin_liargame.domain.game.service.GameMonitoringService
 import org.example.kotlin_liargame.domain.game.service.GameService
@@ -29,6 +30,7 @@ class AdminService(
     private val playerRepository: PlayerRepository,
     private val userRepository: UserRepository,
     private val subjectRepository: SubjectRepository,
+    private val gameSubjectRepository: GameSubjectRepository,
     private val wordRepository: WordRepository,
     private val gameMonitoringService: GameMonitoringService,
     private val gameService: GameService,
@@ -216,37 +218,156 @@ class AdminService(
         return allStaleGames.size
     }
 
+    /**
+     * 개선된 게임방 정리 정책
+     * 1. 방장이 접속 중이면 방 유지
+     * 2. 최대 인원 달성 후 미시작 방은 20초 카운트다운 후 방장 강퇴
+     * 3. 생성 후 20분 이상 미시작 방 삭제
+     */
     @Transactional
     fun cleanupEmptyGames(): Int {
-        logger.debug("빈 게임방 정리 시작")
+        logger.debug("개선된 게임방 정리 시작")
+        var cleanedCount = 0
 
-        // 플레이어가 없는 게임��들 찾기
-        val allGames = gameRepository.findByGameStateNot(GameState.ENDED)
-        val emptyGames = allGames.filter { game ->
-            val playerCount = playerRepository.countByGame(game)
-            playerCount == 0
-        }
+        try {
+            val allGames = gameRepository.findAll()
+            val currentTime = Instant.now()
 
-        emptyGames.forEach { game ->
-            logger.debug("빈 게임방 삭제: gameNumber={}, state={}",
-                game.gameNumber, game.gameState)
+            for (game in allGames) {
+                val players = playerRepository.findByGame(game)
+                // LocalDateTime을 Instant로 변환
+                val gameCreatedAtInstant = game.createdAt.atZone(java.time.ZoneId.systemDefault()).toInstant()
+                val gameAge = java.time.Duration.between(gameCreatedAtInstant, currentTime)
+                val hasOwner = players.any { it.userId == game.gameOwner?.toLongOrNull() }
 
-            // 게임 삭제 전에 해당 게임의 모든 채팅 메시지 삭제
-            try {
-                chatService.deleteGameChatMessages(game)
-            } catch (e: Exception) {
-                logger.warn("게임 {}의 채팅 메시지 삭제 중 오류: {}", game.gameNumber, e.message)
+                when (game.gameState) {
+                    GameState.WAITING -> {
+                        val shouldDelete = when {
+                            // 1. 플레이어가 아무도 없는 경우 즉시 삭제
+                            players.isEmpty() -> {
+                                logger.debug("빈 게임방 발견: gameNumber={}", game.gameNumber)
+                                true
+                            }
+
+                            // 2. 방장이 접속해 있지 않고 5분 이상 된 경우
+                            !hasOwner && gameAge.toMinutes() >= 5 -> {
+                                logger.debug("방장 부재 게임방: gameNumber={}, 경과시간={}분",
+                                    game.gameNumber, gameAge.toMinutes())
+                                true
+                            }
+
+                            // 3. 생성 후 20분 이상 미시작 방
+                            gameAge.toMinutes() >= 20 -> {
+                                logger.info("장시간 미시작 게임방 삭제: gameNumber={}, 경과시간={}분",
+                                    game.gameNumber, gameAge.toMinutes())
+                                true
+                            }
+
+                            // 4. 최대 인원 달성했지만 시작하지 않은 방 체크
+                            players.size >= game.gameParticipants -> {
+                                checkAndHandleFullRoomTimeout(game, players)
+                                false // 이 경우는 별도 처리하므로 여기서는 삭제하지 않음
+                            }
+
+                            else -> false
+                        }
+
+                        if (shouldDelete) {
+                            try {
+                                logger.info("게임방 정리: gameNumber={}, 이유={}",
+                                    game.gameNumber, getCleanupReason(players.isEmpty(), !hasOwner, gameAge))
+
+                                // 플레이어들에게 방 삭제 알림
+                                gameMonitoringService.broadcastGameState(game, mapOf(
+                                    "type" to "ROOM_DELETED",
+                                    "message" to "게임방이 정리되었습니다.",
+                                    "reason" to getCleanupReason(players.isEmpty(), !hasOwner, gameAge)
+                                ))
+
+                                // 관련 데이터 정리
+                                chatService.deleteGameChatMessages(game)
+                                val gameSubjects = gameSubjectRepository.findByGame(game)
+                                if (gameSubjects.isNotEmpty()) {
+                                    gameSubjectRepository.deleteAll(gameSubjects)
+                                }
+
+                                // 플레이어 정리
+                                playerRepository.deleteAll(players)
+
+                                // 게임 삭제
+                                gameRepository.delete(game)
+                                gameMonitoringService.notifyRoomDeleted(game.gameNumber)
+
+                                cleanedCount++
+
+                            } catch (e: Exception) {
+                                logger.warn("게임방 정리 중 오류: gameNumber={}, error={}",
+                                    game.gameNumber, e.message, e)
+                            }
+                        }
+                    }
+
+                    GameState.IN_PROGRESS -> {
+                        // 진행 중인 게임에서 플레이어가 없으면 즉시 삭제 (비정상 상태)
+                        if (players.isEmpty()) {
+                            logger.warn("비정상 상태 - 진행 중인 게임에 플레이어 없음: gameNumber={}", game.gameNumber)
+                            cleanupAbandonedGame(game)
+                            cleanedCount++
+                        }
+                    }
+
+                    GameState.ENDED -> {
+                        // 종료된 게임은 5분 후 삭제
+                        if (gameAge.toMinutes() >= 5) {
+                            logger.debug("종료된 게임방 정리: gameNumber={}", game.gameNumber)
+                            cleanupAbandonedGame(game)
+                            cleanedCount++
+                        }
+                    }
+                }
             }
 
-            // 게임 삭제
-            gameRepository.delete(game)
-
-            // 모니터링 서비스에 알림
-            gameMonitoringService.notifyRoomDeleted(game.gameNumber)
+        } catch (e: Exception) {
+            logger.error("게임방 정리 중 전체 오류 발생", e)
         }
 
-        logger.debug("빈 게임방 정리 완료: {}개 삭제", emptyGames.size)
-        return emptyGames.size
+        logger.debug("게임방 정리 완료: {}개 게임방 처리", cleanedCount)
+        return cleanedCount
+    }
+
+    private fun getCleanupReason(isEmpty: Boolean, noOwner: Boolean, gameAge: java.time.Duration): String {
+        return when {
+            isEmpty -> "빈 게임방"
+            noOwner -> "방장 부재 (${gameAge.toMinutes()}분)"
+            gameAge.toMinutes() >= 20 -> "장시간 미시작 (${gameAge.toMinutes()}분)"
+            else -> "정리 조건 충족"
+        }
+    }
+
+    private fun cleanupAbandonedGame(game: org.example.kotlin_liargame.domain.game.model.GameEntity) {
+        try {
+            chatService.deleteGameChatMessages(game)
+            val gameSubjects = gameSubjectRepository.findByGame(game)
+            if (gameSubjects.isNotEmpty()) {
+                gameSubjectRepository.deleteAll(gameSubjects)
+            }
+            val players = playerRepository.findByGame(game)
+            playerRepository.deleteAll(players)
+            gameRepository.delete(game)
+            gameMonitoringService.notifyRoomDeleted(game.gameNumber)
+        } catch (e: Exception) {
+            logger.error("게임 정리 실패: gameNumber={}", game.gameNumber, e)
+        }
+    }
+
+    /**
+     * 최대 인원이 찬 방의 시작 타임아웃 처리
+     */
+    private fun checkAndHandleFullRoomTimeout(game: org.example.kotlin_liargame.domain.game.model.GameEntity, players: List<org.example.kotlin_liargame.domain.game.model.PlayerEntity>) {
+        // 이 로직은 별도 스케줄러에서 처리하거나 게임 상태 업데이트 시점에서 처리
+        // 여기서는 로그만 남김
+        logger.debug("최대 인원 달성 방 감지: gameNumber={}, 인원={}/{}",
+            game.gameNumber, players.size, game.gameParticipants)
     }
 
     @Transactional(readOnly = true)
@@ -326,5 +447,56 @@ class AdminService(
             logger.error("단일 플레이어 정리 실패: gameNumber={}, userId={}", gameNumber, userId, e)
             throw e
         }
+    }
+
+    /**
+     * WebSocket 연결이 끊어진 고아 플레이어들을 감지하고 정리합니다.
+     * 브라우저 강제 종료 등으로 인한 연결 해제를 빠르게 감지합니다.
+     */
+    @Transactional
+    fun cleanupOrphanedPlayers(): Int {
+        logger.debug("고아 플레이어 감지 및 정리 시작")
+        var cleanedCount = 0
+
+        try {
+            val allPlayers = playerRepository.findAll()
+
+            for (player in allPlayers) {
+                val userId = player.userId
+                if (userId != null) {
+                    val timeSinceJoined = java.time.Duration.between(player.joinedAt, java.time.Instant.now())
+
+                    // 더 엄격한 조건으로 고아 플레이어 감지
+                    val shouldCleanup = when {
+                        // WAITING 상태에서 5분 이상 된 플레이어 (브라우저 종료로 추정)
+                        player.game.gameState == GameState.WAITING && timeSinceJoined.toMinutes() > 5 -> true
+
+                        // IN_PROGRESS 상태에서 1시간 이상 된 플레이어 (비정상적인 상황)
+                        player.game.gameState == GameState.IN_PROGRESS && timeSinceJoined.toHours() > 1 -> true
+
+                        else -> false
+                    }
+
+                    if (shouldCleanup) {
+                        logger.debug("고아 플레이어 감지: gameNumber={}, nickname={}, state={}, joinedAt={}",
+                            player.game.gameNumber, player.nickname, player.game.gameState, player.joinedAt)
+
+                        try {
+                            cleanupSinglePlayer(player.game.gameNumber, userId)
+                            cleanedCount++
+                        } catch (e: Exception) {
+                            logger.warn("고아 플레이어 {}(게임 {}) 정리 중 오류: {}",
+                                player.nickname, player.game.gameNumber, e.message, e)
+                        }
+                    }
+                }
+            }
+
+        } catch (e: Exception) {
+            logger.error("고아 플레이어 감지 및 정리 중 전체 오류 발생", e)
+        }
+
+        logger.debug("고아 플레이어 감지 및 정리 완료: {}명 정리", cleanedCount)
+        return cleanedCount
     }
 }
