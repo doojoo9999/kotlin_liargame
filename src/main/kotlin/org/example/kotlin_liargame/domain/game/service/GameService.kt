@@ -6,9 +6,7 @@ import org.example.kotlin_liargame.domain.game.dto.request.CreateGameRoomRequest
 import org.example.kotlin_liargame.domain.game.dto.request.EndOfRoundRequest
 import org.example.kotlin_liargame.domain.game.dto.request.JoinGameRequest
 import org.example.kotlin_liargame.domain.game.dto.request.LeaveGameRequest
-import org.example.kotlin_liargame.domain.game.dto.response.GameResultResponse
-import org.example.kotlin_liargame.domain.game.dto.response.GameRoomListResponse
-import org.example.kotlin_liargame.domain.game.dto.response.GameStateResponse
+import org.example.kotlin_liargame.domain.game.dto.response.*
 import org.example.kotlin_liargame.domain.game.model.GameEntity
 import org.example.kotlin_liargame.domain.game.model.GameSubjectEntity
 import org.example.kotlin_liargame.domain.game.model.PlayerEntity
@@ -28,6 +26,7 @@ import org.example.kotlin_liargame.tools.websocket.WebSocketSessionManager
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.Instant
 
 @Service
 class GameService(
@@ -553,5 +552,124 @@ class GameService(
             // 재연결 시에는 새로 게임에 참여해야 함
             logger.debug("플레이어 재연결 시도: userId={}, 하지만 연결 해제된 플레이어는 이미 게임에서 제거되었습니���", userId)
         }
+    }
+
+    /**
+     * 방장 강퇴 및 권한 이양
+     * 시간 초과로 인해 방장을 강퇴하고 다음 플레이어에게 권한을 이양합니다.
+     */
+    @Transactional
+    fun kickOwnerAndTransferOwnership(gameNumber: Int): OwnerKickResponse {
+        val game = gameRepository.findByGameNumber(gameNumber)
+            ?: throw IllegalArgumentException("존재하지 않는 게임방입니다.")
+
+        if (game.gameState != GameState.WAITING) {
+            throw IllegalArgumentException("대기 중인 게임방에서만 방장 강퇴가 가능합니다.")
+        }
+
+        val players = playerRepository.findByGame(game)
+        if (players.size < 2) {
+            throw IllegalArgumentException("플레이어가 2명 이상 있어야 방장 강퇴가 가능합니다.")
+        }
+
+        // 현재 방장 찾기
+        val currentOwner = players.find { it.nickname == game.gameOwner }
+            ?: throw IllegalArgumentException("현재 방장을 찾을 수 없습니다.")
+
+        // 다음 방장 결정 (가장 먼저 입장한 플레이어, 현재 방장 제외)
+        val nextOwner = players
+            .filter { it.nickname != game.gameOwner }
+            .minByOrNull { it.joinedAt }
+            ?: throw IllegalArgumentException("새로운 방장을 선정할 수 없습니다.")
+
+        logger.info("방장 강퇴 및 권한 이양: 게임={}, 기존방장={}, 새방장={}",
+            gameNumber, currentOwner.nickname, nextOwner.nickname)
+
+        // 방장 권한 이양
+        val oldOwnerNickname = game.gameOwner
+        game.gameOwner = nextOwner.nickname
+        gameRepository.save(game)
+
+        // 기존 방장 플레이어 삭제
+        chatService.deletePlayerChatMessages(currentOwner.id)
+        playerRepository.delete(currentOwner)
+
+        // 모든 플레이어에게 알림
+        val message = mapOf(
+            "type" to "OWNER_KICKED_AND_TRANSFERRED",
+            "kickedOwner" to oldOwnerNickname,
+            "newOwner" to nextOwner.nickname,
+            "message" to "${oldOwnerNickname}님이 시간 내에 게임을 시작하지 않아 강퇴되었습니다. 새로운 방장은 ${nextOwner.nickname}님입니다."
+        )
+        gameMonitoringService.broadcastGameState(game, message)
+
+        // 채팅으로도 알림
+        chatService.sendSystemMessage(game, "${oldOwnerNickname}님이 방장 권한을 박탈당했습니다. 새로운 방장: ${nextOwner.nickname}님")
+
+        return OwnerKickResponse(
+            newOwner = nextOwner.nickname,
+            kickedPlayer = oldOwnerNickname,
+            gameNumber = gameNumber
+        )
+    }
+
+    /**
+     * 게임 시작 시간 연장
+     * 방장이 게임 시작 시간을 5분 연장합니다.
+     */
+    @Transactional
+    fun extendGameStartTime(gameNumber: Int, userId: Long?): TimeExtensionResponse {
+        val game = gameRepository.findByGameNumber(gameNumber)
+            ?: throw IllegalArgumentException("존재하지 않는 게임방입니다.")
+
+        if (game.gameState != GameState.WAITING) {
+            throw IllegalArgumentException("대기 중인 게임방에서만 시간 연장이 가능합니다.")
+        }
+
+        // 방장 권한 확인
+        if (userId != null) {
+            val user = userRepository.findById(userId).orElse(null)
+            if (user?.nickname != game.gameOwner) {
+                throw IllegalArgumentException("방장만 시간을 연장할 수 있습니다.")
+            }
+        }
+
+        // 게임 시작 시간 연장 (createdAt 대신 gameStartDeadline 사용)
+        val currentTime = Instant.now()
+        val extensionMinutes = 5L
+
+        if (game.gameStartDeadline == null) {
+            // 첫 번째 연장인 경우 - 생성 시간에서 20분 + 연장시간
+            // LocalDateTime을 Instant로 변환
+            val createdAtInstant = game.createdAt.atZone(java.time.ZoneId.systemDefault()).toInstant()
+            game.gameStartDeadline = createdAtInstant.plusSeconds((20 + extensionMinutes) * 60)
+        } else {
+            // 이미 연장된 경우 - 기존 데드라인에서 연장
+            game.gameStartDeadline = game.gameStartDeadline!!.plusSeconds(extensionMinutes * 60)
+        }
+
+        // nullable 필드 안전하게 처리
+        game.timeExtensionCount = (game.timeExtensionCount ?: 0) + 1
+        gameRepository.save(game)
+
+        val extendedUntil = game.gameStartDeadline!!
+
+        logger.info("게임 시작 시간 연장: 게임={}, 연장된 시간={}, 연장 횟수={}", gameNumber, extendedUntil, game.timeExtensionCount)
+
+        // 모든 플레이어에게 알림
+        val message = mapOf(
+            "type" to "TIME_EXTENDED",
+            "extendedUntil" to extendedUntil.toString(),
+            "message" to "게임 시작 시간이 5분 연장되었습니다."
+        )
+        gameMonitoringService.broadcastGameState(game, message)
+
+        // 채팅으로도 알림
+        chatService.sendSystemMessage(game, "방장이 게임 시작 시간을 연장했습니다. (+5분)")
+
+        return TimeExtensionResponse(
+            extendedUntil = extendedUntil.toString(),
+            gameNumber = gameNumber
+        )
     }
 }
