@@ -271,12 +271,12 @@ export function CreateRoomModal({ opened, onClose }: CreateRoomModalProps) {
               <Checkbox
                 label="전체 선택"
                 size="sm"
-                checked={subjectsData?.length > 0 && watch('subjectIds').length === subjectsData?.length}
-                indeterminate={watch('subjectIds').length > 0 && watch('subjectIds').length < (subjectsData?.length || 0)}
+                checked={subjectsData && subjectsData.length > 0 && (watch('subjectIds')?.length ?? 0) === subjectsData.length}
+                indeterminate={(watch('subjectIds')?.length ?? 0) > 0 && (watch('subjectIds')?.length ?? 0) < (subjectsData?.length ?? 0)}
                 onChange={event => {
                   if (event.currentTarget.checked) {
                     // 모든 주제 선택
-                    setValue('subjectIds', subjectsData?.map(s => s.id) || []);
+                    setValue('subjectIds', subjectsData?.map(s => s.id) ?? []);
                   } else {
                     // 모든 주제 선택 해제
                     setValue('subjectIds', []);
@@ -298,18 +298,19 @@ export function CreateRoomModal({ opened, onClose }: CreateRoomModalProps) {
                     <Checkbox
                       key={subject.id}
                       value={subject.id}
-                      checked={value.includes(subject.id)}
+                      checked={value?.includes(subject.id) ?? false}
                       onChange={event => {
+                        const currentValue = value ?? [];
                         if (event.currentTarget.checked) {
-                          onChange([...value, subject.id]);
+                          onChange([...currentValue, subject.id]);
                         } else {
-                          onChange(value.filter(id => id !== subject.id));
+                          onChange(currentValue.filter((id: number) => id !== subject.id));
                         }
                       }}
                       label={subject.name}
                       size="sm"
                     />
-                  ))}
+                  )) ?? []}
                 </SimpleGrid>
               )}
             />
