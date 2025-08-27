@@ -4,6 +4,7 @@ import type {GameStateResponse} from '../../room/types';
 import {useLeaveRoomMutation} from '../hooks/useLeaveRoomMutation';
 import {useStartGameMutation} from '../hooks/useStartGameMutation';
 import {PlayerList} from './PlayerList';
+import {RoomStartCountdown} from './RoomStartCountdown';
 
 interface GameLobbyProps {
   gameState: GameStateResponse;
@@ -12,6 +13,7 @@ interface GameLobbyProps {
 export function GameLobby({ gameState }: GameLobbyProps) {
   const currentUserNickname = useUserStore((state) => state.nickname);
   const isOwner = currentUserNickname === gameState.gameOwner;
+  const isRoomFull = gameState.players.length >= gameState.gameParticipants;
   const startGameMutation = useStartGameMutation(gameState.gameNumber);
   const leaveRoomMutation = useLeaveRoomMutation();
 
@@ -23,8 +25,22 @@ export function GameLobby({ gameState }: GameLobbyProps) {
     leaveRoomMutation.mutate({ gameNumber: gameState.gameNumber });
   };
 
+  const handleExtendTime = () => {
+    // TODO: 백엔드에 시간 연장 요청 API 구현
+    console.log('[GameLobby] 시간 연장 요청');
+  };
+
   return (
     <Stack gap="xl">
+      {/* 방 시작 카운트다운 컴포넌트 */}
+      <RoomStartCountdown
+        gameNumber={gameState.gameNumber}
+        isRoomFull={isRoomFull}
+        isOwner={isOwner}
+        onStartGame={handleStartGame}
+        onExtendTime={handleExtendTime}
+      />
+
       <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xl">
         <div>
           <Text size="lg" fw={700} mb="md">
@@ -33,7 +49,7 @@ export function GameLobby({ gameState }: GameLobbyProps) {
           <PlayerList players={gameState.players} gameOwner={gameState.gameOwner} />
         </div>
         <div>
-          {/* Game settings info can go here */}
+          {/* Game settings info */}
           <Text>게임 모드: {gameState.gameMode}</Text>
           <Text>총 라운드: {gameState.gameTotalRounds}</Text>
           <Text>라이어 수: {gameState.gameLiarCount}</Text>
@@ -42,7 +58,12 @@ export function GameLobby({ gameState }: GameLobbyProps) {
 
       <Group justify="flex-end">
         {isOwner && (
-          <Button size="lg" onClick={handleStartGame} loading={startGameMutation.isPending}>
+          <Button
+            size="lg"
+            onClick={handleStartGame}
+            loading={startGameMutation.isPending}
+            disabled={gameState.players.length < 2} // 최소 2명 필요
+          >
             게임 시작
           </Button>
         )}
