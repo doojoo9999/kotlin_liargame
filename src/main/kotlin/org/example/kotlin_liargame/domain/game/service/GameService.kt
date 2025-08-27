@@ -80,6 +80,7 @@ class GameService(
     @Transactional
     fun createGameRoom(req: CreateGameRoomRequest, session: HttpSession): Int {
         val nickname = sessionService.getCurrentUserNickname(session)
+        val userId = sessionService.getCurrentUserId(session)
         validateExistingOwner(session)
 
         val nextRoomNumber = findNextAvailableRoomNumber()
@@ -103,6 +104,22 @@ class GameService(
             )
             gameSubjectRepository.save(gameSubject)
         }
+
+        // 방장을 자동으로 플레이어로 등록
+        val ownerPlayer = PlayerEntity(
+            game = savedGame,
+            userId = userId,
+            nickname = nickname,
+            isAlive = true,
+            role = PlayerRole.CITIZEN,
+            subject = savedGame.citizenSubject ?: throw IllegalStateException("게임에 시민 주제가 설정되지 않았습니다."),
+            state = PlayerState.WAITING_FOR_HINT
+        )
+        playerRepository.save(ownerPlayer)
+
+        // WebSocket 세션에 방장의 게임 번호 등록
+        webSocketSessionManager.registerPlayerInGame(userId, savedGame.gameNumber)
+        logger.debug("Game owner registered as player in game {}", savedGame.gameNumber)
 
         return savedGame.gameNumber
     }
