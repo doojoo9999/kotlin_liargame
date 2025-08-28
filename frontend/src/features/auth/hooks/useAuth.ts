@@ -41,14 +41,14 @@ export const useAuth = () => {
   return useQuery({
     queryKey: ['auth', 'currentUser'],
     queryFn: fetchCurrentUser,
-    retry: 1, // Retry once on failure
+    retry: 2, // Retry twice on failure for better reliability
+    retryDelay: 1000, // Wait 1 second between retries
     staleTime: 1000 * 60 * 5, // 5 minutes
-    // Re-fetch on window focus to check auth state on refresh
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
-    // Keep auth data in cache longer
     gcTime: 1000 * 60 * 10, // 10 minutes
-    // Don't retry if rate-limited
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    throwOnError: false,
+    retryOnMount: true,
+    networkMode: 'online'
   });
 };
