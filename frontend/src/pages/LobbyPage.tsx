@@ -1,6 +1,6 @@
 import {Alert, Button, Center, Container, Group, Loader, Stack, Text, Title} from '@mantine/core';
 import {useDisclosure} from '@mantine/hooks';
-import {AlertCircle, Plus} from 'lucide-react';
+import {AlertCircle, Plus, RefreshCw} from 'lucide-react';
 import {useEffect} from 'react';
 import {useNavigate} from 'react-router-dom';
 import {useLogoutMutation} from '../features/auth';
@@ -11,7 +11,7 @@ import {AddSubjectModal, AddWordsModal, useSubjectWebSocketEvents} from '../feat
 export function LobbyPage() {
   const nickname = useUserStore((state) => state.nickname);
   const isLoggedIn = useUserStore((state) => state.isLoggedIn);
-  const { data: rooms, isLoading, isError } = useRoomsQuery();
+  const { data: rooms, isLoading, isError, refetch: refetchRooms, isFetching } = useRoomsQuery();
   const logoutMutation = useLogoutMutation();
   const [createModalOpened, { open: openCreateModal, close: closeCreateModal }] = useDisclosure(false);
   const [subjectModalOpened, { open: openSubjectModal, close: closeSubjectModal }] = useDisclosure(false);
@@ -23,6 +23,10 @@ export function LobbyPage() {
 
   const handleLogout = () => {
     logoutMutation.mutate();
+  };
+
+  const handleRefresh = () => {
+    refetchRooms();
   };
 
   useEffect(() => {
@@ -72,6 +76,14 @@ export function LobbyPage() {
               </Button>
               <Button variant="light" leftSection={<Plus size={18} />} onClick={openWordsModal}>
                 답안 추가
+              </Button>
+              <Button
+                variant="outline"
+                leftSection={<RefreshCw size={18} />}
+                onClick={handleRefresh}
+                loading={isFetching}
+              >
+                새로고침
               </Button>
             </Group>
           )}
