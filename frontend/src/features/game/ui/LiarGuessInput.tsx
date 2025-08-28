@@ -1,121 +1,100 @@
 import {useState} from 'react';
-import {Alert, Button, Card, Group, Stack, Text, Textarea} from '@mantine/core';
-import {AlertTriangle, Brain, Send, Target} from 'lucide-react';
+import {Alert, Button, Card, Stack, Text, TextInput} from '@mantine/core';
+import {Send, Target} from 'lucide-react';
 
 interface LiarGuessInputProps {
   onSubmitGuess: (guess: string) => void;
   isLiar: boolean;
-  isGuessPhase: boolean;
-  timeRemaining?: number;
+  isLiarGuessPhase: boolean;
   isDisabled?: boolean;
-  maxLength?: number;
+  timeLeft?: number;
 }
 
 export function LiarGuessInput({
   onSubmitGuess,
   isLiar,
-  isGuessPhase,
-  timeRemaining,
-  isDisabled = false,
-  maxLength = 50
+  isLiarGuessPhase,
+  isDisabled,
+  timeLeft
 }: LiarGuessInputProps) {
   const [guess, setGuess] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async () => {
-    if (!guess.trim() || isSubmitting) return;
+    if (!guess.trim() || isSubmitting || isDisabled) return;
 
     setIsSubmitting(true);
     try {
       await onSubmitGuess(guess.trim());
       setGuess('');
+    } catch (error) {
+      console.error('Failed to submit guess:', error);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleKeyPress = (event: React.KeyboardEvent) => {
-    if (event.key === 'Enter' && !event.shiftKey) {
-      event.preventDefault();
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
       handleSubmit();
     }
   };
 
-  // 라이어가 아닌 경우
-  if (!isLiar) {
-    return (
-      <Card withBorder padding="md" style={{ backgroundColor: '#f3f9f3' }}>
-        <Group gap="sm">
-          <Target size={20} color="#51cf66" />
-          <Text c="green" fw={500}>
-            당신은 시민입니다. 라이어의 추측을 기다려주세요.
-          </Text>
-        </Group>
-      </Card>
-    );
+  if (!isLiarGuessPhase) {
+    return null;
   }
 
-  // 추측 단계가 아닌 경우
-  if (!isGuessPhase) {
+  if (!isLiar) {
     return (
-      <Card withBorder padding="md" style={{ backgroundColor: '#fff5f5' }}>
-        <Group gap="sm">
-          <Brain size={20} color="#fa5252" />
-          <Text c="red" fw={500}>
-            아직 추측 단계가 아닙니다. 잠시 기다려주세요.
+      <Card withBorder p="md" radius="md" bg="gray.0">
+        <Stack gap="sm">
+          <Text size="sm" c="dimmed" ta="center">
+            라이어가 주제를 추측하고 있습니다...
           </Text>
-        </Group>
+          {timeLeft !== undefined && (
+            <Text size="xs" c="orange" ta="center">
+              남은 시간: {timeLeft}초
+            </Text>
+          )}
+        </Stack>
       </Card>
     );
   }
 
   return (
-    <Card withBorder padding="lg" shadow="sm" style={{ borderColor: '#fa5252' }}>
-      <Stack gap="md">
-        <Group justify="space-between">
-          <Group gap="sm">
-            <Brain size={20} color="#fa5252" />
-            <Text fw={600} size="lg" c="red">주제 추측</Text>
-          </Group>
-          {timeRemaining && (
-            <Text size="sm" c={timeRemaining <= 10 ? 'red' : 'orange'} fw={500}>
-              남은 시간: {timeRemaining}초
-            </Text>
-          )}
-        </Group>
+    <Card withBorder p="md" radius="md" shadow="sm" bg="red.0">
+      <Stack gap="sm">
+        <Text size="lg" fw={600} c="red">
+          <Target size={20} style={{ display: 'inline', marginRight: '8px' }} />
+          주제를 추측하세요!
+        </Text>
 
-        <Alert icon={<AlertTriangle size={16} />} color="red" variant="light">
+        <Alert color="red" variant="light">
           <Text size="sm">
-            <strong>마지막 기회입니다!</strong> 시민들의 힌트를 바탕으로 주제를 추측하세요.
+            마지막 기회입니다! 주제를 정확히 맞추면 라이어가 승리합니다.
           </Text>
         </Alert>
 
-        {timeRemaining && timeRemaining <= 15 && (
+        {timeLeft !== undefined && (
           <Alert color="orange" variant="light">
-            시간이 얼마 남지 않았습니다! 빠르게 추측하세요.
+            남은 시간: {timeLeft}초
           </Alert>
         )}
 
-        <Textarea
-          placeholder="주제를 입력하세요... (예: 음식, 동물, 스포츠 등)"
+        <TextInput
+          placeholder="주제를 입력하세요..."
           value={guess}
-          onChange={(e) => setGuess(e.currentTarget.value)}
+          onChange={(e) => setGuess(e.target.value)}
           onKeyPress={handleKeyPress}
           disabled={isDisabled || isSubmitting}
-          maxLength={maxLength}
-          minRows={2}
-          maxRows={4}
-          autosize
+          maxLength={50}
+          rightSection={
+            <Text size="xs" c="dimmed">
+              {guess.length}/50
+            </Text>
+          }
         />
-
-        <Group justify="space-between">
-          <Text size="xs" c="dimmed">
-            {guess.length}/{maxLength}자
-          </Text>
-          <Text size="xs" c="dimmed">
-            Enter로 빠른 제출 가능
-          </Text>
-        </Group>
 
         <Button
           onClick={handleSubmit}
@@ -123,14 +102,13 @@ export function LiarGuessInput({
           loading={isSubmitting}
           leftSection={<Send size={16} />}
           color="red"
-          size="md"
           fullWidth
         >
           주제 추측 제출
         </Button>
 
-        <Text size="xs" c="red" ta="center" fw={500}>
-          정확히 맞추면 라이어가 승리합니다!
+        <Text size="xs" c="dimmed" ta="center">
+          신중하게 생각하세요. 한 번만 기회가 있습니다!
         </Text>
       </Stack>
     </Card>
