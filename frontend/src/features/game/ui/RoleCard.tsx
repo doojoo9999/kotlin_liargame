@@ -1,74 +1,70 @@
-import {Badge, Card, Group, Stack, Text, ThemeIcon} from '@mantine/core';
+import {Badge, Card, Group, Stack, Text} from '@mantine/core';
 import {Eye, EyeOff} from 'lucide-react';
 
 interface RoleCardProps {
-  role: 'LIAR' | 'CITIZEN';
-  word?: string;
+  isLiar: boolean;
   subject?: string;
-  isRevealed?: boolean;
+  word?: string;
+  isRevealed: boolean;
+  onToggleReveal?: () => void;
 }
 
-export function RoleCard({ role, word, subject, isRevealed = true }: RoleCardProps) {
-  const isLiar = role === 'LIAR';
-
+export function RoleCard({ isLiar, subject, word, isRevealed, onToggleReveal }: RoleCardProps) {
   return (
-    <Card
-      shadow="md"
-      padding="lg"
-      radius="md"
-      withBorder
-      style={{
-        borderColor: isLiar ? '#fa5252' : '#51cf66',
-        backgroundColor: isLiar ? '#fff5f5' : '#f3f9f3'
-      }}
-    >
-      <Stack gap="md">
+    <Card withBorder p="md" radius="md" shadow="sm">
+      <Stack gap="sm">
         <Group justify="space-between">
-          <Badge
-            color={isLiar ? 'red' : 'green'}
-            size="lg"
-            variant="filled"
-          >
-            {isLiar ? '라이어' : '시민'}
-          </Badge>
-          <ThemeIcon
-            color={isRevealed ? 'blue' : 'gray'}
-            variant="light"
-            size="sm"
-          >
-            {isRevealed ? <Eye size={16} /> : <EyeOff size={16} />}
-          </ThemeIcon>
+          <Text size="lg" fw={600}>
+            당신의 역할
+          </Text>
+          {onToggleReveal && (
+            <Badge
+              variant="light"
+              color={isRevealed ? "blue" : "gray"}
+              style={{ cursor: 'pointer' }}
+              onClick={onToggleReveal}
+              leftSection={isRevealed ? <Eye size={14} /> : <EyeOff size={14} />}
+            >
+              {isRevealed ? "숨기기" : "보기"}
+            </Badge>
+          )}
         </Group>
 
         {isRevealed && (
           <>
-            {subject && (
-              <div>
-                <Text size="sm" c="dimmed" fw={500}>주제</Text>
-                <Text fw={600} size="md">{subject}</Text>
-              </div>
+            <Badge
+              size="lg"
+              color={isLiar ? "red" : "blue"}
+              variant="filled"
+            >
+              {isLiar ? "라이어" : "시민"}
+            </Badge>
+
+            {!isLiar && subject && (
+              <Stack gap="xs">
+                <Text size="sm" c="dimmed">주제</Text>
+                <Text fw={500}>{subject}</Text>
+              </Stack>
             )}
 
             {!isLiar && word && (
-              <div>
-                <Text size="sm" c="dimmed" fw={500}>단어</Text>
-                <Text fw={700} size="lg" c="green">{word}</Text>
-              </div>
+              <Stack gap="xs">
+                <Text size="sm" c="dimmed">단어</Text>
+                <Text fw={500} c="blue">{word}</Text>
+              </Stack>
             )}
 
             {isLiar && (
-              <div>
-                <Text size="sm" c="red" fw={500}>
-                  당신은 라이어입니다! 주제를 추측하고 시민들 사이에 섞여보세요.
-                </Text>
-              </div>
+              <Text size="sm" c="dimmed" style={{ fontStyle: 'italic' }}>
+                다른 플레이어들의 힌트를 듣고 주제를 추측하세요!
+              </Text>
             )}
           </>
         )}
 
         {!isRevealed && (
-          <Text c="dimmed" ta="center" fs="italic">
-            역할이 숨겨져 있습니다
+          <Text size="sm" c="dimmed" ta="center" py="md">
+            클릭하여 역할을 확인하세요
           </Text>
         )}
       </Stack>
