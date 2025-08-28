@@ -180,7 +180,63 @@ class ChatService(
         game.lastActivityAt = java.time.Instant.now()
         gameRepository.save(game)
 
-        return ChatMessageResponse.from(chatMessageRepository.save(chatMessage))
+        val savedMessage = chatMessageRepository.save(chatMessage)
+
+        // 힌트 입력 시 자동으로 다음 턴으로 진행
+        val currentPhase = determineGamePhase(game, allPlayers)
+        if (messageType == ChatMessageType.HINT &&
+            game.gameState == GameState.IN_PROGRESS &&
+            currentPhase == GamePhase.SPEECH &&
+            game.currentPlayerId == player.id) {
+
+            println("[DEBUG] Processing hint from current player ${player.nickname}, moving to next turn")
+
+            // 플레이어 상태를 힌트 제공 완료로 변경
+            player.state = org.example.kotlin_liargame.domain.game.model.enum.PlayerState.GAVE_HINT
+            playerRepository.save(player)
+
+            // 다음 턴으로 진행
+            try {
+                proceedToNextTurn(game)
+            } catch (e: Exception) {
+                println("[ERROR] Failed to proceed to next turn: ${e.message}")
+                e.printStackTrace()
+            }
+        }
+
+        return ChatMessageResponse.from(savedMessage)
+    }
+
+    private fun proceedToNextTurn(game: GameEntity) {
+        // 현재 턴 인덱스 증가
+        game.currentTurnIndex += 1
+
+        val turnOrder = game.turnOrder?.split(',') ?: emptyList()
+
+        // 모든 플레이어가 힌트를 제공했거나 턴이 끝난 경우 투표 단계로 진행
+        if (game.currentTurnIndex >= turnOrder.size) {
+            println("[DEBUG] All players completed hints, starting voting phase")
+            // 투표 단계 시작 로직은 VotingService에서 처리
+            return
+        }
+
+        // 다음 플레이어의 턴 시작
+        val nextPlayerNickname = turnOrder[game.currentTurnIndex]
+        val players = playerRepository.findByGame(game)
+        val nextPlayer = players.find { it.nickname == nextPlayerNickname }
+
+        if (nextPlayer != null) {
+            game.currentPlayerId = nextPlayer.id
+            game.turnStartedAt = Instant.now()
+            game.phaseEndTime = Instant.now().plusSeconds(gameProperties.turnTimeoutSeconds)
+            gameRepository.save(game)
+
+            try {
+                sendSystemMessage(game, "🎯 ${nextPlayer.nickname}님의 차례입니다! 힌트를 말해주세요. (${gameProperties.turnTimeoutSeconds}초)")
+            } catch (e: Exception) {
+                println("[ERROR] Failed to send turn start message: ${e.message}")
+            }
+        }
     }
 
 
