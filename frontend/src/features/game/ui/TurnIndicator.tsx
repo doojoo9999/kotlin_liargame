@@ -1,170 +1,151 @@
-import {Alert, Avatar, Badge, Card, Group, Stack, Text, ThemeIcon} from '@mantine/core';
-import {ArrowRight, Clock, Star, User, Users} from 'lucide-react';
+import {Avatar, Badge, Card, Group, Progress, Stack, Text} from '@mantine/core';
+import {ArrowRight, Clock, User} from 'lucide-react';
 
 interface Player {
-  id: string;
+  id: number;
   nickname: string;
+  isHost: boolean;
   isAlive: boolean;
-  isReady?: boolean;
 }
 
 interface TurnIndicatorProps {
-  currentPlayer: Player | null;
-  nextPlayer?: Player | null;
+  currentPlayer?: Player;
+  nextPlayer?: Player;
   allPlayers: Player[];
-  turnNumber?: number;
-  totalTurns?: number;
-  timeRemaining?: number;
-  isMyTurn?: boolean;
+  currentPlayerId?: number;
+  turnTimeLeft?: number;
+  totalTurnTime?: number;
+  turnOrder?: number[];
 }
 
 export function TurnIndicator({
   currentPlayer,
   nextPlayer,
   allPlayers,
-  turnNumber,
-  totalTurns,
-  timeRemaining,
-  isMyTurn = false
+  currentPlayerId,
+  turnTimeLeft,
+  totalTurnTime,
+  turnOrder
 }: TurnIndicatorProps) {
-  const alivePlayers = allPlayers.filter(player => player.isAlive);
+  const isMyTurn = currentPlayer?.id === currentPlayerId;
 
-  if (!currentPlayer) {
-    return (
-      <Card withBorder padding="md" style={{ backgroundColor: '#f8f9fa' }}>
-        <Group gap="sm">
-          <Users size={20} color="#868e96" />
-          <Text c="dimmed">턴이 시작되지 않았습니다.</Text>
-        </Group>
-      </Card>
-    );
-  }
+  const progressValue = turnTimeLeft && totalTurnTime
+    ? ((totalTurnTime - turnTimeLeft) / totalTurnTime) * 100
+    : 0;
+
+  const getPlayerPosition = (playerId: number) => {
+    if (!turnOrder) return null;
+    return turnOrder.indexOf(playerId) + 1;
+  };
 
   return (
-    <Card
-      withBorder
-      padding="lg"
-      shadow="sm"
-      style={{
-        borderColor: isMyTurn ? '#51cf66' : '#e9ecef',
-        backgroundColor: isMyTurn ? '#f3f9f3' : '#ffffff'
-      }}
-    >
-      <Stack gap="md">
-        {/* 현재 턴 플레이어 */}
-        <Group justify="space-between">
-          <Group gap="md">
-            <ThemeIcon
-              color={isMyTurn ? 'green' : 'blue'}
-              variant="light"
-              size="lg"
-            >
-              <User size={20} />
-            </ThemeIcon>
+    <Card withBorder p="md" radius="md" shadow="sm" bg={isMyTurn ? 'blue.0' : undefined}>
+      <Stack gap="sm">
+        <Group justify="space-between" align="center">
+          <Text size="lg" fw={600} c={isMyTurn ? 'blue' : 'dark'}>
+            <User size={20} style={{ display: 'inline', marginRight: '8px' }} />
+            {isMyTurn ? '당신의 턴입니다!' : '현재 턴'}
+          </Text>
 
-            <div>
+          {turnTimeLeft !== undefined && (
+            <Badge
+              color={turnTimeLeft <= 10 ? 'red' : turnTimeLeft <= 20 ? 'orange' : 'blue'}
+              variant="filled"
+              leftSection={<Clock size={14} />}
+            >
+              {turnTimeLeft}초
+            </Badge>
+          )}
+        </Group>
+
+        {currentPlayer && (
+          <Group gap="md">
+            <Avatar size="md" radius="xl">
+              {currentPlayer.nickname.charAt(0)}
+            </Avatar>
+            <Stack gap="xs">
               <Group gap="xs">
-                <Text fw={600} size="lg">
+                <Text fw={500} size="md">
                   {currentPlayer.nickname}
                 </Text>
+                {currentPlayer.isHost && (
+                  <Badge size="xs" color="yellow">HOST</Badge>
+                )}
                 {isMyTurn && (
-                  <Badge color="green" variant="filled" size="sm">
-                    내 턴
-                  </Badge>
+                  <Badge size="xs" color="blue">YOU</Badge>
                 )}
               </Group>
-              <Text size="sm" c="dimmed">
-                {isMyTurn ? '당신의 차례입니다!' : '현재 턴'}
-              </Text>
-            </div>
-          </Group>
 
-          <Avatar
-            size="lg"
-            color={isMyTurn ? 'green' : 'blue'}
-            variant="filled"
-          >
-            {currentPlayer.nickname.charAt(0)}
-          </Avatar>
-        </Group>
-
-        {/* 턴 진행 정보 */}
-        {(turnNumber !== undefined && totalTurns !== undefined) && (
-          <Group justify="space-between">
-            <Text size="sm" c="dimmed">턴 진행</Text>
-            <Badge variant="outline" color="blue">
-              {turnNumber} / {totalTurns}
-            </Badge>
+              {getPlayerPosition(currentPlayer.id) && (
+                <Text size="xs" c="dimmed">
+                  턴 순서: {getPlayerPosition(currentPlayer.id)}번째
+                </Text>
+              )}
+            </Stack>
           </Group>
         )}
 
-        {/* 시간 정보 */}
-        {timeRemaining !== undefined && (
-          <Group justify="space-between">
-            <Group gap="xs">
-              <Clock size={16} />
-              <Text size="sm" fw={500}>남은 시간</Text>
-            </Group>
-            <Text
+        {turnTimeLeft !== undefined && totalTurnTime && (
+          <Stack gap="xs">
+            <Progress
+              value={progressValue}
+              color={turnTimeLeft <= 10 ? 'red' : turnTimeLeft <= 20 ? 'orange' : 'blue'}
               size="sm"
-              fw={600}
-              c={timeRemaining <= 10 ? 'red' : timeRemaining <= 30 ? 'orange' : 'blue'}
-            >
-              {timeRemaining}초
-            </Text>
-          </Group>
+              radius="sm"
+            />
+            {turnTimeLeft <= 10 && (
+              <Text size="xs" c="red" ta="center" fw={500}>
+                시간이 얼마 남지 않았습니다!
+              </Text>
+            )}
+          </Stack>
         )}
 
-        {/* 다음 플레이어 */}
         {nextPlayer && (
-          <Group gap="sm" style={{ opacity: 0.7 }}>
-            <ArrowRight size={16} color="#868e96" />
-            <Text size="sm" c="dimmed">다음:</Text>
-            <Avatar size="sm" color="gray">
-              {nextPlayer.nickname.charAt(0)}
-            </Avatar>
-            <Text size="sm" c="dimmed">{nextPlayer.nickname}</Text>
+          <Group gap="sm" align="center">
+            <Text size="sm" c="dimmed">다음 턴:</Text>
+            <ArrowRight size={16} color="var(--mantine-color-dimmed)" />
+            <Group gap="xs">
+              <Avatar size="sm" radius="xl">
+                {nextPlayer.nickname.charAt(0)}
+              </Avatar>
+              <Text size="sm" fw={500}>
+                {nextPlayer.nickname}
+              </Text>
+              {nextPlayer.id === currentPlayerId && (
+                <Badge size="xs" color="blue" variant="light">YOU</Badge>
+              )}
+            </Group>
           </Group>
         )}
 
-        {/* 내 턴 알림 */}
-        {isMyTurn && (
-          <Alert color="green" variant="light">
+        {/* 턴 순서 표시 (옵션) */}
+        {turnOrder && turnOrder.length > 0 && (
+          <Stack gap="xs">
+            <Text size="xs" c="dimmed">턴 순서:</Text>
             <Group gap="xs">
-              <Star size={16} />
-              <Text size="sm" fw={500}>
-                지금 당신의 차례입니다! 행동을 취해주세요.
-              </Text>
+              {turnOrder.map((playerId, index) => {
+                const player = allPlayers.find(p => p.id === playerId);
+                if (!player) return null;
+
+                const isCurrent = player.id === currentPlayer?.id;
+                const isMe = player.id === currentPlayerId;
+
+                return (
+                  <Badge
+                    key={playerId}
+                    size="sm"
+                    color={isCurrent ? 'blue' : 'gray'}
+                    variant={isCurrent ? 'filled' : 'light'}
+                  >
+                    {index + 1}. {player.nickname}
+                    {isMe && ' (나)'}
+                  </Badge>
+                );
+              })}
             </Group>
-          </Alert>
+          </Stack>
         )}
-
-        {/* 시간 경고 */}
-        {timeRemaining !== undefined && timeRemaining <= 10 && (
-          <Alert color="red" variant="light">
-            <Text size="sm" fw={500}>
-              ⚠️ {currentPlayer.nickname}님의 시간이 얼마 남지 않았습니다!
-            </Text>
-          </Alert>
-        )}
-
-        {/* 플레이어 순서 표시 */}
-        <Group gap="xs" justify="center">
-          {alivePlayers.map((player) => (
-            <Avatar
-              key={player.id}
-              size="sm"
-              color={player.id === currentPlayer.id ? 'blue' : 'gray'}
-              variant={player.id === currentPlayer.id ? 'filled' : 'outline'}
-              style={{
-                opacity: player.id === currentPlayer.id ? 1 : 0.5,
-                transform: player.id === currentPlayer.id ? 'scale(1.1)' : 'scale(1)'
-              }}
-            >
-              {player.nickname.charAt(0)}
-            </Avatar>
-          ))}
-        </Group>
       </Stack>
     </Card>
   );
