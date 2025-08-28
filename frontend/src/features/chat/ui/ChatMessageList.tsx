@@ -9,16 +9,22 @@ interface ChatMessageListProps {
 
 const Row = ({ index, style, data }: { index: number; style: React.CSSProperties; data: ChatMessage[] }) => {
   const message = data[index];
-  const isSystem = message.type !== 'PLAYER';
+  const isSystem = message.type === 'SYSTEM';
 
   return (
     <Box style={style} p="xs">
-      <Text c={isSystem ? 'dimmed' : 'default'} size="sm">
-        <Text span fw={700} mr="sm">
-          {message.sender}:
+      {isSystem ? (
+        <Text c="blue" size="sm" fw={600} ta="center">
+          🔔 {message.content}
         </Text>
-        {message.content}
-      </Text>
+      ) : (
+        <Text c="default" size="sm">
+          <Text span fw={700} mr="sm">
+            {message.sender}:
+          </Text>
+          {message.content}
+        </Text>
+      )}
     </Box>
   );
 };
