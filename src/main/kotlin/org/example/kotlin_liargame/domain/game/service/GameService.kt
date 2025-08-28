@@ -441,7 +441,7 @@ class GameService(
                     accusedPlayer?.state == PlayerState.DEFENDED -> GamePhase.VOTING_FOR_SURVIVAL
                     allPlayersVoted -> GamePhase.VOTING_FOR_LIAR
                     allPlayersGaveHints -> GamePhase.VOTING_FOR_LIAR
-                    else -> GamePhase.GIVING_HINTS
+                    else -> GamePhase.SPEECH  // GIVING_HINTS 대신 SPEECH 사용
                 }
             }
         }
