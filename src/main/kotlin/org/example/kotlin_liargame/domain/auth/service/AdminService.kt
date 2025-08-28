@@ -249,8 +249,8 @@ class AdminService(
                                 true
                             }
 
-                            // 2. 방장이 접속해 있지 않고 10분 이상 활동이 없는 경우
-                            !hasOwner && {
+                            // 2. 방장이 접속해 있지 않고 10분 이상 활동이 없는 경우 (단, 2명 이상 접속시 제외)
+                            !hasOwner && players.size < 2 && {
                                 val lastActivity = game.lastActivityAt ?: gameCreatedAtInstant
                                 val timeSinceLastActivity = java.time.Duration.between(lastActivity, currentTime)
                                 timeSinceLastActivity.toMinutes() >= 10
@@ -262,8 +262,8 @@ class AdminService(
                                 true
                             }
 
-                            // 3. 생성 후 20분 이상 미시작 방
-                            gameAge.toMinutes() >= 20 -> {
+                            // 3. 생성 후 20분 이상 미시작 방 (단, 2명 이상 접속시 제외)
+                            players.size < 2 && gameAge.toMinutes() >= 20 -> {
                                 logger.info("장시간 미시작 게임방 삭제: gameNumber={}, 경과시간={}분",
                                     game.gameNumber, gameAge.toMinutes())
                                 true
@@ -410,11 +410,8 @@ class AdminService(
         allPlayers.forEach { player ->
             val userId = player.userId
             if (userId != null) {
-                // WebSocketSessionManager에서 해당 사용자의 활성 연결 확인
                 val isConnected = try {
-                    // 여기서는 단순히 게임에 참여한 지 오래된 플레이어들을 정리
                     val timeSinceJoined = java.time.Duration.between(player.joinedAt, java.time.Instant.now())
-                    // 10분 이상 된 WAITING 상태 게임의 플레이어들을 정리 (연결이 끊어진 것으로 간주)
                     if (player.game.gameState == GameState.WAITING && timeSinceJoined.toMinutes() > 10) {
                         false
                     } else {
@@ -429,7 +426,6 @@ class AdminService(
                     logger.debug("고아 플레이어 정리: gameNumber={}, nickname={}, joinedAt={}",
                         player.game.gameNumber, player.nickname, player.joinedAt)
 
-                    // 각 플레이어 정리를 별도 트랜잭션으로 처리하여 한 플레이어의 오류가 전체를 중단시키지 않도록 함
                     try {
                         cleanupSinglePlayer(player.game.gameNumber, userId)
                         cleanedCount++
@@ -455,10 +451,7 @@ class AdminService(
         }
     }
 
-    /**
-     * WebSocket 연결이 끊어진 고아 플레이어들을 감지하고 정리합니다.
-     * 브라우저 강제 종료 등으로 인한 연결 해제를 빠르게 감지합니다.
-     */
+
     @Transactional
     fun cleanupOrphanedPlayers(): Int {
         logger.debug("고아 플레이어 감지 및 정리 시작")
@@ -472,13 +465,10 @@ class AdminService(
                 if (userId != null) {
                     val timeSinceJoined = java.time.Duration.between(player.joinedAt, java.time.Instant.now())
 
-                    // 더 엄격한 조건으로 고아 플레이어 감지
-                    val shouldCleanup = when {
-                        // WAITING 상태에서 5분 이상 된 플레이어 (브라우저 종료로 추정)
-                        player.game.gameState == GameState.WAITING && timeSinceJoined.toMinutes() > 5 -> true
+                        val shouldCleanup = when {
+                            player.game.gameState == GameState.WAITING && timeSinceJoined.toMinutes() > 5 -> true
 
-                        // IN_PROGRESS 상태에서 1시간 이상 된 플레이어 (비정상적인 상황)
-                        player.game.gameState == GameState.IN_PROGRESS && timeSinceJoined.toHours() > 1 -> true
+                            player.game.gameState == GameState.IN_PROGRESS && timeSinceJoined.toHours() > 1 -> true
 
                         else -> false
                     }
