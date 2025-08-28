@@ -75,19 +75,16 @@ export const useGameStore = create<GameStoreState>()(
             },
 
             updateGameState: (gameNumber: number, gameState: GameStateResponse) => {
-                // 디버깅을 위한 로그 추가
                 logger.debugLog('Updating game state in store:', {
                     gameNumber,
                     playersLength: gameState.players.length,
                     gameOwner: gameState.gameOwner,
                     gameState: gameState.gameState,
+                    currentPhase: gameState.currentPhase,
                     players: gameState.players
                 });
 
-                // React Query를 통해 캐시 업데이트 (상태 변경 없음)
                 queryClient.setQueryData(['game', gameNumber], gameState);
-
-                // 강제로 쿼리 무효화하여 UI 업데이트 보장
                 queryClient.invalidateQueries({ queryKey: ['game', gameNumber] });
             }
         }
