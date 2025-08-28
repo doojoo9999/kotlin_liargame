@@ -20,43 +20,44 @@ export function GameRoomPage() {
   useGameSocket(parsedGameNumber);
   const { messages, sendMessage } = useChatSocket(parsedGameNumber);
 
-  // 인증되지 않은 사용자 처리 - 더 관대한 정책 적용
   useEffect(() => {
-    // 아직 로딩 중이면 대기
     if (isAuthLoading) {
+      console.log('[GameRoomPage] Auth loading, waiting...');
       return;
     }
 
-    // 인증 오류가 있지만 일시적일 수 있으므로 즉시 리다이렉트하지 않음
     if (isAuthError) {
       console.warn('[GameRoomPage] Auth error detected:', isAuthError);
-      // 3초 후에도 오류가 지속되면 리다이렉트
       const timer = setTimeout(() => {
         if (!authData?.authenticated) {
-          console.warn('[GameRoomPage] Auth error persists, redirecting to login');
+          console.warn('[GameRoomPage] Auth error persists after 10 seconds, redirecting to login');
           navigate('/login');
         }
-      }, 3000);
+      }, 10000);
 
       return () => clearTimeout(timer);
     }
 
-    // 로딩이 완료되고 명확히 인증되지 않은 경우에만 리다이렉트
-    if (!authData?.authenticated) {
-      console.warn('[GameRoomPage] User not authenticated after loading complete, redirecting to login');
-      navigate('/login');
+    if (!authData?.authenticated && !isAuthLoading && !isAuthError) {
+      console.warn('[GameRoomPage] User not authenticated, waiting 5 seconds before redirect...');
+      const timer = setTimeout(() => {
+        if (!authData?.authenticated) {
+          console.warn('[GameRoomPage] User still not authenticated after 5 seconds, redirecting to login');
+          navigate('/login');
+        }
+      }, 5000);
+
+      return () => clearTimeout(timer);
+    }
+
+    if (authData?.authenticated) {
+      console.log('[GameRoomPage] User authenticated:', authData.nickname);
     }
   }, [authData?.authenticated, isAuthLoading, isAuthError, navigate]);
 
-  // 게임방 정리(ROOM_DELETED) 시 안내 및 로비로 리다이렉트
   useEffect(() => {
-    if (gameState?.type === 'ROOM_DELETED') {
-      alert(`게임방이 정리되었습니다.\n이유: ${gameState.reason || '알 수 없음'}`);
-      navigate('/');
-    }
   }, [gameState, navigate]);
 
-  // 임시 디버깅: 채팅 히스토리 확인
   const checkChatHistory = async () => {
     try {
       const history = await getChatHistory(parsedGameNumber);
@@ -68,7 +69,6 @@ export function GameRoomPage() {
     }
   };
 
-  // 임시 디버깅: 현재 사용자 정보 확인
   const checkCurrentUser = () => {
     if (authData) {
       console.log('[DEBUG] Current user data:', authData);
@@ -78,7 +78,6 @@ export function GameRoomPage() {
     }
   };
 
-  // 인증 로딩 중이거나 인증되지 않은 경우
   if (isAuthLoading) {
     return <Center h="100vh"><Loader size="xl" /></Center>;
   }
@@ -127,17 +126,19 @@ export function GameRoomPage() {
       );
     }
 
-    switch (gameState.gameState) {
-      case 'WAITING':
-        return <GameLobby gameState={gameState} />;
-      case 'IN_PROGRESS':
-        return <GameInProgress gameState={gameState} />;
-      case 'ENDED':
-        // NOTE: GameEndedPhase is now part of GameInProgress logic
-        return <GameInProgress gameState={gameState} />;
-      default:
-        return <Text>알 수 없는 게임 상태입니다.</Text>;
-    }
+    return (
+      <Stack>
+        {gameState.gameState === 'WAITING' && <GameLobby gameState={gameState} />}
+        {(gameState.gameState === 'IN_PROGRESS' || gameState.gameState === 'ENDED') && (
+          <GameInProgress gameState={gameState} />
+        )}
+        {gameState.gameState !== 'WAITING' &&
+         gameState.gameState !== 'IN_PROGRESS' &&
+         gameState.gameState !== 'ENDED' && (
+          <Text>알 수 없는 게임 상태입니다.</Text>
+        )}
+      </Stack>
+    );
   };
 
   return (
@@ -146,8 +147,11 @@ export function GameRoomPage() {
         {gameState ? gameState.gameName : `Game Room #${gameNumber}`}
       </Title>
       <SimpleGrid cols={{ base: 1, lg: 2 }}>
-        <Stack>{renderGameContent()}</Stack>
-        <Stack>
+        {/* 게임 컨텐츠 영역 */}
+        {renderGameContent()}
+
+        {/* 채팅 영역 - 항상 마운트 상태 유지 */}
+        <Stack key={`chat-${parsedGameNumber}`}>
           <Title order={3}>채팅</Title>
           <ChatBox
             messages={messages}
