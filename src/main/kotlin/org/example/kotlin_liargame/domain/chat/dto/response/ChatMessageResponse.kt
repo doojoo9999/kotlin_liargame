@@ -5,7 +5,7 @@ import org.example.kotlin_liargame.domain.chat.model.enum.ChatMessageType
 import java.time.Instant
 
 data class ChatMessageResponse(
-    val id: Long,
+    val id: Long?,
     val gameNumber: Int,
     val playerNickname: String?, // 시스템 메시지의 경우 null
     val content: String,
