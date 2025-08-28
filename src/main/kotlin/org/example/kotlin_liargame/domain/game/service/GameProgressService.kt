@@ -35,13 +35,11 @@ class GameProgressService(
     fun startGame(session: HttpSession): GameStateResponse {
         val nickname = sessionService.getCurrentUserNickname(session)
 
-        // 현재 사용자가 참여하고 있는 게임을 찾습니다
         val player = playerRepository.findByNickname(nickname)
             ?: throw RuntimeException("게임에 참여하지 않았습니다. 먼저 게임방에 입장해주세요.")
 
         val game = player.game
 
-        // 방장 권한 확인
         if (game.gameOwner != nickname) {
             throw RuntimeException("게임 시작 권한이 없습니다. 방장만 게임을 시작할 수 있습니다.")
         }
@@ -50,7 +48,6 @@ class GameProgressService(
             throw RuntimeException("게임이 이미 진행 중이거나 종료되었습니다.")
         }
 
-        // countByGame 사용으로 성능 개선
         val playerCount = playerRepository.countByGame(game)
         if (playerCount < gameProperties.minPlayers || playerCount > gameProperties.maxPlayers) {
             throw RuntimeException("게임을 시작하기 위한 플레이어가 충분하지 않습니다. (최소 ${gameProperties.minPlayers}명, 최대 ${gameProperties.maxPlayers}명)")
@@ -60,19 +57,17 @@ class GameProgressService(
         val selectedSubjects = selectSubjects(game)
         assignRolesAndSubjects(game, players, selectedSubjects)
 
-        // Initialize turn order
         game.turnOrder = players.shuffled().joinToString(",") { it.nickname }
         game.currentTurnIndex = 0
 
         game.startGame()
         val savedGame = gameRepository.save(game)
 
-        // 게임 시작 사회자 메시지들 전송
         try {
+            println("[GameProgressService] Sending system messages for game ${savedGame.gameNumber}")
             chatService.sendSystemMessage(savedGame, "🎮 게임이 시작되었습니다!")
             chatService.sendSystemMessage(savedGame, "📝 각자 받은 주제에 대한 힌트를 차례대로 말해주세요.")
 
-            // 게임 모드에 따른 안내 메시지
             when (savedGame.gameMode) {
                 GameMode.LIARS_KNOW -> {
                     chatService.sendSystemMessage(savedGame, "🤫 라이어는 자신이 라이어임을 알고 있습니다. 다른 사람들의 힌트를 잘 들어보세요!")
@@ -83,8 +78,10 @@ class GameProgressService(
             }
 
             chatService.sendSystemMessage(savedGame, "⏰ 각 플레이어는 ${gameProperties.turnTimeoutSeconds}초 안에 힌트를 말해야 합니다.")
+            println("[GameProgressService] All system messages sent successfully for game ${savedGame.gameNumber}")
         } catch (e: Exception) {
-            println("[GameProgressService] Could not send system message: ${e.message}")
+            println("[GameProgressService] ERROR: Could not send system message for game ${savedGame.gameNumber}: ${e.message}")
+            e.printStackTrace()
         }
 
         startNewTurn(savedGame)
@@ -98,7 +95,6 @@ class GameProgressService(
     fun startNewTurn(game: GameEntity) {
         val turnOrder = game.turnOrder?.split(',') ?: emptyList()
         if (turnOrder.isEmpty() || game.currentTurnIndex >= turnOrder.size) {
-            // All players have spoken, move to voting phase
             votingService.startVotingPhase(game)
             return
         }
@@ -113,11 +109,13 @@ class GameProgressService(
         game.phaseEndTime = Instant.now().plusSeconds(gameProperties.turnTimeoutSeconds)
         gameRepository.save(game)
 
-        // 턴 시작 사회자 메시지 전송
         try {
+            println("[GameProgressService] Sending turn start message for game ${game.gameNumber}, player: ${nextPlayer.nickname}")
             chatService.sendSystemMessage(game, "🎯 ${nextPlayer.nickname}님의 차례입니다! 힌트를 말해주세요. (${gameProperties.turnTimeoutSeconds}초)")
+            println("[GameProgressService] Turn start message sent successfully")
         } catch (e: Exception) {
-            println("[GameProgressService] Could not send turn start message: ${e.message}")
+            println("[GameProgressService] ERROR: Could not send turn start message for game ${game.gameNumber}: ${e.message}")
+            e.printStackTrace()
         }
 
         gameMonitoringService.notifyTurnChanged(game.gameNumber, nextPlayer.id, game.turnStartedAt!!)
@@ -130,12 +128,24 @@ class GameProgressService(
         game.currentPlayerId?.let {
             val currentPlayer = playerRepository.findById(it).orElse(null)
             if (currentPlayer != null && currentPlayer.state == PlayerState.WAITING_FOR_HINT) {
-                currentPlayer.state = PlayerState.GAVE_HINT // Mark as spoken (timeout)
+                currentPlayer.state = PlayerState.GAVE_HINT
                 playerRepository.save(currentPlayer)
+
+                // 타임아웃으로 턴이 넘어갔다는 메시지 전송
+                try {
+                    chatService.sendSystemMessage(game, "⏰ ${currentPlayer.nickname}님의 시간이 초과되어 다음 차례로 넘어갑니다.")
+                } catch (e: Exception) {
+                    println("[GameProgressService] ERROR: Could not send timeout message: ${e.message}")
+                }
             }
         }
         
+        // 다음 턴 시작
         startNewTurn(game)
+
+        // 업데이트된 게임 상태를 모든 플레이어에게 브로드캐스트
+        val gameStateResponse = getGameStateResponse(game, null)
+        gameMonitoringService.broadcastGameState(game, gameStateResponse)
     }
 
     private fun selectSubjects(game: GameEntity): List<SubjectEntity> {
@@ -215,6 +225,12 @@ class GameProgressService(
 
         val userId = sessionService.getCurrentUserId(session)
 
+        // Check if it's the player's turn
+        val currentPlayer = playerRepository.findById(game.currentPlayerId ?: 0).orElse(null)
+        if (currentPlayer?.userId != userId) {
+            throw RuntimeException("It's not your turn")
+        }
+
         markPlayerAsSpoken(req.gameNumber, userId)
         gameMonitoringService.notifyHintSubmitted(req.gameNumber, userId, req.hint)
         
@@ -222,9 +238,14 @@ class GameProgressService(
         game.currentTurnIndex++
         gameRepository.save(game)
 
+        // Start next turn and get updated game state
         startNewTurn(game)
 
-        return getGameStateResponse(game, session)
+        val gameStateResponse = getGameStateResponse(game, session)
+        // Broadcast the updated game state to all players
+        gameMonitoringService.broadcastGameState(game, gameStateResponse)
+
+        return gameStateResponse
     }
 
     @Transactional
