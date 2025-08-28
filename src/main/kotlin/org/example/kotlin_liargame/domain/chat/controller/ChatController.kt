@@ -30,7 +30,7 @@ class ChatController(
         session: HttpSession
     ): ResponseEntity<ChatMessageResponse> {
         val response = chatService.sendMessage(request, session)
-        messagingTemplate.convertAndSend("/topic/chat/${request.gameNumber}", response)
+        messagingTemplate.convertAndSend("/topic/chat.${request.gameNumber}", response)
         return ResponseEntity.ok(response)
     }
     
@@ -65,9 +65,9 @@ class ChatController(
             )
 
             println("[DEBUG] Created temporary response: $tempResponse")
-            println("[DEBUG] Broadcasting message to /topic/chat/${request.gameNumber}")
+            println("[DEBUG] Broadcasting message to /topic/chat.${request.gameNumber}")
 
-            messagingTemplate.convertAndSend("/topic/chat/${request.gameNumber}", tempResponse)
+            messagingTemplate.convertAndSend("/topic/chat.${request.gameNumber}", tempResponse)
 
             println("[DEBUG] TEMPORARY WebSocket chat message sent successfully to topic")
             println("[DEBUG] ========== WebSocket Chat Message Debug End ==========")
@@ -85,7 +85,7 @@ class ChatController(
                 "message" to (e.message ?: "Unknown error occurred"),
                 "gameNumber" to request.gameNumber
             )
-            messagingTemplate.convertAndSend("/topic/chat/error/${request.gameNumber}", errorMessage)
+            messagingTemplate.convertAndSend("/topic/chat.error.${request.gameNumber}", errorMessage)
         }
     }
 
