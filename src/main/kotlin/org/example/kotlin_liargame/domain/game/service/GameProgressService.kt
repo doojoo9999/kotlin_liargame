@@ -140,6 +140,9 @@ class GameProgressService(
             }
         }
         
+        // 현재 턴 인덱스 증가 (중요: 이 부분이 빠져있어서 무한 루프 발생)
+        game.currentTurnIndex += 1
+
         // 다음 턴 시작
         startNewTurn(game)
 

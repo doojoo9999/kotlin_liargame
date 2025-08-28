@@ -136,7 +136,7 @@ POST /api/v1/auth/refresh-session
 
 #### 게임 단계 (GamePhase)
 - `WAITING_FOR_PLAYERS`: 플레이어 대기
-- `GIVING_HINTS`: 힌트 제공 단계
+- `SPEECH`: 힌트 제공 단계
 - `VOTING_FOR_LIAR`: 라이어 투표 단계
 - `DEFENDING`: 변론 단계
 - `VOTING_FOR_SURVIVAL`: 최종 투표 단계
@@ -243,7 +243,7 @@ POST /api/v1/game/start
 {
   "gameNumber": 123,
   "gameState": "IN_PROGRESS",
-  "currentPhase": "GIVING_HINTS",
+  "currentPhase": "SPEECH",
   "players": [...],
   "turnOrder": ["player1", "player2"],
   "currentTurnIndex": 0,
@@ -285,7 +285,7 @@ POST /api/v1/game/hint
 {
   "gameNumber": 123,
   "gameState": "IN_PROGRESS",
-  "currentPhase": "GIVING_HINTS",
+  "currentPhase": "SPEECH",
   "currentTurnIndex": 1,
   "currentPlayerId": 2
 }
@@ -460,7 +460,7 @@ GET /api/v1/game/{gameNumber}
 {
   "gameNumber": 123,
   "gameState": "IN_PROGRESS",
-  "currentPhase": "GIVING_HINTS",
+  "currentPhase": "SPEECH",
   "players": [
     {
       "id": 1,
@@ -591,7 +591,7 @@ POST /api/v1/chat/history
 
 **단계별 채팅 가능 여부:**
 - `WAITING_FOR_PLAYERS`: 자유 채팅
-- `GIVING_HINTS`: 현재 턴 플레이어만 채팅 가능
+- `SPEECH`: 현재 턴 플레이어만 채팅 가능
 - `VOTING_FOR_LIAR`: 투표 중 채팅 금지
 - `DEFENDING`: 지목된 플레이어만 채팅 가능
 - `VOTING_FOR_SURVIVAL`: 투표 중 채팅 금지
