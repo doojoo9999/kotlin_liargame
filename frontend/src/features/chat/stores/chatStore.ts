@@ -8,7 +8,7 @@ import {useUserStore} from '../../../shared/stores/userStore';
 interface RawChatMessage {
     id?: number;
     playerId?: number;
-    playerNickname: string;
+    playerNickname: string | null; // null 허용으로 수정
     content: string;
     type: 'USER' | 'SYSTEM' | 'GAME_EVENT' | 'ADMIN' | 'POST_ROUND';
     timestamp: string;
@@ -19,8 +19,13 @@ const mapRawMessageToChatMessage = (raw: RawChatMessage): ChatMessage => {
     if (raw.type === 'SYSTEM' || raw.type === 'GAME_EVENT' || raw.type === 'ADMIN') {
         type = 'SYSTEM';
     }
+
+    const sender = raw.type === 'SYSTEM' || raw.type === 'GAME_EVENT' || raw.type === 'ADMIN'
+        ? '시스템'
+        : raw.playerNickname;
+
     return {
-        sender: raw.playerNickname,
+        sender: sender,
         content: raw.content,
         timestamp: raw.timestamp,
         type: type,
@@ -31,7 +36,6 @@ interface ChatStoreState {
     messages: ChatMessage[];
     currentSubscription: string | null;
     isSubscribing: boolean;
-    // 액션들을 별도로 분리
     actions: {
         subscribeToChat: (gameNumber: number) => Promise<void>;
         unsubscribeFromChat: () => void;
@@ -50,9 +54,8 @@ export const useChatStore = create<ChatStoreState>()(
         actions: {
             subscribeToChat: async (gameNumber: number) => {
                 const state = get();
-                const destination = `/topic/chat/${gameNumber}`;
+                const destination = `/topic/chat.${gameNumber}`;
 
-                // 구독 중이거나 이미 같은 구독이 있으면 무시
                 if (state.isSubscribing || state.currentSubscription === destination) {
                     logger.debugLog('Already subscribed or subscribing to chat:', destination);
                     return;
@@ -85,7 +88,6 @@ export const useChatStore = create<ChatStoreState>()(
                             console.log('[ChatStore] Formatted message:', formattedMessage);
                             logger.debugLog('[ChatStore] Formatted message:', formattedMessage);
 
-                            // 별도 액션으로 메시지 추가
                             get().actions.addMessage(formattedMessage);
                             console.log('[ChatStore] === MESSAGE ADDED TO STORE ===');
                         } catch (error) {
