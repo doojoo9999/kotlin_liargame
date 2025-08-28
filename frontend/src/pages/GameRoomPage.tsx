@@ -157,6 +157,7 @@ export function GameRoomPage() {
             messages={messages}
             onSendMessage={sendMessage}
             disabled={!gameState || gameState.gameState === 'ENDED'}
+            gameState={gameState}
           />
           {/* DEBUG: 채팅 히스토리 확인 버튼 */}
           <Group justify="flex-end">
