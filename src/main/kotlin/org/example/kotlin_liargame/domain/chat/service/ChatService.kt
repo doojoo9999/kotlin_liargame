@@ -169,6 +169,8 @@ class ChatService(
         val messageType = determineMessageType(game, player)
             ?: throw RuntimeException("Chat not available")
         
+        println("[DEBUG] Message type determined: $messageType")
+
         val chatMessage = ChatMessageEntity(
             game = game,
             player = player,
@@ -184,12 +186,15 @@ class ChatService(
 
         // 힌트 입력 시 자동으로 다음 턴으로 진행
         val currentPhase = determineGamePhase(game, allPlayers)
+        println("[DEBUG] Current phase: $currentPhase, Message type: $messageType")
+        println("[DEBUG] Game state: ${game.gameState}, Current player ID: ${game.currentPlayerId}, Player ID: ${player.id}")
+
         if (messageType == ChatMessageType.HINT &&
             game.gameState == GameState.IN_PROGRESS &&
             currentPhase == GamePhase.SPEECH &&
             game.currentPlayerId == player.id) {
 
-            println("[DEBUG] Processing hint from current player ${player.nickname}, moving to next turn")
+            println("[DEBUG] All conditions met for turn progression - Processing hint from current player ${player.nickname}")
 
             // 플레이어 상태를 힌트 제공 완료로 변경
             player.state = org.example.kotlin_liargame.domain.game.model.enum.PlayerState.GAVE_HINT
@@ -198,10 +203,17 @@ class ChatService(
             // 다음 턴으로 진행
             try {
                 proceedToNextTurn(game)
+                println("[DEBUG] Successfully proceeded to next turn")
             } catch (e: Exception) {
                 println("[ERROR] Failed to proceed to next turn: ${e.message}")
                 e.printStackTrace()
             }
+        } else {
+            println("[DEBUG] Conditions not met for turn progression:")
+            println("[DEBUG] - Is HINT message: ${messageType == ChatMessageType.HINT}")
+            println("[DEBUG] - Game IN_PROGRESS: ${game.gameState == GameState.IN_PROGRESS}")
+            println("[DEBUG] - Phase SPEECH: ${currentPhase == GamePhase.SPEECH}")
+            println("[DEBUG] - Is current player: ${game.currentPlayerId == player.id}")
         }
 
         return ChatMessageResponse.from(savedMessage)
