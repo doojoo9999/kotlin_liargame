@@ -67,6 +67,7 @@ class GameEntity(
     fun startGame() {
         if (gameState == GameState.WAITING) {
             gameState = GameState.IN_PROGRESS
+            currentPhase = GamePhase.SPEECH  // GIVING_HINTS 대신 SPEECH 사용
             gameCurrentRound = 1
         }
     }
