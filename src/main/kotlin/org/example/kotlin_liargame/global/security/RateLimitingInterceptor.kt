@@ -60,6 +60,11 @@ class RateLimitingInterceptor(
             "/assets"
         )
         
+        // WebSocket 관련 모든 경로 제외
+        if (requestURI.contains("/ws") || requestURI.contains("/sockjs")) {
+            return true
+        }
+
         return skipPaths.any { requestURI.startsWith(it) }
     }
     
