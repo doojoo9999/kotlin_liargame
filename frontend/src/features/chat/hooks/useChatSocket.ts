@@ -37,7 +37,7 @@ export const useChatSocket = (gameNumber: number) => {
             hasInitialized.current = false;
         };
     }, [gameNumber]);
-    
+
     return {
         messages,
         sendMessage: async (content: string) => {
