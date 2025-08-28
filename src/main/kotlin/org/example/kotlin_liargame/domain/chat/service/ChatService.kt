@@ -260,7 +260,7 @@ class ChatService(
 
         if (game.gameState == GameState.IN_PROGRESS) {
             return when (currentPhase) {
-                GamePhase.GIVING_HINTS -> ChatMessageType.HINT
+                GamePhase.SPEECH -> ChatMessageType.HINT  // GIVING_HINTS 대신 SPEECH 사용
                 GamePhase.VOTING_FOR_LIAR -> ChatMessageType.DISCUSSION
                 GamePhase.DEFENDING -> ChatMessageType.DEFENSE
                 else -> null
@@ -282,7 +282,6 @@ class ChatService(
 
         val endTime = Instant.now().plusSeconds(gameProperties.postRoundChatDurationSeconds)
 
-        // Redis에 상태 저장
         gameStateService.setPostRoundChatWindow(gameNumber, endTime)
 
         gameMessagingService.sendChatStatusUpdate(gameNumber, "POST_ROUND_CHAT_STARTED", mapOf(
@@ -299,11 +298,11 @@ class ChatService(
         gameMessagingService.sendChatStatusUpdate(gameNumber, "POST_ROUND_CHAT_ENDED")
     }
     
-    /**
-     * 시스템 메시지 전송 (사회자 메시지, 게임 상태 변화 알림 등)
-     */
+
     @Transactional
     fun sendSystemMessage(game: GameEntity, message: String) {
+        println("[ChatService] Attempting to send system message to game ${game.gameNumber}: $message")
+
         val systemMessage = ChatMessageEntity(
             game = game,
             player = null, // 시스템 메시지는 플레이어가 없음
@@ -312,12 +311,21 @@ class ChatService(
         )
 
         val savedMessage = chatMessageRepository.save(systemMessage)
+        println("[ChatService] System message saved to database with ID: ${savedMessage.id}")
+
         val response = ChatMessageResponse.from(savedMessage)
+        val topicName = "/topic/chat.${game.gameNumber}"
 
-        // WebSocket으로 모든 게임 참가자에게 실시간 전송
-        messagingTemplate.convertAndSend("/topic/chat.${game.gameNumber}", response)
+        try {
+            messagingTemplate.convertAndSend(topicName, response)
+            println("[ChatService] System message sent via WebSocket to topic: $topicName")
+        } catch (e: Exception) {
+            println("[ChatService] ERROR: Failed to send WebSocket message to $topicName: ${e.message}")
+            e.printStackTrace()
+            throw e
+        }
 
-        println("[DEBUG] System message sent to game ${game.gameNumber}: $message")
+        println("[ChatService] System message sent successfully to game ${game.gameNumber}: $message")
     }
 
     private fun determineGamePhase(game: GameEntity, players: List<PlayerEntity>): GamePhase {
@@ -334,7 +342,7 @@ class ChatService(
                     accusedPlayer?.state == org.example.kotlin_liargame.domain.game.model.enum.PlayerState.DEFENDED -> GamePhase.VOTING_FOR_SURVIVAL
                     allPlayersVoted -> GamePhase.VOTING_FOR_LIAR
                     allPlayersGaveHints -> GamePhase.VOTING_FOR_LIAR
-                    else -> GamePhase.GIVING_HINTS
+                    else -> GamePhase.SPEECH  // GIVING_HINTS 대신 SPEECH 사용
                 }
             }
         }
@@ -347,10 +355,6 @@ class ChatService(
         }
     }
 
-    /**
-     * 플레이어의 모든 채팅 메시지를 삭제합니다.
-     * 외래 키 제약 조건 위반을 방지하기 위해 플레이어 삭제 전에 호출되어야 합니다.
-     */
     @Transactional
     fun deletePlayerChatMessages(playerId: Long): Int {
         return try {
@@ -363,10 +367,6 @@ class ChatService(
         }
     }
 
-    /**
-     * 게임의 모든 채팅 메시지를 삭제합니다.
-     * 외래 키 제약 조건 위반을 방지하기 위해 게임 삭제 전에 호출되어야 합니다.
-     */
     @Transactional
     fun deleteGameChatMessages(game: GameEntity): Int {
         return try {
