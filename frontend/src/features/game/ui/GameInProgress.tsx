@@ -9,6 +9,7 @@ import {GameEndedPhase} from './GameEndedPhase';
 import {LiarGuessPhase} from './LiarGuessPhase';
 import {SpeechPhase} from './SpeechPhase';
 import {VotePhase} from './VotePhase';
+import {useUserStore} from '../../../shared/stores/userStore';
 
 interface GameInProgressProps {
   gameState: GameStateResponse;
@@ -35,7 +36,30 @@ const PhaseComponent = ({ gameState }: { gameState: GameStateResponse }) => {
 
 export function GameInProgress({ gameState }: GameInProgressProps) {
   const { messages, sendMessage } = useChatSocket(gameState.gameNumber);
+  const currentUserNickname = useUserStore((state) => state.nickname);
   const showTimer = ['SPEECH', 'VOTE', 'DEFENSE', 'FINAL_VOTE', 'LIAR_GUESS'].includes(gameState.currentPhase) && gameState.phaseEndTime;
+
+  // 채팅 입력 제한 로직
+  const isChatDisabled = () => {
+    // 게임이 종료되었거나 채팅이 비활성화된 경우
+    if (!gameState.isChatAvailable || gameState.currentPhase === 'ENDED') {
+      return true;
+    }
+
+    // SPEECH 페이즈에서는 현재 턴인 사람만 채팅 가능
+    if (gameState.currentPhase === 'SPEECH') {
+      // 현재 턴인 플레이어의 닉네임 확인
+      const currentPlayerTurnNickname =
+        gameState.turnOrder && gameState.currentTurnIndex != null
+          ? gameState.turnOrder[gameState.currentTurnIndex]
+          : null;
+
+      // 현재 턴이 아닌 사람은 채팅 비활성화
+      return currentUserNickname !== currentPlayerTurnNickname;
+    }
+
+    return false;
+  };
 
   return (
     <Grid>
@@ -53,7 +77,11 @@ export function GameInProgress({ gameState }: GameInProgressProps) {
       <Grid.Col span={{ base: 12, md: 4 }}>
         <Stack>
           <PlayerList players={gameState.players} gameOwner={gameState.gameOwner} />
-          {gameState.isChatAvailable && <ChatBox messages={messages} onSendMessage={sendMessage} />}
+          <ChatBox
+            messages={messages}
+            onSendMessage={sendMessage}
+            disabled={isChatDisabled()}
+          />
         </Stack>
       </Grid.Col>
     </Grid>
