@@ -1,4 +1,4 @@
-import {useQuery} from '@tanstack/react-query';
+import {useQuery, useQueryClient} from '@tanstack/react-query';
 import {getRooms} from '../api/getRooms';
 
 const roomsQueryKeys = {
@@ -7,10 +7,26 @@ const roomsQueryKeys = {
 };
 
 export const useRoomsQuery = () => {
-  return useQuery({
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
     queryKey: roomsQueryKeys.list(),
     queryFn: getRooms,
-    // Optional: Add polling or WebSocket updates later
-    // refetchInterval: 5000,
+    refetchInterval: 5000,
+    refetchIntervalInBackground: false,
   });
+
+  const refetchRooms = () => {
+    return query.refetch();
+  };
+
+  const invalidateRooms = () => {
+    return queryClient.invalidateQueries({ queryKey: roomsQueryKeys.all });
+  };
+
+  return {
+    ...query,
+    refetchRooms,
+    invalidateRooms,
+  };
 };
