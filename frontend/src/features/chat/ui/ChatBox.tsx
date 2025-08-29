@@ -40,16 +40,26 @@ export function ChatBox({ messages, onSendMessage, disabled, gameState }: ChatBo
         return { disabled: true, message: "사용자 정보가 없습니다." };
       }
 
-      // 현재 플레이어 찾기
-      const currentPlayer = gameState.players.find((p: any) => p.userId === currentUser.userId);
+      // 현재 플레이어 찾기 - nickname으로 매칭
+      const currentPlayer = gameState.players.find((p: any) => p.nickname === currentUser.nickname);
+
+      // 디버깅 정보 출력
+      console.log('[ChatBox DEBUG] Current user:', currentUser);
+      console.log('[ChatBox DEBUG] Game players:', gameState.players);
+      console.log('[ChatBox DEBUG] Found current player:', currentPlayer);
+      console.log('[ChatBox DEBUG] Game phase:', gameState.currentPhase);
+      console.log('[ChatBox DEBUG] Turn order:', gameState.turnOrder);
+      console.log('[ChatBox DEBUG] Current turn index:', gameState.currentTurnIndex);
+
       if (!currentPlayer) {
+        console.log('[ChatBox ERROR] Player not found! Auth nickname:', currentUser.nickname);
         return { disabled: true, message: "플레이어 정보를 찾을 수 없습니다." };
       }
 
       // 게임 페이즈별 채팅 제한
       switch (gameState.currentPhase) {
         case 'SPEECH':
-          // 힌트 제공 단계에서는 현재 턴인 플레이어만 채팅 가능
+          // 발언 단계에서는 현재 턴인 플레이어만 채팅(힌트) 가능
           const currentTurnPlayer = getCurrentTurnPlayer(gameState);
           if (currentTurnPlayer && currentTurnPlayer.id === currentPlayer.id) {
             return { disabled: false, message: "" };
@@ -60,10 +70,11 @@ export function ChatBox({ messages, onSendMessage, disabled, gameState }: ChatBo
             };
           }
 
-        case 'VOTE':
-          return { disabled: true, message: "라이어 투표 중입니다." };
+        case 'VOTING_FOR_LIAR':
+          // 투표 중에는 모든 사용자가 채팅 가능
+          return { disabled: false, message: "" };
 
-        case 'DEFENSE':
+        case 'DEFENDING':
           // 변론 단계에서는 지목된 플레이어만 채팅 가능
           const accusedPlayer = gameState.accusedPlayer;
           if (accusedPlayer && accusedPlayer.id === currentPlayer.id) {
@@ -75,10 +86,11 @@ export function ChatBox({ messages, onSendMessage, disabled, gameState }: ChatBo
             };
           }
 
-        case 'FINAL_VOTE':
-          return { disabled: true, message: "최종 투표 중입니다." };
+        case 'VOTING_FOR_SURVIVAL':
+          // 최종 투표 중에는 모든 사용자가 채팅 가능
+          return { disabled: false, message: "" };
 
-        case 'LIAR_GUESS':
+        case 'GUESSING_WORD':
           // 라이어 추측 단계에서는 라이어만 채팅 가능
           if (currentPlayer.role === 'LIAR') {
             return { disabled: false, message: "" };
@@ -87,7 +99,7 @@ export function ChatBox({ messages, onSendMessage, disabled, gameState }: ChatBo
           }
 
         default:
-          return { disabled: true, message: "현재 채팅을 할 수 없습니다." };
+          return { disabled: false, message: "" };
       }
     }
 
@@ -96,12 +108,29 @@ export function ChatBox({ messages, onSendMessage, disabled, gameState }: ChatBo
 
   // 현재 턴인 플레이어를 찾는 헬퍼 함수
   const getCurrentTurnPlayer = (gameState: GameStateResponse) => {
-    if (!gameState.turnOrder || gameState.currentTurnIndex === undefined) {
-      return null;
+    // turnOrder와 currentTurnIndex가 있는 경우
+    if (gameState.turnOrder && gameState.currentTurnIndex !== undefined && gameState.currentTurnIndex !== null) {
+      const currentTurnNickname = gameState.turnOrder[gameState.currentTurnIndex];
+      return gameState.players.find((p: any) => p.nickname === currentTurnNickname);
     }
 
-    const currentTurnNickname = gameState.turnOrder[gameState.currentTurnIndex];
-    return gameState.players.find((p: any) => p.nickname === currentTurnNickname);
+    // turnOrder가 없는 경우 fallback: 시스템 메시지에서 현재 턴 플레이어를 추출
+    // "🎯 XXX님의 차례입니다!" 메시지에서 닉네임 추출
+    const recentMessages = messages.slice(-10); // 최근 10개 메시지만 확인
+    for (let i = recentMessages.length - 1; i >= 0; i--) {
+      const message = recentMessages[i];
+      if (message.type === 'SYSTEM' && message.content.includes('님의 차례입니다!')) {
+        const match = message.content.match(/🎯\s*(.+?)님의\s*차례입니다!/);
+        if (match) {
+          const turnPlayerNickname = match[1];
+          console.log('[ChatBox DEBUG] Extracted turn player from system message:', turnPlayerNickname);
+          return gameState.players.find((p: any) => p.nickname === turnPlayerNickname);
+        }
+      }
+    }
+
+    console.log('[ChatBox DEBUG] Could not determine current turn player');
+    return null;
   };
 
   const chatStatus = getChatStatus();
