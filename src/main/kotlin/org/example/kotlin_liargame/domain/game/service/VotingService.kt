@@ -98,9 +98,24 @@ class VotingService(
         // 게임 상태 브로드캐스트
         try {
             val gameStateResponse = getGameState(game, null)
-            println("[VotingService] Broadcasting voting phase - Game: ${game.gameNumber}, Phase: ${gameStateResponse.currentPhase}")
+            println("[VotingService] === DETAILED BROADCAST DEBUG ===")
+            println("[VotingService] Broadcasting to topic: /topic/game/${game.gameNumber}/state")
+            println("[VotingService] Game state data: {")
+            println("[VotingService]   gameNumber: ${gameStateResponse.gameNumber}")
+            println("[VotingService]   currentPhase: ${gameStateResponse.currentPhase}")
+            println("[VotingService]   gameState: ${gameStateResponse.gameState}")
+            println("[VotingService]   playersCount: ${gameStateResponse.players.size}")
+            println("[VotingService] }")
+
+            // 직접 웹소켓 브로드캐스트 시도
+            messagingTemplate.convertAndSend("/topic/game/${game.gameNumber}/state", gameStateResponse)
+            println("[VotingService] Direct WebSocket broadcast sent successfully")
+
+            // 기존 방식도 함께 시도
             gameMonitoringService.broadcastGameState(game, gameStateResponse)
-            println("[VotingService] Voting phase broadcast successful")
+            println("[VotingService] Monitoring service broadcast sent successfully")
+
+            println("[VotingService] === BROADCAST DEBUG COMPLETE ===")
         } catch (e: Exception) {
             println("[VotingService] ERROR: Failed to broadcast game state: ${e.message}")
             e.printStackTrace()
@@ -141,21 +156,36 @@ class VotingService(
             throw RuntimeException("Target player is eliminated from the game")
         }
 
+        // 기존 투표 정보 제거 (재투표 시)
+        voter.votedFor?.let { previousTargetId ->
+            val previousTarget = playerRepository.findById(previousTargetId).orElse(null)
+            previousTarget?.let {
+                it.votesReceived = maxOf(0, it.votesReceived - 1)
+                playerRepository.save(it)
+            }
+        }
+
+        // 새로운 투표 정보 설정
         voter.voteFor(targetPlayer.id)
+        voter.state = PlayerState.VOTED
         playerRepository.save(voter)
 
         targetPlayer.receiveVote()
         playerRepository.save(targetPlayer)
 
+        println("[VotingService] Player ${voter.nickname} voted for ${targetPlayer.nickname}")
+
         gameMonitoringService.notifyPlayerVoted(gameNumber, voter.id, targetPlayer.id)
 
+        // 투표 완료 조건 확인
         val players = playerRepository.findByGame(game)
-        val allPlayersVoted = players.all {
-            it.state == PlayerState.VOTED || !it.isAlive ||
-                    (it.state == PlayerState.WAITING_FOR_VOTE && it.hasVotingTimeExpired())
-        }
+        val alivePlayers = players.filter { it.isAlive }
+        val votedPlayers = alivePlayers.filter { it.state == PlayerState.VOTED }
 
-        if (allPlayersVoted) {
+        println("[VotingService] Vote progress: ${votedPlayers.size}/${alivePlayers.size} players voted")
+
+        if (votedPlayers.size >= alivePlayers.size) {
+            println("[VotingService] All players have voted, processing vote results")
             processVoteResults(game)
         }
         
@@ -282,5 +312,38 @@ class VotingService(
             currentTurnIndex = currentTurnIndex,
             phaseEndTime = game.phaseEndTime?.toString() // phaseEndTime 추가
         )
+    }
+
+    @Transactional
+    fun forceVotingPhaseEnd(game: GameEntity) {
+        println("[VotingService] === FORCING VOTING PHASE END ===")
+        println("[VotingService] Game: ${game.gameNumber}, Current phase: ${game.currentPhase}")
+
+        try {
+            // 투표하지 않은 플레이어들의 상태를 VOTED로 변경 (빈 투표로 처리)
+            val players = playerRepository.findByGame(game)
+            val alivePlayers = players.filter { it.isAlive }
+            val nonVotedPlayers = alivePlayers.filter { it.state == PlayerState.WAITING_FOR_VOTE }
+
+            println("[VotingService] Non-voted players: ${nonVotedPlayers.size}")
+
+            nonVotedPlayers.forEach { player ->
+                player.state = PlayerState.VOTED
+                println("[VotingService] Marking player ${player.nickname} as voted (timeout)")
+            }
+            playerRepository.saveAll(nonVotedPlayers)
+
+            // 투표 결과 처리
+            processVoteResults(game)
+
+            // 시스템 메시지 전송
+            chatService.sendSystemMessage(game, "⏰ 투표 시간이 만료되었습니다. 투표 결과를 집계합니다.")
+
+            println("[VotingService] === VOTING PHASE END COMPLETED ===")
+        } catch (e: Exception) {
+            println("[VotingService] ERROR: Failed to force voting phase end: ${e.message}")
+            e.printStackTrace()
+            throw e
+        }
     }
 }
