@@ -94,15 +94,34 @@ class GameProgressService(
 
     fun startNewTurn(game: GameEntity) {
         val turnOrder = game.turnOrder?.split(',') ?: emptyList()
+        println("[GameProgressService] startNewTurn - Game: ${game.gameNumber}, turnOrder: $turnOrder, currentTurnIndex: ${game.currentTurnIndex}")
+
         if (turnOrder.isEmpty() || game.currentTurnIndex >= turnOrder.size) {
+            println("[GameProgressService] Turn order complete or empty, starting voting phase")
             votingService.startVotingPhase(game)
             return
         }
 
         val nextPlayerNickname = turnOrder[game.currentTurnIndex]
         val players = playerRepository.findByGame(game)
-        val nextPlayer = players.find { it.nickname == nextPlayerNickname }
-            ?: throw RuntimeException("Player not found in turn order")
+
+        println("[GameProgressService] Looking for player: '$nextPlayerNickname'")
+        println("[GameProgressService] Available players:")
+        players.forEach { player ->
+            println("[GameProgressService]   - '${player.nickname}' (ID: ${player.id}, isAlive: ${player.isAlive})")
+        }
+
+        val nextPlayer = players.find { it.nickname == nextPlayerNickname && it.isAlive }
+
+        if (nextPlayer == null) {
+            println("[GameProgressService] ERROR: Player '$nextPlayerNickname' not found or not alive in turn order")
+
+            game.currentTurnIndex += 1
+            gameRepository.save(game)
+
+            startNewTurn(game)
+            return
+        }
 
         game.currentPlayerId = nextPlayer.id
         game.turnStartedAt = Instant.now()
@@ -234,15 +253,29 @@ class GameProgressService(
             throw RuntimeException("It's not your turn")
         }
 
+        // Mark player as having given hint
         markPlayerAsSpoken(req.gameNumber, userId)
         gameMonitoringService.notifyHintSubmitted(req.gameNumber, userId, req.hint)
         
-        // Advance turn
+        // Advance turn index
         game.currentTurnIndex++
         gameRepository.save(game)
 
-        // Start next turn and get updated game state
-        startNewTurn(game)
+        // Check if all alive players have given hints
+        val players = playerRepository.findByGame(game)
+        val alivePlayers = players.filter { it.isAlive }
+        val playersWhoGaveHints = alivePlayers.filter { it.state == PlayerState.GAVE_HINT }
+
+        println("[GameProgressService] giveHint - Alive players: ${alivePlayers.size}, Players who gave hints: ${playersWhoGaveHints.size}")
+
+        if (playersWhoGaveHints.size >= alivePlayers.size) {
+            // All players have given hints, start voting phase
+            println("[GameProgressService] All players have given hints, starting voting phase")
+            votingService.startVotingPhase(game)
+        } else {
+            // Continue to next turn
+            startNewTurn(game)
+        }
 
         val gameStateResponse = getGameStateResponse(game, session)
         // Broadcast the updated game state to all players
@@ -305,7 +338,7 @@ class GameProgressService(
             game = game,
             players = players,
             currentUserId = currentUserId,
-            currentPhase = game.currentPhase,
+            currentPhase = game.currentPhase, // 실제 게임의 currentPhase 사용
             turnOrder = turnOrder,
             currentTurnIndex = game.currentTurnIndex,
             phaseEndTime = game.phaseEndTime?.toString()
