@@ -52,8 +52,17 @@ export function ChatBox({ messages, onSendMessage, disabled, gameState }: ChatBo
       console.log('[ChatBox DEBUG] Current turn index:', gameState.currentTurnIndex);
 
       if (!currentPlayer) {
-        console.log('[ChatBox ERROR] Player not found! Auth nickname:', currentUser.nickname);
-        return { disabled: true, message: "플레이어 정보를 찾을 수 없습니다." };
+
+          console.log('[ChatBox ERROR] Player not found! Auth nickname:', currentUser.nickname);
+        console.log('[ChatBox ERROR] Available players:', gameState.players.map((p: any) => p.nickname));
+
+        // 게임이 종료되었거나 플레이어가 게임에서 제거된 경우
+        if (gameState.gameState === 'ENDED' || gameState.players.length === 0) {
+          return { disabled: true, message: "게임이 종료되었습니다." };
+        }
+
+        // 플레이어 정보 불일치 - 로비로 리다이렉트하는 것이 좋겠지만 일단 채팅만 비활성화
+        return { disabled: true, message: "게임 참가자가 아닙니다. 페이지를 새로고침해주세요." };
       }
 
       // 게임 페이즈별 채팅 제한
