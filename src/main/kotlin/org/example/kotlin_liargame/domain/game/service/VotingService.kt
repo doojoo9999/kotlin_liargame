@@ -33,25 +33,69 @@ class VotingService(
     @Lazy private val gameResultService: GameResultService,
     private val gameProperties: GameProperties,
     @Lazy private val gameProgressService: GameProgressService,
-    private val sessionService: org.example.kotlin_liargame.global.session.SessionService
+    private val sessionService: org.example.kotlin_liargame.global.session.SessionService,
+    @Lazy private val chatService: org.example.kotlin_liargame.domain.chat.service.ChatService
 ) {
 
     @Transactional
     fun startVotingPhase(game: GameEntity) {
+        println("[VotingService] === STARTING VOTING PHASE ===")
+        println("[VotingService] Game: ${game.gameNumber}, Current phase: ${game.currentPhase}")
+
+        // 게임 페이즈와 시간 설정
         game.currentPhase = GamePhase.VOTING_FOR_LIAR
         game.phaseEndTime = Instant.now().plusSeconds(gameProperties.votingTimeSeconds)
-        gameRepository.save(game)
+        game.currentPlayerId = null // 투표 단계에서는 특정 플레이어 턴이 없음
+        game.currentTurnIndex = game.turnOrder?.split(',')?.size ?: 0 // 모든 턴 완료 표시
+        val savedGame = gameRepository.save(game)
 
-        val players = playerRepository.findByGame(game)
+        println("[VotingService] Game phase updated to: ${savedGame.currentPhase}")
+        println("[VotingService] Phase end time: ${savedGame.phaseEndTime}")
+
+        // 모든 플레이어 상태를 투표 대기로 변경
+        val players = playerRepository.findByGame(savedGame)
         players.forEach { player ->
             if (player.isAlive) {
                 player.state = PlayerState.WAITING_FOR_VOTE
+                println("[VotingService] Player ${player.nickname} state changed to WAITING_FOR_VOTE")
             }
         }
         playerRepository.saveAll(players)
 
-        val gameStateResponse = getGameState(game, null)
-        gameMonitoringService.broadcastGameState(game, gameStateResponse)
+        // 투표 시작 시스템 메시지 전송
+        try {
+            chatService.sendSystemMessage(savedGame, "🗳️ 투표 단계가 시작되었습니다! 라이어라고 생각하는 플레이어에게 투표해주세요.")
+            chatService.sendSystemMessage(savedGame, "⏰ ${gameProperties.votingTimeSeconds}초 안에 투표를 완료해주세요.")
+            println("[VotingService] Voting start messages sent successfully")
+        } catch (e: Exception) {
+            println("[VotingService] ERROR: Could not send voting start messages: ${e.message}")
+            e.printStackTrace()
+        }
+
+        // 게임 상태 브로드캐스트
+        try {
+            val gameStateResponse = getGameState(savedGame, null)
+            println("[VotingService] === GAME STATE BROADCAST DEBUG ===")
+            println("[VotingService] Broadcasting game state: phase=${gameStateResponse.currentPhase}, players=${gameStateResponse.players.size}")
+            println("[VotingService] Game state details: gameNumber=${gameStateResponse.gameNumber}, gameState=${gameStateResponse.gameState}")
+            println("[VotingService] Database game phase: ${savedGame.currentPhase}")
+            println("[VotingService] Response currentPhase: ${gameStateResponse.currentPhase}")
+            println("[VotingService] Players voting states:")
+            gameStateResponse.players.forEach { player ->
+                println("[VotingService]   - ${player.nickname}: hasVoted=${player.hasVoted}, isAlive=${player.isAlive}, state=${player.state}")
+            }
+
+            // 브로드캐스트 전에 한 번 더 확인
+            println("[VotingService] About to broadcast to topic: /topic/game/${savedGame.gameNumber}/state")
+            gameMonitoringService.broadcastGameState(savedGame, gameStateResponse)
+            println("[VotingService] Game state broadcast successful")
+            println("[VotingService] === GAME STATE BROADCAST COMPLETE ===")
+        } catch (e: Exception) {
+            println("[VotingService] ERROR: Failed to broadcast game state: ${e.message}")
+            e.printStackTrace()
+        }
+
+        println("[VotingService] === VOTING PHASE STARTED SUCCESSFULLY ===")
     }
 
 
@@ -195,11 +239,37 @@ class VotingService(
     private fun getGameState(game: org.example.kotlin_liargame.domain.game.model.GameEntity, session: HttpSession?): GameStateResponse {
         val players = playerRepository.findByGame(game)
         val currentUserId = sessionService.getOptionalUserId(session)
-        return GameStateResponse.from(game, players, currentUserId, org.example.kotlin_liargame.domain.game.model.enum.GamePhase.VOTING_FOR_LIAR)
+
+        // turnOrder 정보 추가
+        val turnOrder = game.turnOrder?.split(',')?.filter { it.isNotBlank() }
+        val currentTurnIndex = game.currentTurnIndex
+
+        return GameStateResponse.from(
+            game = game,
+            players = players,
+            currentUserId = currentUserId,
+            currentPhase = game.currentPhase, // 실제 게임의 currentPhase 사용
+            turnOrder = turnOrder,
+            currentTurnIndex = currentTurnIndex,
+            phaseEndTime = game.phaseEndTime?.toString() // phaseEndTime 추가
+        )
     }
 
     private fun getGameState(game: org.example.kotlin_liargame.domain.game.model.GameEntity, userId: Long): GameStateResponse {
         val players = playerRepository.findByGame(game)
-        return GameStateResponse.from(game, players, userId, org.example.kotlin_liargame.domain.game.model.enum.GamePhase.VOTING_FOR_LIAR)
+
+        // turnOrder 정보 추가
+        val turnOrder = game.turnOrder?.split(',')?.filter { it.isNotBlank() }
+        val currentTurnIndex = game.currentTurnIndex
+
+        return GameStateResponse.from(
+            game = game,
+            players = players,
+            currentUserId = userId,
+            currentPhase = game.currentPhase, // 실제 게임의 currentPhase 사용
+            turnOrder = turnOrder,
+            currentTurnIndex = currentTurnIndex,
+            phaseEndTime = game.phaseEndTime?.toString() // phaseEndTime 추가
+        )
     }
 }
