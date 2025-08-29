@@ -454,7 +454,7 @@ class AdminService(
 
     @Transactional
     fun cleanupOrphanedPlayers(): Int {
-        logger.debug("고아 플레이어 감지 및 정리 시작")
+        // 시작 로그 제거 - 너무 빈번함
         var cleanedCount = 0
 
         try {
@@ -474,7 +474,8 @@ class AdminService(
                     }
 
                     if (shouldCleanup) {
-                        logger.debug("고아 플레이어 감지: gameNumber={}, nickname={}, state={}, joinedAt={}",
+                        // 실제 정리가 발생할 때만 로그 출력
+                        logger.info("고아 플레이어 정리: gameNumber={}, nickname={}, state={}, joinedAt={}",
                             player.game.gameNumber, player.nickname, player.game.gameState, player.joinedAt)
 
                         try {
@@ -492,7 +493,10 @@ class AdminService(
             logger.error("고아 플레이어 감지 및 정리 중 전체 오류 발생", e)
         }
 
-        logger.debug("고아 플레이어 감지 및 정리 완료: {}명 정리", cleanedCount)
+        // 정리된 플레이어가 있을 때만 완료 로그 출력
+        if (cleanedCount > 0) {
+            logger.info("고아 플레이어 정리 완료: {}명 정리", cleanedCount)
+        }
         return cleanedCount
     }
 }
