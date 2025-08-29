@@ -84,6 +84,21 @@ export const useGameStore = create<GameStoreState>()(
                     players: gameState.players
                 });
 
+                // 상태 업데이트 전후 비교를 위한 로그
+                const currentData = queryClient.getQueryData(['game', gameNumber]) as GameStateResponse | undefined;
+                if (currentData) {
+                    console.log('[GameStore] State update comparison:', {
+                        before: {
+                            phase: currentData.currentPhase,
+                            turnIndex: currentData.currentTurnIndex
+                        },
+                        after: {
+                            phase: gameState.currentPhase,
+                            turnIndex: gameState.currentTurnIndex
+                        }
+                    });
+                }
+
                 queryClient.setQueryData(['game', gameNumber], gameState);
                 queryClient.invalidateQueries({ queryKey: ['game', gameNumber] });
             }
