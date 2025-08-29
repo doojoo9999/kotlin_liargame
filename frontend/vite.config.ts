@@ -8,9 +8,11 @@ export default defineConfig({
     global: 'globalThis',
     },
   server: {
+    host: '0.0.0.0',
+    port: 5173,
     proxy: {
       '/api': {
-        target: 'http://localhost:20021',
+        target: 'http://119.201.53.4:20021',
         changeOrigin: true,
       },
     },

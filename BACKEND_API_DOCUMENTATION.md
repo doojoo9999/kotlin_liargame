@@ -152,6 +152,9 @@ POST /api/v1/auth/refresh-session
 - `DEFENDED`: 변론 완료
 - `WAITING_FOR_FINAL_VOTE`: 최종 투표 대기
 - `FINAL_VOTED`: 최종 투표 완료
+- `SURVIVED` : 라이어 생존
+- `ELIMINATED`: 시민 사망
+- `DISCONNECTED`: 연결 끊김
 
 ### API 엔드포인트
 
@@ -1178,7 +1181,7 @@ spring:
 # application-prod.yml
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/liargame
+    url: jdbc:postgresql://119.201.53.4:5432/liargame
   jpa:
     show-sql: false
 ```
