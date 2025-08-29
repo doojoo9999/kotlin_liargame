@@ -40,43 +40,19 @@ class ChatController(
         headerAccessor: SimpMessageHeaderAccessor
     ) {
         try {
-            println("[DEBUG] ========== WebSocket Chat Message Debug Start ==========")
-            println("[DEBUG] WebSocket chat message received: gameNumber=${request.gameNumber}, content='${request.content}'")
-            println("[DEBUG] Request object: $request")
-            println("[DEBUG] HeaderAccessor: $headerAccessor")
-
             // 세션 속성 추출
             val sessionAttributes = headerAccessor.sessionAttributes
             val webSocketSessionId = headerAccessor.sessionId
 
-            println("[DEBUG] Session attributes: ${sessionAttributes?.keys}")
-            println("[DEBUG] WebSocket session ID: $webSocketSessionId")
-
             // ChatService의 실제 로직 사용 (임시 처리 제거)
             val response = chatService.sendMessageViaWebSocket(request, sessionAttributes, webSocketSessionId)
 
-            println("[DEBUG] ChatService response: $response")
-            println("[DEBUG] Broadcasting message to /topic/chat.${request.gameNumber}")
-
             messagingTemplate.convertAndSend("/topic/chat.${request.gameNumber}", response)
 
-            println("[DEBUG] WebSocket chat message sent successfully via ChatService")
-            println("[DEBUG] ========== WebSocket Chat Message Debug End ==========")
-
+            // 중요한 에러만 로그 출력
         } catch (e: Exception) {
-            println("[ERROR] ========== WebSocket Chat Error Debug Start ==========")
-            println("[ERROR] WebSocket chat error: ${e.message}")
-            println("[ERROR] Error type: ${e.javaClass.simpleName}")
-            e.printStackTrace()
-            println("[ERROR] ========== WebSocket Chat Error Debug End ==========")
-
-            // Send error message back to the client
-            val errorMessage = mapOf(
-                "error" to true,
-                "message" to (e.message ?: "Unknown error occurred"),
-                "gameNumber" to request.gameNumber
-            )
-            messagingTemplate.convertAndSend("/topic/chat.error.${request.gameNumber}", errorMessage)
+            println("[ERROR] WebSocket chat message handling failed: ${e.message}")
+            throw e
         }
     }
 
