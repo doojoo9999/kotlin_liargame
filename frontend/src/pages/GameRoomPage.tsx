@@ -56,6 +56,18 @@ export function GameRoomPage() {
   }, [authData?.authenticated, isAuthLoading, isAuthError, navigate]);
 
   useEffect(() => {
+    // 게임 에러 처리 - 게임이 삭제되었거나 찾을 수 없는 경우 자동으로 로비로 이동
+    if (isError && !isLoading) {
+      console.warn('[GameRoomPage] Game error detected, redirecting to lobby in 3 seconds...');
+      const timer = setTimeout(() => {
+        navigate('/');
+      }, 3000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [isError, isLoading, navigate]);
+
+  useEffect(() => {
   }, [gameState, navigate]);
 
   const checkChatHistory = async () => {
