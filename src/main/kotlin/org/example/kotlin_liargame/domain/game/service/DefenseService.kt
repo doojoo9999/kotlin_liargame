@@ -369,7 +369,7 @@ class DefenseService(
         cleanupGameState(gameNumber)
         
         // Create FinalJudgmentResultResponse and call GameResultService
-        val isLiar = accusedPlayer.role.name == "LIAR"
+        val isLiar = accusedPlayer.role == org.example.kotlin_liargame.domain.game.model.enum.PlayerRole.LIAR
         val judgmentResult = FinalJudgmentResultResponse(
             gameNumber = gameNumber,
             accusedPlayerId = defenseStatus.accusedPlayerId,
