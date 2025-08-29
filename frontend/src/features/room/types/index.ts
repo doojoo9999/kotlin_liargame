@@ -34,10 +34,10 @@ export interface GameStateResponse {
   gameCurrentRound: number;
   gameTotalRounds: number;
   gameLiarCount: number;
-  gameMode: 'LIARS_KNOW' | 'CITIZENS_KNOW';
+  gameMode: 'LIARS_KNOW' | 'LIARS_DIFFERENT_WORD'; // 백엔드와 일치하도록 수정
   gameState: 'WAITING' | 'IN_PROGRESS' | 'ENDED';
   players: Player[];
-  currentPhase: 'WAITING' | 'SPEECH' | 'VOTE' | 'DEFENSE' | 'FINAL_VOTE' | 'LIAR_GUESS' | 'ENDED';
+  currentPhase: 'WAITING_FOR_PLAYERS' | 'SPEECH' | 'VOTING_FOR_LIAR' | 'DEFENDING' | 'VOTING_FOR_SURVIVAL' | 'GUESSING_WORD' | 'GAME_OVER'; // 백엔드와 일치하도록 수정
   yourRole?: 'LIAR' | 'CITIZEN';
   yourWord?: string;
   accusedPlayer?: Player;
@@ -48,6 +48,6 @@ export interface GameStateResponse {
   turnOrder?: string[];
   currentTurnIndex?: number;
   phaseEndTime?: string;
-  winner?: 'CITIZEN' | 'LIAR';
+  winner?: string; // 백엔드 구조에 맞게 수정
   reason?: string;
 }
