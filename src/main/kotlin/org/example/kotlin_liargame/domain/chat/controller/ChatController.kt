@@ -45,31 +45,22 @@ class ChatController(
             println("[DEBUG] Request object: $request")
             println("[DEBUG] HeaderAccessor: $headerAccessor")
 
-            // 임시: 인증 없이 메시지 처리
-            println("[DEBUG] Attempting TEMPORARY message processing without authentication...")
+            // 세션 속성 추출
+            val sessionAttributes = headerAccessor.sessionAttributes
+            val webSocketSessionId = headerAccessor.sessionId
 
-            // 메시지 내용 검증 및 sanitize
-            if (!request.isValidLength()) {
-                throw IllegalArgumentException("메시지 길이가 유효하지 않습니다.")
-            }
+            println("[DEBUG] Session attributes: ${sessionAttributes?.keys}")
+            println("[DEBUG] WebSocket session ID: $webSocketSessionId")
 
-            val sanitizedContent = request.getSanitizedContent()
+            // ChatService의 실제 로직 사용 (임시 처리 제거)
+            val response = chatService.sendMessageViaWebSocket(request, sessionAttributes, webSocketSessionId)
 
-            // 임시 응답 메시지 생성
-            val tempResponse = mapOf(
-                "id" to System.currentTimeMillis(),
-                "playerNickname" to (request.playerNickname ?: "익명"),
-                "content" to sanitizedContent,
-                "type" to "USER",
-                "timestamp" to java.time.Instant.now().toString()
-            )
-
-            println("[DEBUG] Created temporary response: $tempResponse")
+            println("[DEBUG] ChatService response: $response")
             println("[DEBUG] Broadcasting message to /topic/chat.${request.gameNumber}")
 
-            messagingTemplate.convertAndSend("/topic/chat.${request.gameNumber}", tempResponse)
+            messagingTemplate.convertAndSend("/topic/chat.${request.gameNumber}", response)
 
-            println("[DEBUG] TEMPORARY WebSocket chat message sent successfully to topic")
+            println("[DEBUG] WebSocket chat message sent successfully via ChatService")
             println("[DEBUG] ========== WebSocket Chat Message Debug End ==========")
 
         } catch (e: Exception) {
