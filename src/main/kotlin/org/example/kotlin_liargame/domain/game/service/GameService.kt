@@ -412,6 +412,10 @@ class GameService(
             false
         }
 
+        // turnOrder 정보 추가
+        val turnOrder = game.turnOrder?.split(',')?.filter { it.isNotBlank() }
+        val currentTurnIndex = game.currentTurnIndex
+
         return GameStateResponse.from(
             game = game,
             players = players,
@@ -419,6 +423,8 @@ class GameService(
             currentPhase = currentPhase,
             accusedPlayer = accusedPlayer,
             isChatAvailable = isChatAvailable,
+            turnOrder = turnOrder,
+            currentTurnIndex = currentTurnIndex,
             phaseEndTime = game.phaseEndTime?.toString()
         )
     }
