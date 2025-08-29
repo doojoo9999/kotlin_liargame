@@ -18,6 +18,7 @@ import org.springframework.context.annotation.Lazy
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.scheduling.TaskScheduler
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
 
@@ -37,9 +38,17 @@ class VotingService(
     @Lazy private val chatService: org.example.kotlin_liargame.domain.chat.service.ChatService
 ) {
 
-    @Transactional
     fun startVotingPhase(game: GameEntity) {
-        println("[VotingService] === STARTING VOTING PHASE ===")
+        // 1단계: 게임 상태 변경 (트랜잭션 내에서 완료 후 커밋)
+        val savedGame = updateGameToVotingPhase(game)
+
+        // 2단계: 메시지 전송 및 브로드캐스트 (새로운 트랜잭션에서 최신 데이터 조회)
+        sendVotingMessages(savedGame.gameNumber)
+    }
+
+    @Transactional
+    private fun updateGameToVotingPhase(game: GameEntity): GameEntity {
+        println("[VotingService] === UPDATING GAME TO VOTING PHASE ===")
         println("[VotingService] Game: ${game.gameNumber}, Current phase: ${game.currentPhase}")
 
         // 게임 페이즈와 시간 설정
@@ -48,7 +57,6 @@ class VotingService(
         game.currentPlayerId = null // 투표 단계에서는 특정 플레이어 턴이 없음
         game.currentTurnIndex = game.turnOrder?.split(',')?.size ?: 0 // 모든 턴 완료 표시
         val savedGame = gameRepository.save(game)
-        gameRepository.flush() // 명시적으로 데이터베이스에 반영
 
         println("[VotingService] Game phase updated to: ${savedGame.currentPhase}")
         println("[VotingService] Phase end time: ${savedGame.phaseEndTime}")
@@ -62,12 +70,25 @@ class VotingService(
             }
         }
         playerRepository.saveAll(players)
-        playerRepository.flush() // 명시적으로 데이터베이스에 반영
+
+        println("[VotingService] === GAME STATE UPDATE COMPLETED ===")
+        return savedGame
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    private fun sendVotingMessages(gameNumber: Int) {
+        println("[VotingService] === SENDING VOTING MESSAGES ===")
+
+        // 새로운 트랜잭션에서 최신 게임 상태 조회
+        val game = gameRepository.findByGameNumber(gameNumber)
+            ?: throw RuntimeException("Game not found")
+
+        println("[VotingService] Fresh game state loaded: phase=${game.currentPhase}")
 
         // 투표 시작 시스템 메시지 전송
         try {
-            chatService.sendSystemMessage(savedGame, "🗳️ 투표 단계가 시작되었습니다! 라이어라고 생각하는 플레이어에게 투표해주세요.")
-            chatService.sendSystemMessage(savedGame, "⏰ ${gameProperties.votingTimeSeconds}초 안에 투표를 완료해주세요.")
+            chatService.sendSystemMessage(game, "🗳️ 투표 단계가 시작되었습니다! 라이어라고 생각하는 플레이어에게 투표해주세요.")
+            chatService.sendSystemMessage(game, "⏰ ${gameProperties.votingTimeSeconds}초 안에 투표를 완료해주세요.")
             println("[VotingService] Voting start messages sent successfully")
         } catch (e: Exception) {
             println("[VotingService] ERROR: Could not send voting start messages: ${e.message}")
@@ -76,9 +97,9 @@ class VotingService(
 
         // 게임 상태 브로드캐스트
         try {
-            val gameStateResponse = getGameState(savedGame, null)
-            println("[VotingService] Broadcasting voting phase - Game: ${savedGame.gameNumber}, Phase: ${gameStateResponse.currentPhase}")
-            gameMonitoringService.broadcastGameState(savedGame, gameStateResponse)
+            val gameStateResponse = getGameState(game, null)
+            println("[VotingService] Broadcasting voting phase - Game: ${game.gameNumber}, Phase: ${gameStateResponse.currentPhase}")
+            gameMonitoringService.broadcastGameState(game, gameStateResponse)
             println("[VotingService] Voting phase broadcast successful")
         } catch (e: Exception) {
             println("[VotingService] ERROR: Failed to broadcast game state: ${e.message}")
