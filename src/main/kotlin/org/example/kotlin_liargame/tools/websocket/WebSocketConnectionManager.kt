@@ -44,7 +44,9 @@ class WebSocketConnectionManager(
         connectionStates[sessionId] = connectionState
         startHeartbeatMonitoring(sessionId)
         
-        println("[CONNECTION] Registered WebSocket connection: $sessionId (userId: $userId)")
+        // 연결 등록 로그 간소화
+        println("[CONNECTION] Registered: $sessionId (userId: $userId)")
+
         messagingTemplate.convertAndSendToUser(
             sessionId,
             "/topic/connection",
@@ -76,10 +78,13 @@ class WebSocketConnectionManager(
     private fun cleanupConnection(sessionId: String) {
         val connectionState = connectionStates[sessionId]
         connectionState?.userId?.let { userId ->
-            val player = gameService.findPlayerInActiveGame(userId)
-            player?.let {
-                // DISCONNECTED 상태 체크 없이 즉시 게임에서 제거
-                gameService.leaveGameAsSystem(it.game.gameNumber, userId)
+            try {
+                // GameService의 cleanupPlayerByUserId 메서드를 직접 호출하여 안전하게 처리
+                gameService.cleanupPlayerByUserId(userId)
+                println("[CONNECTION] Successfully cleaned up player by userId: $userId")
+            } catch (e: Exception) {
+                println("[CONNECTION] Error during connection cleanup for sessionId: $sessionId, userId: $userId - ${e.message}")
+                // 로그만 남기고 계속 진행 (예외로 인한 중단 방지)
             }
         }
 
@@ -258,5 +263,14 @@ class WebSocketConnectionManager(
                 java.time.Duration.between(connection.connectedAt, endTime).seconds
             }.average().takeIf { !it.isNaN() } ?: 0.0
         )
+    }
+
+    fun updateLastActivity(sessionId: String) {
+        val connectionState = connectionStates[sessionId]
+        if (connectionState != null) {
+            connectionState.lastHeartbeat = Instant.now()
+            connectionState.status = ConnectionStatus.CONNECTED
+            println("[ACTIVITY] Updated last activity for session: $sessionId")
+        }
     }
 }
