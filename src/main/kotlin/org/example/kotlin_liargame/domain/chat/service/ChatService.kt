@@ -476,10 +476,20 @@ class ChatService(
     }
 
     private fun determineGamePhase(game: GameEntity, players: List<PlayerEntity>): GamePhase {
+        // 게임의 실제 currentPhase 값을 우선적으로 사용
+        // 플레이어 상태 기반 추측은 fallback으로만 사용
         return when (game.gameState) {
             GameState.WAITING -> GamePhase.WAITING_FOR_PLAYERS
             GameState.ENDED -> GamePhase.GAME_OVER
             GameState.IN_PROGRESS -> {
+                // 실제 게임의 currentPhase가 설정되어 있다면 그것을 사용
+                if (game.currentPhase != null) {
+                    println("[ChatService] Using actual game currentPhase: ${game.currentPhase}")
+                    return game.currentPhase
+                }
+
+                // currentPhase가 null인 경우에만 플레이어 상태로 추측 (fallback)
+                println("[ChatService] Game currentPhase is null, falling back to player state analysis")
                 val allPlayersGaveHints = players.all { it.state == org.example.kotlin_liargame.domain.game.model.enum.PlayerState.GAVE_HINT || !it.isAlive }
                 val allPlayersVoted = players.all { it.state == org.example.kotlin_liargame.domain.game.model.enum.PlayerState.VOTED || !it.isAlive }
                 val accusedPlayer = findAccusedPlayer(players)
