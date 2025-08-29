@@ -48,6 +48,7 @@ class VotingService(
         game.currentPlayerId = null // 투표 단계에서는 특정 플레이어 턴이 없음
         game.currentTurnIndex = game.turnOrder?.split(',')?.size ?: 0 // 모든 턴 완료 표시
         val savedGame = gameRepository.save(game)
+        gameRepository.flush() // 명시적으로 데이터베이스에 반영
 
         println("[VotingService] Game phase updated to: ${savedGame.currentPhase}")
         println("[VotingService] Phase end time: ${savedGame.phaseEndTime}")
@@ -61,6 +62,7 @@ class VotingService(
             }
         }
         playerRepository.saveAll(players)
+        playerRepository.flush() // 명시적으로 데이터베이스에 반영
 
         // 투표 시작 시스템 메시지 전송
         try {
@@ -75,21 +77,9 @@ class VotingService(
         // 게임 상태 브로드캐스트
         try {
             val gameStateResponse = getGameState(savedGame, null)
-            println("[VotingService] === GAME STATE BROADCAST DEBUG ===")
-            println("[VotingService] Broadcasting game state: phase=${gameStateResponse.currentPhase}, players=${gameStateResponse.players.size}")
-            println("[VotingService] Game state details: gameNumber=${gameStateResponse.gameNumber}, gameState=${gameStateResponse.gameState}")
-            println("[VotingService] Database game phase: ${savedGame.currentPhase}")
-            println("[VotingService] Response currentPhase: ${gameStateResponse.currentPhase}")
-            println("[VotingService] Players voting states:")
-            gameStateResponse.players.forEach { player ->
-                println("[VotingService]   - ${player.nickname}: hasVoted=${player.hasVoted}, isAlive=${player.isAlive}, state=${player.state}")
-            }
-
-            // 브로드캐스트 전에 한 번 더 확인
-            println("[VotingService] About to broadcast to topic: /topic/game/${savedGame.gameNumber}/state")
+            println("[VotingService] Broadcasting voting phase - Game: ${savedGame.gameNumber}, Phase: ${gameStateResponse.currentPhase}")
             gameMonitoringService.broadcastGameState(savedGame, gameStateResponse)
-            println("[VotingService] Game state broadcast successful")
-            println("[VotingService] === GAME STATE BROADCAST COMPLETE ===")
+            println("[VotingService] Voting phase broadcast successful")
         } catch (e: Exception) {
             println("[VotingService] ERROR: Failed to broadcast game state: ${e.message}")
             e.printStackTrace()
