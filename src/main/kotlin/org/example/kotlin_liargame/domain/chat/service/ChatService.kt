@@ -399,8 +399,9 @@ class ChatService(
                     }
                 }
                 GamePhase.VOTING_FOR_LIAR -> {
-                    println("[ChatService] In VOTING_FOR_LIAR phase, returning DISCUSSION")
-                    ChatMessageType.DISCUSSION
+                    println("[ChatService] In VOTING_FOR_LIAR phase, returning null to enable voting UI")
+                    // 투표 단계에서는 채팅이 아닌 투표 UI가 표시되어야 하므로 null 반환
+                    null
                 }
                 GamePhase.DEFENDING -> {
                     println("[ChatService] In DEFENDING phase, returning DEFENSE")
