@@ -45,12 +45,25 @@ export const useGameStore = create<GameStoreState>()(
                     logger.debugLog('Subscribing to game:', destination);
                     await socketManager.subscribe(destination, (message) => {
                         try {
+                            console.log('[GameStore] ===== WEBSOCKET MESSAGE RECEIVED =====');
+                            console.log('[GameStore] Topic:', destination);
+                            console.log('[GameStore] Raw message body:', message.body);
+
                             const gameState: GameStateResponse = JSON.parse(message.body);
+                            console.log('[GameStore] Parsed game state:', {
+                                gameNumber: gameState.gameNumber,
+                                currentPhase: gameState.currentPhase,
+                                gameState: gameState.gameState,
+                                playersCount: gameState.players?.length
+                            });
+                            console.log('[GameStore] ===== WEBSOCKET MESSAGE END =====');
+
                             logger.debugLog('Received game state update in store:', gameState);
 
                             // 별도 액션으로 게임 상태 업데이트
                             get().actions.updateGameState(gameNumber, gameState);
                         } catch (error) {
+                            console.error('[GameStore] Failed to parse game state message:', error);
                             logger.errorLog('Failed to parse game state message in store:', error);
                         }
                     });
