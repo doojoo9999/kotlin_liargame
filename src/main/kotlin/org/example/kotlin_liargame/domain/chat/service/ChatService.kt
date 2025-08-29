@@ -34,7 +34,8 @@ class ChatService(
     private val gameProperties: org.example.kotlin_liargame.global.config.GameProperties,
     private val gameStateService: org.example.kotlin_liargame.global.redis.GameStateService,
     private val sessionService: org.example.kotlin_liargame.global.session.SessionService,
-    private val gameMessagingService: org.example.kotlin_liargame.global.messaging.GameMessagingService
+    private val gameMessagingService: org.example.kotlin_liargame.global.messaging.GameMessagingService,
+    @org.springframework.context.annotation.Lazy private val votingService: org.example.kotlin_liargame.domain.game.service.VotingService
 ) {
     private val scheduler: ScheduledExecutorService = Executors.newScheduledThreadPool(1)
 
@@ -227,8 +228,28 @@ class ChatService(
 
         // 모든 플레이어가 힌트를 제공했거나 턴이 끝난 경우 투표 단계로 진행
         if (game.currentTurnIndex >= turnOrder.size) {
-            println("[DEBUG] All players completed hints, starting voting phase")
-            // 투표 단계 시작 로직은 VotingService에서 처리
+            println("[DEBUG] All players completed hints (currentTurnIndex: ${game.currentTurnIndex}, turnOrder.size: ${turnOrder.size})")
+            println("[DEBUG] Starting voting phase...")
+
+            try {
+                // 주입받은 VotingService 직접 사용
+                votingService.startVotingPhase(game)
+                println("[DEBUG] Successfully started voting phase")
+
+                // 투표 시작 시스템 메시지를 딜레이와 함께 전송
+                scheduler.schedule({
+                    try {
+                        sendSystemMessage(game, "🗳️ 투표 단계가 시작되었습니다! 라이어라고 생각하는 플레이어에게 투표해주세요.")
+                        println("[DEBUG] Voting phase start message sent")
+                    } catch (e: Exception) {
+                        println("[ERROR] Failed to send voting start message: ${e.message}")
+                    }
+                }, 1000, TimeUnit.MILLISECONDS) // 1초 딜레이
+
+            } catch (e: Exception) {
+                println("[ERROR] Failed to start voting phase: ${e.message}")
+                e.printStackTrace()
+            }
             return
         }
 
@@ -243,11 +264,15 @@ class ChatService(
             game.phaseEndTime = Instant.now().plusSeconds(gameProperties.turnTimeoutSeconds)
             gameRepository.save(game)
 
-            try {
-                sendSystemMessage(game, "🎯 ${nextPlayer.nickname}님의 차례입니다! 힌트를 말해주세요. (${gameProperties.turnTimeoutSeconds}초)")
-            } catch (e: Exception) {
-                println("[ERROR] Failed to send turn start message: ${e.message}")
-            }
+            // 메시지 전송 순서를 보장하기 위해 약간의 지연 추가
+            scheduler.schedule({
+                try {
+                    sendSystemMessage(game, "🎯 ${nextPlayer.nickname}님의 차례입니다! 힌트를 말해주세요. (${gameProperties.turnTimeoutSeconds}초)")
+                    println("[DEBUG] Next turn message sent for ${nextPlayer.nickname}")
+                } catch (e: Exception) {
+                    println("[ERROR] Failed to send turn start message: ${e.message}")
+                }
+            }, 500, TimeUnit.MILLISECONDS) // 500ms 지연
         }
     }
 
@@ -319,22 +344,76 @@ class ChatService(
     }
     
     private fun determineMessageType(game: GameEntity, player: PlayerEntity): ChatMessageType? {
+        println("[ChatService] === DETERMINE MESSAGE TYPE DEBUG ===")
+        println("[ChatService] Player: ${player.nickname} (ID: ${player.id})")
+        println("[ChatService] Player isAlive: ${player.isAlive}")
+        println("[ChatService] Game state: ${game.gameState}")
+        println("[ChatService] Game currentPlayerId: ${game.currentPlayerId}")
+        println("[ChatService] Game turnStartedAt: ${game.turnStartedAt}")
+
         if (!player.isAlive) {
+            println("[ChatService] Player is not alive, returning null")
             return null
         }
         
         val players = playerRepository.findByGame(game)
         val currentPhase = determineGamePhase(game, players)
+        println("[ChatService] Current phase: $currentPhase")
 
         if (game.gameState == GameState.IN_PROGRESS) {
             return when (currentPhase) {
-                GamePhase.SPEECH -> ChatMessageType.HINT  // GIVING_HINTS 대신 SPEECH 사용
-                GamePhase.VOTING_FOR_LIAR -> ChatMessageType.DISCUSSION
-                GamePhase.DEFENDING -> ChatMessageType.DEFENSE
-                else -> null
+                GamePhase.SPEECH -> {
+                    println("[ChatService] In SPEECH phase")
+                    println("[ChatService] Current player ID: ${game.currentPlayerId}")
+                    println("[ChatService] Is current player: ${game.currentPlayerId == player.id}")
+
+                    // SPEECH 페이즈에서는 현재 턴인 플레이어만 채팅 가능하고, 아직 힌트를 제공하지 않은 경우에만
+                    if (game.currentPlayerId == player.id) {
+                        println("[ChatService] Player is current turn player")
+
+                        // 이미 힌트를 제공했는지 확인
+                        val existingHint = chatMessageRepository.findTopByGameAndPlayerAndTypeOrderByTimestampDesc(
+                            game, player, ChatMessageType.HINT
+                        )
+                        println("[ChatService] Existing hint: $existingHint")
+
+                        // 현재 턴에서 이미 힌트를 제공했는지 확인 (턴이 시작된 이후에 힌트가 있는지)
+                        val hasProvidedHintInCurrentTurn = existingHint != null &&
+                            game.turnStartedAt != null &&
+                            existingHint.timestamp.isAfter(game.turnStartedAt)
+
+                        println("[ChatService] Has provided hint in current turn: $hasProvidedHintInCurrentTurn")
+
+                        if (hasProvidedHintInCurrentTurn) {
+                            println("[ChatService] Already provided hint, returning null")
+                            // 이미 힌트를 제공했으면 채팅 불가
+                            null
+                        } else {
+                            println("[ChatService] Can provide hint, returning HINT")
+                            ChatMessageType.HINT
+                        }
+                    } else {
+                        println("[ChatService] Not current turn player, returning null")
+                        // 현재 턴이 아닌 플레이어는 채팅 불가
+                        null
+                    }
+                }
+                GamePhase.VOTING_FOR_LIAR -> {
+                    println("[ChatService] In VOTING_FOR_LIAR phase, returning DISCUSSION")
+                    ChatMessageType.DISCUSSION
+                }
+                GamePhase.DEFENDING -> {
+                    println("[ChatService] In DEFENDING phase, returning DEFENSE")
+                    ChatMessageType.DEFENSE
+                }
+                else -> {
+                    println("[ChatService] In phase $currentPhase, returning null")
+                    null
+                }
             }
         }
 
+        println("[ChatService] Game not in progress, returning POST_ROUND")
         return ChatMessageType.POST_ROUND
     }
 
