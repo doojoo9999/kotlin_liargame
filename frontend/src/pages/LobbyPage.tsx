@@ -3,7 +3,6 @@ import {useDisclosure} from '@mantine/hooks';
 import {AlertCircle, Plus, RefreshCw} from 'lucide-react';
 import {useEffect} from 'react';
 import {useNavigate} from 'react-router-dom';
-import {useLogoutMutation} from '../features/auth';
 import {CreateRoomModal, RoomList, useLobbySocket, useRoomsQuery} from '../features/room';
 import {useUserStore} from '../shared/stores/userStore';
 import {AddSubjectModal, AddWordsModal, useSubjectWebSocketEvents} from '../features/subject';
@@ -12,7 +11,6 @@ export function LobbyPage() {
   const nickname = useUserStore((state) => state.nickname);
   const isLoggedIn = useUserStore((state) => state.isLoggedIn);
   const { data: rooms, isLoading, isError, refetch: refetchRooms, isFetching } = useRoomsQuery();
-  const logoutMutation = useLogoutMutation();
   const [createModalOpened, { open: openCreateModal, close: closeCreateModal }] = useDisclosure(false);
   const [subjectModalOpened, { open: openSubjectModal, close: closeSubjectModal }] = useDisclosure(false);
   const [wordsModalOpened, { open: openWordsModal, close: closeWordsModal }] = useDisclosure(false);
@@ -20,10 +18,6 @@ export function LobbyPage() {
 
   useLobbySocket();
   useSubjectWebSocketEvents();
-
-  const handleLogout = () => {
-    logoutMutation.mutate();
-  };
 
   const handleRefresh = () => {
     refetchRooms();
@@ -51,19 +45,7 @@ export function LobbyPage() {
         <Stack gap="lg">
           <Group justify="space-between">
             <Title order={1}>Lobby</Title>
-            {isLoggedIn && nickname && (
-              <Group>
-                <Text>환영합니다, {nickname}님!</Text>
-                <Button
-                  variant="outline"
-                  size="xs"
-                  onClick={handleLogout}
-                  loading={logoutMutation.isPending}
-                >
-                  로그아웃
-                </Button>
-              </Group>
-            )}
+            {isLoggedIn && <Text>환영합니다, {nickname}님!</Text>}
           </Group>
 
           {isLoggedIn && (
