@@ -10,19 +10,35 @@ interface RawChatMessage {
     playerId?: number;
     playerNickname: string | null; // null 허용으로 수정
     content: string;
-    type: 'USER' | 'SYSTEM' | 'GAME_EVENT' | 'ADMIN' | 'POST_ROUND';
+    type: 'USER' | 'SYSTEM' | 'GAME_EVENT' | 'ADMIN' | 'POST_ROUND' | 'HINT' | 'DISCUSSION' | 'DEFENSE';
     timestamp: string;
 }
 
 const mapRawMessageToChatMessage = (raw: RawChatMessage): ChatMessage => {
-    let type: ChatMessage['type'] = 'PLAYER';
+    let type: ChatMessage['type'] = 'DISCUSSION'; // 기본값을 DISCUSSION으로 변경
+
     if (raw.type === 'SYSTEM' || raw.type === 'GAME_EVENT' || raw.type === 'ADMIN') {
         type = 'SYSTEM';
+    } else if (raw.type === 'HINT') {
+        type = 'HINT';
+    } else if (raw.type === 'USER') {
+        // 백엔드에서 HINT 타입을 올바르게 보내지 않는 경우의 임시 해결책
+        // SPEECH 페이즈에서 USER 타입 메시지는 힌트로 간주
+        type = 'HINT';
+        console.log('[ChatStore] Converting USER to HINT (assuming SPEECH phase)');
+    } else if (raw.type === 'DISCUSSION') {
+        type = 'DISCUSSION';
+    } else if (raw.type === 'DEFENSE') {
+        type = 'DEFENSE';
+    } else {
+        type = 'DISCUSSION'; // 기본값을 DISCUSSION으로 변경
     }
 
     const sender = raw.type === 'SYSTEM' || raw.type === 'GAME_EVENT' || raw.type === 'ADMIN'
         ? '시스템'
         : raw.playerNickname;
+
+    console.log('[ChatStore] Message type mapping:', raw.type, '->', type);
 
     return {
         sender: sender,
@@ -122,8 +138,12 @@ export const useChatStore = create<ChatStoreState>()(
                     const playerNickname = useUserStore.getState().nickname;
                     const body = { gameNumber, content, playerNickname };
 
-                    console.log('[ChatStore] Attempting to send message:', { destination, body });
-                    console.log('[ChatStore] Socket connection state:', socketManager);
+                    console.log('[ChatStore] === SENDING MESSAGE ===');
+                    console.log('[ChatStore] Destination:', destination);
+                    console.log('[ChatStore] Message body:', body);
+                    console.log('[ChatStore] Game number:', gameNumber);
+                    console.log('[ChatStore] Player nickname:', playerNickname);
+                    console.log('[ChatStore] Message content:', content);
 
                     // 메시지 내용 검증
                     if (!content || content.trim().length === 0) {
@@ -138,7 +158,7 @@ export const useChatStore = create<ChatStoreState>()(
 
                     logger.debugLog('[ChatStore] Sending WebSocket message:', body);
                     await socketManager.publish(destination, JSON.stringify(body));
-                    console.log('[ChatStore] Message sent successfully');
+                    console.log('[ChatStore] === MESSAGE SENT SUCCESSFULLY ===');
                 } catch (error) {
                     console.error('[ChatStore] Failed to send message:', error);
                     logger.errorLog('Failed to send chat message:', error);
