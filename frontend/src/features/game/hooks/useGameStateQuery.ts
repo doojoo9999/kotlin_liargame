@@ -15,12 +15,12 @@ export const useGameStateQuery = (gameNumber: number) => {
     // 실시간성을 위해 refetch 설정 개선
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
-    // 게임 상태는 더 자주 업데이트되어야 하므로 staleTime 단축
-    staleTime: 5 * 1000, // 5초로 단축
-    // Keep data in cache for 5 minutes
-    gcTime: 5 * 60 * 1000,
+    // 게임 상태는 더 자주 업데이트되어야 하므로 staleTime을 0으로 설정
+    staleTime: 0, // 캐시를 항상 stale로 취급하여 실시간 업데이트 보장
+    // Keep data in cache for 30 seconds only
+    gcTime: 30 * 1000,
     // 실시간 게임 상태 업데이트를 위해 폴링 간격 설정
-    refetchInterval: 10 * 1000, // 10초마다 폴링
+    refetchInterval: 5 * 1000, // 5초마다 폴링으로 단축
     refetchIntervalInBackground: false,
     // Retry with exponential backoff if rate limited
     retry: (failureCount, error: any) => {
