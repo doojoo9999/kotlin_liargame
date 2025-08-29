@@ -402,7 +402,10 @@ class GameService(
         // 인증이 없어도 상태 조회는 허용: 없으면 null
         val currentUserId = sessionService.getOptionalUserId(session)
 
-        val currentPhase = determineGamePhase(game, players)
+        // 실제 게임의 currentPhase를 우선적으로 사용하고, null인 경우에만 계산
+        val currentPhase = game.currentPhase ?: determineGamePhase(game, players)
+        println("[GameService] getGameState - Game ${game.gameNumber}: actualPhase=${game.currentPhase}, calculatedPhase=${determineGamePhase(game, players)}, finalPhase=$currentPhase")
+
         val accusedPlayer = findAccusedPlayer(players)
 
         val currentPlayer = currentUserId?.let { uid -> players.find { p -> p.userId == uid } }
@@ -536,6 +539,22 @@ class GameService(
 
     fun findPlayerInActiveGame(userId: Long): PlayerEntity? {
         return playerRepository.findByUserIdAndGameInProgress(userId)
+    }
+
+    @Transactional
+    fun cleanupPlayerByUserId(userId: Long) {
+        try {
+            val player = playerRepository.findByUserIdAndGameInProgress(userId)
+            if (player != null) {
+                val gameNumber = player.game.gameNumber
+                leaveGameAsSystem(gameNumber, userId)
+                println("[GameService] Successfully cleaned up player by userId: $userId from game: $gameNumber")
+            } else {
+                println("[GameService] No active game player found for userId: $userId")
+            }
+        } catch (e: Exception) {
+            println("[GameService] Error during player cleanup for userId: $userId - ${e.message}")
+        }
     }
 
     @Transactional
@@ -718,3 +737,4 @@ class GameService(
         )
     }
 }
+
