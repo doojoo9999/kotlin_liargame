@@ -93,6 +93,11 @@ class GameProgressService(
     }
 
     fun startNewTurn(game: GameEntity) {
+        // Guard: only proceed when in SPEECH phase
+        if (game.currentPhase != org.example.kotlin_liargame.domain.game.model.enum.GamePhase.SPEECH) {
+            println("[GameProgressService] startNewTurn called but currentPhase=${game.currentPhase}, skipping")
+            return
+        }
         val turnOrder = game.turnOrder?.split(',') ?: emptyList()
         println("[GameProgressService] startNewTurn - Game: ${game.gameNumber}, turnOrder: $turnOrder, currentTurnIndex: ${game.currentTurnIndex}")
 
@@ -143,6 +148,12 @@ class GameProgressService(
     @Transactional
     fun forceNextTurn(gameId: Long) {
         val game = gameRepository.findById(gameId).orElse(null) ?: return
+        
+        // Guard: only proceed when in SPEECH phase
+        if (game.currentPhase != org.example.kotlin_liargame.domain.game.model.enum.GamePhase.SPEECH) {
+            println("[GameProgressService] forceNextTurn called but currentPhase=${game.currentPhase}, skipping")
+            return
+        }
         
         game.currentPlayerId?.let {
             val currentPlayer = playerRepository.findById(it).orElse(null)
