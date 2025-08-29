@@ -31,4 +31,11 @@ interface ChatMessageRepository : JpaRepository<ChatMessageEntity, Long> {
     @Modifying
     @Query("DELETE FROM ChatMessageEntity c WHERE c.game = :game")
     fun deleteByGame(@Param("game") game: GameEntity): Int
+
+    // 특정 플레이어의 특정 타입 메시지 중 가장 최근 메시지 조회
+    fun findTopByGameAndPlayerAndTypeOrderByTimestampDesc(
+        game: GameEntity,
+        player: org.example.kotlin_liargame.domain.game.model.PlayerEntity,
+        type: ChatMessageType
+    ): ChatMessageEntity?
 }
