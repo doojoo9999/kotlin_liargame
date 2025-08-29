@@ -95,27 +95,16 @@ class VotingService(
             e.printStackTrace()
         }
 
-        // 게임 상태 브로드캐스트
+        // 게임 상태 브로드캐스트 - 중복 제거
         try {
             val gameStateResponse = getGameState(game, null)
-            println("[VotingService] === DETAILED BROADCAST DEBUG ===")
-            println("[VotingService] Broadcasting to topic: /topic/game/${game.gameNumber}/state")
-            println("[VotingService] Game state data: {")
-            println("[VotingService]   gameNumber: ${gameStateResponse.gameNumber}")
-            println("[VotingService]   currentPhase: ${gameStateResponse.currentPhase}")
-            println("[VotingService]   gameState: ${gameStateResponse.gameState}")
-            println("[VotingService]   playersCount: ${gameStateResponse.players.size}")
-            println("[VotingService] }")
+            println("[VotingService] === BROADCASTING GAME STATE ===")
+            println("[VotingService] Game state: phase=${gameStateResponse.currentPhase}, playersCount=${gameStateResponse.players.size}")
 
-            // 직접 웹소켓 브로드캐스트 시도
-            messagingTemplate.convertAndSend("/topic/game/${game.gameNumber}/state", gameStateResponse)
-            println("[VotingService] Direct WebSocket broadcast sent successfully")
-
-            // 기존 방식도 함께 시도
+            // 하나의 브로드캐스트 방식만 사용 (모니터링 서비스 통해 통합 관리)
             gameMonitoringService.broadcastGameState(game, gameStateResponse)
-            println("[VotingService] Monitoring service broadcast sent successfully")
+            println("[VotingService] Game state broadcast sent successfully")
 
-            println("[VotingService] === BROADCAST DEBUG COMPLETE ===")
         } catch (e: Exception) {
             println("[VotingService] ERROR: Failed to broadcast game state: ${e.message}")
             e.printStackTrace()
@@ -197,24 +186,40 @@ class VotingService(
     }
 
     private fun processVoteResults(game: GameEntity) {
+        println("[VotingService] === PROCESSING VOTE RESULTS ===")
+
         // findByGameAndIsAlive 사용으로 성능 개선 및 코드 간소화
         val alivePlayers = playerRepository.findByGameAndIsAlive(game, true)
         val maxVotes = alivePlayers.maxOfOrNull { it.votesReceived } ?: 0
 
+        println("[VotingService] Max votes received: $maxVotes")
+        alivePlayers.forEach { player ->
+            println("[VotingService] Player ${player.nickname}: ${player.votesReceived} votes")
+        }
+
         if (maxVotes == 0) {
-            // No votes cast, restart speech phase
-            gameProgressService.restartSpeechPhase(game)
+            // 투표가 없었을 경우 - 랜덤으로 한 명 선택하여 변론 기회 제공
+            println("[VotingService] No votes cast - randomly selecting a player for defense")
+            val randomPlayer = alivePlayers.random()
+            println("[VotingService] Randomly selected ${randomPlayer.nickname} for defense phase")
+            defenseService.startDefensePhase(game, randomPlayer)
             return
         }
 
         val mostVotedPlayers = alivePlayers.filter { it.votesReceived == maxVotes }
 
         if (mostVotedPlayers.size > 1) {
-            // Tie-breaker: revote by restarting speech phase
-            gameProgressService.restartSpeechPhase(game)
+            // 동점일 경우 - 랜덤으로 한 명 선택
+            println("[VotingService] Tie detected between ${mostVotedPlayers.size} players")
+
+            // 동점자 중 랜덤 선택
+            val randomAccused = mostVotedPlayers.random()
+            println("[VotingService] Randomly selected ${randomAccused.nickname} from tied players")
+            defenseService.startDefensePhase(game, randomAccused)
         } else {
-            // Single most-voted player
+            // 단독 최다득표자
             val accusedPlayer = mostVotedPlayers.first()
+            println("[VotingService] Single most-voted player: ${accusedPlayer.nickname}")
             defenseService.startDefensePhase(game, accusedPlayer)
         }
     }
