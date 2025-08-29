@@ -87,9 +87,9 @@ class GameResultService(
         )
         gameMonitoringService.broadcastGameState(game, gameStateResponse)
 
-        val citizens = players.filter { it.role.name == "CITIZEN" }
-        val liars = players.filter { it.role.name == "LIAR" }
-        
+        val citizens = players.filter { it.role == org.example.kotlin_liargame.domain.game.model.enum.PlayerRole.CITIZEN }
+        val liars = players.filter { it.role == org.example.kotlin_liargame.domain.game.model.enum.PlayerRole.LIAR }
+
         val response = GameEndResponse(
             gameNumber = gameNumber,
             winner = "CITIZENS",
@@ -133,9 +133,9 @@ class GameResultService(
         )
         gameMonitoringService.broadcastGameState(game, gameStateResponse)
 
-        val citizens = players.filter { it.role.name == "CITIZEN" }
-        val liars = players.filter { it.role.name == "LIAR" }
-        
+        val citizens = players.filter { it.role == org.example.kotlin_liargame.domain.game.model.enum.PlayerRole.CITIZEN }
+        val liars = players.filter { it.role == org.example.kotlin_liargame.domain.game.model.enum.PlayerRole.LIAR }
+
         val response = GameEndResponse(
             gameNumber = gameNumber,
             winner = "LIARS",
@@ -195,9 +195,9 @@ class GameResultService(
         val game = gameRepository.findByGameNumber(gameNumber) ?: return GameEndCondition.CITIZEN_VICTORY
         val players = playerRepository.findByGame(game)
         
-        val aliveLiars = players.filter { it.role.name == "LIAR" && it.isAlive }
-        val aliveCitizens = players.filter { it.role.name == "CITIZEN" && it.isAlive }
-        
+        val aliveLiars = players.filter { it.role == org.example.kotlin_liargame.domain.game.model.enum.PlayerRole.LIAR && it.isAlive }
+        val aliveCitizens = players.filter { it.role == org.example.kotlin_liargame.domain.game.model.enum.PlayerRole.CITIZEN && it.isAlive }
+
         return when {
             aliveLiars.isEmpty() -> GameEndCondition.CITIZEN_VICTORY
             aliveCitizens.size <= aliveLiars.size -> GameEndCondition.LIAR_VICTORY
@@ -229,7 +229,7 @@ class GameResultService(
             ?: throw IllegalArgumentException("Game not found")
         val players = playerRepository.findByGame(game)
         
-        return players.firstOrNull { it.role.name == "LIAR" && it.isAlive }
+        return players.firstOrNull { it.role == org.example.kotlin_liargame.domain.game.model.enum.PlayerRole.LIAR && it.isAlive }
             ?: throw IllegalStateException("No alive liar found in game")
     }
     
