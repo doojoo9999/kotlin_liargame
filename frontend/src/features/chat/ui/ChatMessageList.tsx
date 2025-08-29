@@ -10,6 +10,7 @@ interface ChatMessageListProps {
 const Row = ({ index, style, data }: { index: number; style: React.CSSProperties; data: ChatMessage[] }) => {
   const message = data[index];
   const isSystem = message.type === 'SYSTEM';
+  const isHint = message.type === 'HINT';
 
   return (
     <Box style={style} p="xs">
@@ -17,6 +18,17 @@ const Row = ({ index, style, data }: { index: number; style: React.CSSProperties
         <Text c="blue" size="sm" fw={600} ta="center">
           🔔 {message.content}
         </Text>
+      ) : isHint ? (
+        <Paper p="xs" bg="blue.0" radius="sm" style={{ border: '1px solid var(--mantine-color-blue-2)' }}>
+          <Text c="blue" size="sm">
+            <Text span fw={700} mr="sm" c="blue.8">
+              💡 {message.sender}:
+            </Text>
+            <Text span fw={600}>
+              {message.content}
+            </Text>
+          </Text>
+        </Paper>
       ) : (
         <Text c="default" size="sm">
           <Text span fw={700} mr="sm">
