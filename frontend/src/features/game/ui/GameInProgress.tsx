@@ -16,14 +16,6 @@ interface GameInProgressProps {
 }
 
 const PhaseComponent = ({ gameState }: { gameState: GameStateResponse }) => {
-  // 디버깅을 위한 콘솔 로그 추가
-  console.log('[PhaseComponent] Current game state:', {
-    currentPhase: gameState.currentPhase,
-    gameState: gameState.gameState,
-    players: gameState.players.length,
-    gameNumber: gameState.gameNumber
-  });
-
   switch (gameState.currentPhase) {
     case 'SPEECH':
       return <SpeechPhase gameState={gameState} />;
