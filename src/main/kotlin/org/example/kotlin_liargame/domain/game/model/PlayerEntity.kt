@@ -58,7 +58,11 @@ class PlayerEntity (
 
     // 투표 시작 시간 추가
     @Column(nullable = true)
-    var voteStartTime: Instant? = null
+    var voteStartTime: Instant? = null,
+
+    // 누적 점수 (점수 기반 승리 시스템)
+    @Column(nullable = false)
+    var cumulativeScore: Int = 0
 ){
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -111,6 +115,11 @@ class PlayerEntity (
         this.votesReceived = 0
         this.votedFor = null
         this.voteStartTime = null
+        // cumulativeScore는 라운드 간에 보존
+    }
+    
+    fun addScore(points: Int) {
+        this.cumulativeScore += points
     }
 
     fun setWaitingForVote() {
