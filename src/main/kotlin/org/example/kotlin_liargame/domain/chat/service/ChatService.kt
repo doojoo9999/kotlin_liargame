@@ -404,8 +404,32 @@ class ChatService(
                     null
                 }
                 GamePhase.DEFENDING -> {
-                    println("[ChatService] In DEFENDING phase, returning DEFENSE")
-                    ChatMessageType.DEFENSE
+                    println("[ChatService] In DEFENDING phase")
+                    // 모든 플레이어가 DEFENDING 단계에서 채팅 가능
+                    // 변론자 메시지는 DEFENSE 타입, 다른 플레이어는 DISCUSSION 타입
+                    if (game.accusedPlayerId == player.id) {
+                        println("[ChatService] Player is accused, returning DEFENSE")
+                        ChatMessageType.DEFENSE
+                    } else {
+                        println("[ChatService] Player is not accused, returning DISCUSSION")
+                        ChatMessageType.DISCUSSION
+                    }
+                }
+                GamePhase.VOTING_FOR_SURVIVAL -> {
+                    println("[ChatService] In VOTING_FOR_SURVIVAL phase, chat disabled")
+                    // 최종 투표 단계에서는 채팅 비활성화
+                    null
+                }
+                GamePhase.GUESSING_WORD -> {
+                    println("[ChatService] In GUESSING_WORD phase")
+                    // 라이어 추측 단계에서는 라이어만 채팅 가능
+                    if (player.role == org.example.kotlin_liargame.domain.game.model.enum.PlayerRole.LIAR) {
+                        println("[ChatService] Player is liar, returning DISCUSSION")
+                        ChatMessageType.DISCUSSION
+                    } else {
+                        println("[ChatService] Player is not liar, chat disabled")
+                        null
+                    }
                 }
                 else -> {
                     println("[ChatService] In phase $currentPhase, returning null")
@@ -521,7 +545,7 @@ class ChatService(
             deletedCount
         } catch (e: Exception) {
             println("[ERROR] Failed to delete chat messages for player ID: $playerId - ${e.message}")
-            0
+            throw e // 예외를 다시 던져서 상위 트랜잭션에서 롤백되도록 함
         }
     }
 
