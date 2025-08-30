@@ -29,7 +29,10 @@ data class GameStateResponse(
     val currentTurnIndex: Int? = null,
     val phaseEndTime: String? = null,
     val winner: String? = null,
-    val reason: String? = null
+    val reason: String? = null,
+    val targetPoints: Int = 0,
+    val scoreboard: List<ScoreboardEntry> = emptyList(),
+    val finalVotingRecord: List<Map<String, Any>>? = null
 ) {
     companion object {
         fun from(
@@ -43,7 +46,8 @@ data class GameStateResponse(
             currentTurnIndex: Int? = null,
             phaseEndTime: String? = null,
             winner: String? = null,
-            reason: String? = null
+            reason: String? = null,
+            finalVotingRecord: List<Map<String, Any>>? = null
         ): GameStateResponse {
             val currentPlayer = players.find { it.userId == currentUserId }
             
@@ -95,7 +99,10 @@ data class GameStateResponse(
                 currentTurnIndex = currentTurnIndex,
                 phaseEndTime = phaseEndTime,
                 winner = winner,
-                reason = reason
+                reason = reason,
+                targetPoints = game.targetPoints,
+                scoreboard = players.map { ScoreboardEntry.from(it) },
+                finalVotingRecord = finalVotingRecord
             )
         }
     }
