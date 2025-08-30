@@ -241,6 +241,23 @@ class GameService(
         val userId = sessionService.getCurrentUserId(session)
         val nickname = sessionService.getCurrentUserNickname(session)
 
+        // 플레이어 정보를 먼저 조회하여 ID를 획득
+        val player = playerRepository.findByGameAndUserId(game, userId)
+        if (player == null) {
+            logger.debug("Player not found in game ${game.gameNumber} for user $userId")
+            return false
+        }
+
+        // 플레이어의 채팅 메시지를 먼저 삭제하여 외래키 제약 조건 위반 방지
+        try {
+            val deletedChatCount = chatService.deletePlayerChatMessages(player.id!!)
+            logger.debug("Deleted $deletedChatCount chat messages for player ${player.id} in game ${game.gameNumber}")
+        } catch (e: Exception) {
+            logger.error("Failed to delete chat messages for player ${player.id}: ${e.message}", e)
+            throw RuntimeException("채팅 메시지 삭제 중 오류가 발생했습니다: ${e.message}")
+        }
+
+        // 이제 플레이어를 안전하게 삭제
         val deletedCount = playerRepository.deleteByGameIdAndUserId(game.id, userId)
 
         if (deletedCount > 0) {
@@ -373,26 +390,65 @@ class GameService(
     }
 
     @Transactional
-    fun recoverGameState(gameNumber: Int, userId: Long): Map<String, Any> {
+    fun recoverGameState(gameNumber: Int, userId: Long): GameRecoveryResponse {
+        logger.debug("Starting game state recovery for game {} and user {}", gameNumber, userId)
+        
         val game = gameRepository.findByGameNumber(gameNumber)
             ?: throw GameNotFoundException(gameNumber)
 
         val player = playerRepository.findByGameAndUserId(game, userId)
             ?: throw PlayerNotInGameException(userId, gameNumber)
 
+        val players = playerRepository.findByGame(game)
+        logger.debug("Found {} players in game {}", players.size, gameNumber)
+        
         val defenseRecovery = defenseService.recoverGameState(gameNumber)
+        val accusedPlayer = findAccusedPlayer(players)
+        
+        // Get turn order information
+        val turnOrder = game.turnOrder?.split(',')?.filter { it.isNotBlank() }
+        
+        // Get current phase 
+        val currentPhase = game.currentPhase ?: determineGamePhase(game, players)
+        logger.debug("Current phase for game {}: {}", gameNumber, currentPhase)
+        
+        // Generate final voting record from player states
+        val finalVotingRecord = players
+            .filter { it.finalVote != null }
+            .map { FinalVoteResponse(
+                gameNumber = gameNumber,
+                voterPlayerId = it.id,
+                voterNickname = it.nickname,
+                voteForExecution = it.finalVote ?: false,
+                success = true,
+                message = null
+            ) }
+        logger.debug("Generated {} final voting records for game {}", finalVotingRecord.size, gameNumber)
 
-        return mapOf(
-            "gameNumber" to gameNumber,
-            "gameState" to game.gameState.name,
-            "defense" to defenseRecovery,
-            "player" to mapOf(
-                "id" to player.id,
-                "nickname" to player.nickname,
-                "isAlive" to player.isAlive,
-                "role" to player.role.name
+        return GameRecoveryResponse(
+            gameNumber = gameNumber,
+            gameState = game.gameState.name,
+            scoreboard = players.map { ScoreboardEntry.from(it) },
+            targetPoints = game.targetPoints,
+            finalVotingRecord = finalVotingRecord,
+            currentPhase = currentPhase,
+            phaseEndTime = game.phaseEndTime?.toString(),
+            accusedPlayerId = accusedPlayer?.id,
+            accusedNickname = accusedPlayer?.nickname,
+            currentAccusationTargetId = game.accusedPlayerId,
+            gameCurrentRound = game.gameCurrentRound,
+            turnOrder = turnOrder,
+            currentTurnIndex = game.currentTurnIndex,
+            defenseReentryCount = 0, // TODO: Implement defense reentry count tracking
+            recentSystemHeadline = null, // TODO: Implement recent system headline
+            defense = defenseRecovery,
+            player = GameRecoveryResponse.PlayerInfo(
+                id = player.id,
+                nickname = player.nickname,
+                isAlive = player.isAlive,
+                role = player.role.name
             ),
-            "timestamp" to java.time.Instant.now().toString()
+            timestamp = java.time.Instant.now().toString()
         )
     }
 
