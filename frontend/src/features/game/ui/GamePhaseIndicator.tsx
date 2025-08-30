@@ -1,12 +1,8 @@
 import {Badge, Card, Group, Progress, Stack, Text} from '@mantine/core';
-import {Clock, MessageCircle, Play, Target, Trophy, Users, Vote} from 'lucide-react';
+import {Clock, Gavel, MessageCircle, Play, Shield, Target, Trophy, Users, Vote} from 'lucide-react';
+import type {GameStateResponse} from '../../room/types';
 
-type GamePhase =
-  | 'WAITING'
-  | 'HINT_PHASE'
-  | 'VOTING_PHASE'
-  | 'LIAR_GUESS_PHASE'
-  | 'FINISHED';
+type GamePhase = GameStateResponse['currentPhase'];
 
 interface GamePhaseIndicatorProps {
   currentPhase: GamePhase;
@@ -16,32 +12,49 @@ interface GamePhaseIndicatorProps {
   totalRounds?: number;
 }
 
-const phaseConfig = {
-  WAITING: {
-    label: '게임 시작 대기',
+const phaseConfig: Record<GamePhase, {
+  label: string;
+  color: string;
+  icon: React.ComponentType<{size?: number; color?: string}>;
+  description: string;
+}> = {
+  WAITING_FOR_PLAYERS: {
+    label: '플레이어 대기',
     color: 'gray',
     icon: Users,
     description: '플레이어들이 입장하기를 기다리고 있습니다'
   },
-  HINT_PHASE: {
+  SPEECH: {
     label: '힌트 단계',
     color: 'blue',
     icon: MessageCircle,
     description: '각 플레이어가 힌트를 제공하는 단계입니다'
   },
-  VOTING_PHASE: {
-    label: '투표 단계',
+  VOTING_FOR_LIAR: {
+    label: '라이어 지목 투표',
     color: 'red',
     icon: Vote,
     description: '라이어라고 생각하는 플레이어에게 투표하세요'
   },
-  LIAR_GUESS_PHASE: {
-    label: '라이어 추측 단계',
+  DEFENDING: {
+    label: '변론 단계',
+    color: 'yellow',
+    icon: Shield,
+    description: '지목된 플레이어가 변론하는 단계입니다'
+  },
+  VOTING_FOR_SURVIVAL: {
+    label: '최종 투표',
     color: 'orange',
+    icon: Gavel,
+    description: '지목된 플레이어의 생존 여부를 결정하는 투표입니다'
+  },
+  GUESSING_WORD: {
+    label: '라이어 추측 단계',
+    color: 'purple',
     icon: Target,
     description: '라이어가 주제를 추측하는 단계입니다'
   },
-  FINISHED: {
+  GAME_OVER: {
     label: '게임 종료',
     color: 'green',
     icon: Trophy,
@@ -113,7 +126,7 @@ export function GamePhaseIndicator({
           </Stack>
         )}
 
-        {currentPhase === 'WAITING' && (
+        {currentPhase === 'WAITING_FOR_PLAYERS' && (
           <Group gap="xs">
             <Play size={16} />
             <Text size="xs" c="dimmed">
