@@ -47,7 +47,7 @@ class VotingService(
     }
 
     @Transactional
-    private fun updateGameToVotingPhase(game: GameEntity): GameEntity {
+    open fun updateGameToVotingPhase(game: GameEntity): GameEntity {
         println("[VotingService] === UPDATING GAME TO VOTING PHASE ===")
         println("[VotingService] Game: ${game.gameNumber}, Current phase: ${game.currentPhase}")
 
@@ -56,17 +56,20 @@ class VotingService(
         game.phaseEndTime = Instant.now().plusSeconds(gameProperties.votingTimeSeconds)
         game.currentPlayerId = null // 투표 단계에서는 특정 플레이어 턴이 없음
         game.currentTurnIndex = game.turnOrder?.split(',')?.size ?: 0 // 모든 턴 완료 표시
+        game.accusedPlayerId = null // 회귀 시 이전 피고인 정보 초기화
         val savedGame = gameRepository.save(game)
 
         println("[VotingService] Game phase updated to: ${savedGame.currentPhase}")
         println("[VotingService] Phase end time: ${savedGame.phaseEndTime}")
 
-        // 모든 플레이어 상태를 투표 대기로 변경
+        // 모든 플레이어 상태를 투표 대기로 변경 + 투표 이력 초기화 (회귀 대응)
         val players = playerRepository.findByGame(savedGame)
         players.forEach { player ->
             if (player.isAlive) {
                 player.state = PlayerState.WAITING_FOR_VOTE
-                println("[VotingService] Player ${player.nickname} state changed to WAITING_FOR_VOTE")
+                player.votedFor = null // 이전 투표 리셋
+                player.votesReceived = 0 // 받은 표수 리셋
+                println("[VotingService] Player ${player.nickname} state changed to WAITING_FOR_VOTE, vote history reset")
             }
         }
         playerRepository.saveAll(players)
@@ -76,7 +79,7 @@ class VotingService(
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    private fun sendVotingMessages(gameNumber: Int) {
+    open fun sendVotingMessages(gameNumber: Int) {
         println("[VotingService] === SENDING VOTING MESSAGES ===")
 
         // 새로운 트랜잭션에서 최신 게임 상태 조회
