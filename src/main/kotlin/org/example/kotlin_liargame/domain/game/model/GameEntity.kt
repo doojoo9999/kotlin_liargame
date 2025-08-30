@@ -54,7 +54,11 @@ class GameEntity(
     var lastActivityAt: Instant? = null,
 
     @Column(nullable = true)
-    var timeExtensionCount: Int? = null
+    var timeExtensionCount: Int? = null,
+
+    // 목표 점수 (점수 기반 승리 조건)
+    @Column(nullable = false)
+    val targetPoints: Int = 10
 ) : BaseEntity() {
 
     @Id
