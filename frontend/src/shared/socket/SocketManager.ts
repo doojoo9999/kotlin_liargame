@@ -10,7 +10,7 @@ class SocketManager {
     private client = stompClient;
     private subscriptions = new Map<string, { callback: SubscriptionCallback, subscription: StompSubscription | null }>();
     private connectionPromise: Promise<void> | null = null;
-    private heartbeatInterval: NodeJS.Timeout | null = null;
+    private heartbeatInterval: number | null = null;
     private readonly HEARTBEAT_INTERVAL = 8000; // 8초마다 하트비트 전송 (백엔드 타임아웃 25초보다 충분히 짧게)
 
     private constructor() {
