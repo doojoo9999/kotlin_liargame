@@ -29,6 +29,7 @@ class GameController(
     private val votingService: VotingService,
     private val defenseService: DefenseService,
     private val gameResultService: GameResultService,
+    private val recoveryResponseFactory: RecoveryResponseFactory,
     private val sessionUtil: SessionUtil,
     private val errorHandler: ControllerErrorHandler
 ) {
@@ -192,6 +193,32 @@ class GameController(
         }
     }
 
+    @PostMapping("/defense/end")
+    @Operation(summary = "변론 종료", description = "지목된 플레이어가 변론을 즉시 종료합니다")
+    @ApiResponses(value = [
+        ApiResponse(responseCode = "200", description = "변론 종료 성공"),
+        ApiResponse(responseCode = "400", description = "잘못된 요청 데이터"),
+        ApiResponse(responseCode = "401", description = "인증되지 않은 사용자"),
+        ApiResponse(responseCode = "403", description = "변론 종료 권한 없음")
+    ])
+    fun endDefense(
+        @RequestBody @Valid request: EndDefenseRequest, 
+        session: HttpSession
+    ): ResponseEntity<GameStateResponse> {
+        return try {
+            val userId = sessionUtil.getUserId(session)
+                ?: return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(null)
+            
+            val response = defenseService.endDefense(request.gameNumber, userId)
+            ResponseEntity.ok(response)
+            
+        } catch (e: Exception) {
+            val status = errorHandler.getStatusForException(e)
+            val message = errorHandler.getMessageForException(e, "Defense end")
+            ResponseEntity.status(status).body(null)
+        }
+    }
+
     @PostMapping("/submit-liar-guess")
     @Operation(summary = "라이어 추측 제출", description = "라이어가 주제에 대한 추측을 제출합니다")
     @ApiResponses(value = [
@@ -229,22 +256,20 @@ class GameController(
     fun recoverGameState(
         @PathVariable gameNumber: Int,
         session: HttpSession
-    ): ResponseEntity<Map<String, Any>> {
+    ): ResponseEntity<GameRecoveryResponse> {
         return try {
             val userId = sessionUtil.getUserId(session)
-                ?: return errorHandler.createUnauthorizedResponse()
+                ?: return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(recoveryResponseFactory.buildUnauthorizedResponse(gameNumber))
 
             val recoveryData = gameService.recoverGameState(gameNumber, userId)
             ResponseEntity.ok(recoveryData)
 
         } catch (e: Exception) {
             val status = errorHandler.getStatusForException(e)
-            ResponseEntity.status(status).body(
-                mapOf(
-                    "error" to "Failed to recover game state: ${e.message}",
-                    "gameNumber" to gameNumber
-                )
-            )
+            val errorMessage = e.message ?: "Unknown error"
+            ResponseEntity.status(status)
+                .body(recoveryResponseFactory.buildErrorResponse(gameNumber, errorMessage))
         }
     }
 
