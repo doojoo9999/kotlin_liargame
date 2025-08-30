@@ -1,6 +1,7 @@
 package org.example.kotlin_liargame.tools.websocket
 
 import org.example.kotlin_liargame.global.security.RateLimitingService
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Lazy
 import org.springframework.http.server.ServerHttpRequest
@@ -25,7 +26,8 @@ class WebSocketConfig(
     private val webSocketSessionManager: WebSocketSessionManager,
     private val rateLimitingService: RateLimitingService,
     @Lazy private val connectionManager: WebSocketConnectionManager,
-    private val webSocketActivityInterceptor: WebSocketActivityInterceptor
+    @Lazy private val webSocketActivityInterceptor: WebSocketActivityInterceptor,
+    @Value("\${ratelimit.enabled:true}") private val rateLimitEnabled: Boolean
 ) : WebSocketMessageBrokerConfigurer {
     
     override fun configureMessageBroker(config: MessageBrokerRegistry) {
@@ -146,7 +148,7 @@ class WebSocketConfig(
                             if (sessionId != null) {
                                 // Rate limiting 검사
                                 val clientId = getWebSocketClientId(accessor)
-                                if (!rateLimitingService.isWebSocketMessageAllowed(clientId)) {
+                                if (rateLimitEnabled && !rateLimitingService.isWebSocketMessageAllowed(clientId)) {
                                     println("[SECURITY] WebSocket rate limit exceeded for client: $clientId")
                                     return null
                                 }
