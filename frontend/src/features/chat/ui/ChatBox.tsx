@@ -15,7 +15,7 @@ interface ChatBoxProps {
 export function ChatBox({ messages, onSendMessage, disabled, gameState }: ChatBoxProps) {
   const { data: authData } = useAuth();
 
-  // 채팅 입력 가능 여부 판단
+  // 채팅 입력 가능 여부 판단 - 백엔드 isChatAvailable 플래그 우선 사용
   const getChatStatus = () => {
     if (disabled) {
       return { disabled: true, message: "채팅이 비활성화되었습니다." };
@@ -33,7 +33,7 @@ export function ChatBox({ messages, onSendMessage, disabled, gameState }: ChatBo
       return { disabled: false, message: "" };
     }
 
-    // 게임 진행 중일 때의 채팅 제한 체크
+    // 게임 진행 중일 때는 백엔드의 isChatAvailable 플래그를 우선 사용
     if (gameState.gameState === 'IN_PROGRESS') {
       const currentUser = authData;
       if (!currentUser) {
@@ -41,75 +41,49 @@ export function ChatBox({ messages, onSendMessage, disabled, gameState }: ChatBo
       }
 
       // 현재 플레이어 찾기 - nickname으로 매칭
-      const currentPlayer = gameState.players.find((p: any) => p.nickname === currentUser.nickname);
+      const currentPlayer = gameState.players.find(p => p.nickname === currentUser.nickname);
 
       // 디버깅 정보 출력
       console.log('[ChatBox DEBUG] Current user:', currentUser);
       console.log('[ChatBox DEBUG] Game players:', gameState.players);
       console.log('[ChatBox DEBUG] Found current player:', currentPlayer);
       console.log('[ChatBox DEBUG] Game phase:', gameState.currentPhase);
-      console.log('[ChatBox DEBUG] Turn order:', gameState.turnOrder);
-      console.log('[ChatBox DEBUG] Current turn index:', gameState.currentTurnIndex);
+      console.log('[ChatBox DEBUG] isChatAvailable from backend:', gameState.isChatAvailable);
 
       if (!currentPlayer) {
-
-          console.log('[ChatBox ERROR] Player not found! Auth nickname:', currentUser.nickname);
-        console.log('[ChatBox ERROR] Available players:', gameState.players.map((p: any) => p.nickname));
+        console.log('[ChatBox ERROR] Player not found! Auth nickname:', currentUser.nickname);
+        console.log('[ChatBox ERROR] Available players:', gameState.players.map(p => p.nickname));
 
         // 게임이 종료되었거나 플레이어가 게임에서 제거된 경우
-        if (gameState.gameState === 'ENDED' || gameState.players.length === 0) {
-          return { disabled: true, message: "게임이 종료되었습니다." };
+          if (!currentPlayer){
+              return { disabled: true, message: "게임이 종료되었습니다." };
         }
 
-        // 플레이어 정보 불일치 - 로비로 리다이렉트하는 것이 좋겠지만 일단 채팅만 비활성화
+        // 플레이어 정보 불일치
         return { disabled: true, message: "게임 참가자가 아닙니다. 페이지를 새로고침해주세요." };
       }
 
-      // 게임 페이즈별 채팅 제한
-      switch (gameState.currentPhase) {
-        case 'SPEECH':
-          // 발언 단계에서는 현재 턴인 플레이어만 채팅(힌트) 가능
-          const currentTurnPlayer = getCurrentTurnPlayer(gameState);
-          if (currentTurnPlayer && currentTurnPlayer.id === currentPlayer.id) {
-            return { disabled: false, message: "" };
-          } else {
+      // 백엔드의 isChatAvailable 플래그 사용
+      if (!gameState.isChatAvailable) {
+        // 페이즈별 비활성화 메시지 제공
+        switch (gameState.currentPhase) {
+          case 'SPEECH': {
+            const currentTurnPlayer = getCurrentTurnPlayer(gameState);
             return {
               disabled: true,
-              message: `${currentTurnPlayer?.nickname || '다른 플레이어'}님의 턴입니다. 힌트를 기다려주세요.`
+              message: `${currentTurnPlayer?.nickname ?? '다른 플레이어'}님의 턴입니다. 힌트를 기다려주세요.`
             };
           }
-
-        case 'VOTING_FOR_LIAR':
-          // 투표 중에는 모든 사용자가 채팅 가능
-          return { disabled: false, message: "" };
-
-        case 'DEFENDING':
-          // 변론 단계에서는 지목된 플레이어만 채팅 가능
-          const accusedPlayer = gameState.accusedPlayer;
-          if (accusedPlayer && accusedPlayer.id === currentPlayer.id) {
-            return { disabled: false, message: "" };
-          } else {
-            return {
-              disabled: true,
-              message: `${accusedPlayer?.nickname || '지목된 플레이어'}님의 변론을 기다려주세요.`
-            };
-          }
-
-        case 'VOTING_FOR_SURVIVAL':
-          // 최종 투표 중에는 모든 사용자가 채팅 가능
-          return { disabled: false, message: "" };
-
-        case 'GUESSING_WORD':
-          // 라이어 추측 단계에서는 라이어만 채팅 가능
-          if (currentPlayer.role === 'LIAR') {
-            return { disabled: false, message: "" };
-          } else {
+          case 'VOTING_FOR_SURVIVAL':
+            return { disabled: true, message: "최종 투표 중입니다. 채팅이 비활성화되었습니다." };
+          case 'GUESSING_WORD':
             return { disabled: true, message: "라이어의 단어 추측을 기다려주세요." };
-          }
-
-        default:
-          return { disabled: false, message: "" };
+          default:
+            return { disabled: true, message: "현재 채팅을 사용할 수 없습니다." };
+        }
       }
+
+      return { disabled: false, message: "" };
     }
 
     return { disabled: false, message: "" };
@@ -120,7 +94,7 @@ export function ChatBox({ messages, onSendMessage, disabled, gameState }: ChatBo
     // turnOrder와 currentTurnIndex가 있는 경우
     if (gameState.turnOrder && gameState.currentTurnIndex !== undefined && gameState.currentTurnIndex !== null) {
       const currentTurnNickname = gameState.turnOrder[gameState.currentTurnIndex];
-      return gameState.players.find((p: any) => p.nickname === currentTurnNickname);
+      return gameState.players.find(p => p.nickname === currentTurnNickname);
     }
 
     // turnOrder가 없는 경우 fallback: 시스템 메시지에서 현재 턴 플레이어를 추출
@@ -129,11 +103,12 @@ export function ChatBox({ messages, onSendMessage, disabled, gameState }: ChatBo
     for (let i = recentMessages.length - 1; i >= 0; i--) {
       const message = recentMessages[i];
       if (message.type === 'SYSTEM' && message.content.includes('님의 차례입니다!')) {
-        const match = message.content.match(/🎯\s*(.+?)님의\s*차례입니다!/);
+        const regex = /🎯\s*(.+?)님의\s*차례입니다!/;
+        const match = regex.exec(message.content);
         if (match) {
           const turnPlayerNickname = match[1];
           console.log('[ChatBox DEBUG] Extracted turn player from system message:', turnPlayerNickname);
-          return gameState.players.find((p: any) => p.nickname === turnPlayerNickname);
+          return gameState.players.find(p => p.nickname === turnPlayerNickname);
         }
       }
     }
