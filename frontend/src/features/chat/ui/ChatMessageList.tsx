@@ -11,6 +11,7 @@ const Row = ({ index, style, data }: { index: number; style: React.CSSProperties
   const message = data[index];
   const isSystem = message.type === 'SYSTEM';
   const isHint = message.type === 'HINT';
+  const isDefense = message.type === 'DEFENSE';
 
   return (
     <Box style={style} p="xs">
@@ -23,6 +24,25 @@ const Row = ({ index, style, data }: { index: number; style: React.CSSProperties
           <Text c="blue" size="sm">
             <Text span fw={700} mr="sm" c="blue.8">
               💡 {message.sender}:
+            </Text>
+            <Text span fw={600}>
+              {message.content}
+            </Text>
+          </Text>
+        </Paper>
+      ) : isDefense ? (
+        <Paper 
+          p="xs" 
+          bg="red.0" 
+          radius="sm" 
+          style={{ 
+            border: '2px solid var(--mantine-color-red-3)',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+          }}
+        >
+          <Text c="red" size="sm">
+            <Text span fw={700} mr="sm" c="red.8">
+              ⚖️ 변론자 {message.sender}:
             </Text>
             <Text span fw={600}>
               {message.content}
