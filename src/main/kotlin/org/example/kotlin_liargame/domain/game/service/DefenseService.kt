@@ -14,14 +14,12 @@ import org.springframework.context.annotation.Lazy
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.scheduling.TaskScheduler
 import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ScheduledFuture
 import kotlin.random.Random
 
 @Service
-@Transactional
 class DefenseService(
     private val gameRepository: GameRepository,
     private val playerRepository: PlayerRepository,
@@ -30,7 +28,9 @@ class DefenseService(
     @Lazy private val gameResultService: GameResultService,
     private val gameProperties: GameProperties,
     private val gameStateService: GameStateService,
-    private val gameMessagingService: org.example.kotlin_liargame.global.messaging.GameMessagingService
+    private val gameMessagingService: org.example.kotlin_liargame.global.messaging.GameMessagingService,
+    @Lazy private val votingService: VotingService,
+    @Lazy private val gameProgressService: GameProgressService
 ) {
 
     // ScheduledFuture는 직렬화가 어려우므로 로컬에서 관리
@@ -136,6 +136,100 @@ class DefenseService(
         )
     }
     
+    fun endDefense(gameNumber: Int, playerId: Long): GameStateResponse {
+        // 1. 권한/페이즈 검증 - DEFENDING 페이즈에서만 허용
+        val game = gameRepository.findByGameNumber(gameNumber)
+            ?: throw IllegalArgumentException("Game not found")
+            
+        if (game.currentPhase != GamePhase.DEFENDING) {
+            throw IllegalStateException("Defense can only be ended during DEFENDING phase")
+        }
+        
+        val defenseStatus = gameStateService.getDefenseStatus(gameNumber)
+            ?: throw IllegalStateException("No defense phase active")
+            
+        if (defenseStatus.accusedPlayerId != playerId) {
+            throw IllegalArgumentException("Only the accused player can end defense")
+        }
+        
+        // 2. 경합 방지/단일 전환 - 이미 종료되었는지 확인
+        if (defenseStatus.isDefenseSubmitted) {
+            // 이미 변론이 종료된 경우, 현재 게임 상태 반환 (멱등성 보장)
+            val players = playerRepository.findByGame(game)
+            val accusedPlayer = players.find { it.id == playerId }
+            
+            // finalVotingRecord 조회 (있을 경우)
+            val finalVotingStatus = gameStateService.getFinalVotingStatus(gameNumber)
+            val finalVotingRecord = finalVotingStatus?.map { (playerId, voteForExecution) ->
+                val player = players.find { it.id == playerId }
+                mapOf(
+                    "voterPlayerId" to playerId,
+                    "voterNickname" to (player?.nickname ?: "Unknown"),
+                    "voteForExecution" to (voteForExecution ?: false)
+                )
+            }
+            
+            return GameStateResponse.from(
+                game = game,
+                players = players,
+                currentUserId = playerId,
+                currentPhase = game.currentPhase,
+                accusedPlayer = accusedPlayer,
+                phaseEndTime = game.phaseEndTime?.toString(),
+                finalVotingRecord = finalVotingRecord
+            )
+        }
+        
+        // 기존 defense timer 취소
+        gameStateService.setDefenseTimer(gameNumber, false)
+        cleanupGameState(gameNumber)
+        
+        val player = playerRepository.findById(playerId)
+            .orElseThrow { IllegalArgumentException("Player not found") }
+        
+        // 변론을 즉시 종료하고 final voting으로 전환
+        val finalDefenseText = defenseStatus.defenseText ?: ""
+        gameStateService.setDefenseStatus(gameNumber, defenseStatus.copy(
+            defenseText = finalDefenseText,
+            isDefenseSubmitted = true
+        ))
+
+        sendModeratorMessage(
+            gameNumber,
+            "${player.nickname}님이 변론을 조기 종료했습니다."
+        )
+        
+        messagingTemplate.convertAndSend(
+            "/topic/game/$gameNumber/defense-ended",
+            DefenseSubmissionMessage(
+                gameNumber = gameNumber,
+                playerId = playerId,
+                playerNickname = player.nickname,
+                defenseText = finalDefenseText,
+                timestamp = Instant.now()
+            )
+        )
+        
+        // 즉시 final voting 시작 (딜레이 없음)
+        startFinalVoting(gameNumber)
+        
+        // 3. 브로드캐스트/복구 일관화 - 전환된 게임 상태로 업데이트된 정보 반환
+        val updatedGame = gameRepository.findByGameNumber(gameNumber)
+            ?: throw IllegalArgumentException("Game not found")
+        val players = playerRepository.findByGame(updatedGame)
+        val accusedPlayer = players.find { it.id == playerId }
+        
+        return GameStateResponse.from(
+            game = updatedGame, 
+            players = players, 
+            currentUserId = playerId,
+            currentPhase = updatedGame.currentPhase, // VOTING_FOR_SURVIVAL로 전환됨
+            accusedPlayer = accusedPlayer,
+            phaseEndTime = updatedGame.phaseEndTime?.toString(),
+            finalVotingRecord = null // final voting이 막 시작되어 아직 기록 없음
+        )
+    }
+    
     private fun startDefenseTimer(gameNumber: Int, defenseTimeSeconds: Long) {
         val task = taskScheduler.schedule({
             if (gameStateService.getDefenseTimer(gameNumber)) {
@@ -190,6 +284,24 @@ class DefenseService(
     fun startFinalVoting(gameNumber: Int): FinalVotingStartResponse {
         val game = gameRepository.findByGameNumber(gameNumber)
             ?: throw IllegalArgumentException("Game not found")
+            
+        // 멱등성 보장 - 이미 VOTING_FOR_SURVIVAL 단계면 중복 실행 방지
+        if (game.currentPhase == GamePhase.VOTING_FOR_SURVIVAL) {
+            // 이미 최종 투표가 시작된 경우, 기존 상태 반환
+            val defenseStatus = gameStateService.getDefenseStatus(gameNumber)
+                ?: throw IllegalStateException("No defense status found")
+            val accusedPlayer = playerRepository.findById(defenseStatus.accusedPlayerId)
+                .orElseThrow { IllegalArgumentException("Accused player not found") }
+                
+            return FinalVotingStartResponse(
+                gameNumber = gameNumber,
+                accusedPlayerId = defenseStatus.accusedPlayerId,
+                accusedPlayerNickname = accusedPlayer.nickname,
+                defenseText = defenseStatus.defenseText ?: "",
+                votingTimeLimit = gameProperties.finalVotingTimeSeconds.toInt(),
+                success = true
+            )
+        }
             
         game.currentPhase = GamePhase.VOTING_FOR_SURVIVAL
         game.phaseEndTime = Instant.now().plusSeconds(gameProperties.finalVotingTimeSeconds)
@@ -325,6 +437,20 @@ class DefenseService(
     }
     
     fun processFinalVotingResults(gameNumber: Int): FinalVotingResultResponse {
+        // 1. 멱등성 보장을 위한 락 획득
+        if (!gameStateService.acquireFinalVotingProcessLock(gameNumber)) {
+            throw IllegalStateException("Final voting result processing is already in progress or completed")
+        }
+        
+        // 2. 권한/페이즈 검증 - DEFENDING 또는 VOTING_FOR_SURVIVAL 페이즈에서만 허용
+        val game = gameRepository.findByGameNumber(gameNumber)
+            ?: throw IllegalArgumentException("Game not found")
+        
+        if (game.currentPhase != GamePhase.DEFENDING && game.currentPhase != GamePhase.VOTING_FOR_SURVIVAL) {
+            gameStateService.releaseFinalVotingProcessLock(gameNumber)
+            throw IllegalStateException("Final voting can only be processed during DEFENDING or VOTING_FOR_SURVIVAL phase")
+        }
+        
         val votingStatus = gameStateService.getFinalVotingStatus(gameNumber)
             ?: throw IllegalStateException("No final voting data found")
             
@@ -337,10 +463,22 @@ class DefenseService(
         val survivalVotes = votingStatus.values.count { it == false }
         val totalVotes = votingStatus.size
         
-        val isExecuted = executionVotes > survivalVotes
+        // 최종 투표 판정 로직을 별도 메서드로 분리하여 테스트 가능하게 구현
+        val isExecuted = calculateFinalVotingResult(executionVotes, survivalVotes, totalVotes)
         
         val accusedPlayer = playerRepository.findById(defenseStatus.accusedPlayerId)
             .orElseThrow { IllegalArgumentException("Accused player not found") }
+        
+        // finalVotingRecord 스냅샷 생성 (요구사항) - game 변수는 이미 위에서 선언됨
+        val players = playerRepository.findByGame(game)
+        val finalVotingRecord = votingStatus.map { (playerId, voteForExecution) ->
+            val player = players.find { it.id == playerId }
+            mapOf(
+                "voterPlayerId" to playerId,
+                "voterNickname" to (player?.nickname ?: "Unknown"),
+                "voteForExecution" to (voteForExecution ?: false)
+            )
+        }
         
         val resultMessage = if (isExecuted) {
             "${accusedPlayer.nickname}님이 처형되었습니다. (찬성: $executionVotes, 반대: $survivalVotes)"
@@ -350,6 +488,42 @@ class DefenseService(
         
         sendModeratorMessage(gameNumber, resultMessage)
         
+        // 점수 계산 및 부여 - GameProgressService 통합
+        var gameEnded = false
+        var scoreUpdated = false
+        if (isExecuted && accusedPlayer.role == org.example.kotlin_liargame.domain.game.model.enum.PlayerRole.LIAR) {
+            // 라이어가 처형된 경우: "사망 표"를 던진 시민들에게 +1점
+            val finalVotingRecordMap = votingStatus.mapValues { it.value ?: false }
+            val awardedPlayers = gameProgressService.awardCitizenVictoryPoints(game, finalVotingRecordMap)
+            println("[DefenseService] Awarded points to ${awardedPlayers.size} citizens for voting liar execution")
+            scoreUpdated = awardedPlayers.isNotEmpty()
+            
+        } else if (!isExecuted && accusedPlayer.role == org.example.kotlin_liargame.domain.game.model.enum.PlayerRole.LIAR) {
+            // 라이어가 생존한 경우: 라이어에게 +2점
+            val winnerPlayer = gameProgressService.awardLiarVictoryPoints(game, "시민 오판으로 라이어 생존")
+            if (winnerPlayer != null) {
+                scoreUpdated = true
+                if (game.gameState == org.example.kotlin_liargame.domain.game.model.enum.GameState.ENDED) {
+                    gameEnded = true
+                }
+            }
+            
+        } else if (isExecuted && accusedPlayer.role == org.example.kotlin_liargame.domain.game.model.enum.PlayerRole.CITIZEN) {
+            // 시민이 처형된 경우: 라이어에게 +2점
+            val winnerPlayer = gameProgressService.awardLiarVictoryPoints(game, "시민 처형으로 라이어 승리")
+            if (winnerPlayer != null) {
+                scoreUpdated = true
+                if (game.gameState == org.example.kotlin_liargame.domain.game.model.enum.GameState.ENDED) {
+                    gameEnded = true
+                }
+            }
+        }
+        
+        // Get updated game and players data after potential scoring
+        val updatedGame = gameRepository.findByGameNumber(gameNumber) 
+            ?: throw IllegalArgumentException("Game not found")
+        val updatedPlayers = playerRepository.findByGame(updatedGame)
+        
         val response = FinalVotingResultResponse(
             gameNumber = gameNumber,
             accusedPlayerId = defenseStatus.accusedPlayerId,
@@ -358,8 +532,21 @@ class DefenseService(
             survivalVotes = survivalVotes,
             totalVotes = totalVotes,
             isExecuted = isExecuted,
-            defenseText = defenseStatus.defenseText ?: ""
+            defenseText = defenseStatus.defenseText ?: "",
+            finalVotingRecord = finalVotingRecord,
+            scoreboard = updatedPlayers.map { org.example.kotlin_liargame.domain.game.dto.response.ScoreboardEntry.from(it) },
+            targetPoints = updatedGame.targetPoints
         )
+        
+        // 점수 업데이트 후 실시간 점수판 브로드캐스트 및 승리 조건 확인
+        if (scoreUpdated) {
+            gameResultService.broadcastScoreboard(gameNumber)
+            
+            // 목표 점수 달성 시 즉시 게임 종료
+            if (gameResultService.checkAndHandleScoreBasedVictory(gameNumber)) {
+                return response // 게임이 종료되었으므로 즉시 반환
+            }
+        }
         
         messagingTemplate.convertAndSend(
             "/topic/game/$gameNumber/final-voting-result",
@@ -368,27 +555,108 @@ class DefenseService(
         
         cleanupGameState(gameNumber)
         
-        // Create FinalJudgmentResultResponse and call GameResultService
-        val isLiar = accusedPlayer.role == org.example.kotlin_liargame.domain.game.model.enum.PlayerRole.LIAR
-        val judgmentResult = FinalJudgmentResultResponse(
-            gameNumber = gameNumber,
-            accusedPlayerId = defenseStatus.accusedPlayerId,
-            accusedPlayerNickname = accusedPlayer.nickname,
-            isKilled = isExecuted,
-            isLiar = isLiar,
-            executionVotes = executionVotes,
-            survivalVotes = survivalVotes,
-            totalVotes = totalVotes
-        )
+        if (isExecuted) {
+            // 처형된 경우: 변론자 제거 및 역할에 따른 단계 분기
+            accusedPlayer.isAlive = false
+            playerRepository.save(accusedPlayer)
+            
+            val isLiar = accusedPlayer.role == org.example.kotlin_liargame.domain.game.model.enum.PlayerRole.LIAR
+            
+            if (isLiar) {
+                // 변론자가 라이어면: GUESSING_WORD 단계로 전환
+                game.currentPhase = GamePhase.GUESSING_WORD
+                game.phaseEndTime = Instant.now().plusSeconds(gameProperties.topicGuessTimeSeconds.toLong())
+                gameRepository.save(game)
+                
+                sendModeratorMessage(
+                    gameNumber,
+                    "라이어가 처형되었습니다. 라이어는 주제를 맞춰보세요!"
+                )
+                
+                // 득점 훅: Step 4에서 처리할 수 있도록 명확한 지점 표시
+                // TODO: Step 4 - 라이어 처형 시 시민 득점 로직 구현 필요
+                
+            } else {
+                // 변론자가 시민이면: 라이어 승리로 즉시 종료
+                sendModeratorMessage(
+                    gameNumber,
+                    "시민이 처형되었습니다. 라이어가 승리했습니다!"
+                )
+                
+                // 득점 훅: Step 4에서 처리할 수 있도록 명확한 지점 표시  
+                // TODO: Step 4 - 시민 처형 시 라이어 승리 득점 로직 구현 필요
+                
+                // 게임 즉시 종료 처리 (라이어 승리)
+                taskScheduler.schedule({
+                    gameResultService.processGameResult(gameNumber, FinalJudgmentResultResponse(
+                        gameNumber = gameNumber,
+                        accusedPlayerId = defenseStatus.accusedPlayerId,
+                        accusedPlayerNickname = accusedPlayer.nickname,
+                        isKilled = isExecuted,
+                        isLiar = isLiar,
+                        executionVotes = executionVotes,
+                        survivalVotes = survivalVotes,
+                        totalVotes = totalVotes
+                    ))
+                }, Instant.now().plusSeconds(3))
+            }
+        } else {
+            // 생존한 경우: VOTING_FOR_LIAR 단계로 회귀
+            val game = gameRepository.findByGameNumber(gameNumber)
+                ?: throw IllegalArgumentException("Game not found")
+            val players = playerRepository.findByGame(game)
+            
+            // 이전 피고인 정보 및 투표 이력 리셋
+            game.accusedPlayerId = null
+            gameRepository.save(game)
+            
+            players.forEach { player ->
+                if (player.isAlive) {
+                    player.votedFor = null // 이전 투표 리셋
+                    player.votesReceived = 0
+                }
+            }
+            playerRepository.saveAll(players)
+            
+            sendModeratorMessage(
+                gameNumber,
+                "${accusedPlayer.nickname}님이 생존했습니다. 다시 라이어 지목 투표를 진행합니다."
+            )
+            
+            // VotingService를 통해 투표 단계 시작 (타이머 및 상태 설정 포함)
+            // 이는 게임 상태, 플레이어 상태, 타이머 설정을 모두 처리합니다
+            votingService.startVotingPhase(game)
+        }
         
-        // Schedule GameResultService call after 3 seconds
-        taskScheduler.schedule({
-            gameResultService.processGameResult(gameNumber, judgmentResult)
-        }, Instant.now().plusSeconds(3))
+        // 3. 락 해제
+        gameStateService.releaseFinalVotingProcessLock(gameNumber)
         
         return response
     }
     
+    /**
+     * 최종 투표 결과를 계산하는 순수 함수 (테스트 가능)
+     * 
+     * 최종 투표 규칙 (요구사항에 따른 정확한 구현):
+     * - 사망표 과반: votesForExecution > floor(alive/2) → 처형
+     * - 정확히 절반(짝수에서만): votesForExecution == votesAgainstExecution → 생존
+     * - 생존표 과반: votesAgainstExecution > floor(alive/2) → 생존
+     * 
+     * @param executionVotes 사망표 수
+     * @param survivalVotes 생존표 수  
+     * @param totalVotes 전체 투표 수
+     * @return 처형 여부
+     */
+    private fun calculateFinalVotingResult(executionVotes: Int, survivalVotes: Int, totalVotes: Int): Boolean {
+        val majorityThreshold = totalVotes / 2 // floor(alive/2)
+        return when {
+            executionVotes > majorityThreshold -> true  // 사망표 과반 → 처형
+            executionVotes == survivalVotes -> false    // 정확히 절반 → 생존
+            survivalVotes > majorityThreshold -> false  // 생존표 과반 → 생존
+            else -> executionVotes > survivalVotes       // 기본: 더 많은 표
+        }
+    }
+
     private fun addScheduledTask(gameNumber: Int, task: ScheduledFuture<*>) {
         scheduledTasksMap.computeIfAbsent(gameNumber) { mutableListOf() }.add(task)
     }
@@ -409,14 +677,40 @@ class DefenseService(
     fun recoverGameState(gameNumber: Int): DefenseRecoveryResponse {
         val defenseStatus = gameStateService.getDefenseStatus(gameNumber)
         val finalVotingStatus = gameStateService.getFinalVotingStatus(gameNumber)
+        
+        // 게임 및 플레이어 정보 조회
+        val game = gameRepository.findByGameNumber(gameNumber)
+        val players = game?.let { playerRepository.findByGame(it) } ?: emptyList()
+        
+        // 피고인 정보 조회
+        val accusedPlayer = defenseStatus?.accusedPlayerId?.let { playerId ->
+            players.find { it.id == playerId }
+        }
+        
+        // finalVotingRecord 생성 (최종 투표가 있는 경우)
+        val finalVotingRecord = finalVotingStatus?.map { (playerId, voteForExecution) ->
+            val player = players.find { it.id == playerId }
+            mapOf(
+                "voterPlayerId" to playerId,
+                "voterNickname" to (player?.nickname ?: "Unknown"),
+                "voteForExecution" to (voteForExecution ?: false)
+            )
+        }
 
         return DefenseRecoveryResponse(
             gameNumber = gameNumber,
             hasActiveDefense = defenseStatus != null && !defenseStatus.isDefenseSubmitted,
             hasActiveFinalVoting = finalVotingStatus != null,
             accusedPlayerId = defenseStatus?.accusedPlayerId,
+            accusedPlayerNickname = accusedPlayer?.nickname,
             defenseText = defenseStatus?.defenseText,
-            isDefenseSubmitted = defenseStatus?.isDefenseSubmitted ?: false
+            isDefenseSubmitted = defenseStatus?.isDefenseSubmitted ?: false,
+            // 일관된 필드들
+            currentPhase = game?.currentPhase,
+            phaseEndTime = game?.phaseEndTime,
+            finalVotingRecord = finalVotingRecord,
+            scoreboard = players.map { org.example.kotlin_liargame.domain.game.dto.response.ScoreboardEntry.from(it) },
+            targetPoints = game?.targetPoints
         )
     }
 }
