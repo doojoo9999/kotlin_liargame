@@ -1,13 +1,12 @@
 import {apiClient} from '../../../shared/api/apiClient';
+import type {GameStateResponse} from '../../room/types';
 
 export interface SubmitFinalVotePayload {
   gameNumber: number;
-  vote: boolean; // true for 'Yes' (eliminate), false for 'No' (survive)
+  voteForExecution: boolean; // true for 'Yes' (eliminate), false for 'No' (survive)
 }
 
-export const submitFinalVote = async (data: SubmitFinalVotePayload): Promise<void> => {
-  const { gameNumber, vote } = data;
-  // Assuming the endpoint structure based on common REST patterns.
-  // This might need to be adjusted based on the actual backend API.
-  await apiClient.post(`/api/v1/game/${gameNumber}/vote/final`, { vote });
+export const submitFinalVote = async (data: SubmitFinalVotePayload): Promise<GameStateResponse> => {
+  const response = await apiClient.post<GameStateResponse>('/api/v1/game/vote/final', data);
+  return response.data;
 };
