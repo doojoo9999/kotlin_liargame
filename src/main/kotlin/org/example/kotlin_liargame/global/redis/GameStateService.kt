@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service
 import java.time.Duration
 import java.time.Instant
 
+@org.springframework.context.annotation.Profile("!test")
 @Service
 class GameStateService(
     private val redisTemplate: RedisTemplate<String, String>,
@@ -20,6 +21,7 @@ class GameStateService(
     private fun terminationReasonKey(gameNumber: Int) = "game:$gameNumber:termination:reason"
     private fun postRoundChatKey(gameNumber: Int) = "game:$gameNumber:chat:postround"
     private fun terminationCountKey() = "game:termination:count"
+    private fun finalVotingProcessLockKey(gameNumber: Int) = "game:$gameNumber:voting:final:lock"
 
     fun setDefenseStatus(gameNumber: Int, status: DefenseStatus) {
         val json = objectMapper.writeValueAsString(status)
@@ -135,6 +137,37 @@ class GameStateService(
 
     fun removePostRoundChatWindow(gameNumber: Int) {
         redisTemplate.delete(postRoundChatKey(gameNumber))
+    }
+
+    /**
+     * 최종 투표 처리 락을 획득합니다.
+     * @param gameNumber 게임 번호
+     * @param lockTimeoutSeconds 락 타임아웃 (초)
+     * @return 락 획득 성공 여부
+     */
+    fun acquireFinalVotingProcessLock(gameNumber: Int, lockTimeoutSeconds: Long = 30): Boolean {
+        return redisTemplate.opsForValue().setIfAbsent(
+            finalVotingProcessLockKey(gameNumber),
+            "locked",
+            Duration.ofSeconds(lockTimeoutSeconds)
+        ) ?: false
+    }
+
+    /**
+     * 최종 투표 처리 락을 해제합니다.
+     * @param gameNumber 게임 번호
+     */
+    fun releaseFinalVotingProcessLock(gameNumber: Int) {
+        redisTemplate.delete(finalVotingProcessLockKey(gameNumber))
+    }
+
+    /**
+     * 최종 투표 처리 락 상태를 확인합니다.
+     * @param gameNumber 게임 번호
+     * @return 락이 존재하는지 여부
+     */
+    fun hasFinalVotingProcessLock(gameNumber: Int): Boolean {
+        return redisTemplate.hasKey(finalVotingProcessLockKey(gameNumber))
     }
 
     fun cleanupGameState(gameNumber: Int) {
