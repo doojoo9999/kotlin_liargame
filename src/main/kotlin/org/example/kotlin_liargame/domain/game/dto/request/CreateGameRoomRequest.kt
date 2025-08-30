@@ -44,7 +44,11 @@ data class CreateGameRoomRequest(
     
     @field:Min(value = 1, message = "랜덤 주제 개수는 최소 1개 이상이어야 합니다")
     @field:Max(value = 5, message = "랜덤 주제 개수는 최대 5개 이하여야 합니다")
-    val randomSubjectCount: Int? = 1
+    val randomSubjectCount: Int? = 1,
+    
+    @field:Min(value = 5, message = "목표 점수는 최소 5점 이상이어야 합니다")
+    @field:Max(value = 20, message = "목표 점수는 최대 20점 이하여야 합니다")
+    val targetPoints: Int = 10
 ) {
     fun getSanitizedGameName(): String? {
         return gameName?.trim()?.takeIf { it.isNotBlank() }
@@ -64,7 +68,8 @@ data class CreateGameRoomRequest(
             gameState = GameState.WAITING,
             gameOwner = gameOwner,
             citizenSubject = null,
-            liarSubject = null
+            liarSubject = null,
+            targetPoints = this.targetPoints
         ).apply {
             // 게임 생성 시 마지막 활동 시간을 현재 시간으로 초기화
             lastActivityAt = java.time.Instant.now()
