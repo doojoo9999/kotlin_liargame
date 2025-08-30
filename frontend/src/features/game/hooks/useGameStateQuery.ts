@@ -8,7 +8,6 @@ const gameStateQueryKeys = {
 };
 
 export const useGameStateQuery = (gameNumber: number) => {
-  const [gameState, setGameState] = useState<any>(null);
   const [refetchInterval, setRefetchInterval] = useState(5000); // 기본 5초
 
   const query = useQuery({
@@ -33,8 +32,6 @@ export const useGameStateQuery = (gameNumber: number) => {
   // 게임 상태에 따라 폴링 간격 동적 조정
   useEffect(() => {
     if (query.data) {
-      setGameState(query.data);
-
       const currentPhase = query.data.currentPhase;
 
       // 중요한 페이즈에서는 더 빠른 폴링
