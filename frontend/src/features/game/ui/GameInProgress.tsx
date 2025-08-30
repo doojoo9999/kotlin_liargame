@@ -10,6 +10,7 @@ import {LiarGuessPhase} from './LiarGuessPhase';
 import {SpeechPhase} from './SpeechPhase';
 import {VotePhase} from './VotePhase';
 import {HintHistory} from './HintHistory';
+import {Scoreboard} from './Scoreboard';
 
 interface GameInProgressProps {
   gameState: GameStateResponse;
@@ -63,6 +64,7 @@ export function GameInProgress({ gameState }: GameInProgressProps) {
       <Grid.Col span={{ base: 12, md: 4 }}>
         <Stack>
           <PlayerList players={gameState.players} gameOwner={gameState.gameOwner} />
+          <Scoreboard gameState={gameState} />
           <HintHistory
             messages={messages}
             gameState={gameState}
