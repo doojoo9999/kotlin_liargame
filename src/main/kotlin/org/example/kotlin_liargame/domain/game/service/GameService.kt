@@ -392,7 +392,7 @@ class GameService(
     @Transactional
     fun recoverGameState(gameNumber: Int, userId: Long): GameRecoveryResponse {
         logger.debug("Starting game state recovery for game {} and user {}", gameNumber, userId)
-        
+
         val game = gameRepository.findByGameNumber(gameNumber)
             ?: throw GameNotFoundException(gameNumber)
 
@@ -401,17 +401,17 @@ class GameService(
 
         val players = playerRepository.findByGame(game)
         logger.debug("Found {} players in game {}", players.size, gameNumber)
-        
+
         val defenseRecovery = defenseService.recoverGameState(gameNumber)
         val accusedPlayer = findAccusedPlayer(players)
-        
+
         // Get turn order information
         val turnOrder = game.turnOrder?.split(',')?.filter { it.isNotBlank() }
-        
-        // Get current phase 
+
+        // Get current phase
         val currentPhase = game.currentPhase ?: determineGamePhase(game, players)
         logger.debug("Current phase for game {}: {}", gameNumber, currentPhase)
-        
+
         // Generate final voting record from player states
         val finalVotingRecord = players
             .filter { it.finalVote != null }

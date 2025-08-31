@@ -206,15 +206,31 @@ class GameController(
         session: HttpSession
     ): ResponseEntity<GameStateResponse> {
         return try {
+            println("[DEBUG] endDefense called with gameNumber: ${request.gameNumber}")
+
             val userId = sessionUtil.getUserId(session)
-                ?: return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(null)
-            
+            println("[DEBUG] Retrieved userId from session: $userId")
+
+            if (userId == null) {
+                println("[ERROR] User not authenticated - session userId is null")
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(null)
+            }
+
             val response = defenseService.endDefense(request.gameNumber, userId)
+            println("[DEBUG] defenseService.endDefense completed successfully")
+
             ResponseEntity.ok(response)
-            
+
+        } catch (e: IllegalArgumentException) {
+            println("[ERROR] IllegalArgumentException in endDefense: ${e.message}")
+            ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null)
+        } catch (e: IllegalStateException) {
+            println("[ERROR] IllegalStateException in endDefense: ${e.message}")
+            ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null)
         } catch (e: Exception) {
+            println("[ERROR] Unexpected exception in endDefense: ${e.message}")
+            e.printStackTrace()
             val status = errorHandler.getStatusForException(e)
-            val message = errorHandler.getMessageForException(e, "Defense end")
             ResponseEntity.status(status).body(null)
         }
     }

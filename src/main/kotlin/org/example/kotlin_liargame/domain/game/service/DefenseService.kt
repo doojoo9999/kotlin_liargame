@@ -137,23 +137,33 @@ class DefenseService(
     }
     
     fun endDefense(gameNumber: Int, playerId: Long): GameStateResponse {
+        println("[DEBUG] DefenseService.endDefense called - gameNumber: $gameNumber, playerId: $playerId")
+
         // 1. 권한/페이즈 검증 - DEFENDING 페이즈에서만 허용
         val game = gameRepository.findByGameNumber(gameNumber)
             ?: throw IllegalArgumentException("Game not found")
             
+        println("[DEBUG] Game found - currentPhase: ${game.currentPhase}")
+
         if (game.currentPhase != GamePhase.DEFENDING) {
             throw IllegalStateException("Defense can only be ended during DEFENDING phase")
         }
         
         val defenseStatus = gameStateService.getDefenseStatus(gameNumber)
-            ?: throw IllegalStateException("No defense phase active")
-            
+        println("[DEBUG] DefenseStatus: $defenseStatus")
+
+        if (defenseStatus == null) {
+            throw IllegalStateException("No defense phase active")
+        }
+
         if (defenseStatus.accusedPlayerId != playerId) {
+            println("[ERROR] Player $playerId is not the accused player ${defenseStatus.accusedPlayerId}")
             throw IllegalArgumentException("Only the accused player can end defense")
         }
         
         // 2. 경합 방지/단일 전환 - 이미 종료되었는지 확인
         if (defenseStatus.isDefenseSubmitted) {
+            println("[DEBUG] Defense already submitted, returning current state")
             // 이미 변론이 종료된 경우, 현재 게임 상태 반환 (멱등성 보장)
             val players = playerRepository.findByGame(game)
             val accusedPlayer = players.find { it.id == playerId }
@@ -180,6 +190,8 @@ class DefenseService(
             )
         }
         
+        println("[DEBUG] Proceeding with defense end process")
+
         // 기존 defense timer 취소
         gameStateService.setDefenseTimer(gameNumber, false)
         cleanupGameState(gameNumber)
@@ -187,6 +199,8 @@ class DefenseService(
         val player = playerRepository.findById(playerId)
             .orElseThrow { IllegalArgumentException("Player not found") }
         
+        println("[DEBUG] Player found: ${player.nickname}")
+
         // 변론을 즉시 종료하고 final voting으로 전환
         val finalDefenseText = defenseStatus.defenseText ?: ""
         gameStateService.setDefenseStatus(gameNumber, defenseStatus.copy(
@@ -210,6 +224,8 @@ class DefenseService(
             )
         )
         
+        println("[DEBUG] Starting final voting")
+
         // 즉시 final voting 시작 (딜레이 없음)
         startFinalVoting(gameNumber)
         
@@ -219,6 +235,8 @@ class DefenseService(
         val players = playerRepository.findByGame(updatedGame)
         val accusedPlayer = players.find { it.id == playerId }
         
+        println("[DEBUG] Defense end completed successfully - new phase: ${updatedGame.currentPhase}")
+
         return GameStateResponse.from(
             game = updatedGame, 
             players = players, 

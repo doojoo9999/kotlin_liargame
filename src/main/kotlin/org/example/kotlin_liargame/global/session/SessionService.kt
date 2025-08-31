@@ -11,8 +11,14 @@ class SessionService {
      * 인증되지 않은 경우 예외 발생
      */
     fun getCurrentUserId(session: HttpSession): Long {
-        return session.getAttribute("userId") as? Long
+        val raw = session.getAttribute("userId")
             ?: throw RuntimeException("Not authenticated")
+        return when (raw) {
+            is Long -> raw
+            is Int -> raw.toLong()
+            is Number -> raw.toLong()
+            else -> throw RuntimeException("Invalid userId type in session: ${raw::class.simpleName}")
+        }
     }
 
     /**
@@ -20,7 +26,13 @@ class SessionService {
      * 인증되지 않은 경우 null 반환
      */
     fun getOptionalUserId(session: HttpSession?): Long? {
-        return session?.getAttribute("userId") as? Long
+        val raw = session?.getAttribute("userId") ?: return null
+        return when (raw) {
+            is Long -> raw
+            is Int -> raw.toLong()
+            is Number -> raw.toLong()
+            else -> null
+        }
     }
 
     /**
@@ -44,7 +56,8 @@ class SessionService {
      * 세션 유효성 검증
      */
     fun isAuthenticated(session: HttpSession?): Boolean {
-        return session?.getAttribute("userId") != null
+        val raw = session?.getAttribute("userId") ?: return false
+        return raw is Number // Int/Long 모두 허용
     }
 
     /**
@@ -52,7 +65,7 @@ class SessionService {
      */
     fun getSessionInfo(session: HttpSession?): Map<String, Any?> {
         return mapOf(
-            "userId" to session?.getAttribute("userId"),
+            "userId" to (session?.getAttribute("userId") as? Number)?.toLong(),
             "nickname" to session?.getAttribute("nickname"),
             "isAuthenticated" to isAuthenticated(session)
         )
