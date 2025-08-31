@@ -1,9 +1,7 @@
 package org.example.kotlin_liargame.global.config
 
 import org.springframework.boot.context.properties.ConfigurationProperties
-import org.springframework.context.annotation.Configuration
 
-@Configuration
 @ConfigurationProperties(prefix = "game.properties")
 data class GameProperties(
     // 플레이어 설정
