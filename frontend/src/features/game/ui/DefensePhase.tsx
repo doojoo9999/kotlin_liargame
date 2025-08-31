@@ -17,8 +17,16 @@ export function DefensePhase({ gameState }: DefensePhaseProps) {
   const accusedPlayerNickname = gameState.accusedPlayer?.nickname;
   
   // Check if current user is the accused player
-  const isCurrentUserAccused = authData && gameState.accusedPlayer && 
+  const isCurrentUserAccused = authData && gameState.accusedPlayer &&
     authData.nickname === gameState.accusedPlayer.nickname;
+
+  // Debug logging to understand the comparison
+  console.log('[DefensePhase] Debug info:', {
+    authDataUserId: authData?.userId,
+    accusedPlayerId: gameState.accusedPlayer?.id,
+    accusedPlayerNickname: gameState.accusedPlayer?.nickname,
+    isCurrentUserAccused
+  });
 
   const handleEndDefense = async () => {
     if (!authData || !gameState.gameNumber) return;
