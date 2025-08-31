@@ -38,8 +38,12 @@ class GameEntity(
     @JoinColumn(name = "liar_subject_id")
     var liarSubject: SubjectEntity? = null,
 
+    // 현재 턴인 플레이어의 userId (PlayerEntity.userId, not PlayerEntity.id)
     var currentPlayerId: Long? = null,
+
+    // 라이어로 지목된 플레이어의 userId (PlayerEntity.userId, not PlayerEntity.id)
     var accusedPlayerId: Long? = null,
+
     var turnStartedAt: Instant? = null,
 
     @Column(columnDefinition = "TEXT")

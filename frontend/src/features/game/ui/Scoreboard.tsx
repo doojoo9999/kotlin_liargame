@@ -62,7 +62,7 @@ export function Scoreboard({ gameState }: ScoreboardProps) {
 
         <Stack gap="xs">
           {sortedPlayers.map((player, index) => (
-            <Paper key={`scoreboard-${player.playerId}`} p="sm" withBorder variant="light">
+            <Paper key={`scoreboard-${player.userId}`} p="sm" withBorder variant="light">
               <Group justify="space-between" align="center">
                 <Group align="center" gap="sm">
                   <Text fw={index === 0 ? 700 : 500} size="sm">

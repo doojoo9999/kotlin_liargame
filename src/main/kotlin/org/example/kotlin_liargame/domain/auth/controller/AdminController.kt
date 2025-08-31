@@ -8,6 +8,7 @@ import org.example.kotlin_liargame.domain.auth.service.AdminService
 import org.example.kotlin_liargame.domain.game.service.GameTerminationService
 import org.example.kotlin_liargame.domain.profanity.service.ProfanityService
 import org.example.kotlin_liargame.global.dto.ErrorResponse
+import org.example.kotlin_liargame.global.security.SessionManagementService
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -18,13 +19,14 @@ import org.springframework.web.bind.annotation.*
 class AdminController(
     private val adminService: AdminService,
     private val gameTerminationService: GameTerminationService,
-    private val profanityService: ProfanityService
+    private val profanityService: ProfanityService,
+    private val sessionManagementService: SessionManagementService
 ) {
 
     private val logger = LoggerFactory.getLogger(this::class.java)
 
     private fun checkAdmin(session: HttpSession): Boolean {
-        return session.getAttribute("isAdmin") as? Boolean ?: false
+        return sessionManagementService.isAdmin(session)
     }
 
     @PostMapping("/games/{gameNumber}/kick")
@@ -99,9 +101,15 @@ class AdminController(
     @PostMapping("/login")
     fun adminLogin(@RequestBody request: AdminLoginRequest, session: HttpSession): ResponseEntity<Any> {
         val adminUser = adminService.login(request)
-        session.setAttribute("userId", adminUser.id)
-        session.setAttribute("nickname", adminUser.nickname)
-        session.setAttribute("isAdmin", true)
+
+        // JSON 직렬화 방식으로 관리자 세션 등록
+        sessionManagementService.registerAdminSession(
+            session,
+            adminUser.nickname,
+            adminUser.id,
+            setOf("ADMIN", "USER_MANAGEMENT", "CONTENT_MODERATION")
+        )
+
         return ResponseEntity.ok(mapOf("success" to true, "nickname" to adminUser.nickname))
     }
 
@@ -185,7 +193,7 @@ class AdminController(
             ResponseEntity.ok(mapOf(
                 "success" to true,
                 "cleanedPlayers" to cleanedCount,
-                "message" to "${cleanedCount}명의 연결 해제된 플레이어가 정리되었습니다."
+            // 실제 연결이 끊어진 플레이어들을 정리
             ))
         } catch (e: Exception) {
             logger.error("연결 해제된 플레이어 정리 중 오류 발생", e)

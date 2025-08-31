@@ -125,7 +125,8 @@ class GameProgressService(
             return
         }
 
-        game.currentPlayerId = nextPlayer.id
+        // currentPlayerId는 userId를 저장해야 함 (PlayerEntity.id가 아닌)
+        game.currentPlayerId = nextPlayer.userId
         game.turnStartedAt = Instant.now()
         game.phaseEndTime = Instant.now().plusSeconds(gameProperties.turnTimeoutSeconds)
         gameRepository.save(game)
@@ -139,6 +140,7 @@ class GameProgressService(
             e.printStackTrace()
         }
 
+        // notifyTurnChanged는 player.id를 사용하는 것이 맞음 (이벤트용)
         gameMonitoringService.notifyTurnChanged(game.gameNumber, nextPlayer.id, game.turnStartedAt!!)
     }
 
@@ -152,8 +154,8 @@ class GameProgressService(
             return
         }
         
-        game.currentPlayerId?.let {
-            val currentPlayer = playerRepository.findById(it).orElse(null)
+        game.currentPlayerId?.let { currentUserId ->
+            val currentPlayer = playerRepository.findByGameAndUserId(game, currentUserId)
             if (currentPlayer != null && currentPlayer.state == PlayerState.WAITING_FOR_HINT) {
                 currentPlayer.state = PlayerState.GAVE_HINT
                 playerRepository.save(currentPlayer)
@@ -256,7 +258,7 @@ class GameProgressService(
         val userId = sessionService.getCurrentUserId(session)
 
         // Check if it's the player's turn
-        val currentPlayer = playerRepository.findById(game.currentPlayerId ?: 0).orElse(null)
+        val currentPlayer = playerRepository.findByGameAndUserId(game, game.currentPlayerId ?: 0)
         if (currentPlayer?.userId != userId) {
             throw RuntimeException("It's not your turn")
         }
@@ -341,7 +343,7 @@ class GameProgressService(
     
     /**
      * 플레이어에게 점수를 부여하고 목표 점수 달성 여부를 확인합니다.
-     * @param playerId 점수를 받을 플레이어 ID
+     * @param playerId 점수를 받��� 플레이어 ID
      * @param points 부여할 점수
      * @param game 게임 엔티티
      * @return 목표 점수 달성 여부
@@ -397,7 +399,7 @@ class GameProgressService(
         // "사망 표"를 던진 살아있는 시민 플레이어들 찾기
         finalVotingRecord.forEach { (playerId, voteForExecution) ->
             if (voteForExecution) { // 사망 표를 던진 경우
-                val player = players.find { it.id == playerId }
+                val player = players.find { it.userId == playerId }
                 if (player != null && player.isAlive && player.role == PlayerRole.CITIZEN) {
                     val targetReached = awardPointsAndCheckWin(player.id, 1, game)
                     awardedPlayers.add(player)

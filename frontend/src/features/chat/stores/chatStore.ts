@@ -7,7 +7,7 @@ import {useUserStore} from '../../../shared/stores/userStore';
 
 interface RawChatMessage {
     id?: number;
-    playerId?: number;
+    userId?: number;  // playerId -> userId로 변경
     playerNickname: string | null; // null 허용으로 수정
     content: string;
     type: 'USER' | 'SYSTEM' | 'GAME_EVENT' | 'ADMIN' | 'POST_ROUND' | 'HINT' | 'DISCUSSION' | 'DEFENSE';

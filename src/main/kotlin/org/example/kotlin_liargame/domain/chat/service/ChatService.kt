@@ -35,6 +35,7 @@ class ChatService(
     private val gameStateService: org.example.kotlin_liargame.global.redis.GameStateService,
     private val sessionService: org.example.kotlin_liargame.global.session.SessionService,
     private val gameMessagingService: org.example.kotlin_liargame.global.messaging.GameMessagingService,
+    private val sessionUtil: org.example.kotlin_liargame.global.util.SessionUtil,
     @org.springframework.context.annotation.Lazy private val votingService: org.example.kotlin_liargame.domain.game.service.VotingService
 ) {
     private val scheduler: ScheduledExecutorService = Executors.newScheduledThreadPool(1)
@@ -53,8 +54,9 @@ class ChatService(
         if (userId == null) {
             val httpSession = sessionAttributes?.get("HTTP.SESSION") as? HttpSession
             if (httpSession != null) {
-                userId = httpSession.getAttribute("userId") as? Long
-                println("[DEBUG] Using userId from HTTP session: $userId")
+                // JSON 직렬화 방식으로 사용자 ID 조회
+                userId = sessionUtil.getUserId(httpSession)
+                println("[DEBUG] Using userId from HTTP session (JSON): $userId")
             }
         }
 
@@ -70,16 +72,16 @@ class ChatService(
             println("[DEBUG] Session attribute: $key = $value")
         }
 
-        // HTTP 세션 값 확인
+        // HTTP 세션 값 확인 (JSON 직렬화 방식)
         val httpSession = sessionAttributes?.get("HTTP.SESSION") as? HttpSession
         if (httpSession != null) {
-            val httpUserId = httpSession.getAttribute("userId") as? Long
-            val httpNickname = httpSession.getAttribute("nickname") as? String
-            println("[DEBUG] HTTP Session values - userId: $httpUserId, nickname: $httpNickname")
+            val httpUserId = sessionUtil.getUserId(httpSession)
+            val httpNickname = sessionUtil.getUserNickname(httpSession)
+            println("[DEBUG] HTTP Session values (JSON) - userId: $httpUserId, nickname: $httpNickname")
 
             if (userId == null) {
                 userId = httpUserId
-                println("[DEBUG] Using userId from HTTP session: $userId")
+                println("[DEBUG] Using userId from HTTP session (JSON): $userId")
             }
         }
 
@@ -98,10 +100,10 @@ class ChatService(
         }
 
         if (userId == null) {
-            // 인증 실패 시 더 자세한 오류 정보
+            // 인증 실패 시 더 ��세한 오류 정보
             println("[ERROR] WebSocket authentication failed. Session attributes available: ${sessionAttributes?.keys}")
             println("[ERROR] WebSocketSessionId: $webSocketSessionId")
-            println("[ERROR] HTTP Session userId: ${httpSession?.getAttribute("userId")}")
+            println("[ERROR] HTTP Session userId (JSON): ${httpSession?.let { sessionUtil.getUserId(it) }}")
             println("[ERROR] WebSocketSessionManager state:")
             webSocketSessionManager.printSessionInfo()
             throw RuntimeException("Not authenticated via WebSocket")
@@ -193,7 +195,7 @@ class ChatService(
         if (messageType == ChatMessageType.HINT &&
             game.gameState == GameState.IN_PROGRESS &&
             currentPhase == GamePhase.SPEECH &&
-            game.currentPlayerId == player.id) {
+            game.currentPlayerId == player.userId) {
 
             println("[DEBUG] All conditions met for turn progression - Processing hint from current player ${player.nickname}")
 
@@ -214,7 +216,7 @@ class ChatService(
             println("[DEBUG] - Is HINT message: ${messageType == ChatMessageType.HINT}")
             println("[DEBUG] - Game IN_PROGRESS: ${game.gameState == GameState.IN_PROGRESS}")
             println("[DEBUG] - Phase SPEECH: ${currentPhase == GamePhase.SPEECH}")
-            println("[DEBUG] - Is current player: ${game.currentPlayerId == player.id}")
+            println("[DEBUG] - Is current player: ${game.currentPlayerId == player.userId}")
         }
 
         return ChatMessageResponse.from(savedMessage)
@@ -253,7 +255,7 @@ class ChatService(
             return
         }
 
-        // 다음 플레이어의 턴 시작
+        // 다음 플레이어의 ��� 시작
         val nextPlayerNickname = turnOrder[game.currentTurnIndex]
         val players = playerRepository.findByGame(game)
         val nextPlayer = players.find { it.nickname == nextPlayerNickname }
@@ -345,7 +347,9 @@ class ChatService(
     
     private fun determineMessageType(game: GameEntity, player: PlayerEntity): ChatMessageType? {
         println("[ChatService] === DETERMINE MESSAGE TYPE DEBUG ===")
-        println("[ChatService] Player: ${player.nickname} (ID: ${player.id})")
+        println("[ChatService] Player DB ID: ${player.id} (PlayerEntity primary key)")
+        println("[ChatService] Player User ID: ${player.userId} (references users table)")
+        println("[ChatService] Player nickname: ${player.nickname}")
         println("[ChatService] Player isAlive: ${player.isAlive}")
         println("[ChatService] Game state: ${game.gameState}")
         println("[ChatService] Game currentPlayerId: ${game.currentPlayerId}")
@@ -365,10 +369,10 @@ class ChatService(
                 GamePhase.SPEECH -> {
                     println("[ChatService] In SPEECH phase")
                     println("[ChatService] Current player ID: ${game.currentPlayerId}")
-                    println("[ChatService] Is current player: ${game.currentPlayerId == player.id}")
+                    println("[ChatService] Is current player: ${game.currentPlayerId == player.userId}")
 
                     // SPEECH 페이즈에서는 현재 턴인 플레이어만 채팅 가능하고, 아직 힌트를 제공하지 않은 경우에만
-                    if (game.currentPlayerId == player.id) {
+                    if (game.currentPlayerId == player.userId) {
                         println("[ChatService] Player is current turn player")
 
                         // 이미 힌트를 제공했는지 확인
@@ -400,7 +404,7 @@ class ChatService(
                 }
                 GamePhase.VOTING_FOR_LIAR -> {
                     println("[ChatService] In VOTING_FOR_LIAR phase, returning null to enable voting UI")
-                    // 투표 단계에서는 채팅이 아닌 투표 UI가 표시되어야 하므로 null 반환
+                    // 투표 단계에서는 채��이 아닌 투표 UI가 표시되어야 하므로 null 반환
                     null
                 }
                 GamePhase.DEFENDING -> {
@@ -500,32 +504,16 @@ class ChatService(
         println("[ChatService] System message sent successfully to game ${game.gameNumber}: $message")
     }
 
-    private fun determineGamePhase(game: GameEntity, players: List<PlayerEntity>): GamePhase {
+    private fun determineGamePhase(game: GameEntity, @Suppress("UNUSED_PARAMETER") players: List<PlayerEntity>): GamePhase {
         // 게임의 실제 currentPhase 값을 우선적으로 사용
-        // 플레이어 상태 기반 추측은 fallback으로만 사용
+        // 플레이어 상태 기반 추측��� fallback으로만 사용
         return when (game.gameState) {
             GameState.WAITING -> GamePhase.WAITING_FOR_PLAYERS
             GameState.ENDED -> GamePhase.GAME_OVER
             GameState.IN_PROGRESS -> {
-                // 실제 게임의 currentPhase가 설정되어 있다면 그것을 사용
-                if (game.currentPhase != null) {
-                    println("[ChatService] Using actual game currentPhase: ${game.currentPhase}")
-                    return game.currentPhase
-                }
-
-                // currentPhase가 null인 경우에만 플레이어 상태로 추측 (fallback)
-                println("[ChatService] Game currentPhase is null, falling back to player state analysis")
-                val allPlayersGaveHints = players.all { it.state == org.example.kotlin_liargame.domain.game.model.enum.PlayerState.GAVE_HINT || !it.isAlive }
-                val allPlayersVoted = players.all { it.state == org.example.kotlin_liargame.domain.game.model.enum.PlayerState.VOTED || !it.isAlive }
-                val accusedPlayer = findAccusedPlayer(players)
-                
-                when {
-                    accusedPlayer?.state == org.example.kotlin_liargame.domain.game.model.enum.PlayerState.ACCUSED -> GamePhase.DEFENDING
-                    accusedPlayer?.state == org.example.kotlin_liargame.domain.game.model.enum.PlayerState.DEFENDED -> GamePhase.VOTING_FOR_SURVIVAL
-                    allPlayersVoted -> GamePhase.VOTING_FOR_LIAR
-                    allPlayersGaveHints -> GamePhase.VOTING_FOR_LIAR
-                    else -> GamePhase.SPEECH  // GIVING_HINTS 대신 SPEECH 사용
-                }
+                // 실제 게임의 currentPhase가 설정되어 있으므로 그것을 사용
+                println("[ChatService] Using actual game currentPhase: ${game.currentPhase}")
+                return game.currentPhase
             }
         }
     }

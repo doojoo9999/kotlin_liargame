@@ -172,9 +172,13 @@ POST /api/v1/game/create
   "gameMode": "LIARS_KNOW",
   "subjectIds": [1, 2, 3],
   "useRandomSubjects": true,
-  "randomSubjectCount": 2
+  "randomSubjectCount": 2,
+  "targetPoints": 10
 }
 ```
+
+**새로운 필드:**
+- `targetPoints`: 승리를 위한 목표 점수 (기본값: 10점, 범위: 1-50점)
 
 **Response:**
 ```json
@@ -380,7 +384,42 @@ POST /api/v1/game/submit-defense
 - Redis에 변론 상태 저장
 - 최종 투표 단계로 전환
 
-#### 7. 최종 투표 (처형/생존)
+#### 6-1. 변론 즉시 종료 (NEW)
+```http
+POST /api/v1/game/defense/end
+```
+
+**Request Body:**
+```json
+{
+  "gameNumber": 123
+}
+```
+
+**Response:**
+```json
+{
+  "gameNumber": 123,
+  "gameState": "IN_PROGRESS",
+  "currentPhase": "VOTING_FOR_SURVIVAL",
+  "players": [...],
+  "accusedPlayer": {...}
+}
+```
+
+**Service 로직:**
+1. 변론자(accused) 권한 확인
+2. DEFENDING 상태에서만 호출 가능
+3. 변론 타이머 즉시 취소
+4. 최종 투표 단계로 즉시 전환
+5. 중복 호출 방지 처리
+
+**상태 변화:**
+- 변론 타이머 중단
+- 즉시 VOTING_FOR_SURVIVAL 단계로 전환
+- 모든 플레이어에게 단계 전환 브로드캐스트
+
+#### 7. 최종 투표 (처형/생존) - 업데이트됨
 ```http
 POST /api/v1/game/vote/final
 ```

@@ -15,7 +15,7 @@ data class PlayerResponse(
     companion object {
         fun from(player: PlayerEntity): PlayerResponse {
             return PlayerResponse(
-                id = player.id,
+                id = player.userId,
                 nickname = player.nickname,
                 isAlive = player.isAlive,
                 state = player.state.name,
@@ -27,4 +27,3 @@ data class PlayerResponse(
         }
     }
 }
-

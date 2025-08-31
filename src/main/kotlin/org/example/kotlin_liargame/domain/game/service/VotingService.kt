@@ -137,20 +137,16 @@ class VotingService(
             throw RuntimeException("You are not in the voting phase")
         }
 
-        val targetPlayer = playerRepository.findById(targetPlayerId).orElse(null)
+        val targetPlayer = playerRepository.findByGameAndUserId(game, targetPlayerId)
             ?: throw RuntimeException("Target player not found")
-
-        if (targetPlayer.game.id != game.id) {
-            throw RuntimeException("Target player is not in this game")
-        }
 
         if (!targetPlayer.isAlive) {
             throw RuntimeException("Target player is eliminated from the game")
         }
 
         // 기존 투표 정보 제거 (재투표 시)
-        voter.votedFor?.let { previousTargetId ->
-            val previousTarget = playerRepository.findById(previousTargetId).orElse(null)
+        voter.votedFor?.let { previousTargetUserId ->
+            val previousTarget = playerRepository.findByGameAndUserId(game, previousTargetUserId)
             previousTarget?.let {
                 it.votesReceived = maxOf(0, it.votesReceived - 1)
                 playerRepository.save(it)
@@ -158,7 +154,7 @@ class VotingService(
         }
 
         // 새로운 투표 정보 설정
-        voter.voteFor(targetPlayer.id)
+        voter.voteFor(targetPlayer.userId) // targetPlayer.id -> targetPlayer.userId로 변경
         voter.state = PlayerState.VOTED
         playerRepository.save(voter)
 
@@ -167,7 +163,7 @@ class VotingService(
 
         println("[VotingService] Player ${voter.nickname} voted for ${targetPlayer.nickname}")
 
-        gameMonitoringService.notifyPlayerVoted(gameNumber, voter.id, targetPlayer.id)
+        gameMonitoringService.notifyPlayerVoted(gameNumber, voter.userId, targetPlayer.userId)
 
         // 투표 완료 조건 확인
         val players = playerRepository.findByGame(game)
@@ -268,7 +264,8 @@ class VotingService(
 
             val judgmentResult = FinalJudgmentResultResponse(
                 gameNumber = game.gameNumber,
-                accusedPlayerId = accusedPlayer.id,
+                // accusedPlayerId는 userId를 저장해야 함
+                accusedPlayerId = accusedPlayer.userId,
                 accusedPlayerNickname = accusedPlayer.nickname,
                 isKilled = isExecuted,
                 isLiar = accusedPlayer.role == PlayerRole.LIAR,

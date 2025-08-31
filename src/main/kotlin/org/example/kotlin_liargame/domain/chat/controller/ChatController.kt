@@ -9,6 +9,7 @@ import org.example.kotlin_liargame.domain.chat.dto.response.ChatMessageResponse
 import org.example.kotlin_liargame.domain.chat.model.enum.ChatMessageType
 import org.example.kotlin_liargame.domain.chat.service.ChatService
 import org.example.kotlin_liargame.domain.game.service.GameProgressService
+import org.example.kotlin_liargame.global.util.SessionUtil
 import org.springframework.http.ResponseEntity
 import org.springframework.messaging.handler.annotation.MessageMapping
 import org.springframework.messaging.handler.annotation.Payload
@@ -21,7 +22,8 @@ import org.springframework.web.bind.annotation.*
 class ChatController(
     private val chatService: ChatService,
     private val messagingTemplate: SimpMessagingTemplate,
-    private val gameProgressService: GameProgressService
+    private val gameProgressService: GameProgressService,
+    private val sessionUtil: SessionUtil
 ) {
 
     @PostMapping("/send")
@@ -96,7 +98,7 @@ class ChatController(
     @PostMapping("/speech/complete")
     fun completeSpeech(@RequestBody request: CompleteSpeechRequest, session: HttpSession): ResponseEntity<String> {
         return try {
-            val userId = session.getAttribute("userId") as? Long
+            val userId = sessionUtil.getUserId(session)
                 ?: return ResponseEntity.status(401).body("Not authenticated")
                 
             gameProgressService.markPlayerAsSpoken(request.gameNumber.toInt(), userId)
