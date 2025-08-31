@@ -18,12 +18,20 @@ export interface GameRoom {
 
 export interface Player {
   id: number;
-  nickname: string;
+  userId: number;  // User 테이블 ID 참조 (비즈니�� 로직용)
   isOwner: boolean;
   isReady: boolean;
   role?: 'LIAR' | 'CITIZEN';
   isEliminated: boolean;
   hasVoted: boolean;
+}
+
+export interface ScoreboardEntry {
+  playerId: number;
+  userId: number;  // playerId -> userId로 변경하여 일관성 확보
+  role: string;
+  isAlive: boolean;
+  score: number;
 }
 
 export interface GameStateResponse {
@@ -50,4 +58,7 @@ export interface GameStateResponse {
   phaseEndTime?: string;
   winner?: string; // 백엔드 구조에 맞게 수정
   reason?: string;
+  targetPoints: number;
+  scoreboard: ScoreboardEntry[];
+  finalVotingRecord?: Record<string, unknown>[];
 }

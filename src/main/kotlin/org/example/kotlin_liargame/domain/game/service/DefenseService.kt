@@ -42,20 +42,21 @@ class DefenseService(
     
     fun startDefensePhase(game: GameEntity, accusedPlayer: PlayerEntity): DefenseStartResponse {
         game.currentPhase = GamePhase.DEFENDING
-        game.accusedPlayerId = accusedPlayer.id
+        // accusedPlayerId는 userId를 저장해야 함
+        game.accusedPlayerId = accusedPlayer.userId
         game.phaseEndTime = Instant.now().plusSeconds(gameProperties.defenseTimeSeconds)
         gameRepository.save(game)
 
         accusedPlayer.state = PlayerState.ACCUSED
         playerRepository.save(accusedPlayer)
 
-        // Redis에 상태 저장
-        gameStateService.setDefenseStatus(game.gameNumber, DefenseStatus(accusedPlayerId = accusedPlayer.id))
+        // Redis에 상태 저장 - DB와 일관성 유지를 위해 userId 사용
+        gameStateService.setDefenseStatus(game.gameNumber, DefenseStatus(accusedPlayerId = accusedPlayer.userId))
         gameStateService.setDefenseTimer(game.gameNumber, true)
 
         val defenseStartMessage = DefenseStartMessage(
             gameNumber = game.gameNumber,
-            accusedPlayerId = accusedPlayer.id,
+            accusedPlayerId = accusedPlayer.userId,
             accusedPlayerNickname = accusedPlayer.nickname,
             defenseTimeLimit = gameProperties.defenseTimeSeconds.toInt(),
             timestamp = Instant.now()
@@ -98,9 +99,11 @@ class DefenseService(
             throw IllegalStateException("Defense time has expired")
         }
         
-        val player = playerRepository.findById(playerId)
-            .orElseThrow { IllegalArgumentException("Player not found") }
-        
+        val game = gameRepository.findByGameNumber(gameNumber)
+            ?: throw IllegalArgumentException("Game not found")
+        val player = playerRepository.findByGameAndUserId(game, playerId)
+            ?: throw IllegalArgumentException("Player not found")
+
         // Redis에 업데이트된 상태 저장
         gameStateService.setDefenseStatus(gameNumber, defenseStatus.copy(
             defenseText = defenseText,
@@ -163,15 +166,14 @@ class DefenseService(
         
         // 2. 경합 방지/단일 전환 - 이미 종료되었는지 확인
         if (defenseStatus.isDefenseSubmitted) {
-            println("[DEBUG] Defense already submitted, returning current state")
-            // 이미 변론이 종료된 경우, 현재 게임 상태 반환 (멱등성 보장)
+            println("[DEBUG] Defense already submitted - returning current state")
             val players = playerRepository.findByGame(game)
-            val accusedPlayer = players.find { it.id == playerId }
-            
+            val accusedPlayer = players.find { it.userId == playerId }
+
             // finalVotingRecord 조회 (있을 경우)
             val finalVotingStatus = gameStateService.getFinalVotingStatus(gameNumber)
             val finalVotingRecord = finalVotingStatus?.map { (playerId, voteForExecution) ->
-                val player = players.find { it.id == playerId }
+                val player = players.find { it.userId == playerId }
                 mapOf(
                     "voterPlayerId" to playerId,
                     "voterNickname" to (player?.nickname ?: "Unknown"),
@@ -198,7 +200,7 @@ class DefenseService(
         
         val player = playerRepository.findById(playerId)
             .orElseThrow { IllegalArgumentException("Player not found") }
-        
+
         println("[DEBUG] Player found: ${player.nickname}")
 
         // 변론을 즉시 종료하고 final voting으로 전환
@@ -234,7 +236,7 @@ class DefenseService(
             ?: throw IllegalArgumentException("Game not found")
         val players = playerRepository.findByGame(updatedGame)
         val accusedPlayer = players.find { it.id == playerId }
-        
+
         println("[DEBUG] Defense end completed successfully - new phase: ${updatedGame.currentPhase}")
 
         return GameStateResponse.from(
@@ -266,7 +268,7 @@ class DefenseService(
         if (!defenseStatus.isDefenseSubmitted) {
             val accusedPlayer = playerRepository.findById(defenseStatus.accusedPlayerId)
                 .orElseThrow { IllegalArgumentException("Player not found") }
-            
+
             gameStateService.setDefenseStatus(gameNumber, defenseStatus.copy(
                 defenseText = "",
                 isDefenseSubmitted = true
@@ -310,7 +312,7 @@ class DefenseService(
                 ?: throw IllegalStateException("No defense status found")
             val accusedPlayer = playerRepository.findById(defenseStatus.accusedPlayerId)
                 .orElseThrow { IllegalArgumentException("Accused player not found") }
-                
+
             return FinalVotingStartResponse(
                 gameNumber = gameNumber,
                 accusedPlayerId = defenseStatus.accusedPlayerId,
@@ -330,7 +332,7 @@ class DefenseService(
         
         val accusedPlayer = playerRepository.findById(defenseStatus.accusedPlayerId)
             .orElseThrow { IllegalArgumentException("Accused player not found") }
-        
+
         val players = playerRepository.findByGame(game).filter { it.isAlive }
         players.forEach { player ->
             player.state = PlayerState.WAITING_FOR_FINAL_VOTE
@@ -341,7 +343,7 @@ class DefenseService(
         players.forEach { player ->
             votingStatus[player.id] = null
         }
-        
+
         gameStateService.setFinalVotingStatus(gameNumber, votingStatus)
         gameStateService.setFinalVotingTimer(gameNumber, true)
 
@@ -363,9 +365,9 @@ class DefenseService(
             gameNumber,
             "${accusedPlayer.nickname}님을 처형할지 투표해 주세요. (찬성/반대)"
         )
-        
+
         startFinalVotingTimer(gameNumber, gameProperties.finalVotingTimeSeconds)
-        
+
         return FinalVotingStartResponse(
             gameNumber = gameNumber,
             accusedPlayerId = defenseStatus.accusedPlayerId,
@@ -392,8 +394,10 @@ class DefenseService(
             throw IllegalStateException("Final voting time has expired")
         }
         
-        val voterPlayer = playerRepository.findById(voterPlayerId)
-            .orElseThrow { IllegalArgumentException("Voter player not found") }
+        val game = gameRepository.findByGameNumber(gameNumber)
+            ?: throw IllegalArgumentException("Game not found")
+        val voterPlayer = playerRepository.findByGameAndUserId(game, voterPlayerId)
+            ?: throw IllegalArgumentException("Voter player not found")
 
         votingStatus[voterPlayerId] = voteForExecution
         gameStateService.setFinalVotingStatus(gameNumber, votingStatus)
@@ -483,10 +487,10 @@ class DefenseService(
         
         // 최종 투표 판정 로직을 별도 메서드로 분리하여 테스트 가능하게 구현
         val isExecuted = calculateFinalVotingResult(executionVotes, survivalVotes, totalVotes)
-        
+
         val accusedPlayer = playerRepository.findById(defenseStatus.accusedPlayerId)
             .orElseThrow { IllegalArgumentException("Accused player not found") }
-        
+
         // finalVotingRecord 스냅샷 생성 (요구사항) - game 변수는 이미 위에서 선언됨
         val players = playerRepository.findByGame(game)
         val finalVotingRecord = votingStatus.map { (playerId, voteForExecution) ->
@@ -507,7 +511,6 @@ class DefenseService(
         sendModeratorMessage(gameNumber, resultMessage)
         
         // 점수 계산 및 부여 - GameProgressService 통합
-        var gameEnded = false
         var scoreUpdated = false
         if (isExecuted && accusedPlayer.role == org.example.kotlin_liargame.domain.game.model.enum.PlayerRole.LIAR) {
             // 라이어가 처형된 경우: "사망 표"를 던진 시민들에게 +1점
@@ -521,19 +524,13 @@ class DefenseService(
             val winnerPlayer = gameProgressService.awardLiarVictoryPoints(game, "시민 오판으로 라이어 생존")
             if (winnerPlayer != null) {
                 scoreUpdated = true
-                if (game.gameState == org.example.kotlin_liargame.domain.game.model.enum.GameState.ENDED) {
-                    gameEnded = true
-                }
             }
-            
+
         } else if (isExecuted && accusedPlayer.role == org.example.kotlin_liargame.domain.game.model.enum.PlayerRole.CITIZEN) {
             // 시민이 처형된 경우: 라이어에게 +2점
             val winnerPlayer = gameProgressService.awardLiarVictoryPoints(game, "시민 처형으로 라이어 승리")
             if (winnerPlayer != null) {
                 scoreUpdated = true
-                if (game.gameState == org.example.kotlin_liargame.domain.game.model.enum.GameState.ENDED) {
-                    gameEnded = true
-                }
             }
         }
         
@@ -590,7 +587,7 @@ class DefenseService(
                     gameNumber,
                     "라이어가 처형되었습니다. 라이어는 주제를 맞춰보세요!"
                 )
-                
+
                 // 득점 훅: Step 4에서 처리할 수 있도록 명확한 지점 표시
                 // TODO: Step 4 - 라이어 처형 시 시민 득점 로직 구현 필요
                 
@@ -601,7 +598,7 @@ class DefenseService(
                     "시민이 처형되었습니다. 라이어가 승리했습니다!"
                 )
                 
-                // 득점 훅: Step 4에서 처리할 수 있도록 명확한 지점 표시  
+                // 득점 훅: Step 4에서 처리할 수 있도록 명확한 지점 표시
                 // TODO: Step 4 - 시민 처형 시 라이어 승리 득점 로직 구현 필요
                 
                 // 게임 즉시 종료 처리 (라이어 승리)
@@ -620,30 +617,30 @@ class DefenseService(
             }
         } else {
             // 생존한 경우: VOTING_FOR_LIAR 단계로 회귀
-            val game = gameRepository.findByGameNumber(gameNumber)
+            val gameAfterVoting = gameRepository.findByGameNumber(gameNumber)
                 ?: throw IllegalArgumentException("Game not found")
-            val players = playerRepository.findByGame(game)
-            
+            val playersAfterVoting = playerRepository.findByGame(gameAfterVoting)
+
             // 이전 피고인 정보 및 투표 이력 리셋
-            game.accusedPlayerId = null
-            gameRepository.save(game)
-            
-            players.forEach { player ->
+            gameAfterVoting.accusedPlayerId = null
+            gameRepository.save(gameAfterVoting)
+
+            playersAfterVoting.forEach { player ->
                 if (player.isAlive) {
                     player.votedFor = null // 이전 투표 리셋
                     player.votesReceived = 0
                 }
             }
-            playerRepository.saveAll(players)
-            
+            playerRepository.saveAll(playersAfterVoting)
+
             sendModeratorMessage(
                 gameNumber,
                 "${accusedPlayer.nickname}님이 생존했습니다. 다시 라이어 지목 투표를 진행합니다."
             )
-            
+
             // VotingService를 통해 투표 단계 시작 (타이머 및 상태 설정 포함)
             // 이는 게임 상태, 플레이어 상태, 타이머 설정을 모두 처리합니다
-            votingService.startVotingPhase(game)
+            votingService.startVotingPhase(gameAfterVoting)
         }
         
         // 3. 락 해제
@@ -654,14 +651,14 @@ class DefenseService(
     
     /**
      * 최종 투표 결과를 계산하는 순수 함수 (테스트 가능)
-     * 
+     *
      * 최종 투표 규칙 (요구사항에 따른 정확한 구현):
      * - 사망표 과반: votesForExecution > floor(alive/2) → 처형
      * - 정확히 절반(짝수에서만): votesForExecution == votesAgainstExecution → 생존
      * - 생존표 과반: votesAgainstExecution > floor(alive/2) → 생존
-     * 
+     *
      * @param executionVotes 사망표 수
-     * @param survivalVotes 생존표 수  
+     * @param survivalVotes 생존표 수
      * @param totalVotes 전체 투표 수
      * @return 처형 여부
      */
@@ -695,11 +692,11 @@ class DefenseService(
     fun recoverGameState(gameNumber: Int): DefenseRecoveryResponse {
         val defenseStatus = gameStateService.getDefenseStatus(gameNumber)
         val finalVotingStatus = gameStateService.getFinalVotingStatus(gameNumber)
-        
+
         // 게임 및 플레이어 정보 조회
         val game = gameRepository.findByGameNumber(gameNumber)
         val players = game?.let { playerRepository.findByGame(it) } ?: emptyList()
-        
+
         // 피고인 정보 조회
         val accusedPlayer = defenseStatus?.accusedPlayerId?.let { playerId ->
             players.find { it.id == playerId }

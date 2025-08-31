@@ -20,7 +20,7 @@ export function VotePhase({ gameState }: VotePhaseProps) {
   const handleVote = (targetPlayer: Player) => {
     submitVoteMutation.mutate({
       gameNumber: gameState.gameNumber,
-      targetPlayerId: targetPlayer.id,
+      targetPlayerId: targetPlayer.userId,  // targetPlayer.id -> targetPlayer.userId로 변경
     });
   };
 

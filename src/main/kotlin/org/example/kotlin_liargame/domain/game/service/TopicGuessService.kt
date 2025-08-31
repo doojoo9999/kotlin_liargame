@@ -39,9 +39,9 @@ class TopicGuessService(
         try {
             val game = gameRepository.findByGameNumber(gameNumber)
                 ?: throw IllegalArgumentException("Game not found: $gameNumber")
-            val liarPlayer = playerRepository.findById(liarPlayerId)
-                .orElseThrow { IllegalArgumentException("Liar player not found: $liarPlayerId") }
-            
+            val liarPlayer = playerRepository.findByGameAndUserId(game, liarPlayerId)
+                ?: throw IllegalArgumentException("Liar player not found: $liarPlayerId")
+
             val guessStatus = EnhancedLiarGuessStatus(
                 liarPlayerId = liarPlayerId,
                 guessTimeLimit = gameProperties.topicGuessTimeSeconds.toInt(),
@@ -276,9 +276,9 @@ class TopicGuessService(
         val game = gameRepository.findByGameNumber(gameNumber) ?: return
         val players = playerRepository.findByGame(game)
         
-        players.filter { it.id != liarPlayerId }.forEach { player ->
+        players.filter { it.userId != liarPlayerId }.forEach { player ->
             messagingTemplate.convertAndSendToUser(
-                player.id.toString(),
+                player.userId.toString(),
                 "/topic/game/$gameNumber/status-message",
                 StatusMessage(
                     content = message,

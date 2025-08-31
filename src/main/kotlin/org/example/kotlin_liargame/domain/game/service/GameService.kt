@@ -165,10 +165,13 @@ class GameService(
         logger.debug("=== Join Game Request Debug ===")
         logger.debug("Game Number: ${req.gameNumber}")
         logger.debug("Session ID: ${session.id}")
-        logger.debug("Session Attributes: ${session.attributeNames.toList()}")
-        session.attributeNames.asIterator().forEach { attrName ->
-            logger.debug("Session[$attrName] = ${session.getAttribute(attrName)}")
-        }
+
+        // JSON 직렬화 방식으로 세션 정보 조회
+        val userId = sessionService.getOptionalUserId(session)
+        val nickname = sessionService.getOptionalUserNickname(session)
+        logger.debug("Session userId: $userId, nickname: $nickname")
+
+        // 기존 세션 디버깅 제거 - JSON 방식으로 대체됨
 
         val game = gameRepository.findByGameNumberWithLock(req.gameNumber)
             ?: throw GameNotFoundException(req.gameNumber)
@@ -183,22 +186,22 @@ class GameService(
         }
 
         try {
-            val userId = sessionService.getCurrentUserId(session)
-            val nickname = sessionService.getCurrentUserNickname(session)
-            logger.debug("Successfully retrieved session info: userId=$userId, nickname=$nickname")
+            val currentUserId = sessionService.getCurrentUserId(session)
+            val currentNickname = sessionService.getCurrentUserNickname(session)
+            logger.debug("Successfully retrieved session info: userId=$currentUserId, nickname=$currentNickname")
 
-            val existingPlayer = playerRepository.findByGameAndUserId(game, userId)
+            val existingPlayer = playerRepository.findByGameAndUserId(game, currentUserId)
             if (existingPlayer != null) {
                 // 기존 플레이어도 WebSocket 세션에 게임 번호 등록
-                webSocketSessionManager.registerPlayerInGame(userId, req.gameNumber)
+                webSocketSessionManager.registerPlayerInGame(currentUserId, req.gameNumber)
                 return getGameState(game, session)
             }
 
-            val newPlayer = joinGame(game, userId, nickname)
+            val newPlayer = joinGame(game, currentUserId, currentNickname)
 
             // WebSocket 세션에 플레이어의 게임 번호 등록
-            webSocketSessionManager.registerPlayerInGame(userId, req.gameNumber)
-            logger.debug("Registered player {} in game {} for WebSocket session management", userId, req.gameNumber)
+            webSocketSessionManager.registerPlayerInGame(currentUserId, req.gameNumber)
+            logger.debug("Registered player {} in game {} for WebSocket session management", currentUserId, req.gameNumber)
 
             val allPlayers = playerRepository.findByGame(game)
             gameMonitoringService.notifyPlayerJoined(game, newPlayer, allPlayers)
@@ -250,7 +253,7 @@ class GameService(
 
         // 플레이어의 채팅 메시지를 먼저 삭제하여 외래키 제약 조건 위반 방지
         try {
-            val deletedChatCount = chatService.deletePlayerChatMessages(player.id!!)
+            val deletedChatCount = chatService.deletePlayerChatMessages(player.id)
             logger.debug("Deleted $deletedChatCount chat messages for player ${player.id} in game ${game.gameNumber}")
         } catch (e: Exception) {
             logger.error("Failed to delete chat messages for player ${player.id}: ${e.message}", e)
@@ -409,7 +412,7 @@ class GameService(
         val turnOrder = game.turnOrder?.split(',')?.filter { it.isNotBlank() }
 
         // Get current phase
-        val currentPhase = game.currentPhase ?: determineGamePhase(game, players)
+        val currentPhase = determineGamePhase(game, players)
         logger.debug("Current phase for game {}: {}", gameNumber, currentPhase)
 
         // Generate final voting record from player states
@@ -433,7 +436,8 @@ class GameService(
             finalVotingRecord = finalVotingRecord,
             currentPhase = currentPhase,
             phaseEndTime = game.phaseEndTime?.toString(),
-            accusedPlayerId = accusedPlayer?.id,
+            // accusedPlayerId는 userId를 반환해야 함
+            accusedPlayerId = accusedPlayer?.userId,
             accusedNickname = accusedPlayer?.nickname,
             currentAccusationTargetId = game.accusedPlayerId,
             gameCurrentRound = game.gameCurrentRound,
@@ -459,7 +463,7 @@ class GameService(
         val currentUserId = sessionService.getOptionalUserId(session)
 
         // 실제 게임의 currentPhase를 우선적으로 사용하고, null인 경우에만 계산
-        val currentPhase = game.currentPhase ?: determineGamePhase(game, players)
+        val currentPhase = determineGamePhase(game, players)
         println("[GameService] getGameState - Game ${game.gameNumber}: actualPhase=${game.currentPhase}, calculatedPhase=${determineGamePhase(game, players)}, finalPhase=$currentPhase")
 
         val accusedPlayer = findAccusedPlayer(players)
@@ -572,7 +576,7 @@ class GameService(
             wordRepository.save(word)
         }
 
-        val jobWords = listOf("의사", "교사", "개발자", "간호사", "요리사", "경찰관", "소방관")
+        val jobWords = listOf("의사", "교사", "개���자", "간호사", "요리사", "경찰관", "소방관")
         jobWords.forEach { wordContent ->
             val word = org.example.kotlin_liargame.domain.word.model.WordEntity(
                 content = wordContent,
@@ -793,4 +797,3 @@ class GameService(
         )
     }
 }
-

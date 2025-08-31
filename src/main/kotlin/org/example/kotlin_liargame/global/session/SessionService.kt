@@ -1,24 +1,21 @@
 package org.example.kotlin_liargame.global.session
 
 import jakarta.servlet.http.HttpSession
+import org.example.kotlin_liargame.global.util.SessionUtil
 import org.springframework.stereotype.Service
 
 @Service
-class SessionService {
+class SessionService(
+    private val sessionUtil: SessionUtil
+) {
 
     /**
      * 필수 인증이 필요한 경우 사용
      * 인증되지 않은 경우 예외 발생
      */
     fun getCurrentUserId(session: HttpSession): Long {
-        val raw = session.getAttribute("userId")
+        return sessionUtil.getUserId(session)
             ?: throw RuntimeException("Not authenticated")
-        return when (raw) {
-            is Long -> raw
-            is Int -> raw.toLong()
-            is Number -> raw.toLong()
-            else -> throw RuntimeException("Invalid userId type in session: ${raw::class.simpleName}")
-        }
     }
 
     /**
@@ -26,13 +23,7 @@ class SessionService {
      * 인증되지 않은 경우 null 반환
      */
     fun getOptionalUserId(session: HttpSession?): Long? {
-        val raw = session?.getAttribute("userId") ?: return null
-        return when (raw) {
-            is Long -> raw
-            is Int -> raw.toLong()
-            is Number -> raw.toLong()
-            else -> null
-        }
+        return if (session != null) sessionUtil.getUserId(session) else null
     }
 
     /**
@@ -40,7 +31,7 @@ class SessionService {
      * 인증되지 않은 경우 예외 발생
      */
     fun getCurrentUserNickname(session: HttpSession): String {
-        return session.getAttribute("nickname") as? String
+        return sessionUtil.getUserNickname(session)
             ?: throw RuntimeException("Not authenticated")
     }
 
@@ -49,15 +40,14 @@ class SessionService {
      * 인증되지 않은 경우 null 반환
      */
     fun getOptionalUserNickname(session: HttpSession?): String? {
-        return session?.getAttribute("nickname") as? String
+        return if (session != null) sessionUtil.getUserNickname(session) else null
     }
 
     /**
      * 세션 유효성 검증
      */
     fun isAuthenticated(session: HttpSession?): Boolean {
-        val raw = session?.getAttribute("userId") ?: return false
-        return raw is Number // Int/Long 모두 허용
+        return if (session != null) sessionUtil.isAuthenticated(session) else false
     }
 
     /**
@@ -65,8 +55,8 @@ class SessionService {
      */
     fun getSessionInfo(session: HttpSession?): Map<String, Any?> {
         return mapOf(
-            "userId" to (session?.getAttribute("userId") as? Number)?.toLong(),
-            "nickname" to session?.getAttribute("nickname"),
+            "userId" to getOptionalUserId(session),
+            "nickname" to getOptionalUserNickname(session),
             "isAuthenticated" to isAuthenticated(session)
         )
     }

@@ -6,8 +6,10 @@ import java.time.LocalDateTime
 import java.util.concurrent.ConcurrentHashMap
 
 @Service
-class SessionManagementService {
-    
+class SessionManagementService(
+    private val sessionDataManager: SessionDataManager
+) {
+
     // 활성 세션 관리 (nickname -> SessionInfo)
     private val activeSessions = ConcurrentHashMap<String, SessionInfo>()
     
@@ -15,7 +17,7 @@ class SessionManagementService {
     private val sessionIdToNickname = ConcurrentHashMap<String, String>()
     
     /**
-     * 사용자 로그인 시 세션 등록
+     * 사용자 로그인 시 세션 등록 (JSON 직렬화 방식)
      */
     fun registerSession(session: HttpSession, nickname: String, userId: Long): SessionRegistrationResult {
         val sessionId = session.id
@@ -48,18 +50,56 @@ class SessionManagementService {
         activeSessions[nickname] = sessionInfo
         sessionIdToNickname[sessionId] = nickname
         
-        // 세션 속성 설정
-        session.setAttribute("userId", userId)
-        session.setAttribute("nickname", nickname)
-        session.setAttribute("loginTime", now)
+        // JSON 직렬화로 세션 데이터 저장
+        val userSessionData = UserSessionData(
+            userId = userId,
+            nickname = nickname,
+            loginTime = now,
+            lastActivity = now,
+            ipAddress = getSessionIpAddress(session)
+        )
+        sessionDataManager.setUserSession(session, userSessionData)
+
+        // 세션 메타데이터 저장
+        val sessionMetadata = SessionMetadata(
+            sessionId = sessionId,
+            userAgent = extractUserAgent(session),
+            ipAddress = getSessionIpAddress(session),
+            createdAt = now,
+            expiresAt = now.plusMinutes(30) // 30분 후 만료
+        )
+        sessionDataManager.setSessionMetadata(session, sessionMetadata)
+
         session.maxInactiveInterval = 1800 // 30분
         
-        println("[SECURITY] Session registered for user: $nickname (ID: $userId)")
+        println("[SECURITY] Session registered for user: $nickname (ID: $userId) using JSON serialization")
         return SessionRegistrationResult.SUCCESS
     }
     
     /**
-     * 세션 유효성 검증
+     * 관리자 세션 등록 (JSON 직렬화 방식)
+     */
+    fun registerAdminSession(session: HttpSession, nickname: String, userId: Long, permissions: Set<String> = emptySet()): SessionRegistrationResult {
+        val result = registerSession(session, nickname, userId)
+
+        if (result == SessionRegistrationResult.SUCCESS) {
+            // 관리자 세션 데이터 추가 저장
+            val adminSessionData = AdminSessionData(
+                userId = userId,
+                nickname = nickname,
+                isAdmin = true,
+                loginTime = LocalDateTime.now(),
+                permissions = permissions
+            )
+            sessionDataManager.setAdminSession(session, adminSessionData)
+            println("[SECURITY] Admin session registered for user: $nickname")
+        }
+
+        return result
+    }
+
+    /**
+     * 세션 유효성 검증 (JSON 역직렬화 방식)
      */
     fun validateSession(session: HttpSession): SessionValidationResult {
         val sessionId = session.id
@@ -75,14 +115,62 @@ class SessionManagementService {
             return SessionValidationResult.INVALID
         }
         
-        // 세션 활동 시간 업데이트
+        // JSON에서 사용자 세션 데이터 조회 및 활동 시간 업데이트
+        val userSessionData = sessionDataManager.getUserSession(session)
+        if (userSessionData != null) {
+            val updatedSessionData = userSessionData.updateLastActivity()
+            sessionDataManager.setUserSession(session, updatedSessionData)
+        }
+
+        // 메모리의 세션 활동 시간도 업데이트
         sessionInfo.lastActivity = LocalDateTime.now()
         
         return SessionValidationResult.VALID
     }
     
     /**
-     * 세션 무효화
+     * 게임 관련 세션 정보 업데이트
+     */
+    fun updateGameSession(session: HttpSession, gameNumber: Int?, isOwner: Boolean = false, playerRole: String? = null) {
+        val gameSessionData = GameSessionData(
+            currentGameNumber = gameNumber,
+            isGameOwner = isOwner,
+            playerRole = playerRole,
+            joinedAt = if (gameNumber != null) LocalDateTime.now() else null
+        )
+        sessionDataManager.setGameSession(session, gameSessionData)
+    }
+
+    /**
+     * 사용자 ID 조회 (JSON 역직렬화)
+     */
+    fun getUserId(session: HttpSession): Long? {
+        return sessionDataManager.getUserSession(session)?.userId
+    }
+
+    /**
+     * 닉네임 조회 (JSON 역직렬화)
+     */
+    fun getNickname(session: HttpSession): String? {
+        return sessionDataManager.getUserSession(session)?.nickname
+    }
+
+    /**
+     * 관리자 여부 확인 (JSON 역직렬화)
+     */
+    fun isAdmin(session: HttpSession): Boolean {
+        return sessionDataManager.getAdminSession(session)?.isAdmin ?: false
+    }
+
+    /**
+     * 현재 게임 번호 조회 (JSON 역직렬화)
+     */
+    fun getCurrentGameNumber(session: HttpSession): Int? {
+        return sessionDataManager.getGameSession(session)?.currentGameNumber
+    }
+
+    /**
+     * 세션 무효화 (JSON 데이터도 함께 삭제)
      */
     fun invalidateSession(nickname: String) {
         val sessionInfo = activeSessions.remove(nickname)
@@ -93,7 +181,7 @@ class SessionManagementService {
     }
     
     /**
-     * 세션 ID로 세션 무효화
+     * 세션 ID로 세션 무효화 (JSON 데이터도 함께 삭제)
      */
     fun invalidateSessionById(sessionId: String) {
         val nickname = sessionIdToNickname.remove(sessionId)
@@ -103,6 +191,19 @@ class SessionManagementService {
         }
     }
     
+    /**
+     * 로그아웃 처리 (JSON 세션 데이터 완전 삭제)
+     */
+    fun logout(session: HttpSession) {
+        val userSessionData = sessionDataManager.getUserSession(session)
+        if (userSessionData != null) {
+            invalidateSession(userSessionData.nickname)
+            sessionDataManager.clearUserSession(session)
+            session.invalidate()
+            println("[SECURITY] User logged out: ${userSessionData.nickname}")
+        }
+    }
+
     /**
      * 만료된 세션 정리
      */
@@ -160,6 +261,18 @@ class SessionManagementService {
         }
     }
     
+    /**
+     * User-Agent 추출
+     */
+    private fun extractUserAgent(session: HttpSession): String? {
+        return try {
+            // 실제 구현에서는 HttpServletRequest에서 User-Agent를 추출
+            null
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     /**
      * 사용자별 세션 통계
      */

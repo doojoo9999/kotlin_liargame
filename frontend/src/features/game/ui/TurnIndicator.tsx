@@ -2,7 +2,8 @@ import {Avatar, Badge, Card, Group, Progress, Stack, Text} from '@mantine/core';
 import {ArrowRight, Clock, User} from 'lucide-react';
 
 interface Player {
-  id: number;
+  id: number;  // React key용
+  userId: number;  // 비즈니스 로직용
   nickname: string;
   isHost: boolean;
   isAlive: boolean;
@@ -12,30 +13,30 @@ interface TurnIndicatorProps {
   currentPlayer?: Player;
   nextPlayer?: Player;
   allPlayers: Player[];
-  currentPlayerId?: number;
+  currentUserId?: number;  // currentPlayerId -> currentUserId로 변경
   turnTimeLeft?: number;
   totalTurnTime?: number;
-  turnOrder?: number[];
+  turnOrder?: string[];  // nickname 배열 (백엔드에서 실제로 전송하는 형태)
 }
 
 export function TurnIndicator({
   currentPlayer,
   nextPlayer,
   allPlayers,
-  currentPlayerId,
+  currentUserId,
   turnTimeLeft,
   totalTurnTime,
   turnOrder
 }: TurnIndicatorProps) {
-  const isMyTurn = currentPlayer?.id === currentPlayerId;
+  const isMyTurn = currentPlayer?.userId === currentUserId;  // userId 사용
 
   const progressValue = turnTimeLeft && totalTurnTime
     ? ((totalTurnTime - turnTimeLeft) / totalTurnTime) * 100
     : 0;
 
-  const getPlayerPosition = (playerId: number) => {
+  const getPlayerPosition = (nickname: string) => {  // nickname 기반으로 수정
     if (!turnOrder) return null;
-    return turnOrder.indexOf(playerId) + 1;
+    return turnOrder.indexOf(nickname) + 1;
   };
 
   return (
@@ -112,7 +113,7 @@ export function TurnIndicator({
               <Text size="sm" fw={500}>
                 {nextPlayer.nickname}
               </Text>
-              {nextPlayer.id === currentPlayerId && (
+              {nextPlayer.userId === currentUserId && (
                 <Badge size="xs" color="blue" variant="light">YOU</Badge>
               )}
             </Group>
@@ -124,16 +125,16 @@ export function TurnIndicator({
           <Stack gap="xs">
             <Text size="xs" c="dimmed">턴 순서:</Text>
             <Group gap="xs">
-              {turnOrder.map((playerId, index) => {
-                const player = allPlayers.find(p => p.id === playerId);
+              {turnOrder.map((nickname, index) => {  // nickname 기반으로 수정
+                const player = allPlayers.find(p => p.nickname === nickname);  // nickname으로 검색
                 if (!player) return null;
 
-                const isCurrent = player.id === currentPlayer?.id;
-                const isMe = player.id === currentPlayerId;
+                const isCurrent = player.userId === currentPlayer?.userId;
+                const isMe = player.userId === currentUserId;
 
                 return (
                   <Badge
-                    key={playerId}
+                    key={player.id}  // React key는 player.id 사용
                     size="sm"
                     color={isCurrent ? 'blue' : 'gray'}
                     variant={isCurrent ? 'filled' : 'light'}

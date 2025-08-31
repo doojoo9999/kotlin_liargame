@@ -1,0 +1,37 @@
+ratelimit:
+  enabled: false
+
+spring:
+  main:
+    allow-bean-definition-overriding: true
+  session:
+    store-type: none
+  datasource:
+    url: jdbc:h2:mem:testdb;MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
+      password:
+      ssl:
+        enabled: false
+
+# Reduce timers to stabilize async phases in tests
+game:
+  properties:
+    turn-timeout-seconds: 1
+    voting-time-seconds: 1
+    defense-time-seconds: 1
+    final-voting-time-seconds: 1
+    topic-guess-time-seconds: 1
+    post-round-chat-duration-seconds: 1
+    phase-transition-delay-seconds: 0

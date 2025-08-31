@@ -58,6 +58,8 @@ class LiarGameFullFlowSimulationTest {
 
     @Autowired lateinit var gameService: GameService
     @Autowired lateinit var gameProgressService: GameProgressService
+    @Autowired lateinit var sessionDataManager: org.example.kotlin_liargame.global.security.SessionDataManager
+    @Autowired lateinit var sessionManagementService: org.example.kotlin_liargame.global.security.SessionManagementService
 
     @PersistenceContext lateinit var em: EntityManager
 
@@ -154,14 +156,14 @@ class LiarGameFullFlowSimulationTest {
         // 로그인 처리 중 새 세션이 발급될 수 있으므로 반환된 세션 사용
         val session = result.request.session as MockHttpSession
 
-        // 세션에 인증 속성이 비어 있다면 테스트에서 직접 주입
-        val hasUserId = session.getAttribute("userId") as? Long
-        val hasNickname = session.getAttribute("nickname") as? String
-        if (hasUserId == null || hasNickname.isNullOrBlank()) {
+        // 세션에 인증 속성이 비어 있다면 테스트에서 JSON 직렬화 방식으로 주입
+        val userSessionData = sessionDataManager.getUserSession(session)
+        if (userSessionData == null) {
             val user = userRepository.findAll().find { it.nickname == nickname }
                 ?: throw IllegalArgumentException("User not found for nickname=$nickname")
-            session.setAttribute("userId", user.id)
-            session.setAttribute("nickname", user.nickname)
+
+            // JSON 직렬화 방식으로 세션 등록
+            sessionManagementService.registerSession(session, user.nickname, user.id)
         }
 
         return session

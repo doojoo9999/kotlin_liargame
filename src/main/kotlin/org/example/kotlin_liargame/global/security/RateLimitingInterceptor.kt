@@ -2,13 +2,15 @@ package org.example.kotlin_liargame.global.security
 
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
+import org.example.kotlin_liargame.global.util.SessionUtil
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.HandlerInterceptor
 
 @Component
 class RateLimitingInterceptor(
-    private val rateLimitingService: RateLimitingService
+    private val rateLimitingService: RateLimitingService,
+    private val sessionUtil: SessionUtil
 ) : HandlerInterceptor {
     
     override fun preHandle(
@@ -72,7 +74,7 @@ class RateLimitingInterceptor(
     private fun getClientIdentifier(request: HttpServletRequest): String {
         val session = request.getSession(false)
         if (session != null) {
-            val userId = session.getAttribute("userId")
+            val userId = sessionUtil.getUserId(session)
             if (userId != null) {
                 return "user:$userId"
             }

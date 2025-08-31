@@ -23,7 +23,7 @@ export function DefensePhase({ gameState }: DefensePhaseProps) {
   // Debug logging to understand the comparison
   console.log('[DefensePhase] Debug info:', {
     authDataUserId: authData?.userId,
-    accusedPlayerId: gameState.accusedPlayer?.id,
+    accusedUserId: gameState.accusedPlayer?.userId,  // accusedPlayerId -> accusedUserId로 변경
     accusedPlayerNickname: gameState.accusedPlayer?.nickname,
     isCurrentUserAccused
   });

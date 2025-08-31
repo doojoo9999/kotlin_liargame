@@ -27,6 +27,7 @@ class WebSocketConfig(
     private val rateLimitingService: RateLimitingService,
     @Lazy private val connectionManager: WebSocketConnectionManager,
     @Lazy private val webSocketActivityInterceptor: WebSocketActivityInterceptor,
+    private val sessionUtil: org.example.kotlin_liargame.global.util.SessionUtil,
     @Value("\${ratelimit.enabled:true}") private val rateLimitEnabled: Boolean
 ) : WebSocketMessageBrokerConfigurer {
     
@@ -108,9 +109,9 @@ class WebSocketConfig(
                                 val httpSession = accessor.sessionAttributes?.get("HTTP.SESSION") as? jakarta.servlet.http.HttpSession
 
                                 if (httpSession != null) {
-                                    // HTTP 세션에서 최신 사용자 정보 가져오기
-                                    val userId = httpSession.getAttribute("userId") as? Long
-                                    val nickname = httpSession.getAttribute("nickname") as? String
+                                    // JSON 직렬화 방식으로 사용자 정보 가져오기
+                                    val userId = sessionUtil.getUserId(httpSession)
+                                    val nickname = sessionUtil.getUserNickname(httpSession)
 
                                     if (userId != null) {
                                         // WebSocket 세션 속성을 HTTP 세션의 최신 정보로 업데이트

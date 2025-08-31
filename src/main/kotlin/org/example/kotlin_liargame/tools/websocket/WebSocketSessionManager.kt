@@ -1,7 +1,8 @@
 package org.example.kotlin_liargame.tools.websocket
 
 import jakarta.servlet.http.HttpSession
- import org.springframework.context.annotation.Lazy
+import org.example.kotlin_liargame.global.util.SessionUtil
+import org.springframework.context.annotation.Lazy
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.stereotype.Component
@@ -10,7 +11,8 @@ import java.util.concurrent.ConcurrentHashMap
 
 @Component
 class WebSocketSessionManager(
-    @Lazy private val messagingTemplate: SimpMessagingTemplate
+    @Lazy private val messagingTemplate: SimpMessagingTemplate,
+    private val sessionUtil: SessionUtil
 ) {
     private val sessionMap = ConcurrentHashMap<String, Map<String, Any>>()
     
@@ -18,31 +20,26 @@ class WebSocketSessionManager(
 
 
     fun storeSession(webSocketSessionId: String, httpSession: HttpSession) {
-        val userId = httpSession.getAttribute("userId") as? Long
-        val nickname = httpSession.getAttribute("nickname") as? String
+        // JSON 직렬화 방식으로 세션 데이터 조회
+        val userId = sessionUtil.getUserId(httpSession)
+        val nickname = sessionUtil.getUserNickname(httpSession)
 
         val sessionInfo = mutableMapOf<String, Any>()
         if (userId != null) {
             sessionInfo["userId"] = userId
             println("[DEBUG] Storing WebSocket session mapping: $webSocketSessionId -> userId=$userId")
         } else {
-            println("[WARN] No userId found in HTTP session for WebSocket: $webSocketSessionId")
-            httpSession.attributeNames.asIterator().forEach { attrName ->
-                println("[DEBUG] HTTP Session attribute: $attrName = ${httpSession.getAttribute(attrName)}")
-            }
+            println("[WARN] No userId found in session for WebSocket: $webSocketSessionId")
         }
 
         if (nickname != null) {
             sessionInfo["nickname"] = nickname
         }
 
-        if (sessionInfo.isNotEmpty()) {
-            sessionMap[webSocketSessionId] = sessionInfo
-            println("[DEBUG] WebSocket session stored: $webSocketSessionId -> $sessionInfo")
-            printSessionInfo()
-        } else {
-            println("[WARN] No session info to store for WebSocket: $webSocketSessionId")
-        }
+        sessionInfo["connectedAt"] = Instant.now()
+        sessionMap[webSocketSessionId] = sessionInfo
+        println("[DEBUG] WebSocket session stored: $webSocketSessionId -> $sessionInfo")
+        printSessionInfo()
     }
 
 

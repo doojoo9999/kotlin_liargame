@@ -3,7 +3,8 @@ import {Alert, Avatar, Badge, Button, Card, Group, SimpleGrid, Stack, Text} from
 import {Clock, Users, Vote} from 'lucide-react';
 
 interface Player {
-  id: number;
+  id: number;  // React key용
+  userId: number;  // 비즈니스 로직용
   nickname: string;
   isHost: boolean;
   isAlive: boolean;
@@ -11,35 +12,35 @@ interface Player {
 
 interface VotingPanelProps {
   players: Player[];
-  currentPlayerId?: number;
-  onVote: (targetPlayerId: number) => void;
-  votedPlayerId?: number;
+  currentUserId?: number;  // currentPlayerId -> currentUserId로 변경
+  onVote: (targetUserId: number) => void;  // targetPlayerId -> targetUserId로 변경
+  votedUserId?: number;  // votedPlayerId -> votedUserId로 변경
   isVotingPhase: boolean;
   timeLeft?: number;
-  votes?: Record<number, number>; // playerId -> targetPlayerId
+  votes?: Record<number, number>; // userId -> targetUserId
 }
 
 export function VotingPanel({
   players,
-  currentPlayerId,
+  currentUserId,  // currentPlayerId -> currentUserId로 변경
   onVote,
-  votedPlayerId,
+  votedUserId,  // votedPlayerId -> votedUserId로 변경
   isVotingPhase,
   timeLeft,
   votes = {}
 }: VotingPanelProps) {
-  const [selectedPlayerId, setSelectedPlayerId] = useState<number | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);  // selectedPlayerId -> selectedUserId로 변경
 
-  const alivePlayers = players.filter(p => p.isAlive && p.id !== currentPlayerId);
+  const alivePlayers = players.filter(p => p.isAlive && p.userId !== currentUserId);  // userId 사용
   const voteCount = Object.values(votes).reduce((acc, targetId) => {
     acc[targetId] = (acc[targetId] || 0) + 1;
     return acc;
   }, {} as Record<number, number>);
 
   const handleVote = () => {
-    if (selectedPlayerId !== null && !votedPlayerId) {
-      onVote(selectedPlayerId);
-      setSelectedPlayerId(null);
+    if (selectedUserId !== null && !votedUserId) {  // selectedUserId, votedUserId 사용
+      onVote(selectedUserId);  // selectedUserId 사용
+      setSelectedUserId(null);  // selectedUserId 사용
     }
   };
 
@@ -75,23 +76,23 @@ export function VotingPanel({
         )}
 
         <Text size="sm" c="dimmed">
-          라이어라고 생각하는 플레이어에게 투표하세요
+          라이어라고 생각하는 플레이어에게 ���표하세요
         </Text>
 
         <SimpleGrid cols={2} spacing="sm">
           {alivePlayers.map((player) => {
-            const isSelected = selectedPlayerId === player.id;
-            const hasVoted = votedPlayerId === player.id;
-            const voteCountForPlayer = voteCount[player.id] || 0;
+            const isSelected = selectedUserId === player.userId;  // userId 사용
+            const hasVoted = votedUserId === player.userId;  // userId 사용
+            const voteCountForPlayer = voteCount[player.userId] || 0;  // userId 사용
 
             return (
               <Card
-                key={player.id}
+                key={player.id}  // React key는 player.id 사용
                 withBorder
                 p="sm"
                 radius="sm"
                 style={{
-                  cursor: votedPlayerId ? 'default' : 'pointer',
+                  cursor: votedUserId ? 'default' : 'pointer',  // votedUserId 사용
                   backgroundColor: isSelected
                     ? 'var(--mantine-color-blue-0)'
                     : hasVoted
@@ -104,8 +105,8 @@ export function VotingPanel({
                     : undefined
                 }}
                 onClick={() => {
-                  if (!votedPlayerId) {
-                    setSelectedPlayerId(isSelected ? null : player.id);
+                  if (!votedUserId) {  // votedUserId 사용
+                    setSelectedUserId(isSelected ? null : player.userId);  // selectedUserId, userId 사용
                   }
                 }}
               >
@@ -135,20 +136,20 @@ export function VotingPanel({
           })}
         </SimpleGrid>
 
-        {votedPlayerId ? (
+        {votedUserId ? (  // votedUserId 사용
           <Alert color="green" variant="light">
             투표를 완료했습니다! 다른 플레이어들을 기다리고 있습니다.
           </Alert>
         ) : (
           <Button
             onClick={handleVote}
-            disabled={selectedPlayerId === null}
+            disabled={selectedUserId === null}  // selectedUserId 사용
             color="red"
             fullWidth
             leftSection={<Vote size={16} />}
           >
-            {selectedPlayerId
-              ? `${players.find(p => p.id === selectedPlayerId)?.nickname}에게 투표`
+            {selectedUserId  // selectedUserId 사용
+              ? `${players.find(p => p.userId === selectedUserId)?.nickname}에게 투표`  // userId 사용
               : '플레이어를 선택하세요'}
           </Button>
         )}

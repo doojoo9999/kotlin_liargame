@@ -55,7 +55,7 @@ class AdminService(
             logger.debug("관리자 로그인 실패: 관리자 권한이 없습니다.")
             throw SecurityException("관리자 권한이 없습니다.")
         }
-        
+
         logger.debug("관리자 로그인 성공: {}", user.nickname)
         return user
     }
@@ -63,7 +63,7 @@ class AdminService(
     fun grantAdminRole(userId: Long) {
         val user = userRepository.findById(userId)
             .orElseThrow { IllegalArgumentException("사용자를 찾을 수 없습니다.") }
-        
+
         user.role = UserRole.ADMIN
         userRepository.save(user)
         logger.info("사용자 {}에게 관리자 권한을 부여했습니다.", user.nickname)
@@ -71,19 +71,19 @@ class AdminService(
 
     fun getStatistics(): AdminStatsResponse {
         logger.debug("관리자 통계 조회")
-        
+
         val allGames = gameRepository.findAll()
         val totalGames = allGames.size
         val activeGames = allGames.count { game ->
-            game.gameState == org.example.kotlin_liargame.domain.game.model.enum.GameState.WAITING ||
-            game.gameState == org.example.kotlin_liargame.domain.game.model.enum.GameState.IN_PROGRESS
+            game.gameState == GameState.WAITING ||
+            game.gameState == GameState.IN_PROGRESS
         }
         activeGamesGauge?.set(activeGames)
 
         val totalPlayers = playerRepository.count().toInt()
         val totalUsers = userRepository.count().toInt()
         val playersInLobby = totalUsers - totalPlayers
-        
+
         return AdminStatsResponse(
             totalPlayers = totalUsers,
             activeGames = activeGames,
@@ -110,11 +110,11 @@ class AdminService(
 
     fun getAllPlayers(): AdminPlayersResponse {
         logger.debug("관리자 플레이어 목록 조회")
-        
+
         val users = userRepository.findAll()
         val allPlayers = playerRepository.findAll()
         val playerUserIds = allPlayers.map { it.userId }.toSet()
-        
+
         val players = users.map { user ->
             val isInGame = playerUserIds.contains(user.id)
             AdminPlayerInfo(
@@ -123,41 +123,41 @@ class AdminService(
                 status = if (isInGame) "게임중" else "로비"
             )
         }
-        
+
         return AdminPlayersResponse(players = players)
     }
 
     fun terminateGameRoom(gameNumber: Int): Boolean {
         logger.debug("게임방 강제 종료: {}", gameNumber)
-        
+
         val game = gameRepository.findByGameNumber(gameNumber)
             ?: throw IllegalArgumentException("존재하지 않는 게임방입니다.")
-        
+
         val playersInGame = playerRepository.findByGame(game)
-        
-        game.gameState = org.example.kotlin_liargame.domain.game.model.enum.GameState.ENDED
+
+        game.gameState = GameState.ENDED
         gameRepository.save(game)
-        
+
         val terminationMessage = mapOf("type" to "GAME_TERMINATED_BY_ADMIN", "message" to "관리자에 의해 게임이 종료되었습니다.")
         gameMonitoringService.broadcastGameState(game, terminationMessage)
 
         playerRepository.deleteAll(playersInGame)
-        
+
         logger.debug("게임방 강제 종료 완료: {}", gameNumber)
         return true
     }
 
     fun kickPlayer(gameNumber: Int, userId: Long): Boolean {
         logger.debug("플레이어 강제 퇴장: gameNumber={}, userId={}", gameNumber, userId)
-        
+
         val game = gameRepository.findByGameNumber(gameNumber)
             ?: throw IllegalArgumentException("존재하지 않는 게임방입니다.")
-        
+
         val player = playerRepository.findByGameAndUserId(game, userId)
             ?: throw IllegalArgumentException("해당 유저가 게임에 참여하고 있지 않습니다.")
 
         gameService.leaveGameAsSystem(gameNumber, userId)
-        
+
         val kickMessage = mapOf("type" to "PLAYER_KICKED_BY_ADMIN", "message" to "${player.nickname}님이 관리자에 의해 강제 퇴장되었습니다.")
         gameMonitoringService.broadcastGameState(game, kickMessage)
 
@@ -238,7 +238,7 @@ class AdminService(
                 // LocalDateTime을 Instant로 변환
                 val gameCreatedAtInstant = game.createdAt.atZone(java.time.ZoneId.systemDefault()).toInstant()
                 val gameAge = java.time.Duration.between(gameCreatedAtInstant, currentTime)
-                val hasOwner = players.any { it.userId == game.gameOwner?.toLongOrNull() }
+                val hasOwner = players.any { it.userId == game.gameOwner.toLongOrNull() }
 
                 when (game.gameState) {
                     GameState.WAITING -> {
@@ -250,16 +250,16 @@ class AdminService(
                             }
 
                             // 2. 방장이 접속해 있지 않고 10분 이상 활동이 없는 경우 (단, 2명 이상 접속시 제외)
-                            !hasOwner && players.size < 2 && {
+                            !hasOwner && players.size < 2 -> {
                                 val lastActivity = game.lastActivityAt ?: gameCreatedAtInstant
                                 val timeSinceLastActivity = java.time.Duration.between(lastActivity, currentTime)
-                                timeSinceLastActivity.toMinutes() >= 10
-                            }() -> {
-                                val lastActivity = game.lastActivityAt ?: gameCreatedAtInstant
-                                val timeSinceLastActivity = java.time.Duration.between(lastActivity, currentTime)
-                                logger.debug("방장 부재 게임방: gameNumber={}, 마지막 활동 후 경과시간={}분",
-                                    game.gameNumber, timeSinceLastActivity.toMinutes())
-                                true
+                                if (timeSinceLastActivity.toMinutes() >= 10) {
+                                    logger.debug("방장 부재 게임방: gameNumber={}, 마지막 활동 후 경과시간={}분",
+                                        game.gameNumber, timeSinceLastActivity.toMinutes())
+                                    true
+                                } else {
+                                    false
+                                }
                             }
 
                             // 3. 생성 후 20분 이상 미시작 방 (단, 2명 이상 접속시 제외)
@@ -409,30 +409,28 @@ class AdminService(
 
         allPlayers.forEach { player ->
             val userId = player.userId
-            if (userId != null) {
-                val isConnected = try {
-                    val timeSinceJoined = java.time.Duration.between(player.joinedAt, java.time.Instant.now())
-                    if (player.game.gameState == GameState.WAITING && timeSinceJoined.toMinutes() > 10) {
-                        false
-                    } else {
-                        true
-                    }
-                } catch (e: Exception) {
-                    logger.warn("플레이어 연결 상태 확인 중 오류: userId={}, error={}", userId, e.message)
+            val timeSinceJoined = java.time.Duration.between(player.joinedAt, java.time.Instant.now())
+            val shouldCleanup = try {
+                if (player.game.gameState == GameState.WAITING && timeSinceJoined.toMinutes() > 10) {
+                    true
+                } else {
                     false
                 }
+            } catch (e: Exception) {
+                logger.warn("플레이어 연결 상태 확인 중 오류: userId={}, error={}", userId, e.message)
+                false
+            }
 
-                if (!isConnected) {
-                    logger.debug("고아 플레이어 정리: gameNumber={}, nickname={}, joinedAt={}",
-                        player.game.gameNumber, player.nickname, player.joinedAt)
+            if (shouldCleanup) {
+                logger.debug("고아 플레이어 정리: gameNumber={}, nickname={}, joinedAt={}",
+                    player.game.gameNumber, player.nickname, player.joinedAt)
 
-                    try {
-                        cleanupSinglePlayer(player.game.gameNumber, userId)
-                        cleanedCount++
-                    } catch (e: Exception) {
-                        logger.warn("플레이어 {}(게임 {}) 정리 중 오류: {}",
-                            player.nickname, player.game.gameNumber, e.message, e)
-                    }
+                try {
+                    cleanupSinglePlayer(player.game.gameNumber, userId)
+                    cleanedCount++
+                } catch (e: Exception) {
+                    logger.warn("플레이어 {}(게임 {}) 정리 중 오류: {}",
+                        player.nickname, player.game.gameNumber, e.message, e)
                 }
             }
         }
@@ -451,7 +449,6 @@ class AdminService(
         }
     }
 
-
     @Transactional
     fun cleanupOrphanedPlayers(): Int {
         // 시작 로그 제거 - 너무 빈번함
@@ -462,29 +459,24 @@ class AdminService(
 
             for (player in allPlayers) {
                 val userId = player.userId
-                if (userId != null) {
-                    val timeSinceJoined = java.time.Duration.between(player.joinedAt, java.time.Instant.now())
+                val timeSinceJoined = java.time.Duration.between(player.joinedAt, java.time.Instant.now())
+                val shouldCleanup = when {
+                    player.game.gameState == GameState.WAITING && timeSinceJoined.toMinutes() > 5 -> true
+                    player.game.gameState == GameState.IN_PROGRESS && timeSinceJoined.toHours() > 1 -> true
+                    else -> false
+                }
 
-                        val shouldCleanup = when {
-                            player.game.gameState == GameState.WAITING && timeSinceJoined.toMinutes() > 5 -> true
+                if (shouldCleanup) {
+                    // 실제 정리가 발생할 때만 로그 출력
+                    logger.info("고아 플레이어 정리: gameNumber={}, nickname={}, state={}, joinedAt={}",
+                        player.game.gameNumber, player.nickname, player.game.gameState, player.joinedAt)
 
-                            player.game.gameState == GameState.IN_PROGRESS && timeSinceJoined.toHours() > 1 -> true
-
-                        else -> false
-                    }
-
-                    if (shouldCleanup) {
-                        // 실제 정리가 발생할 때만 로그 출력
-                        logger.info("고아 플레이어 정리: gameNumber={}, nickname={}, state={}, joinedAt={}",
-                            player.game.gameNumber, player.nickname, player.game.gameState, player.joinedAt)
-
-                        try {
-                            cleanupSinglePlayer(player.game.gameNumber, userId)
-                            cleanedCount++
-                        } catch (e: Exception) {
-                            logger.warn("고아 플레이어 {}(게임 {}) 정리 중 오류: {}",
-                                player.nickname, player.game.gameNumber, e.message, e)
-                        }
+                    try {
+                        cleanupSinglePlayer(player.game.gameNumber, userId)
+                        cleanedCount++
+                    } catch (e: Exception) {
+                        logger.warn("고아 플레이어 {}(게임 {}) 정리 중 오류: {}",
+                            player.nickname, player.game.gameNumber, e.message, e)
                     }
                 }
             }
