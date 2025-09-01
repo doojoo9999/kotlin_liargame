@@ -5,6 +5,7 @@ import org.example.kotlin_liargame.domain.auth.dto.request.LoginRequest
 import org.example.kotlin_liargame.domain.auth.dto.response.LoginResponse
 import org.example.kotlin_liargame.domain.user.service.UserService
 import org.example.kotlin_liargame.global.security.SessionManagementService
+import org.example.kotlin_liargame.global.security.SessionRegistrationResult
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 
@@ -22,14 +23,17 @@ class AuthController(
     ): ResponseEntity<LoginResponse> {
         val user = userService.authenticate(request.nickname, request.password)
 
-        // Explicitly invalidate the current session before registering a new one
-        // This handles cases where a user logs in with a different nickname from the same browser
-        session.invalidate()
+        // SessionManagementService에서 동시 세션 제어와 등록을 안전하게 처리
+        val result = sessionManagementService.registerSession(session, user.nickname, user.id)
 
-        // After invalidation, the session object might be new or re-initialized.
-        // Ensure we use the correct session object for registration.
-        // Spring typically re-creates the session if it's invalidated and then accessed.
-        sessionManagementService.registerSession(session, user.nickname, user.id)
+        if (result != SessionRegistrationResult.SUCCESS) {
+            return ResponseEntity.status(500).body(LoginResponse(
+                success = false,
+                userId = null,
+                nickname = null,
+                message = "세션 등록에 실패했습니다."
+            ))
+        }
 
         return ResponseEntity.ok(LoginResponse(
             success = true,

@@ -17,28 +17,42 @@ class SessionDataManager(
     }
 
     /**
-     * 세션 데이터를 JSON으로 저장
+     * 세션 데이터를 JSON으로 저장 (세션 유효성 검증 추가)
      */
     fun setSessionData(session: HttpSession, key: String, data: Any) {
         try {
+            // 세션 유효성 검증
+            if (isSessionInvalid(session)) {
+                throw SessionDataException("Cannot set session data - session is invalidated for key: $key")
+            }
+
             val jsonData = objectMapper.writeValueAsString(data)
             session.setAttribute(key, jsonData)
+        } catch (e: IllegalStateException) {
+            throw SessionDataException("Failed to serialize session data for key: $key - session invalidated", e)
         } catch (e: Exception) {
             throw SessionDataException("Failed to serialize session data for key: $key", e)
         }
     }
 
     /**
-     * 세션에서 JSON 데이터를 객체로 복원
+     * 세션에서 JSON 데이터를 객체로 복원 (세션 유효성 검증 추가)
      */
     fun <T> getSessionData(session: HttpSession, key: String, clazz: Class<T>): T? {
         return try {
+            // 세션 유효성 검증
+            if (isSessionInvalid(session)) {
+                return null
+            }
+
             val jsonData = session.getAttribute(key) as? String
             if (jsonData != null) {
                 objectMapper.readValue(jsonData, clazz)
             } else {
                 null
             }
+        } catch (e: IllegalStateException) {
+            null // 세션이 무효화된 경우
         } catch (e: Exception) {
             throw SessionDataException("Failed to deserialize session data for key: $key", e)
         }
@@ -114,6 +128,19 @@ class SessionDataManager(
      */
     fun getSessionMetadata(session: HttpSession): SessionMetadata? {
         return getSessionData(session, SESSION_METADATA_KEY, SessionMetadata::class.java)
+    }
+
+    /**
+     * 세션 유효성 검증 헬퍼 메서드
+     */
+    private fun isSessionInvalid(session: HttpSession): Boolean {
+        return try {
+            session.id // 세션 ID 접근 시도
+            session.creationTime // 세션 생성 시간 접근 시도
+            false
+        } catch (e: IllegalStateException) {
+            true // 세션이 무효화된 경우
+        }
     }
 
     companion object {
