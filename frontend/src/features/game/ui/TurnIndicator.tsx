@@ -77,9 +77,9 @@ export function TurnIndicator({
                 )}
               </Group>
 
-              {getPlayerPosition(currentPlayer.id) && (
+              {getPlayerPosition(currentPlayer.nickname) && (
                 <Text size="xs" c="dimmed">
-                  턴 순서: {getPlayerPosition(currentPlayer.id)}번째
+                  턴 순서: {getPlayerPosition(currentPlayer.nickname)}번째
                 </Text>
               )}
             </Stack>

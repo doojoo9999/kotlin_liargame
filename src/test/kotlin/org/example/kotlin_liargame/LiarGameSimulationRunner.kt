@@ -10,7 +10,7 @@
 //}
 //
 //class LiarGameSimulation {
-//    private val baseUrl = "http://119.201.53.4:20021"
+//    private val baseUrl = "http://localhost:20021"
 //    private val users = mutableListOf<UserInfo>()
 //    private var gameNumber: Int = 0
 //    private val subjectContent = "동물"

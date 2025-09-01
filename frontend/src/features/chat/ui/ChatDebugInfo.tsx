@@ -18,7 +18,7 @@ export function ChatDebugInfo({ gameNumber }: ChatDebugInfoProps) {
 
   useEffect(() => {
     // WebSocket URL 확인
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://119.201.53.4:20021';
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:20021';
     setDebugInfo(prev => ({
       ...prev,
       url: `${baseUrl}/ws`

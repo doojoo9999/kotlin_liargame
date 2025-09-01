@@ -1220,7 +1220,7 @@ spring:
 # application-prod.yml
 spring:
   datasource:
-    url: jdbc:postgresql://119.201.53.4:5432/liargame
+    url: jdbc:postgresql://localhost:5432/liargame
   jpa:
     show-sql: false
 ```

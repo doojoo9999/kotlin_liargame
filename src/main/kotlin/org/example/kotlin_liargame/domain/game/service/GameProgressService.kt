@@ -52,10 +52,10 @@ class GameProgressService(
 
         val players = playerRepository.findByGame(game)
         val selectedSubjects = selectSubjects(game)
-        assignRolesAndSubjects(game, players, selectedSubjects)
 
+        // 턴 순서와 역할 할당 로직 분리
         game.turnOrder = players.shuffled().joinToString(",") { it.nickname }
-        game.currentTurnIndex = 0
+        assignRolesAndSubjects(game, players, selectedSubjects)
 
         game.startGame()
         val savedGame = gameRepository.save(game)
@@ -466,6 +466,29 @@ class GameProgressService(
             "targetPoints" to game.targetPoints,
             "gameNumber" to game.gameNumber
         )
+    }
+
+    @Transactional
+    fun prepareNewRound(game: GameEntity) {
+        val players = playerRepository.findByGame(game)
+        
+        // 1. Re-assign roles and subjects
+        val selectedSubjects = selectSubjects(game)
+        assignRolesAndSubjects(game, players, selectedSubjects)
+
+        // 2. Re-shuffle turn order
+        game.turnOrder = players.shuffled().joinToString(",") { it.nickname }
+        game.currentTurnIndex = 0
+        
+        // 3. Reset player states for the new round
+        players.forEach { 
+            if(it.isAlive) {
+                it.resetForNewRound() 
+            }
+        }
+        
+        playerRepository.saveAll(players)
+        gameRepository.save(game)
     }
 
     private fun getGameStateResponse(game: GameEntity, session: HttpSession?): GameStateResponse {

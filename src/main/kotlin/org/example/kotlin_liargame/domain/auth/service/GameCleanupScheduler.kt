@@ -26,9 +26,7 @@ class GameCleanupScheduler(
      */
     @Scheduled(fixedRate = 5000) // 5초 = 5 * 1000ms
     fun monitorWebSocketConnections() {
-        // 시작 로그 제거 - 너무 빈번함 (5초마다 실행)
         try {
-            // 실제 연결이 끊어진 플레이어들만 정리 (브라우저 종료 감지)
             val cleanedPlayers = adminService.cleanupOrphanedPlayers()
             if (cleanedPlayers > 0) {
                 logger.info("WebSocket 연결 끊김 감지 및 정리: {}명 정리", cleanedPlayers)
@@ -38,14 +36,9 @@ class GameCleanupScheduler(
         }
     }
 
-    /**
-     * 매 10초마다 연결 해제된 플레이어 정리 실행
-     */
     @Scheduled(fixedRate = 10000) // 10초 = 10 * 1000ms
     fun cleanupDisconnectedPlayersRealtime() {
-        // 시작 로그 제거 - 너무 빈번함 (10초마다 실행)
         try {
-            // 로그아웃 버튼 클릭 등으로 명시적으로 연결 해제된 플레이어들 정리
             val cleanedPlayers = adminService.cleanupDisconnectedPlayers()
             if (cleanedPlayers > 0) {
                 logger.info("실시간 고아 플레이어 정리 완료: {}명 정리", cleanedPlayers)
@@ -55,9 +48,6 @@ class GameCleanupScheduler(
         }
     }
 
-    /**
-     * 매 30초마다 개선된 게임방 정리 (방장 접속 상태 고려)
-     */
     @Scheduled(fixedRate = 30000) // 30초 = 30 * 1000ms
     fun cleanupEmptyGamesRealtime() {
         logger.debug("=== 개선된 게임방 정리 시작 ===")

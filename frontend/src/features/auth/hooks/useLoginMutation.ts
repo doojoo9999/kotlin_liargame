@@ -15,7 +15,7 @@ export const useLoginMutation = () => {
     mutationFn: login,
     onSuccess: (data: User) => {
       console.log('Login successful:', data);
-      setUser(data.nickname);
+      setUser({ nickname: data.nickname, userId: data.userId });
       navigate('/');
     },
     onError: (error) => {

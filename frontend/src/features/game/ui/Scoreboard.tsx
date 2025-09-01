@@ -19,27 +19,7 @@ export function Scoreboard({ gameState }: ScoreboardProps) {
   const highestScore = sortedPlayers[0]?.score ?? 0;
   const progress = targetPoints > 0 ? Math.min((highestScore / targetPoints) * 100, 100) : 0;
 
-  const getRoleColor = (role?: string) => {
-    switch (role) {
-      case 'LIAR':
-        return 'red';
-      case 'CITIZEN':
-        return 'blue';
-      default:
-        return 'gray';
-    }
-  };
-
-  const getRoleLabel = (role?: string) => {
-    switch (role) {
-      case 'LIAR':
-        return '라이어';
-      case 'CITIZEN':
-        return '시민';
-      default:
-        return '미정';
-    }
-  };
+  
 
   return (
     <Paper p="md" withBorder>
@@ -68,15 +48,7 @@ export function Scoreboard({ gameState }: ScoreboardProps) {
                   <Text fw={index === 0 ? 700 : 500} size="sm">
                     #{index + 1} {player.nickname}
                   </Text>
-                  {player.role && (
-                    <Badge
-                      size="xs"
-                      color={getRoleColor(player.role)}
-                      variant="light"
-                    >
-                      {getRoleLabel(player.role)}
-                    </Badge>
-                  )}
+                  
                   {!player.isAlive && (
                     <Badge size="xs" color="gray" variant="outline">
                       탈락

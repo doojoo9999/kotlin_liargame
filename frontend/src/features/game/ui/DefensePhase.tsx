@@ -1,10 +1,10 @@
 import {Button, Group, Paper, Text, Title} from '@mantine/core';
 import {useState} from 'react';
-import {Timer} from '../../../shared/ui/Timer';
+import {Timer} from '../../../shared/ui';
 import {useAuth} from '../../auth';
 import {endDefense} from '../api/endDefense';
-import {useNotifications} from '../../../shared/hooks/useNotifications';
-import type {GameStateResponse} from '../../room/types';
+import {useNotifications} from '../../../shared/hooks';
+import type {GameStateResponse} from '../../room';
 
 interface DefensePhaseProps {
   gameState: GameStateResponse;
