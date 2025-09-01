@@ -495,7 +495,7 @@
 //    }
 //
 //    private fun vote(session: MockHttpSession, gameNumber: Int, targetId: Long): GameStateResponse {
-//        val request = VoteRequest(gameNumber = gameNumber, targetPlayerId = targetId)
+//        val request = VoteRequest(gameNumber = gameNumber, targetUserId = targetId)
 //        val result = mockMvc.perform(
 //            post("/api/v1/game/vote")
 //                .contentType(MediaType.APPLICATION_JSON)

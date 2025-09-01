@@ -41,7 +41,8 @@ class GameService(
     private val topicGuessService: TopicGuessService,
     private val webSocketSessionManager: WebSocketSessionManager,
     private val gameProperties: org.example.kotlin_liargame.global.config.GameProperties,
-    private val sessionService: org.example.kotlin_liargame.global.session.SessionService
+    private val sessionService: org.example.kotlin_liargame.global.session.SessionService,
+    private val sessionManagementService: org.example.kotlin_liargame.global.security.SessionManagementService
 ) {
     private val logger = LoggerFactory.getLogger(this::class.java)
 
@@ -171,8 +172,6 @@ class GameService(
         val nickname = sessionService.getOptionalUserNickname(session)
         logger.debug("Session userId: $userId, nickname: $nickname")
 
-        // 기존 세션 디버깅 제거 - JSON 방식으로 대체됨
-
         val game = gameRepository.findByGameNumberWithLock(req.gameNumber)
             ?: throw GameNotFoundException(req.gameNumber)
 
@@ -190,14 +189,39 @@ class GameService(
             val currentNickname = sessionService.getCurrentUserNickname(session)
             logger.debug("Successfully retrieved session info: userId=$currentUserId, nickname=$currentNickname")
 
+            // 🔧 세션 갱신 로직 추가: 게임 참여 시점에서 세션을 최신 상태로 갱신
+            try {
+                logger.debug("Refreshing session for user: $currentNickname (ID: $currentUserId)")
+                val sessionValidationResult = sessionManagementService.validateSession(session)
+
+                if (sessionValidationResult != org.example.kotlin_liargame.global.security.SessionValidationResult.VALID) {
+                    logger.warn("Session validation failed during joinGame: $sessionValidationResult")
+                    // 세션이 유효하지 않아도 현재 로직을 계속 진행 (이미 인증된 상태이므로)
+                }
+
+                logger.debug("Session refreshed successfully for user: $currentNickname")
+            } catch (e: Exception) {
+                logger.warn("Session refresh failed, but continuing with current session: ${e.message}")
+                // 세션 갱신 실패해도 게임 참여는 계속 진행
+            }
+
             val existingPlayer = playerRepository.findByGameAndUserId(game, currentUserId)
             if (existingPlayer != null) {
+                // 기존 플레이어의 게임 관련 세션 데이터 설정
+                val isOwner = game.gameOwner == currentNickname
+                sessionManagementService.updateGameSession(session, req.gameNumber, isOwner, if (isOwner) "OWNER" else "PLAYER")
+
                 // 기존 플레이어도 WebSocket 세션에 게임 번호 등록
                 webSocketSessionManager.registerPlayerInGame(currentUserId, req.gameNumber)
+                logger.debug("Existing player found and WebSocket session updated: userId=$currentUserId, gameNumber=${req.gameNumber}")
                 return getGameState(game, session)
             }
 
             val newPlayer = joinGame(game, currentUserId, currentNickname)
+
+            // 새 플레이어의 게임 관련 세션 데이터 설정
+            val isOwner = game.gameOwner == currentNickname
+            sessionManagementService.updateGameSession(session, req.gameNumber, isOwner, if (isOwner) "OWNER" else "PLAYER")
 
             // WebSocket 세션에 플레이어의 게임 번호 등록
             webSocketSessionManager.registerPlayerInGame(currentUserId, req.gameNumber)
@@ -264,6 +288,25 @@ class GameService(
         val deletedCount = playerRepository.deleteByGameIdAndUserId(game.id, userId)
 
         if (deletedCount > 0) {
+            // 🔧 게임 나가기 후 세션 갱신: 게임 관련 세션 데이터 정리
+            try {
+                logger.debug("Refreshing session after leaving game for user: $nickname (ID: $userId)")
+
+                // 게임 관련 세션 데이터 정리
+                sessionManagementService.updateGameSession(session, null, false, null)
+
+                // 세션 활동 시간 갱신
+                val sessionValidationResult = sessionManagementService.validateSession(session)
+                if (sessionValidationResult != org.example.kotlin_liargame.global.security.SessionValidationResult.VALID) {
+                    logger.warn("Session validation failed during leaveGame: $sessionValidationResult")
+                }
+
+                logger.debug("Session refreshed successfully after leaving game for user: $nickname")
+            } catch (e: Exception) {
+                logger.warn("Session refresh failed during leaveGame, but continuing: ${e.message}")
+                // 세션 갱신 실패해도 게임 나가기는 계속 진행
+            }
+
             // WebSocket 세션에서 플레이어 제거
             webSocketSessionManager.removePlayerFromGame(userId)
             logger.debug("Removed player {} from WebSocket session management", userId)

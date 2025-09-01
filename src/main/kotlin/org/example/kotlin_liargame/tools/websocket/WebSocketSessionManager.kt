@@ -20,20 +20,39 @@ class WebSocketSessionManager(
 
 
     fun storeSession(webSocketSessionId: String, httpSession: HttpSession) {
-        // JSON 직렬화 방식으로 세션 데이터 조회
-        val userId = sessionUtil.getUserId(httpSession)
-        val nickname = sessionUtil.getUserNickname(httpSession)
+        // JSON 직렬화 방식으로 세션 데이터 조회 (재시도 메커니즘 포함)
+        var userId = sessionUtil.getUserId(httpSession)
+        var nickname = sessionUtil.getUserNickname(httpSession)
+
+        // 세션 정보가 없는 경우 Redis 동기화를 위해 재시도
+        if (userId == null || nickname == null) {
+            println("[WARN] Initial session data not found for WebSocket: $webSocketSessionId, attempting retry...")
+
+            // 짧은 지연 후 재시도 (Redis 동기화 대기)
+            Thread.sleep(100)
+            userId = sessionUtil.getUserId(httpSession)
+            nickname = sessionUtil.getUserNickname(httpSession)
+
+            if (userId == null || nickname == null) {
+                // 두 번째 시도
+                Thread.sleep(200)
+                userId = sessionUtil.getUserId(httpSession)
+                nickname = sessionUtil.getUserNickname(httpSession)
+            }
+        }
 
         val sessionInfo = mutableMapOf<String, Any>()
         if (userId != null) {
             sessionInfo["userId"] = userId
             println("[DEBUG] Storing WebSocket session mapping: $webSocketSessionId -> userId=$userId")
         } else {
-            println("[WARN] No userId found in session for WebSocket: $webSocketSessionId")
+            println("[WARN] No userId found in session for WebSocket: $webSocketSessionId after retries")
         }
 
         if (nickname != null) {
             sessionInfo["nickname"] = nickname
+        } else {
+            println("[WARN] No nickname found in session for WebSocket: $webSocketSessionId after retries")
         }
 
         sessionInfo["connectedAt"] = Instant.now()
@@ -168,6 +187,27 @@ class WebSocketSessionManager(
         println("[DEBUG] Current WebSocket sessions (${sessionMap.size})")
         sessionMap.forEach { (sessionId, info) ->
             println("[DEBUG]   - $sessionId: $info")
+        }
+    }
+
+    /**
+     * WebSocket 세션의 사용자 정보를 수동으로 갱신
+     */
+    fun refreshSessionInfo(webSocketSessionId: String, httpSession: HttpSession) {
+        val userId = sessionUtil.getUserId(httpSession)
+        val nickname = sessionUtil.getUserNickname(httpSession)
+
+        if (userId != null && nickname != null) {
+            val existingInfo = sessionMap[webSocketSessionId]?.toMutableMap() ?: mutableMapOf()
+            existingInfo["userId"] = userId
+            existingInfo["nickname"] = nickname
+            existingInfo["lastRefresh"] = Instant.now()
+
+            sessionMap[webSocketSessionId] = existingInfo
+            println("[DEBUG] Refreshed WebSocket session info: $webSocketSessionId -> userId=$userId, nickname=$nickname")
+            printSessionInfo()
+        } else {
+            println("[WARN] Failed to refresh session info for WebSocket: $webSocketSessionId - userId or nickname still null")
         }
     }
 }

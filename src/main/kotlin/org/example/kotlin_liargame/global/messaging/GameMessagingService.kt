@@ -105,6 +105,19 @@ class GameMessagingService(
     fun sendRoomUpdate(gameNumber: Int, message: Map<String, Any>) {
         messagingTemplate.convertAndSend("/topic/room.$gameNumber", message)
     }
+
+    /**
+     * 세션 동기화 상태 확인 메시지 전송
+     */
+    fun sendSessionSyncStatus(gameNumber: Int, userId: Long, syncStatus: String) {
+        val message = SessionSyncMessage(
+            gameNumber = gameNumber,
+            userId = userId,
+            syncStatus = syncStatus,
+            timestamp = Instant.now()
+        )
+        sendToGame(gameNumber, "session-sync", message)
+    }
 }
 
 // 메시지 데이터 클래스들
@@ -125,5 +138,12 @@ data class ProgressUpdateMessage(
     val current: Int,
     val total: Int,
     val type: String,
+    val timestamp: Instant
+)
+
+data class SessionSyncMessage(
+    val gameNumber: Int,
+    val userId: Long,
+    val syncStatus: String,
     val timestamp: Instant
 )

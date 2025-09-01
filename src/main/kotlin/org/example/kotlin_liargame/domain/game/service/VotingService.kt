@@ -226,7 +226,7 @@ class VotingService(
     @Transactional
     fun vote(req: VoteRequest, session: HttpSession): GameStateResponse {
         val userId = sessionService.getCurrentUserId(session)
-        castVote(req.gameNumber, userId, req.targetPlayerId)
+        castVote(req.gameNumber, userId, req.targetUserId)
         return getGameState(gameRepository.findByGameNumber(req.gameNumber)!!, session)
     }
 

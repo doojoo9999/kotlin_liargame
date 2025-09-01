@@ -59,7 +59,7 @@ class GameMonitoringService(
     }
 
     fun notifyHintSubmitted(gameNumber: Int, playerId: Long, hint: String) {
-        val event = HintSubmittedEvent(gameNumber = gameNumber, playerId = playerId, hint = hint)
+        val event = HintSubmittedEvent(gameNumber = gameNumber, userId = playerId, hint = hint)
         gameMessagingService.broadcastGameEvent(gameNumber, event)
     }
 

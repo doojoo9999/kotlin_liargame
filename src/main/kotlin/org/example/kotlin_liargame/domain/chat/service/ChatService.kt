@@ -50,9 +50,11 @@ class ChatService(
         // 세션에서 userId 추출
         var userId = sessionAttributes?.get("userId") as? Long
 
+        // HTTP 세션 참조를 먼저 가져오기
+        val httpSession = sessionAttributes?.get("HTTP.SESSION") as? HttpSession
+
         // WebSocket 세션에서 userId를 찾을 수 없는 경우 HTTP 세션에서 찾기
         if (userId == null) {
-            val httpSession = sessionAttributes?.get("HTTP.SESSION") as? HttpSession
             if (httpSession != null) {
                 // JSON 직렬화 방식으로 사용자 ID 조회
                 userId = sessionUtil.getUserId(httpSession)
@@ -64,6 +66,14 @@ class ChatService(
         if (userId == null && webSocketSessionId != null) {
             userId = webSocketSessionManager.getUserId(webSocketSessionId)
             println("[DEBUG] Using userId from WebSocketSessionManager: $userId")
+
+            // WebSocket 세션에 사용자 정보가 없는 경우 HTTP 세션로부터 갱신 시도
+            if (userId == null && httpSession != null) {
+                println("[DEBUG] Attempting to refresh WebSocket session info...")
+                webSocketSessionManager.refreshSessionInfo(webSocketSessionId, httpSession)
+                userId = webSocketSessionManager.getUserId(webSocketSessionId)
+                println("[DEBUG] After refresh, userId from WebSocketSessionManager: $userId")
+            }
         }
 
         // 디버깅: WebSocket 메시지의 세션 정보
@@ -73,7 +83,6 @@ class ChatService(
         }
 
         // HTTP 세션 값 확인 (JSON 직렬화 방식)
-        val httpSession = sessionAttributes?.get("HTTP.SESSION") as? HttpSession
         if (httpSession != null) {
             val httpUserId = sessionUtil.getUserId(httpSession)
             val httpNickname = sessionUtil.getUserNickname(httpSession)
@@ -182,8 +191,7 @@ class ChatService(
         )
         
         // 채팅 입력 시 게임의 마지막 활동 시간 업데이트 (부재 시간 초기화)
-        game.lastActivityAt = java.time.Instant.now()
-        gameRepository.save(game)
+        game.lastActivityAt = Instant.now()
 
         val savedMessage = chatMessageRepository.save(chatMessage)
 
@@ -195,7 +203,7 @@ class ChatService(
         if (messageType == ChatMessageType.HINT &&
             game.gameState == GameState.IN_PROGRESS &&
             currentPhase == GamePhase.SPEECH &&
-            game.currentPlayerId == player.userId) {
+            game.currentPlayerId == player.id) {
 
             println("[DEBUG] All conditions met for turn progression - Processing hint from current player ${player.nickname}")
 
@@ -216,7 +224,7 @@ class ChatService(
             println("[DEBUG] - Is HINT message: ${messageType == ChatMessageType.HINT}")
             println("[DEBUG] - Game IN_PROGRESS: ${game.gameState == GameState.IN_PROGRESS}")
             println("[DEBUG] - Phase SPEECH: ${currentPhase == GamePhase.SPEECH}")
-            println("[DEBUG] - Is current player: ${game.currentPlayerId == player.userId}")
+            println("[DEBUG] - Is current player: ${game.currentPlayerId == player.id}")
         }
 
         return ChatMessageResponse.from(savedMessage)
@@ -255,13 +263,13 @@ class ChatService(
             return
         }
 
-        // 다음 플레이어의 ��� 시작
+        // 다음 플레이어의 차례 시작
         val nextPlayerNickname = turnOrder[game.currentTurnIndex]
         val players = playerRepository.findByGame(game)
         val nextPlayer = players.find { it.nickname == nextPlayerNickname }
 
         if (nextPlayer != null) {
-            game.currentPlayerId = nextPlayer.id
+            game.currentPlayerId = nextPlayer.userId
             game.turnStartedAt = Instant.now()
             game.phaseEndTime = Instant.now().plusSeconds(gameProperties.turnTimeoutSeconds)
             gameRepository.save(game)

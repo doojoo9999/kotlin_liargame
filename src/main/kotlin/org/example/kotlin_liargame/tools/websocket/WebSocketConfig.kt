@@ -109,9 +109,24 @@ class WebSocketConfig(
                                 val httpSession = accessor.sessionAttributes?.get("HTTP.SESSION") as? jakarta.servlet.http.HttpSession
 
                                 if (httpSession != null) {
-                                    // JSON 직렬화 방식으로 사용자 정보 가져오기
-                                    val userId = sessionUtil.getUserId(httpSession)
-                                    val nickname = sessionUtil.getUserNickname(httpSession)
+                                    // JSON 직렬화 방식으로 사용자 정보 가져오기 (재시도 메커니즘 포함)
+                                    var userId = sessionUtil.getUserId(httpSession)
+                                    var nickname = sessionUtil.getUserNickname(httpSession)
+
+                                    // 세션 정보가 없는 경우 Redis 동기화를 위해 재시도
+                                    if (userId == null || nickname == null) {
+                                        println("[WARN] Initial session data not found during WebSocket connect, attempting retry...")
+                                        Thread.sleep(50) // 짧은 지연
+                                        userId = sessionUtil.getUserId(httpSession)
+                                        nickname = sessionUtil.getUserNickname(httpSession)
+
+                                        if (userId == null || nickname == null) {
+                                            // 두 번째 시도
+                                            Thread.sleep(100)
+                                            userId = sessionUtil.getUserId(httpSession)
+                                            nickname = sessionUtil.getUserNickname(httpSession)
+                                        }
+                                    }
 
                                     if (userId != null) {
                                         // WebSocket 세션 속성을 HTTP 세션의 최신 정보로 업데이트
@@ -129,7 +144,7 @@ class WebSocketConfig(
                                             webSocketSessionManager.storeSession(wsSessionId, httpSession)
                                         }
                                     } else {
-                                        println("[WARN] No userId found in HTTP session")
+                                        println("[WARN] No userId found in HTTP session after retries")
                                     }
 
                                     // Register connection with ConnectionManager

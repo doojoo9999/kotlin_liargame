@@ -13,7 +13,7 @@ data class PlayerVotedEvent(
 data class HintSubmittedEvent(
     val type: String = "HINT_SUBMITTED",
     val gameNumber: Int,
-    val playerId: Long,
+    val userId: Long,
     val hint: String,
     val timestamp: Instant = Instant.now()
 )
