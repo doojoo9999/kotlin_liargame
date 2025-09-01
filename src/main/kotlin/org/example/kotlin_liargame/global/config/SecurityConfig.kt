@@ -1,11 +1,16 @@
 package org.example.kotlin_liargame.global.config
 
+import org.example.kotlin_liargame.global.security.SessionDataManager
+import org.example.kotlin_liargame.global.security.SessionManagementService
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
 import org.springframework.security.config.http.SessionCreationPolicy
+import org.springframework.security.core.session.SessionRegistry
+import org.springframework.security.core.session.SessionRegistryImpl
 import org.springframework.security.web.SecurityFilterChain
+import org.springframework.security.web.session.HttpSessionEventPublisher
 import org.springframework.web.cors.CorsConfiguration
 import org.springframework.web.cors.CorsConfigurationSource
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource
@@ -20,12 +25,34 @@ class SecurityConfig {
             .cors { it.configurationSource(corsConfigurationSource()) }
             .csrf { it.disable() }
             .headers { it.frameOptions { it.sameOrigin() } }
-            .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED) }
+            .sessionManagement { sessionManagement ->
+                sessionManagement
+                    .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
+                    .maximumSessions(1) // 사용자당 최대 1개 세션 허용
+                    .maxSessionsPreventsLogin(false) // false: 새 로그인 시 기존 세션 무효화
+                    .expiredUrl("/login?expired") // 세션 만료 시 리다이렉트 URL
+                    .sessionRegistry(sessionRegistry())
+            }
             .authorizeHttpRequests {
                 it.anyRequest().permitAll()
             }
 
         return http.build()
+    }
+
+    @Bean
+    fun sessionRegistry(): SessionRegistry {
+        return SessionRegistryImpl()
+    }
+
+    @Bean
+    fun httpSessionEventPublisher(): HttpSessionEventPublisher {
+        return HttpSessionEventPublisher()
+    }
+
+    @Bean
+    fun sessionManagementService(sessionDataManager: SessionDataManager, sessionRegistry: SessionRegistry): SessionManagementService {
+        return SessionManagementService(sessionDataManager, sessionRegistry)
     }
 
     @Bean

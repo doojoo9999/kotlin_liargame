@@ -1,83 +1,28 @@
-[ChatService] Using actual game currentPhase: SPEECH
-[ChatService] Current phase: SPEECH
-[ChatService] In SPEECH phase
-[ChatService] Current player ID: 55
-[ChatService] Is current player: false
-[ChatService] Not current turn player, returning null
+e: file:///D:/workspaces/kotlin_liargame/src/main/kotlin/org/example/kotlin_liargame/global/config/SecurityConfig.kt:96:17 Expecting a top level declaration
+e: file:///D:/workspaces/kotlin_liargame/src/main/kotlin/org/example/kotlin_liargame/global/config/SecurityConfig.kt:96:19 Expecting a top level declaration
+e: file:///D:/workspaces/kotlin_liargame/src/main/kotlin/org/example/kotlin_liargame/global/config/SecurityConfig.kt:96:20 Expecting a top level declaration
+e: file:///D:/workspaces/kotlin_liargame/src/main/kotlin/org/example/kotlin_liargame/global/config/SecurityConfig.kt:96:30 Expecting a top level declaration
+e: file:///D:/workspaces/kotlin_liargame/src/main/kotlin/org/example/kotlin_liargame/global/config/SecurityConfig.kt:96:31 Expecting a top level declaration
+e: file:///D:/workspaces/kotlin_liargame/src/main/kotlin/org/example/kotlin_liargame/global/config/SecurityConfig.kt:96:32 Expecting a top level declaration
+e: file:///D:/workspaces/kotlin_liargame/src/main/kotlin/org/example/kotlin_liargame/global/config/SecurityConfig.kt:96:33 Expecting a top level declaration
+e: file:///D:/workspaces/kotlin_liargame/src/main/kotlin/org/example/kotlin_liargame/global/config/SecurityConfig.kt:96:42 Expecting a top level declaration
+e: file:///D:/workspaces/kotlin_liargame/src/main/kotlin/org/example/kotlin_liargame/global/config/SecurityConfig.kt:96:43 Expecting a top level declaration
+e: file:///D:/workspaces/kotlin_liargame/src/main/kotlin/org/example/kotlin_liargame/global/config/SecurityConfig.kt:97:13 Expecting a top level declaration
+e: file:///D:/workspaces/kotlin_liargame/src/main/kotlin/org/example/kotlin_liargame/global/config/SecurityConfig.kt:99:9 Expecting a top level declaration
+e: file:///D:/workspaces/kotlin_liargame/src/main/kotlin/org/example/kotlin_liargame/global/config/SecurityConfig.kt:99:16 Expecting a top level declaration
+e: file:///D:/workspaces/kotlin_liargame/src/main/kotlin/org/example/kotlin_liargame/global/config/SecurityConfig.kt:99:20 Expecting a top level declaration
+e: file:///D:/workspaces/kotlin_liargame/src/main/kotlin/org/example/kotlin_liargame/global/config/SecurityConfig.kt:99:21 Expecting a top level declaration
+e: file:///D:/workspaces/kotlin_liargame/src/main/kotlin/org/example/kotlin_liargame/global/config/SecurityConfig.kt:99:26 Expecting a top level declaration
+e: file:///D:/workspaces/kotlin_liargame/src/main/kotlin/org/example/kotlin_liargame/global/config/SecurityConfig.kt:99:27 Expecting a top level declaration
+e: file:///D:/workspaces/kotlin_liargame/src/main/kotlin/org/example/kotlin_liargame/global/config/SecurityConfig.kt:100:5 Expecting a top level declaration
+e: file:///D:/workspaces/kotlin_liargame/src/main/kotlin/org/example/kotlin_liargame/global/config/SecurityConfig.kt:141:1 Expecting a top level declaration
+e: file:///D:/workspaces/kotlin_liargame/src/main/kotlin/org/example/kotlin_liargame/global/config/SecurityConfig.kt:30:38 Function invocation 'sessionRegistry()' expected
+e: file:///D:/workspaces/kotlin_liargame/src/main/kotlin/org/example/kotlin_liargame/global/config/SecurityConfig.kt:36:26 Unresolved reference: ConcurrentSessionFilter
+e: file:///D:/workspaces/kotlin_liargame/src/main/kotlin/org/example/kotlin_liargame/global/config/SecurityConfig.kt:36:50 Function invocation 'sessionRegistry()' expected
+e: file:///D:/workspaces/kotlin_liargame/src/main/kotlin/org/example/kotlin_liargame/global/config/SecurityConfig.kt:36:68 Unresolved reference: ConcurrentSessionFilter
+e: file:///D:/workspaces/kotlin_liargame/src/main/kotlin/org/example/kotlin_liargame/global/config/SecurityConfig.kt:42:28 Unresolved reference: SessionRegistry
+e: file:///D:/workspaces/kotlin_liargame/src/main/kotlin/org/example/kotlin_liargame/global/config/SecurityConfig.kt:43:16 Unresolved reference: SessionRegistryImpl
+e: file:///D:/workspaces/kotlin_liargame/src/main/kotlin/org/example/kotlin_liargame/global/config/SecurityConfig.kt:47:38 Unresolved reference: HttpSessionEventPublisher
+e: file:///D:/workspaces/kotlin_liargame/src/main/kotlin/org/example/kotlin_liargame/global/config/SecurityConfig.kt:48:16 Unresolved reference: HttpSessionEventPublisher
+e: file:///D:/workspaces/kotlin_liargame/src/main/kotlin/org/example/kotlin_liargame/global/config/SecurityConfig.kt:52:91 Unresolved reference: SessionRegistry
 
-react-dom-client.development.js:7563  Encountered two children with the same key, `scoreboard-undefined`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version.
-(anonymous) @ react-dom-client.development.js:7563
-HintHistory.tsx:12 [HintHistory] DEBUG - All messages: Array(20)
-HintHistory.tsx:13 [HintHistory] DEBUG - Game state: Object
-HintHistory.tsx:18 [HintHistory] DEBUG - Message: Object isHint: false
-HintHistory.tsx:18 [HintHistory] DEBUG - Message: Object isHint: false
-HintHistory.tsx:18 [HintHistory] DEBUG - Message: Object isHint: false
-HintHistory.tsx:18 [HintHistory] DEBUG - Message: Object isHint: false
-HintHistory.tsx:18 [HintHistory] DEBUG - Message: Object isHint: false
-HintHistory.tsx:18 [HintHistory] DEBUG - Message: Object isHint: false
-HintHistory.tsx:18 [HintHistory] DEBUG - Message: Object isHint: false
-HintHistory.tsx:18 [HintHistory] DEBUG - Message: Object isHint: false
-HintHistory.tsx:18 [HintHistory] DEBUG - Message: Object isHint: false
-HintHistory.tsx:18 [HintHistory] DEBUG - Message: Object isHint: false
-HintHistory.tsx:18 [HintHistory] DEBUG - Message: Object isHint: false
-HintHistory.tsx:18 [HintHistory] DEBUG - Message: Object isHint: false
-HintHistory.tsx:18 [HintHistory] DEBUG - Message: Object isHint: false
-HintHistory.tsx:18 [HintHistory] DEBUG - Message: Object isHint: false
-HintHistory.tsx:18 [HintHistory] DEBUG - Message: Object isHint: false
-HintHistory.tsx:18 [HintHistory] DEBUG - Message: Object isHint: false
-HintHistory.tsx:18 [HintHistory] DEBUG - Message: Object isHint: false
-HintHistory.tsx:18 [HintHistory] DEBUG - Message: Object isHint: false
-HintHistory.tsx:18 [HintHistory] DEBUG - Message: Object isHint: false
-HintHistory.tsx:18 [HintHistory] DEBUG - Message: Object isHint: false
-HintHistory.tsx:22 [HintHistory] DEBUG - Filtered hint messages: Array(0)
-HintHistory.tsx:28 [HintHistory] DEBUG - Turn order: Array(3)
-HintHistory.tsx:29 [HintHistory] DEBUG - Fallback turn order: Array(0)
-HintHistory.tsx:30 [HintHistory] DEBUG - Actual turn order: Array(3)
-HintHistory.tsx:36 [HintHistory] DEBUG - Player: 테스트 hints: Array(0)
-HintHistory.tsx:36 [HintHistory] DEBUG - Player: 사용자 hints: Array(0)
-HintHistory.tsx:36 [HintHistory] DEBUG - Player: Admin hints: Array(0)
-HintHistory.tsx:46 [HintHistory] DEBUG - Organized hints: Array(3)
-HintHistory.tsx:12 [HintHistory] DEBUG - All messages: Array(20)
-HintHistory.tsx:13 [HintHistory] DEBUG - Game state: Object
-HintHistory.tsx:18 [HintHistory] DEBUG - Message: Object isHint: false
-HintHistory.tsx:18 [HintHistory] DEBUG - Message: Object isHint: false
-HintHistory.tsx:18 [HintHistory] DEBUG - Message: Object isHint: false
-HintHistory.tsx:18 [HintHistory] DEBUG - Message: Object isHint: false
-HintHistory.tsx:18 [HintHistory] DEBUG - Message: Object isHint: false
-HintHistory.tsx:18 [HintHistory] DEBUG - Message: Object isHint: false
-HintHistory.tsx:18 [HintHistory] DEBUG - Message: Object isHint: false
-HintHistory.tsx:18 [HintHistory] DEBUG - Message: Object isHint: false
-HintHistory.tsx:18 [HintHistory] DEBUG - Message: Object isHint: false
-HintHistory.tsx:18 [HintHistory] DEBUG - Message: Object isHint: false
-HintHistory.tsx:18 [HintHistory] DEBUG - Message: Object isHint: false
-HintHistory.tsx:18 [HintHistory] DEBUG - Message: Object isHint: false
-HintHistory.tsx:18 [HintHistory] DEBUG - Message: Object isHint: false
-HintHistory.tsx:18 [HintHistory] DEBUG - Message: Object isHint: false
-HintHistory.tsx:18 [HintHistory] DEBUG - Message: Object isHint: false
-HintHistory.tsx:18 [HintHistory] DEBUG - Message: Object isHint: false
-HintHistory.tsx:18 [HintHistory] DEBUG - Message: Object isHint: false
-HintHistory.tsx:18 [HintHistory] DEBUG - Message: Object isHint: false
-HintHistory.tsx:18 [HintHistory] DEBUG - Message: Object isHint: false
-HintHistory.tsx:18 [HintHistory] DEBUG - Message: Object isHint: false
-HintHistory.tsx:22 [HintHistory] DEBUG - Filtered hint messages: Array(0)
-HintHistory.tsx:28 [HintHistory] DEBUG - Turn order: Array(3)
-HintHistory.tsx:29 [HintHistory] DEBUG - Fallback turn order: Array(0)
-HintHistory.tsx:30 [HintHistory] DEBUG - Actual turn order: Array(3)
-HintHistory.tsx:36 [HintHistory] DEBUG - Player: 테스트 hints: Array(0)
-HintHistory.tsx:36 [HintHistory] DEBUG - Player: 사용자 hints: Array(0)
-HintHistory.tsx:36 [HintHistory] DEBUG - Player: Admin hints: Array(0)
-HintHistory.tsx:46 [HintHistory] DEBUG - Organized hints: Array(3)
-ChatBox.tsx:46 [ChatBox DEBUG] Current user: Object
-ChatBox.tsx:47 [ChatBox DEBUG] Game players: Array(3)
-ChatBox.tsx:48 [ChatBox DEBUG] Found current player: undefined
-ChatBox.tsx:49 [ChatBox DEBUG] Game phase: SPEECH
-ChatBox.tsx:50 [ChatBox DEBUG] isChatAvailable from backend: false
-ChatBox.tsx:53 [ChatBox ERROR] Player not found! Auth nickname: 사용자
-ChatBox.tsx:54 [ChatBox ERROR] Available players: Array(3)
-ChatBox.tsx:46 [ChatBox DEBUG] Current user: Object
-ChatBox.tsx:47 [ChatBox DEBUG] Game players: Array(3)
-ChatBox.tsx:48 [ChatBox DEBUG] Found current player: undefined
-ChatBox.tsx:49 [ChatBox DEBUG] Game phase: SPEECH
-ChatBox.tsx:50 [ChatBox DEBUG] isChatAvailable from backend: false
-ChatBox.tsx:53 [ChatBox ERROR] Player not found! Auth nickname: 사용자
-ChatBox.tsx:54 [ChatBox ERROR] Available players: Array(3)

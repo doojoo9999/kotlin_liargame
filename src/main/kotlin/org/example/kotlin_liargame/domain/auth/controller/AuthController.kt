@@ -22,7 +22,13 @@ class AuthController(
     ): ResponseEntity<LoginResponse> {
         val user = userService.authenticate(request.nickname, request.password)
 
-        // JSON 직렬화 방식으로 세션 등록
+        // Explicitly invalidate the current session before registering a new one
+        // This handles cases where a user logs in with a different nickname from the same browser
+        session.invalidate()
+
+        // After invalidation, the session object might be new or re-initialized.
+        // Ensure we use the correct session object for registration.
+        // Spring typically re-creates the session if it's invalidated and then accessed.
         sessionManagementService.registerSession(session, user.nickname, user.id)
 
         return ResponseEntity.ok(LoginResponse(

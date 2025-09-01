@@ -583,13 +583,18 @@ class DefenseService(
                 game.phaseEndTime = Instant.now().plusSeconds(gameProperties.topicGuessTimeSeconds.toLong())
                 gameRepository.save(game)
                 
+                // 업데이트된 게임 상태 브로드캐스트
+                gameMessagingService.broadcastGameState(game.gameNumber, game.gameState.name)
+                
                 sendModeratorMessage(
                     gameNumber,
                     "라이어가 처형되었습니다. 라이어는 주제를 맞춰보세요!"
                 )
 
                 // 득점 훅: Step 4에서 처리할 수 있도록 명확한 지점 표시
-                // TODO: Step 4 - 라이어 처형 시 시민 득점 로직 구현 필요
+                val finalVotingRecordMap = votingStatus.mapValues { it.value ?: false }
+                val awardedCitizens = gameProgressService.awardCitizenVictoryPoints(game, finalVotingRecordMap)
+                println("[DefenseService] Awarded points to ${awardedCitizens.size} citizens for executing the liar.")
                 
             } else {
                 // 변론자가 시민이면: 라이어 승리로 즉시 종료
@@ -599,7 +604,10 @@ class DefenseService(
                 )
                 
                 // 득점 훅: Step 4에서 처리할 수 있도록 명확한 지점 표시
-                // TODO: Step 4 - 시민 처형 시 라이어 승리 득점 로직 구현 필요
+                val awardedLiar = gameProgressService.awardLiarVictoryPoints(game, "시민 처형으로 라이어 승리")
+                if (awardedLiar != null) {
+                    println("[DefenseService] Awarded points to liar ${awardedLiar.nickname} for citizen execution.")
+                }
                 
                 // 게임 즉시 종료 처리 (라이어 승리)
                 taskScheduler.schedule({
