@@ -28,10 +28,29 @@ class SessionDataManager(
 
             val jsonData = objectMapper.writeValueAsString(data)
             session.setAttribute(key, jsonData)
+
+            // flush-mode가 immediate로 설정되어 있으므로 자동으로 Redis에 즉시 반영됨
+            // 추가적으로 세션을 터치하여 변경 사항 확실히 반영
+            touchSession(session)
+
         } catch (e: IllegalStateException) {
             throw SessionDataException("Failed to serialize session data for key: $key - session invalidated", e)
         } catch (e: Exception) {
             throw SessionDataException("Failed to serialize session data for key: $key", e)
+        }
+    }
+
+    /**
+     * 세션을 터치하여 변경 사항을 확실히 Redis에 반영
+     */
+    private fun touchSession(session: HttpSession) {
+        try {
+            // 세션의 lastAccessedTime을 업데이트하여 변경 사항 반영 보장
+            session.setAttribute("_touch", System.currentTimeMillis())
+            session.removeAttribute("_touch")
+        } catch (e: Exception) {
+            // 터치 실패는 로그만 남기고 계속 진행
+            println("[WARNING] Failed to touch session: ${e.message}")
         }
     }
 

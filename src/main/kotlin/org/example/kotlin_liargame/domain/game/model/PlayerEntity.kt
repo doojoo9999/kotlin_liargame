@@ -76,8 +76,8 @@ class PlayerEntity (
         this.state = PlayerState.GAVE_HINT
     }
 
-    fun voteFor(playerId: Long) {
-        this.votedFor = playerId
+    fun voteFor(userId: Long) {
+        votedFor = userId
         this.state = PlayerState.VOTED
     }
 

@@ -3,7 +3,7 @@ package org.example.kotlin_liargame.domain.game.dto.response
 import org.example.kotlin_liargame.domain.game.model.PlayerEntity
 
 data class ScoreboardEntry(
-    val playerId: Long,
+    val userId: Long,
     val nickname: String,
     val isAlive: Boolean,
     val score: Int
@@ -11,7 +11,7 @@ data class ScoreboardEntry(
     companion object {
         fun from(player: PlayerEntity): ScoreboardEntry {
             return ScoreboardEntry(
-                playerId = player.id,
+                userId = player.userId,
                 nickname = player.nickname,
                 isAlive = player.isAlive,
                 score = player.cumulativeScore

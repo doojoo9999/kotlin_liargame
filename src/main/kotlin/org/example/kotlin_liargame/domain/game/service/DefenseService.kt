@@ -112,7 +112,7 @@ class DefenseService(
 
         val submissionMessage = DefenseSubmissionMessage(
             gameNumber = gameNumber,
-            playerId = playerId,
+            userId = playerId,
             playerNickname = player.nickname,
             defenseText = defenseText,
             timestamp = Instant.now()
@@ -132,7 +132,7 @@ class DefenseService(
         
         return DefenseSubmissionResponse(
             gameNumber = gameNumber,
-            playerId = playerId,
+            userId = playerId,
             playerNickname = player.nickname,
             defenseText = defenseText,
             success = true
@@ -219,7 +219,7 @@ class DefenseService(
             "/topic/game/$gameNumber/defense-ended",
             DefenseSubmissionMessage(
                 gameNumber = gameNumber,
-                playerId = playerId,
+                userId = playerId,
                 playerNickname = player.nickname,
                 defenseText = finalDefenseText,
                 timestamp = Instant.now()
