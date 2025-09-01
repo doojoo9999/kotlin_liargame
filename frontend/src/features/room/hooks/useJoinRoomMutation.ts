@@ -1,16 +1,22 @@
 import {useMutation, useQueryClient} from '@tanstack/react-query';
 import {useNavigate} from 'react-router-dom';
 import {useNotifications} from '../../../shared/hooks';
+import type {JoinRoomPayload} from '../api/joinRoom';
 import {joinRoom} from '../api/joinRoom';
 import {isAxiosError} from 'axios';
+
+import {useUserStore} from '../../../shared/stores/userStore';
 
 export const useJoinRoomMutation = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { showError } = useNotifications();
+  const nickname = useUserStore((state) => state.nickname);
 
   return useMutation({
-    mutationFn: joinRoom,
+    mutationFn: (data: Omit<JoinRoomPayload, 'nickname'>) => {
+      return joinRoom({ ...data, nickname });
+    },
     onSuccess: (data) => {
       const gameNumber = data.gameNumber;
       console.log(`Successfully joined room #${gameNumber}`);

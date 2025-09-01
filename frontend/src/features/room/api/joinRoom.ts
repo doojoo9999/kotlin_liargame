@@ -4,6 +4,7 @@ import type {GameStateResponse} from '../types'; // We'll create/update this typ
 export interface JoinRoomPayload {
   gameNumber: number;
   gamePassword?: string;
+  nickname: string | null;
 }
 
 export const joinRoom = async (data: JoinRoomPayload): Promise<GameStateResponse> => {

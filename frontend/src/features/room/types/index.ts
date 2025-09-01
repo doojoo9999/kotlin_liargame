@@ -18,7 +18,8 @@ export interface GameRoom {
 
 export interface Player {
   id: number;
-  userId: number;  // User 테이블 ID 참조 (비즈니�� 로직용)
+  userId: number;  // User 테이블 ID 참조 (비즈니스 로직용)
+  nickname: string;
   isOwner: boolean;
   isReady: boolean;
   role?: 'LIAR' | 'CITIZEN';
@@ -27,8 +28,8 @@ export interface Player {
 }
 
 export interface ScoreboardEntry {
-  playerId: number;
-  userId: number;  // playerId -> userId로 변경하여 일관성 확보
+  userId: number;
+  nickname: string;
   role: string;
   isAlive: boolean;
   score: number;

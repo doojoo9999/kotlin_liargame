@@ -40,8 +40,7 @@ export function ChatBox({ messages, onSendMessage, disabled, gameState }: ChatBo
         return { disabled: true, message: "사용자 정보가 없습니다." };
       }
 
-      // 현재 플레이어 찾기 - nickname으로 매칭
-      const currentPlayer = gameState.players.find(p => p.nickname === currentUser.nickname);
+      const currentPlayer = gameState.players.find(p => p.userId === currentUser.userId);
 
       // 디버깅 정보 출력
       console.log('[ChatBox DEBUG] Current user:', currentUser);
@@ -52,7 +51,7 @@ export function ChatBox({ messages, onSendMessage, disabled, gameState }: ChatBo
 
       if (!currentPlayer) {
         console.log('[ChatBox ERROR] Player not found! Auth nickname:', currentUser.nickname);
-        console.log('[ChatBox ERROR] Available players:', gameState.players.map(p => p.nickname));
+        console.log('[ChatBox ERROR] Available players:', gameState.players.map(p => p.userId));
 
         // 게임이 종료되었거나 플레이어가 게임에서 제거된 경우
           if (!currentPlayer){

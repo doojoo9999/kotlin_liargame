@@ -183,14 +183,14 @@ class GameResultService(
             throw IllegalStateException("Cannot proceed to next round")
         }
         
-        gameRepository.save(game)
+        gameRepository.save(game) // Save the incremented round number
         
-        val players = playerRepository.findByGame(game)
-        players.forEach { player ->
-            player.resetForNewRound()
-        }
-        playerRepository.saveAll(players)
+        // Prepare the new round's state (roles, turns, etc.)
+        gameProgressService.prepareNewRound(game)
         
+        // Start the first turn of the new round
+        gameProgressService.startNewTurn(game)
+
         val response = NextRoundResponse(
             gameNumber = gameNumber,
             currentRound = game.gameCurrentRound,

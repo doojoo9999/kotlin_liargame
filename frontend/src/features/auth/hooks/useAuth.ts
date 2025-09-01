@@ -7,15 +7,9 @@ interface UserInfo {
   sessionId?: string;
 }
 
-interface AuthResponse {
-  userId: number;
-  nickname: string;
-  sessionId: string;
-}
-
 const fetchCurrentUser = async (): Promise<UserInfo> => {
   try {
-    const response = await fetch('/api/v1/auth/me', {
+    const response = await fetch('/api/v1/auth/check', {
       credentials: 'include',
       method: 'GET'
     });
@@ -24,13 +18,8 @@ const fetchCurrentUser = async (): Promise<UserInfo> => {
       return { authenticated: false };
     }
 
-    const data: AuthResponse = await response.json();
-    return {
-      authenticated: true,
-      userId: data.userId,
-      nickname: data.nickname,
-      sessionId: data.sessionId
-    };
+    const data: UserInfo = await response.json();
+    return data;
   } catch (error) {
     console.error('Failed to fetch user info:', error);
     return { authenticated: false };
