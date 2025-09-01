@@ -16,56 +16,86 @@ class SessionManagementService(
     private val sessionIdToNickname = ConcurrentHashMap<String, String>()
 
     fun registerSession(session: HttpSession, nickname: String, userId: Long): SessionRegistrationResult {
-        val sessionId = session.id
-        val now = LocalDateTime.now()
-        
-        val existingSession = activeSessions[nickname]
-        if (existingSession != null) {
-            if (existingSession.sessionId == sessionId) {
-                existingSession.lastActivity = now
-                return SessionRegistrationResult.SUCCESS
+        try {
+            val sessionId = session.id
+            val now = LocalDateTime.now()
+
+            // 기존 세션이 있는지 확인하고 처리
+            val existingSession = activeSessions[nickname]
+            if (existingSession != null) {
+                if (existingSession.sessionId == sessionId) {
+                    // 같은 세션이면 활동 시간만 업데이트
+                    existingSession.lastActivity = now
+                    return SessionRegistrationResult.SUCCESS
+                }
+
+                println("[SECURITY] Concurrent login detected for nickname: $nickname. Previous session invalidated.")
+                // 기존 세션 정보를 메모리에서 제거
+                activeSessions.remove(nickname)
+                sessionIdToNickname.remove(existingSession.sessionId)
+
+                // Spring Security의 SessionRegistry에서도 기존 세션 제거
+                sessionRegistry.getAllSessions(nickname, false).forEach { sessionInfo ->
+                    sessionInfo.expireNow()
+                }
             }
-            
-            println("[SECURITY] Concurrent login detected for nickname: $nickname. Previous session invalidated.")
-            activeSessions.remove(nickname)
-            sessionIdToNickname.remove(existingSession.sessionId)
+
+            // 새 세션 등록 전에 세션 유효성 확인
+            if (isSessionInvalid(session)) {
+                println("[ERROR] Cannot register session - session is already invalidated")
+                return SessionRegistrationResult.FAILED
+            }
+
+            // 새 세션 정보 생성
+            val sessionInfo = SessionInfo(
+                sessionId = sessionId,
+                nickname = nickname,
+                userId = userId,
+                loginTime = now,
+                lastActivity = now,
+                ipAddress = getSessionIpAddress(session)
+            )
+
+            activeSessions[nickname] = sessionInfo
+            sessionIdToNickname[sessionId] = nickname
+
+            // 세션 데이터 저장 (예외 처리 추가)
+            try {
+                val userSessionData = UserSessionData(
+                    userId = userId,
+                    nickname = nickname,
+                    loginTime = now,
+                    lastActivity = now,
+                    ipAddress = getSessionIpAddress(session)
+                )
+                sessionDataManager.setUserSession(session, userSessionData)
+
+                val sessionMetadata = SessionMetadata(
+                    sessionId = sessionId,
+                    userAgent = extractUserAgent(session),
+                    ipAddress = getSessionIpAddress(session),
+                    createdAt = now,
+                    expiresAt = now.plusMinutes(30)
+                )
+                sessionDataManager.setSessionMetadata(session, sessionMetadata)
+
+                session.maxInactiveInterval = 1800 // 30분
+
+                println("[SECURITY] Session registered for user: $nickname (ID: $userId) using JSON serialization")
+                return SessionRegistrationResult.SUCCESS
+
+            } catch (e: Exception) {
+                println("[ERROR] Failed to set session data: ${e.message}")
+                // 세션 데이터 설정 실패 시 메모리에서 세션 정보 제거
+                activeSessions.remove(nickname)
+                sessionIdToNickname.remove(sessionId)
+                return SessionRegistrationResult.FAILED
+            }
+
+        } catch (e: Exception) {
+            println("[ERROR] Session registration failed for user $nickname: ${e.message}")
+            return SessionRegistrationResult.FAILED
         }
-        
-        // 새 세션 등록
-        val sessionInfo = SessionInfo(
-            sessionId = sessionId,
-            nickname = nickname,
-            userId = userId,
-            loginTime = now,
-            lastActivity = now,
-            ipAddress = getSessionIpAddress(session)
-        )
-        
-        activeSessions[nickname] = sessionInfo
-        sessionIdToNickname[sessionId] = nickname
-        
-        val userSessionData = UserSessionData(
-            userId = userId,
-            nickname = nickname,
-            loginTime = now,
-            lastActivity = now,
-            ipAddress = getSessionIpAddress(session)
-        )
-        sessionDataManager.setUserSession(session, userSessionData)
-
-        val sessionMetadata = SessionMetadata(
-            sessionId = sessionId,
-            userAgent = extractUserAgent(session),
-            ipAddress = getSessionIpAddress(session),
-            createdAt = now,
-            expiresAt = now.plusMinutes(30) // 30분 후 만료
-        )
-        sessionDataManager.setSessionMetadata(session, sessionMetadata)
-
-        session.maxInactiveInterval = 1800 // 30분
-        
-        println("[SECURITY] Session registered for user: $nickname (ID: $userId) using JSON serialization")
-        return SessionRegistrationResult.SUCCESS
     }
 
     fun registerAdminSession(session: HttpSession, nickname: String, userId: Long, permissions: Set<String> = emptySet()): SessionRegistrationResult {
@@ -203,6 +233,17 @@ class SessionManagementService(
     }
     
 
+    // 세션 유효성 확인 헬퍼 메서드
+    private fun isSessionInvalid(session: HttpSession): Boolean {
+        return try {
+            session.id // 세션 ID 접근 시도
+            session.creationTime // 세션 생성 시간 접근 시도
+            false
+        } catch (e: IllegalStateException) {
+            true // 세션이 무효화된 경우
+        }
+    }
+
     private fun getSessionIpAddress(session: HttpSession): String {
         return try {
             "unknown"
@@ -259,7 +300,8 @@ data class SessionInfo(
 
 enum class SessionRegistrationResult {
     SUCCESS,
-    CONCURRENT_SESSION_REPLACED
+    CONCURRENT_SESSION_REPLACED,
+    FAILED
 }
 
 enum class SessionValidationResult {
@@ -274,3 +316,4 @@ data class SessionStatistics(
     val activeInLast5Minutes: Int,
     val loginsInLastHour: Int
 )
+
