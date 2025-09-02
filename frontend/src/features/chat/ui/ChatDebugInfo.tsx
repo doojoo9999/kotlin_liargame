@@ -17,11 +17,12 @@ export function ChatDebugInfo({ gameNumber }: ChatDebugInfoProps) {
   });
 
   useEffect(() => {
-    // WebSocket URL 확인
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:20021';
+    // WebSocket URL 확인 (WEBSOCKET > API > window.origin 순)
+    const baseUrl = (import.meta.env.VITE_WEBSOCKET_URL as string) || (import.meta.env.VITE_API_BASE_URL as string) || window.location.origin;
+    const wsUrl = baseUrl.endsWith('/ws') ? baseUrl : `${baseUrl.replace(/\/$/, '')}/ws`;
     setDebugInfo(prev => ({
       ...prev,
-      url: `${baseUrl}/ws`
+      url: wsUrl
     }));
   }, []);
 

@@ -3,7 +3,9 @@ import {Client} from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import {logger} from '../utils/logger';
 
-const WEBSOCKET_URL = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:20021'}/ws`;
+const base = (import.meta.env.VITE_WEBSOCKET_URL as string) || (import.meta.env.VITE_API_BASE_URL as string) || window.location.origin;
+const normalized = base.endsWith('/ws') ? base : `${base.replace(/\/$/, '')}/ws`;
+const WEBSOCKET_URL = normalized;
 
 /**
  * This file is responsible for creating and configuring a single STOMP client instance.
