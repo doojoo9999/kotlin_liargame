@@ -246,15 +246,23 @@ class SessionManagementService(
 
     private fun getSessionIpAddress(session: HttpSession): String {
         return try {
+            // 세션에 사전 저장된 IP(필터 등에서 setAttribute("CLIENT_IP", ip)) 우선 사용
+            (session.getAttribute("CLIENT_IP") as? String)?.takeIf { it.isNotBlank() }
+                ?: (session.getAttribute("IP_ADDRESS") as? String)?.takeIf { it.isNotBlank() }
+                ?: "unknown"
+        } catch (e: IllegalStateException) {
+            // 세션 무효화 상태
             "unknown"
         } catch (e: Exception) {
             "unknown"
         }
     }
     
-
     private fun extractUserAgent(session: HttpSession): String? {
         return try {
+            // 필터나 인터셉터에서 저장 가능: setAttribute("USER_AGENT", request.getHeader("User-Agent"))
+            (session.getAttribute("USER_AGENT") as? String)?.takeIf { it.isNotBlank() }
+        } catch (e: IllegalStateException) {
             null
         } catch (e: Exception) {
             null
@@ -316,4 +324,3 @@ data class SessionStatistics(
     val activeInLast5Minutes: Int,
     val loginsInLastHour: Int
 )
-

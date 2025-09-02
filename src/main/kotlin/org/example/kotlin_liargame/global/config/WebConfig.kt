@@ -34,21 +34,28 @@ class WebConfig(
     }
     
     override fun addCorsMappings(registry: CorsRegistry) {
+        val origins = getAllowedOrigins()
         registry.addMapping("/api/**")
-            .allowedOriginPatterns(*getAllowedOrigins())
+            .allowedOriginPatterns(*origins)
             .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
             .allowedHeaders("*")
             .allowCredentials(true)
             .maxAge(3600)
         
         registry.addMapping("/ws/**")
-            .allowedOriginPatterns(*getAllowedOrigins())
+            .allowedOriginPatterns(*origins)
             .allowedMethods("GET", "POST")
             .allowedHeaders("*")
             .allowCredentials(true)
     }
 
     private fun getAllowedOrigins(): Array<String> {
+        // 1순위: 환경변수 CORS_ALLOWED_ORIGINS (콤마 구분)
+        val envOverride = System.getenv("CORS_ALLOWED_ORIGINS")?.trim()
+        if (!envOverride.isNullOrBlank()) {
+            return envOverride.split(',').map { it.trim() }.filter { it.isNotEmpty() }.toTypedArray()
+        }
+        // 2순위: 프로파일 기반 기본값
         val profile = System.getProperty("spring.profiles.active") ?: "dev"
         
         return when (profile) {
