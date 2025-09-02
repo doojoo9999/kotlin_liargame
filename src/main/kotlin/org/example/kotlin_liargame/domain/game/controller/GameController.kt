@@ -130,7 +130,7 @@ class GameController(
                     "Not authenticated"
                 )
                 
-            val response = votingService.castVote(request.gameNumber, userId, request.targetPlayerId)
+            val response = votingService.castVote(request.gameNumber, userId, request.targetUserId)
             ResponseEntity.ok(response)
             
         } catch (e: Exception) {

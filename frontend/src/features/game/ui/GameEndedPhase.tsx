@@ -40,7 +40,7 @@ export function GameEndedPhase({ gameState }: GameEndedPhaseProps) {
   const { winner, reason } = getGameResult(gameState);
 
   const playerRows = gameState.players.map((player) => (
-    <Table.Tr key={player.id}>
+    <Table.Tr key={player.userId}>
       <Table.Td>{player.nickname}</Table.Td>
       <Table.Td>{player.role === 'LIAR' ? '라이어' : '시민'}</Table.Td>
     </Table.Tr>

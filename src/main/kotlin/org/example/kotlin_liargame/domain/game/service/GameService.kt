@@ -277,10 +277,11 @@ class GameService(
 
         // 플레이어의 채팅 메시지를 먼저 삭제하여 외래키 제약 조건 위반 방지
         try {
-            val deletedChatCount = chatService.deletePlayerChatMessages(player.id)
-            logger.debug("Deleted $deletedChatCount chat messages for player ${player.id} in game ${game.gameNumber}")
+            // chatService.deletePlayerChatMessages는 userId 기반으로 동작함
+            val deletedChatCount = chatService.deletePlayerChatMessages(player.userId)
+            logger.debug("Deleted $deletedChatCount chat messages for player userId=${player.userId} (pk=${player.id}) in game ${game.gameNumber}")
         } catch (e: Exception) {
-            logger.error("Failed to delete chat messages for player ${player.id}: ${e.message}", e)
+            logger.error("Failed to delete chat messages for player userId=${player.userId} (pk=${player.id}): ${e.message}", e)
             throw RuntimeException("채팅 메시지 삭제 중 오류가 발생했습니다: ${e.message}")
         }
 
@@ -394,7 +395,7 @@ class GameService(
 
             logger.debug("Game ${game.gameNumber} (ID: ${game.id}): found ${players.size} players")
             players.forEach { player ->
-                logger.debug("  - Player: ${player.nickname} (ID: ${player.id}, User: ${player.userId})")
+                logger.debug("  - Player: ${player.nickname} (userId=${player.userId}, pk=${player.id})")
             }
             logger.debug("Game ${game.gameNumber} subjects: $subjectNames")
 
@@ -463,7 +464,8 @@ class GameService(
             .filter { it.finalVote != null }
             .map { FinalVoteResponse(
                 gameNumber = gameNumber,
-                voterPlayerId = it.id,
+                // FinalVoteResponse.voterPlayerId는 userId를 담아야 함
+                voterPlayerId = it.userId,
                 voterNickname = it.nickname,
                 voteForExecution = it.finalVote ?: false,
                 success = true,
@@ -666,8 +668,9 @@ class GameService(
         val player = playerRepository.findByGameAndUserId(game, userId) ?: return
 
         // 플레이어 삭제 전에 해당 플레이어의 채팅 메시지들을 먼저 삭제
-        logger.debug("플레이어 삭제 전 채팅 메시지 정리: playerId={}, nickname={}", player.id, player.nickname)
-        chatService.deletePlayerChatMessages(player.id)
+        logger.debug("플레이어 삭제 전 채팅 메시지 정리: userId={}, nickname={}, pk={}", player.userId, player.nickname, player.id)
+        // 삭제 대상 플레이어의 userId로 채팅 메시지 삭제
+        chatService.deletePlayerChatMessages(player.userId)
 
         playerRepository.delete(player)
 
@@ -760,7 +763,8 @@ class GameService(
         gameRepository.save(game)
 
         // 기존 방장 플레이어 삭제
-        chatService.deletePlayerChatMessages(currentOwner.id)
+        // 현재 owner의 userId로 채팅 메시지 삭제
+        chatService.deletePlayerChatMessages(currentOwner.userId)
         playerRepository.delete(currentOwner)
 
         // 모든 플레이어에게 알림
