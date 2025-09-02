@@ -110,7 +110,7 @@ class GameProgressService(
         println("[GameProgressService] Looking for player: '$nextPlayerNickname'")
         println("[GameProgressService] Available players:")
         players.forEach { player ->
-            println("[GameProgressService]   - '${player.nickname}' (ID: ${player.id}, isAlive: ${player.isAlive})")
+            println("[GameProgressService]   - '${player.nickname}' (userId=${player.userId}, pk=${player.id}, isAlive: ${player.isAlive})")
         }
 
         val nextPlayer = players.find { it.nickname == nextPlayerNickname && it.isAlive }
@@ -125,7 +125,7 @@ class GameProgressService(
             return
         }
 
-        // currentPlayerId는 userId를 저장해야 함 (PlayerEntity.id가 아닌)
+        // currentPlayerId는 userId를 저장해야 함 (PlayerEntity.userId, not PlayerEntity.id)
         game.currentPlayerId = nextPlayer.userId
         game.turnStartedAt = Instant.now()
         game.phaseEndTime = Instant.now().plusSeconds(gameProperties.turnTimeoutSeconds)
@@ -140,8 +140,8 @@ class GameProgressService(
             e.printStackTrace()
         }
 
-        // notifyTurnChanged는 player.id를 사용하는 것이 맞음 (이벤트용)
-        gameMonitoringService.notifyTurnChanged(game.gameNumber, nextPlayer.id, game.turnStartedAt!!)
+        // notifyTurnChanged에 전달되는 currentPlayerId는 userId여야 함
+        gameMonitoringService.notifyTurnChanged(game.gameNumber, nextPlayer.userId, game.turnStartedAt!!)
     }
 
     @Transactional
@@ -350,20 +350,20 @@ class GameProgressService(
      */
     @Transactional
     fun awardPointsAndCheckWin(playerId: Long, points: Int, game: GameEntity): Boolean {
-        val player = playerRepository.findById(playerId).orElseThrow {
-            RuntimeException("Player not found: $playerId")
-        }
-        
-        // 중복 득점 방지를 위한 확인 (같은 라운드에서 이미 점수를 받았는지 체크)
-        val currentScore = player.cumulativeScore
-        player.addScore(points)
-        
-        println("[GameProgressService] Player ${player.nickname} awarded $points points (${currentScore} -> ${player.cumulativeScore})")
-        
-        playerRepository.save(player)
-        
-        // 목표 점수 달성 확인
-        return player.cumulativeScore >= game.targetPoints
+        // playerId 파라미터는 이제 player의 userId로 취급합니다.
+        val player = playerRepository.findByGameAndUserId(game, playerId)
+            ?: throw RuntimeException("Player not found: $playerId")
+
+         // 중복 득점 방지를 위한 확인 (같은 라운드에서 이미 점수를 받았는지 체크)
+         val currentScore = player.cumulativeScore
+         player.addScore(points)
+
+         println("[GameProgressService] Player ${player.nickname} awarded $points points (${currentScore} -> ${player.cumulativeScore})")
+
+         playerRepository.save(player)
+
+         // 목표 점수 달성 확인
+         return player.cumulativeScore >= game.targetPoints
     }
     
     /**
@@ -371,51 +371,52 @@ class GameProgressService(
      */
     @Transactional
     fun awardLiarVictoryPoints(game: GameEntity, reason: String): PlayerEntity? {
-        val players = playerRepository.findByGame(game)
-        val liar = players.find { it.role == PlayerRole.LIAR && it.isAlive }
-        
-        if (liar != null) {
-            val targetReached = awardPointsAndCheckWin(liar.id, 2, game)
-            println("[GameProgressService] Liar victory: ${liar.nickname} +2 points. Reason: $reason")
-            
-            if (targetReached) {
-                endGameWithWinner(game, liar, "목표 점수 달성")
-            }
-            
-            return liar
-        }
-        
-        return null
-    }
-    
-    /**
-     * 시민이 승리했을 때 "사망 표"를 던진 시민들에게 1점씩 부여합니다.
-     */
-    @Transactional
-    fun awardCitizenVictoryPoints(game: GameEntity, finalVotingRecord: Map<Long, Boolean>): List<PlayerEntity> {
-        val players = playerRepository.findByGame(game)
-        val awardedPlayers = mutableListOf<PlayerEntity>()
-        
-        // "사망 표"를 던진 살아있는 시민 플레이어들 찾기
-        finalVotingRecord.forEach { (playerId, voteForExecution) ->
-            if (voteForExecution) { // 사망 표를 던진 경우
-                val player = players.find { it.userId == playerId }
-                if (player != null && player.isAlive && player.role == PlayerRole.CITIZEN) {
-                    val targetReached = awardPointsAndCheckWin(player.id, 1, game)
-                    awardedPlayers.add(player)
-                    println("[GameProgressService] Citizen victory: ${player.nickname} +1 point for voting execution")
-                    
-                    if (targetReached) {
-                        endGameWithWinner(game, player, "목표 점수 달성")
-                        return awardedPlayers // 승리 조건 달성 시 즉시 종료
-                    }
-                }
-            }
-        }
-        
-        return awardedPlayers
-    }
-    
+         val players = playerRepository.findByGame(game)
+         val liar = players.find { it.role == PlayerRole.LIAR && it.isAlive }
+
+         if (liar != null) {
+            // awardPointsAndCheckWin는 이제 userId를 받음
+            val targetReached = awardPointsAndCheckWin(liar.userId, 2, game)
+             println("[GameProgressService] Liar victory: ${liar.nickname} +2 points. Reason: $reason")
+
+             if (targetReached) {
+                 endGameWithWinner(game, liar, "목표 점수 달성")
+             }
+
+             return liar
+         }
+
+         return null
+     }
+
+     /**
+      * 시민이 승리했을 때 "사망 표"를 던진 시민들에게 1점씩 부여합니다.
+      */
+     @Transactional
+     fun awardCitizenVictoryPoints(game: GameEntity, finalVotingRecord: Map<Long, Boolean>): List<PlayerEntity> {
+         val players = playerRepository.findByGame(game)
+         val awardedPlayers = mutableListOf<PlayerEntity>()
+
+         // "사망 표"를 던진 살아있는 시민 플레이어들 찾기
+         finalVotingRecord.forEach { (playerId, voteForExecution) ->
+             if (voteForExecution) { // 사망 표를 던진 경우
+                 val player = players.find { it.userId == playerId }
+                 if (player != null && player.isAlive && player.role == PlayerRole.CITIZEN) {
+                    val targetReached = awardPointsAndCheckWin(player.userId, 1, game)
+                     awardedPlayers.add(player)
+                     println("[GameProgressService] Citizen victory: ${player.nickname} +1 point for voting execution")
+
+                     if (targetReached) {
+                         endGameWithWinner(game, player, "목표 점수 달성")
+                         return awardedPlayers // 승리 조건 달성 시 즉시 종료
+                     }
+                 }
+             }
+         }
+
+         return awardedPlayers
+     }
+
     /**
      * 게임을 종료하고 우승자를 설정합니다.
      */
@@ -433,40 +434,39 @@ class GameProgressService(
         
         // 게임 종료 브로드캐스트
         val gameEndPayload = mapOf(
-            "type" to "GAME_ENDED",
-            "winner" to mapOf(
-                "playerId" to winner.id,
+             "type" to "GAME_ENDED",
+             "winner" to mapOf(
                 "nickname" to winner.nickname,
                 "userId" to winner.userId,
                 "finalScore" to winner.cumulativeScore
-            ),
-            "reason" to reason,
-            "scoreboard" to getScoreboard(game)
-        )
-        gameMonitoringService.broadcastGameState(game, gameEndPayload)
-    }
-    
-    /**
-     * 현재 스코어보드를 반환합니다.
-     */
-    fun getScoreboard(game: GameEntity): Map<String, Any> {
-        val players = playerRepository.findByGame(game)
-        val scoreboard = players.map { player ->
-            mapOf(
-                "playerId" to player.id,
-                "nickname" to player.nickname,
-                "score" to player.cumulativeScore,
-                "isAlive" to player.isAlive,
-                "role" to player.role.name
-            )
-        }.sortedByDescending { it["score"] as Int }
-        
-        return mapOf(
-            "scoreboard" to scoreboard,
-            "targetPoints" to game.targetPoints,
-            "gameNumber" to game.gameNumber
-        )
-    }
+             ),
+             "reason" to reason,
+             "scoreboard" to getScoreboard(game)
+         )
+         gameMonitoringService.broadcastGameState(game, gameEndPayload)
+     }
+
+     /**
+      * 현재 스코어보드를 반환합니다.
+      */
+     fun getScoreboard(game: GameEntity): Map<String, Any> {
+         val players = playerRepository.findByGame(game)
+         val scoreboard = players.map { player ->
+             mapOf(
+                "userId" to player.userId,
+                 "nickname" to player.nickname,
+                 "score" to player.cumulativeScore,
+                 "isAlive" to player.isAlive,
+                 "role" to player.role.name
+             )
+         }.sortedByDescending { it["score"] as Int }
+
+         return mapOf(
+             "scoreboard" to scoreboard,
+             "targetPoints" to game.targetPoints,
+             "gameNumber" to game.gameNumber
+         )
+     }
 
     @Transactional
     fun prepareNewRound(game: GameEntity) {

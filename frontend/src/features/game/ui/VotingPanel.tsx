@@ -87,7 +87,7 @@ export function VotingPanel({
 
             return (
               <Card
-                key={player.id}  // React key는 player.id 사용
+                key={player.userId}  // React key를 userId로 변경
                 withBorder
                 p="sm"
                 radius="sm"

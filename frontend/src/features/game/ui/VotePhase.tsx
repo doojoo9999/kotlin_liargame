@@ -41,7 +41,7 @@ export function VotePhase({ gameState }: VotePhaseProps) {
       <Stack>
         {votablePlayers.map((player) => (
           <Button
-            key={player.id}
+            key={player.userId}
             variant="outline"
             size="lg"
             onClick={() => handleVote(player)}

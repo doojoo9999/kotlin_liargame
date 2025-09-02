@@ -11,7 +11,7 @@ export function PlayerList({ players, gameOwner }: PlayerListProps) {
   return (
     <Stack>
       {players.map((player) => (
-        <Paper key={player.id} p="sm" withBorder radius="md">
+         <Paper key={player.userId} p="sm" withBorder radius="md">
           <Group justify="space-between">
             <Group>
               <Avatar color="blue" radius="xl">

@@ -134,7 +134,7 @@ export function TurnIndicator({
 
                 return (
                   <Badge
-                    key={player.id}  // React key는 player.id 사용
+                    key={player.userId}  // React key를 userId로 변경
                     size="sm"
                     color={isCurrent ? 'blue' : 'gray'}
                     variant={isCurrent ? 'filled' : 'light'}

@@ -161,7 +161,7 @@ class ChatService(
         val allPlayers = playerRepository.findByGame(game)
         println("[DEBUG] All players in game ${req.gameNumber}:")
         allPlayers.forEach { player ->
-            println("[DEBUG]   - Player ID: ${player.id}, UserId: ${player.userId}, Nickname: ${player.nickname}")
+            println("[DEBUG]   - Player userId=${player.userId} (pk=${player.id}), Nickname=${player.nickname}")
         }
 
         println("[DEBUG] Looking for player with userId: $userId in game: ${req.gameNumber}")
@@ -176,7 +176,7 @@ class ChatService(
             throw RuntimeException("You are not in this game")
         }
 
-        println("[DEBUG] Found player: ${player.nickname} (ID: ${player.id})")
+        println("[DEBUG] Found player: ${player.nickname} (userId=${player.userId}, pk=${player.id})")
 
         val messageType = determineMessageType(game, player)
             ?: throw RuntimeException("Chat not available")
@@ -198,12 +198,12 @@ class ChatService(
         // 힌트 입력 시 자동으로 다음 턴으로 진행
         val currentPhase = determineGamePhase(game, allPlayers)
         println("[DEBUG] Current phase: $currentPhase, Message type: $messageType")
-        println("[DEBUG] Game state: ${game.gameState}, Current player ID: ${game.currentPlayerId}, Player ID: ${player.id}")
+        println("[DEBUG] Game state: ${game.gameState}, Current player userId: ${game.currentPlayerId}, Player userId: ${player.userId}")
 
         if (messageType == ChatMessageType.HINT &&
             game.gameState == GameState.IN_PROGRESS &&
             currentPhase == GamePhase.SPEECH &&
-            game.currentPlayerId == player.id) {
+            game.currentPlayerId == player.userId) {
 
             println("[DEBUG] All conditions met for turn progression - Processing hint from current player ${player.nickname}")
 
@@ -224,7 +224,7 @@ class ChatService(
             println("[DEBUG] - Is HINT message: ${messageType == ChatMessageType.HINT}")
             println("[DEBUG] - Game IN_PROGRESS: ${game.gameState == GameState.IN_PROGRESS}")
             println("[DEBUG] - Phase SPEECH: ${currentPhase == GamePhase.SPEECH}")
-            println("[DEBUG] - Is current player: ${game.currentPlayerId == player.id}")
+            println("[DEBUG] - Is current player: ${game.currentPlayerId == player.userId}")
         }
 
         return ChatMessageResponse.from(savedMessage)
@@ -311,7 +311,7 @@ class ChatService(
         val allPlayers = playerRepository.findByGame(game)
         println("[DEBUG] Players in game ${req.gameNumber}:")
         allPlayers.forEach { player ->
-            println("[DEBUG]   - Player: ${player.nickname} (ID: ${player.id}, UserId: ${player.userId})")
+            println("[DEBUG]   - Player: ${player.nickname} (userId=${player.userId}, pk=${player.id})")
         }
         
         // 해당 게임의 모든 채팅 메시지 조회 (필터 없이)
@@ -355,8 +355,7 @@ class ChatService(
     
     private fun determineMessageType(game: GameEntity, player: PlayerEntity): ChatMessageType? {
         println("[ChatService] === DETERMINE MESSAGE TYPE DEBUG ===")
-        println("[ChatService] Player DB ID: ${player.id} (PlayerEntity primary key)")
-        println("[ChatService] Player User ID: ${player.userId} (references users table)")
+        println("[ChatService] Player DB pk: ${player.id} (userId=${player.userId})")
         println("[ChatService] Player nickname: ${player.nickname}")
         println("[ChatService] Player isAlive: ${player.isAlive}")
         println("[ChatService] Game state: ${game.gameState}")
@@ -419,7 +418,7 @@ class ChatService(
                     println("[ChatService] In DEFENDING phase")
                     // 모든 플레이어가 DEFENDING 단계에서 채팅 가능
                     // 변론자 메시지는 DEFENSE 타입, 다른 플레이어는 DISCUSSION 타입
-                    if (game.accusedPlayerId == player.id) {
+                    if (game.accusedPlayerId == player.userId) {
                         println("[ChatService] Player is accused, returning DEFENSE")
                         ChatMessageType.DEFENSE
                     } else {
@@ -533,16 +532,45 @@ class ChatService(
         }
     }
 
-    @Transactional
-    fun deletePlayerChatMessages(playerId: Long): Int {
-        return try {
-            val deletedCount = chatMessageRepository.deleteByPlayerId(playerId)
-            println("[CHAT] Deleted $deletedCount chat messages for player ID: $playerId")
-            deletedCount
-        } catch (e: Exception) {
-            println("[ERROR] Failed to delete chat messages for player ID: $playerId - ${e.message}")
-            throw e // 예외를 다시 던져서 상위 트랜잭션에서 롤백되도록 함
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    fun deletePlayerChatMessages(userId: Long): Int {
+        // Use batched deletion with a small retry loop to handle transient deadlocks.
+        val ids = chatMessageRepository.findIdsByPlayerUserId(userId)
+        if (ids.isEmpty()) {
+            println("[CHAT] No chat messages found for player userId: $userId")
+            return 0
         }
+
+        val batchSize = 200
+        val maxAttempts = 3
+        var attempt = 0
+
+        while (attempt < maxAttempts) {
+            attempt += 1
+            try {
+                var deletedThisAttempt = 0
+                ids.chunked(batchSize).forEach { batch ->
+                    chatMessageRepository.deleteAllByIdInBatch(batch)
+                    deletedThisAttempt += batch.size
+                }
+                println("[CHAT] Deleted $deletedThisAttempt chat messages for player userId: $userId in ${ids.size / batchSize + 1} batches (attempt $attempt)")
+                return deletedThisAttempt
+            } catch (e: Exception) {
+                if (e is org.springframework.dao.CannotAcquireLockException || e.cause is java.sql.SQLException || e.message?.contains("deadlock", ignoreCase = true) == true) {
+                    println("[WARN] Deadlock when deleting chat messages for userId=$userId on attempt $attempt: ${e.message}")
+                    if (attempt >= maxAttempts) {
+                        println("[ERROR] Max retries reached while deleting chat messages for userId=$userId")
+                        throw e
+                    }
+                    try { Thread.sleep((attempt * 150).toLong()) } catch (ie: InterruptedException) { Thread.currentThread().interrupt() }
+                    continue
+                }
+                println("[ERROR] Failed to delete chat messages for player userId: $userId - ${e.message}")
+                throw e
+            }
+        }
+
+        return 0
     }
 
     @Transactional
