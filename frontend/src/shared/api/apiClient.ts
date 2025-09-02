@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:20021';
+// 환경변수 우선, 없으면 현재 페이지 origin 사용
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || window.location.origin;
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,

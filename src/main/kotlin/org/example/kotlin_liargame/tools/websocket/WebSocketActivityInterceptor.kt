@@ -1,5 +1,6 @@
 package org.example.kotlin_liargame.tools.websocket
 
+import org.slf4j.LoggerFactory
 import org.springframework.messaging.Message
 import org.springframework.messaging.MessageChannel
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor
@@ -10,6 +11,7 @@ import org.springframework.stereotype.Component
 class WebSocketActivityInterceptor(
     private val connectionManager: WebSocketConnectionManager
 ) : ChannelInterceptor {
+    private val log = LoggerFactory.getLogger(WebSocketActivityInterceptor::class.java)
 
     override fun preSend(message: Message<*>, channel: MessageChannel): Message<*>? {
         val accessor = SimpMessageHeaderAccessor.wrap(message)
@@ -21,7 +23,7 @@ class WebSocketActivityInterceptor(
                 connectionManager.updateLastActivity(sessionId)
                 // 매우 빈번한 활동 감지 로그 제거
             } catch (e: Exception) {
-                println("[ACTIVITY] Error updating activity for session $sessionId: ${e.message}")
+                log.warn("Error updating activity for session {}: {}", sessionId, e.message)
             }
         }
 

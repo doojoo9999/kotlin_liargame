@@ -1,5 +1,6 @@
 package org.example.kotlin_liargame.domain.game.service
 
+import org.example.kotlin_liargame.domain.chat.service.ChatSystemMessenger
 import org.example.kotlin_liargame.domain.game.dto.response.*
 import org.example.kotlin_liargame.domain.game.model.GameHistorySummaryEntity
 import org.example.kotlin_liargame.domain.game.model.enum.WinningTeam
@@ -25,7 +26,8 @@ class GameResultService(
     private val gameMonitoringService: GameMonitoringService,
     @Lazy private val chatService: org.example.kotlin_liargame.domain.chat.service.ChatService,
     @Lazy private val gameProgressService: GameProgressService,
-    private val gameStateService: org.example.kotlin_liargame.global.redis.GameStateService
+    private val gameStateService: org.example.kotlin_liargame.global.redis.GameStateService,
+    private val chatSystemMessenger: ChatSystemMessenger
 ) {
     
     fun processGameResult(gameNumber: Int, judgmentResult: FinalJudgmentResultResponse) {
@@ -338,9 +340,9 @@ class GameResultService(
     private fun sendModeratorMessage(gameNumber: Int, message: String) {
         try {
             val game = gameRepository.findByGameNumber(gameNumber) ?: return
-            chatService.sendSystemMessage(game, message)
+            chatSystemMessenger.sendSystemMessage(game, message)
         } catch (e: Exception) {
-            // ChatService 호출 실패 시 WebSocket으로만 전송
+            // Chat 전송 실패 시 fallback
             messagingTemplate.convertAndSend(
                 "/topic/game/$gameNumber/moderator",
                 mapOf(

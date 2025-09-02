@@ -26,7 +26,6 @@ class WebSocketSessionManager(
 
         // 세션 정보가 없는 경우 Redis 동기화를 위해 재시도
         if (userId == null || nickname == null) {
-            println("[WARN] Initial session data not found for WebSocket: $webSocketSessionId, attempting retry...")
 
             // 짧은 지연 후 재시도 (Redis 동기화 대기)
             Thread.sleep(100)
@@ -44,21 +43,14 @@ class WebSocketSessionManager(
         val sessionInfo = mutableMapOf<String, Any>()
         if (userId != null) {
             sessionInfo["userId"] = userId
-            println("[DEBUG] Storing WebSocket session mapping: $webSocketSessionId -> userId=$userId")
-        } else {
-            println("[WARN] No userId found in session for WebSocket: $webSocketSessionId after retries")
         }
 
         if (nickname != null) {
             sessionInfo["nickname"] = nickname
-        } else {
-            println("[WARN] No nickname found in session for WebSocket: $webSocketSessionId after retries")
         }
 
         sessionInfo["connectedAt"] = Instant.now()
         sessionMap[webSocketSessionId] = sessionInfo
-        println("[DEBUG] WebSocket session stored: $webSocketSessionId -> $sessionInfo")
-        printSessionInfo()
     }
 
 
@@ -85,13 +77,11 @@ class WebSocketSessionManager(
 
     fun registerPlayerInGame(userId: Long, gameNumber: Int) {
         playerGameMap[userId] = gameNumber
-        println("[DEBUG] Registered player $userId in game $gameNumber")
     }
 
     fun removePlayerFromGame(userId: Long) {
         val gameNumber = playerGameMap.remove(userId)
         if (gameNumber != null) {
-            println("[DEBUG] Removed player $userId from game $gameNumber")
         }
     }
 
@@ -101,8 +91,7 @@ class WebSocketSessionManager(
 
     fun removeSession(webSocketSessionId: String) {
         val sessionInfo = sessionMap.remove(webSocketSessionId)
-        println("[DEBUG] Removed WebSocket session: $webSocketSessionId")
-        
+
         if (sessionInfo != null) {
             val userId = sessionInfo["userId"] as? Long
             val nickname = sessionInfo["nickname"] as? String
@@ -133,18 +122,13 @@ class WebSocketSessionManager(
             )
             
             checkGameContinuity(gameNumber, nickname)
-            
-            println("[INFO] Notified game $gameNumber about player $userId ($nickname) disconnection")
-            
+
         } catch (e: Exception) {
-            println("[ERROR] Failed to handle player disconnection: ${e.message}")
         }
     }
     private fun checkGameContinuity(gameNumber: Int, nickname: String?) {
         try {
             val remainingPlayers = playerGameMap.values.count { it == gameNumber }
-            
-            println("[DEBUG] Game $gameNumber continuity check: $remainingPlayers players remaining after $nickname disconnection")
 
             if (remainingPlayers == 0) {
                 // 방에 아무도 없으면 게임 종료
@@ -159,8 +143,6 @@ class WebSocketSessionManager(
                     "/topic/game/$gameNumber/game-status",
                     gameEndMessage
                 )
-
-                println("[INFO] Game $gameNumber ended - all players disconnected")
             } else if (remainingPlayers < 3) {
                 val gameEndMessage = mapOf(
                     "type" to "GAME_INTERRUPTED",
@@ -175,19 +157,13 @@ class WebSocketSessionManager(
                     gameEndMessage
                 )
                 
-                println("[INFO] Game $gameNumber interrupted due to insufficient players ($remainingPlayers remaining)")
             }
             
         } catch (e: Exception) {
-            println("[ERROR] Failed to check game continuity: ${e.message}")
         }
     }
 
     fun printSessionInfo() {
-        println("[DEBUG] Current WebSocket sessions (${sessionMap.size})")
-        sessionMap.forEach { (sessionId, info) ->
-            println("[DEBUG]   - $sessionId: $info")
-        }
     }
 
     /**
@@ -204,10 +180,20 @@ class WebSocketSessionManager(
             existingInfo["lastRefresh"] = Instant.now()
 
             sessionMap[webSocketSessionId] = existingInfo
-            println("[DEBUG] Refreshed WebSocket session info: $webSocketSessionId -> userId=$userId, nickname=$nickname")
-            printSessionInfo()
         } else {
-            println("[WARN] Failed to refresh session info for WebSocket: $webSocketSessionId - userId or nickname still null")
+        }
+    }
+
+    /**
+     * SEND 단계에서 세션 매핑이 존재하지 않을 경우 (예: CONNECT 직후 즉시 SEND 전송, 혹은 SockJS 전송 지연 차이) 늦은 초기화 수행
+     */
+    fun ensureSessionInitialized(webSocketSessionId: String?, httpSession: HttpSession?) {
+        if (webSocketSessionId == null || httpSession == null) return
+        if (!sessionMap.containsKey(webSocketSessionId)) {
+            try {
+                storeSession(webSocketSessionId, httpSession)
+            } catch (e: Exception) {
+            }
         }
     }
 }
