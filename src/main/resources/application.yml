@@ -81,8 +81,7 @@ management:
       application: "kotlin_liargame"
 
 server:
-    # 환경변수 SERVER_PORT 로 재정의 가능 (기본 20021)
-    port: ${SERVER_PORT:20021}
+    port: 20021
     servlet:
         session:
             timeout: 30m # 세션 타임아웃 설정
