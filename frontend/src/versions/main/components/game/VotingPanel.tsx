@@ -66,17 +66,17 @@ const VotingPanel: React.FC<VotingPanelProps> = ({
     handleSubmit,
     setValue,
     watch,
+    clearErrors,
     formState: { errors }
   } = useForm<VotingFormData>({
     resolver: zodResolver(votingSchema),
     defaultValues: {
-      gameNumber,
-      targetUserId: 0,
+      targetPlayerId: 0,
       confidence: 3
     }
   })
 
-  const watchedTargetId = watch('targetUserId')
+  const watchedTargetId = watch('targetPlayerId')
 
   const votableePlayers = players.filter(player => player.isAlive)
   const votedCount = players.filter(player => player.hasVoted).length
@@ -98,7 +98,7 @@ const VotingPanel: React.FC<VotingPanelProps> = ({
   const handlePlayerSelect = (playerId: number) => {
     if (disabled || isSubmitting) return
     setSelectedPlayerId(playerId)
-    setValue('targetUserId', playerId)
+    setValue('targetPlayerId', playerId)
   }
 
   const handleConfidenceChange = (value: number) => {
@@ -108,7 +108,7 @@ const VotingPanel: React.FC<VotingPanelProps> = ({
 
   const handleAbstention = () => {
     setSelectedPlayerId(-1) // -1은 기권을 의미
-    setValue('targetUserId', -1)
+    setValue('targetPlayerId', -1)
   }
 
   const handleVoteSubmit = async (data: VotingFormData) => {
@@ -129,7 +129,7 @@ const VotingPanel: React.FC<VotingPanelProps> = ({
 
   const resetSelection = () => {
     setSelectedPlayerId(null)
-    setValue('targetUserId', 0)
+    setValue('targetPlayerId', 0)
     setValue('confidence', 3)
     setConfidence(3)
   }
@@ -308,13 +308,10 @@ const VotingPanel: React.FC<VotingPanelProps> = ({
             )}
 
             {/* 에러 메시지 */}
-            {errors.targetUserId && (
-              <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg">
-                <AlertCircle className="h-4 w-4 text-red-500" />
-                <span className="text-sm text-red-700 dark:text-red-300">
-                  투표할 플레이어를 선택해주세요
-                </span>
-              </div>
+            {errors.targetPlayerId && (
+              <p className="text-sm text-destructive mt-1">
+                {errors.targetPlayerId.message}
+              </p>
             )}
 
             {/* 선택 확인 */}

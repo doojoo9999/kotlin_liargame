@@ -1,91 +1,131 @@
-import {Variants} from "framer-motion"
+import type {Variants} from "framer-motion"
 
-// 페이지 전환 애니메이션
-export const pageTransition: Variants = {
-  initial: { opacity: 0, x: -20 },
-  animate: { opacity: 1, x: 0 },
-  exit: { opacity: 0, x: 20 }
-}
-
-export const pageTransitionConfig = {
-  type: "tween" as const,
-  duration: 0.3,
-  ease: "easeInOut" as const
-}
-
-// 카드 등장 애니메이션
-export const cardAppear: Variants = {
-  initial: { opacity: 0, scale: 0.9, y: 10 },
-  animate: { opacity: 1, scale: 1, y: 0 },
-  exit: { opacity: 0, scale: 0.9, y: -10 }
-}
-
-export const cardAppearConfig = {
-  type: "spring" as const,
-  damping: 25,
-  stiffness: 300
-}
-
-// 버튼 인터랙션 애니메이션
-export const buttonInteraction = {
-  whileHover: { scale: 1.02 },
-  whileTap: { scale: 0.98 },
-  transition: { type: "spring" as const, damping: 20, stiffness: 300 }
-}
-
-// 플레이어 턴 하이라이트 애니메이션
-export const turnHighlight: Variants = {
-  animate: {
-    boxShadow: [
-      "0 0 0 rgba(59, 130, 246, 0)",
-      "0 0 20px rgba(59, 130, 246, 0.5)",
-      "0 0 0 rgba(59, 130, 246, 0)"
-    ]
-  }
-}
-
-export const turnHighlightConfig = {
-  duration: 2,
-  repeat: Infinity,
-  ease: "easeInOut" as const
-}
-
-// 투표 효과 애니메이션
-export const voteEffect: Variants = {
-  initial: { scale: 1 },
-  animate: { scale: [1, 1.1, 1] },
-  transition: { duration: 0.3 }
-}
-
-// 채팅 메시지 애니메이션
-export const chatMessageAnimation: Variants = {
-  initial: { opacity: 0, y: 20, scale: 0.8 },
-  animate: { opacity: 1, y: 0, scale: 1 },
-  exit: { opacity: 0, scale: 0.8 }
-}
-
-export const chatMessageConfig = {
-  type: "spring" as const,
-  damping: 20,
-  stiffness: 300
-}
-
-// 게임 종료 애니메이션
-export const gameEndAnimation = {
-  winner: {
-    initial: { scale: 0, rotate: -180 },
-    animate: { scale: 1, rotate: 0 },
-    transition: { type: "spring" as const, damping: 10, stiffness: 100 }
+// 게임 UI 애니메이션 설정
+export const gameAnimations = {
+  // 페이드 인/아웃
+  fadeIn: {
+    initial: { opacity: 0 },
+    animate: { opacity: 1 },
+    exit: { opacity: 0 }
   },
-  loser: {
-    initial: { opacity: 1 },
-    animate: { opacity: 0.5, scale: 0.95 },
-    transition: { duration: 0.5 }
-  }
+
+  // 슬라이드 애니메이션
+  slideUp: {
+    initial: { opacity: 0, y: 20 },
+    animate: { opacity: 1, y: 0 },
+    exit: { opacity: 0, y: -20 }
+  },
+
+  slideDown: {
+    initial: { opacity: 0, y: -20 },
+    animate: { opacity: 1, y: 0 },
+    exit: { opacity: 0, y: 20 }
+  },
+
+  slideLeft: {
+    initial: { opacity: 0, x: 20 },
+    animate: { opacity: 1, x: 0 },
+    exit: { opacity: 0, x: -20 }
+  },
+
+  slideRight: {
+    initial: { opacity: 0, x: -20 },
+    animate: { opacity: 1, x: 0 },
+    exit: { opacity: 0, x: 20 }
+  },
+
+  // 스케일 애니메이션
+  scaleIn: {
+    initial: { opacity: 0, scale: 0.8 },
+    animate: { opacity: 1, scale: 1 },
+    exit: { opacity: 0, scale: 0.8 }
+  },
+
+  // 스태거 애니메이션을 위한 컨테이너
+  staggerContainer: {
+    initial: {},
+    animate: {
+      transition: {
+        staggerChildren: 0.1
+      }
+    }
+  },
+
+  // 스태거 아이템
+  staggerItem: {
+    initial: { opacity: 0, y: 20 },
+    animate: { opacity: 1, y: 0 }
+  },
+
+  // 게임 특화 애니메이션
+  playerCard: {
+    initial: { opacity: 0, scale: 0.9, y: 20 },
+    animate: {
+      opacity: 1,
+      scale: 1,
+      y: 0,
+      transition: { type: "spring", stiffness: 300, damping: 20 }
+    },
+    exit: { opacity: 0, scale: 0.9, y: -20 },
+    hover: { scale: 1.05 },
+    tap: { scale: 0.95 }
+  } as Variants,
+
+  // 타이머 애니메이션
+  timer: {
+    initial: { scale: 1 },
+    warning: {
+      scale: [1, 1.1, 1],
+      transition: {
+        repeat: Infinity,
+        duration: 1
+      }
+    }
+  } as Variants,
+
+  // 투표 애니메이션
+  vote: {
+    initial: { opacity: 0, scale: 0 },
+    animate: {
+      opacity: 1,
+      scale: 1,
+      transition: { type: "spring", stiffness: 400, damping: 10 }
+    },
+    exit: { opacity: 0, scale: 0 }
+  } as Variants
 }
 
-// 리스트 아이템 스태거 애니메이션
+// 트랜지션 설정
+export const transitions = {
+  default: { duration: 0.3 },
+  fast: { duration: 0.15 },
+  slow: { duration: 0.6 },
+  spring: { type: "spring", stiffness: 300, damping: 20 }
+}
+
+// 이징 설정
+export const easings = {
+  easeInOut: [0.4, 0, 0.2, 1],
+  easeOut: [0, 0, 0.2, 1],
+  easeIn: [0.4, 0, 1, 1],
+  sharp: [0.4, 0, 0.6, 1]
+}
+
+// 누락된 애니메이션 함수들 추가
+export const buttonInteraction: Variants = {
+  initial: { scale: 1 },
+  hover: { scale: 1.05 },
+  tap: { scale: 0.95 }
+}
+
+export const cardAppear: Variants = {
+  initial: { opacity: 0, y: 20 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -20 }
+}
+
 export const staggerContainer: Variants = {
+  initial: {},
   animate: {
     transition: {
       staggerChildren: 0.1
@@ -96,30 +136,4 @@ export const staggerContainer: Variants = {
 export const staggerItem: Variants = {
   initial: { opacity: 0, y: 20 },
   animate: { opacity: 1, y: 0 }
-}
-
-// 모달/다이얼로그 애니메이션
-export const modalAnimation: Variants = {
-  initial: { opacity: 0, scale: 0.9 },
-  animate: { opacity: 1, scale: 1 },
-  exit: { opacity: 0, scale: 0.9 }
-}
-
-export const modalBackdropAnimation: Variants = {
-  initial: { opacity: 0 },
-  animate: { opacity: 1 },
-  exit: { opacity: 0 }
-}
-
-// 로딩 스피너 애니메이션
-export const spinnerAnimation = {
-  animate: { rotate: 360 },
-  transition: { duration: 1, repeat: Infinity, ease: "linear" as const }
-}
-
-// 진행률 바 애니메이션
-export const progressBarAnimation = {
-  initial: { width: "0%" },
-  animate: { width: "100%" },
-  transition: { duration: 0.5, ease: "easeOut" as const }
 }

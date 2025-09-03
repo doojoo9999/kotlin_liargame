@@ -11,7 +11,11 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@/lib/*": ["./src/versions/main/lib/*"],
+      "@/shared/*": ["./src/shared/*"],
+      "@/main/*": ["./src/versions/main/*"],
+      "@/light/*": ["./src/versions/light/*"]
     }
   }
 }

@@ -1,18 +1,17 @@
-@import "tailwindcss";
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
+    /* 기본 shadcn/ui 색상 */
     --background: 0 0% 100%;
     --foreground: 222.2 84% 4.9%;
     --card: 0 0% 100%;
     --card-foreground: 222.2 84% 4.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
+    --primary: 222.2 47.4% 11.2%;
     --primary-foreground: 210 40% 98%;
     --secondary: 210 40% 96%;
     --secondary-foreground: 222.2 84% 4.9%;
@@ -24,11 +23,28 @@
     --destructive-foreground: 210 40% 98%;
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
+    --ring: 222.2 84% 4.9%;
     --radius: 0.5rem;
+
+    /* 게임 특화 색상 */
+    --game-primary: 217 91% 60%;      /* 메인 게임 색상 (파란색) */
+    --game-secondary: 142 76% 36%;    /* 보조 색상 (초록색) */
+    --game-danger: 0 84% 60%;         /* 위험/경고 (빨간색) */
+    --game-success: 142 76% 36%;      /* 성공 (초록색) */
+    --game-warning: 48 96% 53%;       /* 주의 (노란색) */
+
+    /* 역할별 색상 */
+    --role-citizen: 142 76% 36%;      /* 시민 (초록색) */
+    --role-liar: 0 84% 60%;           /* 라이어 (빨간색) */
+
+    /* 게임 상호작용 색상 */
+    --vote-selected: 217 91% 60%;     /* 투표 선택 */
+    --chat-user: 262 83% 58%;         /* 사용자 채팅 */
+    --chat-system: 215 20% 65%;       /* 시스템 메시지 */
   }
 
   .dark {
+    /* 다크 모드 기본 색상 */
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
     --card: 222.2 84% 4.9%;
@@ -36,7 +52,7 @@
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
     --primary: 210 40% 98%;
-    --primary-foreground: 222.2 84% 4.9%;
+    --primary-foreground: 222.2 47.4% 11.2%;
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
     --muted: 217.2 32.6% 17.5%;
@@ -48,6 +64,20 @@
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 212.7 26.8% 83.9%;
+
+    /* 다크 모드 게임 색상 */
+    --game-primary: 217 91% 70%;
+    --game-secondary: 142 76% 46%;
+    --game-danger: 0 84% 70%;
+    --game-success: 142 76% 46%;
+    --game-warning: 48 96% 63%;
+
+    --role-citizen: 142 76% 46%;
+    --role-liar: 0 84% 70%;
+
+    --vote-selected: 217 91% 70%;
+    --chat-user: 262 83% 68%;
+    --chat-system: 215 20% 75%;
   }
 }
 
@@ -55,25 +85,153 @@
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* 게임 특화 기본 스타일 */
+  .game-container {
+    @apply min-h-screen bg-gradient-to-br from-background via-background to-secondary/20;
+  }
+
+  .game-card {
+    @apply bg-card border border-border rounded-lg shadow-sm;
+  }
+
+  .role-badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .role-citizen {
+    @apply bg-role-citizen/10 text-role-citizen border border-role-citizen/20;
+  }
+
+  .role-liar {
+    @apply bg-role-liar/10 text-role-liar border border-role-liar/20;
+  }
+
+  /* 투표 관련 스타일 */
+  .vote-button {
+    @apply relative overflow-hidden transition-all duration-200 hover:scale-105;
+  }
+
+  .vote-button.selected {
+    @apply bg-vote-selected text-white shadow-lg animate-vote-pulse;
+  }
+
+  /* 채팅 관련 스타일 */
+  .chat-message {
+    @apply p-3 rounded-lg max-w-[80%] break-words;
+  }
+
+  .chat-user {
+    @apply bg-chat-user/10 border-l-4 border-chat-user;
+  }
+
+  .chat-system {
+    @apply bg-chat-system/10 border-l-4 border-chat-system italic;
+  }
+
+  /* 게임 상태별 배경 효과 */
+  .game-phase-discussion {
+    @apply bg-gradient-to-br from-game-primary/5 to-game-secondary/5;
+  }
+
+  .game-phase-voting {
+    @apply bg-gradient-to-br from-game-warning/5 to-game-danger/5;
+  }
+
+  .game-phase-result {
+    @apply bg-gradient-to-br from-game-success/5 to-game-primary/5;
+  }
+
+  /* 스크롤바 스타일링 */
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted-foreground)) transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--muted-foreground));
+    border-radius: 3px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--foreground));
   }
 }
 
-/* 게임 전용 CSS 변수 */
-:root {
-  /* 게임 상태별 색상 */
-  --game-waiting: 43 96% 56%;
-  --game-progress: 142 76% 36%;
-  --game-ended: 346 87% 43%;
+@layer components {
+  /* 게임 특화 컴포넌트 스타일 */
+  .timer-urgent {
+    @apply animate-timer-warning;
+  }
 
-  /* 플레이어 역할별 색상 */
-  --role-citizen: 217 91% 60%;
-  --role-liar: 0 84% 60%;
+  .hint-highlight {
+    @apply animate-hint-glow;
+  }
 
-  /* 상호작용 상태 */
-  --vote-active: 142 76% 36%;
-  --vote-disabled: 215 16% 47%;
-  --turn-active: 43 96% 56%;
+  .role-reveal-card {
+    @apply perspective-1000 transform-style-preserve-3d;
+  }
+
+  .role-reveal-card.flipping {
+    @apply animate-role-reveal;
+  }
+
+  /* 반응형 게임 레이아웃 */
+  .game-grid-mobile {
+    @apply grid grid-cols-1 gap-4 p-4;
+  }
+
+  .game-grid-tablet {
+    @apply md:grid-cols-2 md:gap-6 md:p-6;
+  }
+
+  .game-grid-desktop {
+    @apply lg:grid-cols-3 lg:gap-8 lg:p-8;
+  }
+
+  /* 게임 상태 인디케이터 */
+  .status-indicator {
+    @apply w-3 h-3 rounded-full border-2 border-white shadow-sm;
+  }
+
+  .status-online {
+    @apply bg-game-success;
+  }
+
+  .status-away {
+    @apply bg-game-warning;
+  }
+
+  .status-offline {
+    @apply bg-muted-foreground;
+  }
 }
 
+/* Framer Motion 최적화 */
+.motion-reduce {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

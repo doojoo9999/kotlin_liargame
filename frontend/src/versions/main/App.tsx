@@ -1,37 +1,46 @@
 import React from 'react';
-import {Route, Routes} from 'react-router-dom';
-import SimpleComponentDemo from './demo/SimpleComponentDemo';
+import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
+import {BrowserRouter} from 'react-router-dom';
 
-// 기본 페이지 컴포넌트들을 인라인으로 정의하여 임포트 오류 방지
-const MainLobbyPage = () => (
-  <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-    <div className="text-center">
-      <h1 className="text-2xl font-bold mb-4">Main Version 로비</h1>
-      <p>Main Version 로비 페이지입니다.</p>
-    </div>
-  </div>
-);
+// Main Version 전용 컴포넌트들
+const MainRouter = React.lazy(() => import('./router/MainRouter'));
 
-const MainGamePage = () => (
-  <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-    <div className="text-center">
-      <h1 className="text-2xl font-bold mb-4">Main Version 게임</h1>
-      <p>Main Version 게임 페이지입니다.</p>
-    </div>
-  </div>
-);
+// QueryClient 인스턴스 생성 (더 많은 최적화 옵션)
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 10, // 10분 (더 긴 캐시)
+      refetchOnWindowFocus: false,
+      retry: 3,
+    },
+    mutations: {
+      retry: 1,
+    },
+  },
+});
 
-function App() {
+const MainApp: React.FC = () => {
   return (
-    <div className="min-h-screen">
-      <Routes>
-        <Route path="/demo" element={<SimpleComponentDemo />} />
-        <Route path="/lobby" element={<MainLobbyPage />} />
-        <Route path="/game/:gameNumber" element={<MainGamePage />} />
-        <Route path="/" element={<MainLobbyPage />} />
-      </Routes>
-    </div>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <div className="main-version">
+          <React.Suspense
+            fallback={
+              <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                  <p className="text-gray-700 font-medium">Loading Main Version...</p>
+                  <p className="text-sm text-gray-500 mt-1">Enhanced UI Loading</p>
+                </div>
+              </div>
+            }
+          >
+            <MainRouter />
+          </React.Suspense>
+        </div>
+      </BrowserRouter>
+    </QueryClientProvider>
   );
-}
+};
 
-export default App;
+export default MainApp;

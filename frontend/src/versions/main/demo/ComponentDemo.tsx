@@ -12,7 +12,7 @@ import {ChatSystem} from "../components/game/chat-system"
 import {CreateGameForm} from "../components/forms/create-game-form"
 import {StatusIndicator} from "../components/ui/status-indicator"
 import {Progress} from "../components/ui/progress"
-import {ChatMessage, GamePhase, Player} from "../../types/game"
+import {ChatMessage, GamePhase, Player} from "@/versions/main/types/game"
 
 // 목 데이터
 const mockPlayers: Player[] = [
@@ -103,9 +103,9 @@ const itemVariants = {
 }
 
 export default function ComponentDemo() {
+  const [currentPhase, setCurrentPhase] = React.useState<GamePhase>('VOTING_FOR_LIAR')
   const [selectedPlayer, setSelectedPlayer] = React.useState<number | undefined>()
   const [timeRemaining, setTimeRemaining] = React.useState(120)
-  const [currentPhase, setCurrentPhase] = React.useState<GamePhase>('VOTING_FOR_LIAR')
 
   // 타이머 시뮬레이션
   React.useEffect(() => {

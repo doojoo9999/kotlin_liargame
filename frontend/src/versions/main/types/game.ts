@@ -1,134 +1,83 @@
-// 게임 상태 타입
-export type GameState = 'WAITING' | 'IN_PROGRESS' | 'ENDED';
-
-// 게임 단계 타입
-export type GamePhase =
-  | 'WAITING_FOR_PLAYERS'
-  | 'SPEECH'
-  | 'VOTING_FOR_LIAR'
-  | 'DEFENDING'
-  | 'VOTING_FOR_SURVIVAL'
-  | 'GUESSING_WORD'
-  | 'GAME_OVER';
-
-// 플레이어 상태 타입
-export type PlayerState =
-  | 'WAITING_FOR_HINT'
-  | 'GAVE_HINT'
-  | 'WAITING_FOR_VOTE'
-  | 'VOTED'
-  | 'ACCUSED'
-  | 'DEFENDED'
-  | 'WAITING_FOR_FINAL_VOTE'
-  | 'FINAL_VOTED'
-  | 'SURVIVED'
-  | 'ELIMINATED'
-  | 'DISCONNECTED';
-
-// 플레이어 역할 타입
-export type PlayerRole = 'CITIZEN' | 'LIAR';
-
-// 게임 모드 타입
-export type GameMode = 'LIARS_KNOW' | 'LIARS_DIFFERENT_WORD';
-
-// 채팅 메시지 타입
-export type ChatMessageType = 'HINT' | 'DISCUSSION' | 'DEFENSE' | 'POST_ROUND' | 'SYSTEM';
-
-// 플레이어 인터페이스
+// Game Types for Main Version
 export interface Player {
   id: number;
-  userId: number;
   nickname: string;
+  role?: 'CITIZEN' | 'LIAR' | 'UNKNOWN';
+  isHost: boolean;
   isAlive: boolean;
-  role?: PlayerRole;
-  state: PlayerState;
-  assignedWord?: string;
+  votesReceived: number;
+  hasVoted?: boolean;
+  isCurrentPlayer?: boolean;
+  isReady?: boolean;
+  votedBy?: number;
+  // 추가 속성들
+  userId?: number;
+  state?: string;
   hint?: string;
   defense?: string;
-  votedFor?: number;
-  votesReceived: number;
-  hasVoted: boolean;
-  cumulativeScore: number;
-  joinedAt: string;
+  cumulativeScore?: number;
+  joinedAt?: string;
   isCurrentTurn?: boolean;
 }
 
-// 게임 정보 인터페이스
-export interface GameInfo {
-  gameNumber: number;
-  gameName?: string;
-  gameOwner: string;
-  gameState: GameState;
-  currentPhase: GamePhase;
-  players: Player[];
-  gameMode: GameMode;
-  gameParticipants: number;
-  gameLiarCount: number;
-  gameTotalRounds: number;
-  gameCurrentRound: number;
-  yourRole?: PlayerRole;
-  yourWord?: string;
-  accusedPlayer?: Player;
-  isChatAvailable: boolean;
-  citizenSubject?: string;
-  liarSubject?: string;
-  subjects: string[];
-  turnOrder: string[];
-  currentTurnIndex: number;
-  phaseEndTime?: string;
-  winner?: string;
-  reason?: string;
-  targetPoints: number;
-  scoreboard: ScoreboardEntry[];
-  finalVotingRecord?: any;
-}
-
-// 점수판 엔트리 인터페이스
-export interface ScoreboardEntry {
-  userId: number;
-  nickname: string;
-  isAlive: boolean;
-  score: number;
-}
-
-// 채팅 메시지 인터페이스
 export interface ChatMessage {
   id: number;
-  gameNumber: number;
-  playerNickname: string | null;
-  content: string;
-  type: ChatMessageType;
+  player: string;
+  message: string;
   timestamp: string;
+  isOwn?: boolean;
+  // 추가 속성들로 호환성 확보
+  gameNumber?: number;
+  playerNickname?: string;
+  content?: string;
+  type?: 'NORMAL' | 'SYSTEM' | 'HINT' | 'DEFENSE' | 'DISCUSSION' | 'POST_ROUND';
 }
 
-// 게임 룸 정보 인터페이스
+export type GamePhase = 'WAITING' | 'DISCUSSING' | 'VOTING' | 'REVEALING' | 'ENDED' |
+  'WAITING_FOR_PLAYERS' | 'SPEECH' | 'VOTING_FOR_LIAR' | 'DEFENDING' | 'VOTING_FOR_SURVIVAL' | 'GUESSING_WORD' | 'GAME_OVER';
+
+export type PlayerRole = 'CITIZEN' | 'LIAR' | 'UNKNOWN';
+
+export type ChatMessageType = 'HINT' | 'DISCUSSION' | 'DEFENSE' | 'POST_ROUND' | 'SYSTEM' | 'NORMAL';
+
 export interface GameRoom {
-  gameNumber: number;
-  gameOwner: string;
-  gameState: GameState;
-  gameParticipants: number;
-  currentPlayerCount: number;
-  gameLiarCount: number;
-  gameTotalRounds: number;
-  gameMode: GameMode;
-  createdAt: string;
-  subjects: string[];
+  id: number;
+  name: string;
+  hostId: number;
+  players: Player[];
+  gameSettings: GameSettings;
+  status: 'WAITING' | 'IN_PROGRESS' | 'ENDED';
+  currentRound: number;
+  maxRounds: number;
+  timeRemaining?: number;
 }
 
-// 주제 인터페이스
-export interface Subject {
-  id: number;
-  content: string;
-  status: 'APPROVED' | 'PENDING' | 'REJECTED';
-  wordCount: number;
-  words: string[];
+export interface GameSettings {
+  maxPlayers: number;
+  liarCount: number;
+  gameMode: 'LIARS_KNOW' | 'LIARS_DIFFERENT_WORD';
+  targetPoints: number;
+  useRandomSubjects: boolean;
+  subjectIds?: number[];
+  randomSubjectCount?: number;
 }
 
-// 단어 인터페이스
-export interface Word {
-  id: number;
-  content: string;
-  subjectId: number;
-  subjectContent: string;
-  status: 'APPROVED' | 'PENDING' | 'REJECTED';
+export interface VotingRecord {
+  voterId: number;
+  targetId: number;
+  confidence?: number;
+  timestamp: number;
+}
+
+export interface GameResult {
+  winner: 'CITIZENS' | 'LIARS';
+  scores: Record<number, number>;
+  roundResults: RoundResult[];
+}
+
+export interface RoundResult {
+  round: number;
+  eliminatedPlayer?: number;
+  liarsFound: number[];
+  citizensCorrect: boolean;
 }

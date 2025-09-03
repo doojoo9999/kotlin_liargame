@@ -4,9 +4,11 @@ import {useForm} from "react-hook-form"
 import {zodResolver} from "@hookform/resolvers/zod"
 import {Card, CardContent, CardHeader, CardTitle} from "../ui/card"
 import {Button} from "../ui/button"
-import {Badge} from "../ui/badge"
 import {type CreateGameFormData, createGameSchema} from "../../lib/validations"
 import {buttonInteraction, cardAppear} from "../../lib/animations"
+import {cn} from "../../lib/utils"
+import {RadioGroupItem} from "../ui/radio-group"
+import {Shield, Target} from "lucide-react"
 
 interface CreateGameFormProps {
   onSubmit: (data: CreateGameFormData) => Promise<void>
@@ -163,18 +165,22 @@ export const CreateGameForm: React.FC<CreateGameFormProps> = ({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <motion.div {...buttonInteraction}>
                   <Card
-                    variant={gameMode === 'LIARS_KNOW' ? 'selected' : 'interactive'}
-                    className="cursor-pointer"
+                    className={cn(
+                      "cursor-pointer transition-all",
+                      gameMode === 'LIARS_KNOW'
+                        ? "ring-2 ring-primary bg-primary/5"
+                        : "hover:bg-muted/50"
+                    )}
                     onClick={() => setValue('gameMode', 'LIARS_KNOW')}
                   >
                     <CardContent className="p-4">
                       <div className="flex items-center gap-2 mb-2">
-                        <Badge variant={gameMode === 'LIARS_KNOW' ? 'default' : 'outline'}>
-                          라이어 인지
-                        </Badge>
+                        <RadioGroupItem value="LIARS_KNOW" />
+                        <Shield className="h-4 w-4" />
+                        <span className="font-medium">라이어가 아는 모드</span>
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        라이어가 자신이 라이어임을 알고 시작하는 모드
+                        라이어가 자신의 역할을 알고 시작합니다
                       </p>
                     </CardContent>
                   </Card>
@@ -182,18 +188,22 @@ export const CreateGameForm: React.FC<CreateGameFormProps> = ({
 
                 <motion.div {...buttonInteraction}>
                   <Card
-                    variant={gameMode === 'LIARS_DIFFERENT_WORD' ? 'selected' : 'interactive'}
-                    className="cursor-pointer"
+                    className={cn(
+                      "cursor-pointer transition-all",
+                      gameMode === 'LIARS_DIFFERENT_WORD'
+                        ? "ring-2 ring-primary bg-primary/5"
+                        : "hover:bg-muted/50"
+                    )}
                     onClick={() => setValue('gameMode', 'LIARS_DIFFERENT_WORD')}
                   >
                     <CardContent className="p-4">
                       <div className="flex items-center gap-2 mb-2">
-                        <Badge variant={gameMode === 'LIARS_DIFFERENT_WORD' ? 'default' : 'outline'}>
-                          다른 단어
-                        </Badge>
+                        <RadioGroupItem value="LIARS_DIFFERENT_WORD" />
+                        <Target className="h-4 w-4" />
+                        <span className="font-medium">라이어 다른 단어 모드</span>
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        라이어가 다른 주제의 단어를 받는 모드
+                        라이어가 다른 주제의 단어를 받습니다
                       </p>
                     </CardContent>
                   </Card>
