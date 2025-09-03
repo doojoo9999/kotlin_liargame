@@ -58,6 +58,7 @@ class SecurityConfig {
     @Bean
     fun corsConfigurationSource(): CorsConfigurationSource {
         val configuration = CorsConfiguration()
+        // allowedOrigins 대신 allowedOriginPatterns 사용
         configuration.allowedOriginPatterns = getAllowedOriginPatterns()
         configuration.allowedMethods = listOf("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
         configuration.allowedHeaders = listOf("*")
@@ -69,11 +70,6 @@ class SecurityConfig {
     }
 
     private fun getAllowedOriginPatterns(): List<String> {
-        // 1순위: 환경변수 CORS_ALLOWED_ORIGINS (콤마 구분)
-        val envOverride = System.getenv("CORS_ALLOWED_ORIGINS")?.trim()
-        if (!envOverride.isNullOrBlank()) {
-            return envOverride.split(',').map { it.trim() }.filter { it.isNotEmpty() }
-        }
         val profile = System.getProperty("spring.profiles.active") ?: "dev"
 
         return when (profile) {

@@ -2,7 +2,6 @@ package org.example.kotlin_liargame.domain.game.service
 
 import jakarta.servlet.http.HttpSession
 import org.example.kotlin_liargame.domain.chat.service.ChatService
-import org.example.kotlin_liargame.domain.chat.service.ChatSystemMessenger
 import org.example.kotlin_liargame.domain.game.dto.request.CreateGameRoomRequest
 import org.example.kotlin_liargame.domain.game.dto.request.EndOfRoundRequest
 import org.example.kotlin_liargame.domain.game.dto.request.JoinGameRequest
@@ -43,8 +42,7 @@ class GameService(
     private val webSocketSessionManager: WebSocketSessionManager,
     private val gameProperties: org.example.kotlin_liargame.global.config.GameProperties,
     private val sessionService: org.example.kotlin_liargame.global.session.SessionService,
-    private val sessionManagementService: org.example.kotlin_liargame.global.security.SessionManagementService,
-    private val chatSystemMessenger: ChatSystemMessenger
+    private val sessionManagementService: org.example.kotlin_liargame.global.security.SessionManagementService
 ) {
     private val logger = LoggerFactory.getLogger(this::class.java)
 
@@ -779,7 +777,7 @@ class GameService(
         gameMonitoringService.broadcastGameState(game, message)
 
         // 채팅으로도 알림
-        chatSystemMessenger.sendSystemMessage(game, "${oldOwnerNickname}님이 방장 권한을 박탈당했습니다. 새로운 방장: ${nextOwner.nickname}님")
+        chatService.sendSystemMessage(game, "${oldOwnerNickname}님이 방장 권한을 박탈당했습니다. 새로운 방장: ${nextOwner.nickname}님")
 
         return OwnerKickResponse(
             newOwner = nextOwner.nickname,
@@ -838,7 +836,7 @@ class GameService(
         gameMonitoringService.broadcastGameState(game, message)
 
         // 채팅으로도 알림
-        chatSystemMessenger.sendSystemMessage(game, "방장이 게임 시작 시간을 연장했습니다. (+5분)")
+        chatService.sendSystemMessage(game, "방장이 게임 시작 시간을 연장했습니다. (+5분)")
 
         return TimeExtensionResponse(
             extendedUntil = extendedUntil.toString(),

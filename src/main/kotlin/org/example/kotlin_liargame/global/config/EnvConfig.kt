@@ -2,13 +2,11 @@ package org.example.kotlin_liargame.global.config
 
 import io.github.cdimascio.dotenv.Dotenv
 import jakarta.annotation.PostConstruct
-import org.slf4j.LoggerFactory
 import org.springframework.context.annotation.Configuration
 
 @Configuration
 class EnvConfig {
-    private val log = LoggerFactory.getLogger(EnvConfig::class.java)
-
+    
     @PostConstruct
     fun loadEnv() {
         try {
@@ -22,9 +20,11 @@ class EnvConfig {
                 System.setProperty(entry.key, entry.value)
             }
             
-            log.info(".env 로드 완료 ({} vars)", dotenv.entries().size)
+            println("✅ .env 파일 로드 완료")
+            println("📊 로드된 환경변수: ${dotenv.entries().size}개")
         } catch (e: Exception) {
-            log.warn(".env 로드 실패: {} (dir={})", e.message, System.getProperty("user.dir"))
+            println("⚠️ .env 파일 로드 실패: ${e.message}")
+            println("🔍 현재 디렉토리: ${System.getProperty("user.dir")}")
         }
     }
 }
