@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run type-check:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm run typecheck:*)",
+      "Bash(npm test)",
+      "Bash(timeout 3s npm test)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

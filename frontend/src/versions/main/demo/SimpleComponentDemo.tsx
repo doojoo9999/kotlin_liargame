@@ -119,10 +119,10 @@ export default function SimpleComponentDemo() {
                         </div>
                         <div className="text-right">
                           <Badge
-                            variant={player.role === 'CITIZEN' ? 'default' : 'secondary'}
+                            variant={player.role === 'CITIZEN' ? 'citizen' : player.role === 'LIAR' ? 'liar' : 'default'}
                             className="mb-1"
                           >
-                            {player.role === 'CITIZEN' ? '시민' : '???'}
+                            {player.role === 'CITIZEN' ? '시민' : player.role === 'LIAR' ? '라이어' : '???'}
                           </Badge>
                           {player.votesReceived > 0 && (
                             <div className="text-sm text-red-500">

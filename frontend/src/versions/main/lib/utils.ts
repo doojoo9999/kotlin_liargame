@@ -6,30 +6,44 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function formatTime(seconds: number): string {
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-  return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  const mins = Math.floor(seconds / 60)
+  const secs = seconds % 60
+  return `${mins}:${secs.toString().padStart(2, '0')}`
 }
 
-export function getPlayerStatusColor(status: string): string {
-  switch (status) {
-    case 'online': return 'bg-green-500';
-    case 'offline': return 'bg-gray-500';
-    case 'away': return 'bg-yellow-500';
-    case 'playing': return 'bg-blue-500';
-    default: return 'bg-gray-500';
+export function getPlayerInitials(name: string): string {
+  return name
+    .split(' ')
+    .map(word => word[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2)
+}
+
+export function generateRoomCode(): string {
+  return Math.random().toString(36).substring(2, 8).toUpperCase()
+}
+
+export function debounce<T extends (...args: any[]) => any>(
+  func: T,
+  wait: number
+): (...args: Parameters<T>) => void {
+  let timeout: number | undefined
+  return (...args: Parameters<T>) => {
+    clearTimeout(timeout)
+    timeout = window.setTimeout(() => func(...args), wait)
   }
 }
 
-export function getGamePhaseColor(phase: string): string {
-  switch (phase) {
-    case 'WAITING_FOR_PLAYERS': return 'bg-yellow-500';
-    case 'SPEECH': return 'bg-blue-500';
-    case 'VOTING_FOR_LIAR': return 'bg-orange-500';
-    case 'DEFENDING': return 'bg-purple-500';
-    case 'VOTING_FOR_SURVIVAL': return 'bg-red-500';
-    case 'GUESSING_WORD': return 'bg-indigo-500';
-    case 'GAME_OVER': return 'bg-gray-500';
-    default: return 'bg-gray-500';
+export function throttle<T extends (...args: any[]) => any>(
+  func: T,
+  limit: number
+): (...args: Parameters<T>) => void {
+  let timeout: ReturnType<typeof setTimeout> | undefined
+  return (...args: Parameters<T>) => {
+    if (!timeout) {
+      func(...args)
+      timeout = setTimeout(() => timeout = undefined, limit)
+    }
   }
 }

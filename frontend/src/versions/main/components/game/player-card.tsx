@@ -1,12 +1,12 @@
 import * as React from "react"
 import {motion} from "framer-motion"
-import {cn} from "../../../lib/utils"
+import {cn} from "@/versions/main/lib/utils"
 import {Card, CardContent, CardHeader} from "../ui/card"
 import {Avatar, AvatarFallback} from "../ui/avatar"
 import {Badge} from "../ui/badge"
 import {Button} from "../ui/button"
 import {StatusIndicator} from "../ui/status-indicator"
-import {Player} from "../../../types/game"
+import {Player} from "@/versions/main/types/game"
 
 interface PlayerCardProps {
   player: Player

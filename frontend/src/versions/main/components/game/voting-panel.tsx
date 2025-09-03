@@ -2,15 +2,15 @@ import * as React from "react"
 import {useForm} from "react-hook-form"
 import {zodResolver} from "@hookform/resolvers/zod"
 import {motion} from "framer-motion"
-import {cn, formatTime} from "../../../lib/utils"
+import {cn, formatTime} from "@/versions/main/lib/utils"
 import {Card, CardContent, CardHeader, CardTitle} from "../ui/card"
 import {Button} from "../ui/button"
 import {Progress} from "../ui/progress"
 import {RadioGroup, RadioGroupItem} from "../ui/radio-group"
 import {Label} from "../ui/label"
 import {PlayerCard} from "./player-card"
-import {VotingFormData, votingSchema} from "../../../lib/validations"
-import {Player} from "../../../types/game"
+import {VotingFormData, votingSchema} from "@/versions/main/lib/validations"
+import {Player} from "@/versions/main/types/game"
 
 interface VotingPanelProps {
   players: Player[]

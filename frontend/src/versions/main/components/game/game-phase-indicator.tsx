@@ -1,10 +1,10 @@
 import * as React from "react"
 import {motion} from "framer-motion"
-import {cn, formatTime} from "../../../lib/utils"
+import {cn, formatTime} from "@/versions/main/lib/utils"
 import {Card, CardContent, CardHeader, CardTitle} from "../ui/card"
 import {Progress} from "../ui/progress"
 import {Badge} from "../ui/badge"
-import {GamePhase} from "../../../types/game"
+import {GamePhase} from "@/versions/main/types/game"
 
 interface PhaseConfig {
   key: GamePhase

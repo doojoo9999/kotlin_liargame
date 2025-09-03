@@ -41,8 +41,12 @@ const typeColors = {
 }
 
 function ChatMessageComponent({ message, animated = true }: ChatMessageProps) {
-  const isSystem = message.type === 'SYSTEM'
+  const isSystem = (message.type || 'NORMAL') === 'SYSTEM'
   const isCurrentUser = false // TODO: 현재 사용자 체크 로직
+
+  const messageType = message.type || 'DISCUSSION'
+  const playerName = message.playerNickname || message.player
+  const messageContent = message.content || message.message
 
   return (
     <motion.div
@@ -52,15 +56,15 @@ function ChatMessageComponent({ message, animated = true }: ChatMessageProps) {
       exit={animated ? "exit" : undefined}
       className={cn(
         "mb-3 p-3 rounded-lg border max-w-xs",
-        typeColors[message.type],
+        typeColors[messageType] || typeColors.DISCUSSION,
         isCurrentUser ? "ml-auto" : "mr-auto",
         isSystem && "mx-auto max-w-full text-center"
       )}
     >
-      {!isSystem && (
+      {!isSystem && playerName && (
         <div className="flex items-center justify-between mb-1">
           <span className="font-semibold text-sm">
-            {message.playerNickname}
+            {playerName}
           </span>
           <span className="text-xs opacity-70">
             {new Date(message.timestamp).toLocaleTimeString()}
@@ -72,14 +76,14 @@ function ChatMessageComponent({ message, animated = true }: ChatMessageProps) {
         "text-sm",
         isSystem && "font-medium"
       )}>
-        {message.content}
+        {messageContent}
       </div>
 
-      {message.type !== 'DISCUSSION' && message.type !== 'SYSTEM' && (
+      {messageType !== 'DISCUSSION' && messageType !== 'SYSTEM' && messageType !== 'NORMAL' && (
         <Badge variant="outline" className="mt-1 text-xs">
-          {message.type === 'HINT' && '힌트'}
-          {message.type === 'DEFENSE' && '변론'}
-          {message.type === 'POST_ROUND' && '라운드 종료'}
+          {messageType === 'HINT' && '힌트'}
+          {messageType === 'DEFENSE' && '변론'}
+          {messageType === 'POST_ROUND' && '라운드 종료'}
         </Badge>
       )}
     </motion.div>
