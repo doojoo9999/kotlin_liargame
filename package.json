@@ -1,6 +1,7 @@
 {
   "dependencies": {
-    "cloc": "^2.6.0-cloc"
+    "cloc": "^2.6.0-cloc",
+    "dotenv": "^16.4.5"
   },
   "devDependencies": {
     "playwright": "^1.55.0",

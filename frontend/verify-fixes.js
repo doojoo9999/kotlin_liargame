@@ -1,4 +1,7 @@
 import {chromium} from 'playwright';
+import env from '../env-base.js';
+
+const { BASE_URL } = env;
 
 async function verifyFixes() {
   const browser = await chromium.launch({ headless: true });
@@ -7,7 +10,7 @@ async function verifyFixes() {
   try {
     console.log('🔍 핵심 수정사항 검증 시작...\n');
     
-    await page.goto('http://localhost:5173/main/demo', { waitUntil: 'networkidle' });
+    await page.goto(`${BASE_URL}/main/demo`, { waitUntil: 'networkidle' });
     await page.waitForTimeout(2000);
     
     // React 로딩 상태 확인

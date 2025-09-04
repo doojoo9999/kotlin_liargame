@@ -1,4 +1,7 @@
 import {chromium} from 'playwright';
+import env from '../env-base.js';
+
+const { BASE_URL } = env;
 
 (async () => {
   const browser = await chromium.launch({ headless: false });
@@ -7,8 +10,8 @@ import {chromium} from 'playwright';
   try {
     console.log('=== 현재 데모 페이지 디자인 상태 확인 ===\n');
     
-    await page.goto('http://localhost:5173/main/demo', { waitUntil: 'networkidle' });
-    
+    await page.goto(`${BASE_URL}/main/demo`, { waitUntil: 'networkidle' });
+
     // 전체 스크린샷
     await page.screenshot({ path: 'current-demo-full.png', fullPage: true });
     console.log('✅ 전체 스크린샷 저장: current-demo-full.png');

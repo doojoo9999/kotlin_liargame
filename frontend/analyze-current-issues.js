@@ -1,6 +1,8 @@
 import {chromium} from 'playwright';
 
 async function analyzeCurrentIssues() {
+
+async function analyzeCurrentIssues() {
   const browser = await chromium.launch({ headless: false });
   const page = await browser.newPage();
 
@@ -8,7 +10,7 @@ async function analyzeCurrentIssues() {
     console.log('현재 데모 페이지 상태 분석 시작...');
     
     // 페이지 로드
-    await page.goto('http://localhost:5173/main/demo');
+    await page.goto(`${BASE_URL}/main/demo`);
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(3000);
     
