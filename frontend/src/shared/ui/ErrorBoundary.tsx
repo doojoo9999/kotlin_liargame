@@ -1,7 +1,5 @@
-import { Component } from 'react';
-import type { ErrorInfo, ReactNode } from 'react';
-import { Alert, Button, Container, Center, Stack } from '@mantine/core';
-import { AlertCircle } from 'lucide-react';
+import type {ErrorInfo, ReactNode} from 'react';
+import {Component} from 'react';
 
 interface Props {
   children: ReactNode;
@@ -34,25 +32,70 @@ export class ErrorBoundary extends Component<Props, State> {
   public render() {
     if (this.state.hasError) {
       return (
-        <Container>
-          <Center h="100vh">
-            <Stack align="center">
-              <Alert icon={<AlertCircle size="1rem" />} title="문제가 발생했습니다!" color="red">
-                애플리케이션에 예기치 않은 오류가 발생하여 중단되었습니다.
-                <br />
-                이 문제가 계속되면 관리자에게 문의하세요.
-              </Alert>
-              {this.state.error && (
-                <pre style={{ whiteSpace: 'pre-wrap', background: '#f5f5f5', padding: '1rem', borderRadius: '4px' }}>
-                  {this.state.error.toString()}
-                </pre>
-              )}
-              <Button onClick={this.handleReset} color="red" variant="light">
-                새로고침
-              </Button>
-            </Stack>
-          </Center>
-        </Container>
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          height: '100vh',
+          flexDirection: 'column',
+          padding: '2rem',
+          fontFamily: 'system-ui, -apple-system, sans-serif'
+        }}>
+          <div style={{
+            maxWidth: '500px',
+            padding: '2rem',
+            border: '1px solid #dc2626',
+            borderRadius: '8px',
+            backgroundColor: '#fef2f2',
+            textAlign: 'center'
+          }}>
+            <div style={{
+              fontSize: '2rem',
+              marginBottom: '1rem',
+              color: '#dc2626'
+            }}>
+              ⚠️ 문제가 발생했습니다!
+            </div>
+            <p style={{
+              color: '#7f1d1d',
+              marginBottom: '1.5rem',
+              lineHeight: '1.5'
+            }}>
+              애플리케이션에 예기치 않은 오류가 발생하여 중단되었습니다.
+              <br />
+              이 문제가 계속되면 관리자에게 문의하세요.
+            </p>
+            {this.state.error && (
+              <pre style={{ 
+                whiteSpace: 'pre-wrap', 
+                background: '#f5f5f5', 
+                padding: '1rem', 
+                borderRadius: '4px',
+                fontSize: '0.875rem',
+                textAlign: 'left',
+                overflow: 'auto',
+                maxHeight: '200px',
+                marginBottom: '1.5rem'
+              }}>
+                {this.state.error.toString()}
+              </pre>
+            )}
+            <button 
+              onClick={this.handleReset}
+              style={{
+                backgroundColor: '#dc2626',
+                color: 'white',
+                border: 'none',
+                padding: '0.75rem 1.5rem',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '1rem'
+              }}
+            >
+              새로고침
+            </button>
+          </div>
+        </div>
       );
     }
 

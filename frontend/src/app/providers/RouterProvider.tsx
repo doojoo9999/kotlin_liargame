@@ -4,7 +4,8 @@ import {GameRoomPage} from '../../pages/GameRoomPage';
 import {LobbyPage} from '../../pages/LobbyPage';
 import {LoginPage} from '../../pages/LoginPage';
 import {RootLayout} from '../layouts/RootLayout';
-import MainVersionApp from '../../versions/main/App';
+import IntegratedGameDemo from '../../features/demo/IntegratedGameDemo';
+import TestDemo from '../../features/demo/TestDemo';
 
 const router = createBrowserRouter([
   {
@@ -30,10 +31,18 @@ const router = createBrowserRouter([
       },
     ],
   },
-  // Main Version 라우트 - 직접 임포트로 변경
+  // Main Version 라우트 - 진짜 통합 데모로 복원
   {
-    path: '/main/*',
-    element: <MainVersionApp />,
+    path: '/main/demo',
+    element: <IntegratedGameDemo />,
+  },
+  {
+    path: '/main/test',
+    element: <TestDemo />,
+  },
+  {
+    path: '/main',
+    element: <IntegratedGameDemo />, // 기본 메인 경로
   },
 ]);
 
