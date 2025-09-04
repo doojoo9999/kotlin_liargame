@@ -1,7 +1,10 @@
-const lighthouse = require('lighthouse');
-const chromeLauncher = require('chrome-launcher');
-const fs = require('fs');
-const path = require('path');
+import lighthouse from "lighthouse";
+
+import chromeLauncher from "chrome-launcher";
+
+import fs from "fs";
+
+import path from "path";
 
 // Lighthouse 감사 도구
 class LighthouseAuditor {
@@ -9,7 +12,7 @@ class LighthouseAuditor {
     this.auditResults = {};
   }
 
-  async runAudit(url = 'http://localhost:5173', options = {}) {
+  async runAudit(url = 'http://119.201.53.4:5173', options = {}) {
     console.log(`🔍 Lighthouse 감사 시작: ${url}`);
 
     const chrome = await chromeLauncher.launch({
@@ -43,8 +46,8 @@ class LighthouseAuditor {
     console.log('🔄 다중 페이지 Lighthouse 감사 실행...');
 
     const urls = [
-      { name: 'Main Demo', url: 'http://localhost:5173' },
-      { name: 'Phase 4 Demo', url: 'http://localhost:5173/phase4-demo.html' }
+      { name: 'Main Demo', url: 'http://119.201.53.4:5173' },
+      { name: 'Phase 4 Demo', url: 'http://119.201.53.4:5173/phase4-demo.html' }
     ];
 
     const results = {};

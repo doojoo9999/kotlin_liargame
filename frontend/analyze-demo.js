@@ -1,4 +1,7 @@
 import {chromium} from 'playwright';
+import env from '../env-base.js';
+
+const { BASE_URL } = env;
 
 async function analyzeDemoPage() {
   const browser = await chromium.launch({ headless: false });
@@ -7,8 +10,8 @@ async function analyzeDemoPage() {
   try {
     // 페이지 로드
     console.log('Navigating to demo page...');
-    await page.goto('http://localhost:5173/main/demo');
-    
+    await page.goto(`${BASE_URL}/main/demo`);
+
     // 페이지가 로드될 때까지 대기
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
