@@ -3,26 +3,56 @@ import SockJS from 'sockjs-client'
 import {useSocketStore} from '@/shared/stores/socketStore'
 import {logger} from '@/shared/utils/logger'
 
+// WebSocket 메시지 타입 정의
+interface WebSocketMessage {
+  type: string;
+  payload: unknown;
+  timestamp?: number;
+}
+
+interface SubscriptionCallback {
+  (message: WebSocketMessage): void;
+}
+
+interface SubscriptionEntry {
+  callback: SubscriptionCallback;
+  subscription: StompSubscription | null;
+}
+
+interface WebSocketConfig {
+  url: string;
+  reconnectDelay?: number;
+  maxReconnectAttempts?: number;
+  heartbeatIncoming?: number;
+  heartbeatOutgoing?: number;
+}
+
+interface Subscription {
+  unsubscribe(): void;
+}
+
+// STOMP 에러 프레임 타입 정의
+interface StompErrorFrame {
+  headers?: {
+    message?: string;
+    [key: string]: string | undefined;
+  };
+  body: string;
+  command?: string;
+}
+
+// 게임 메시지 타입 정의
+interface GameMessage {
+  [key: string]: unknown;
+}
+
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'error'
-
-export interface WebSocketConfig {
-  url: string
-  heartbeatIncoming?: number
-  heartbeatOutgoing?: number
-  reconnectDelay?: number
-  maxReconnectAttempts?: number
-}
-
-export interface Subscription {
-  destination: string
-  unsubscribe: () => void
-}
 
 class MainWebSocketManager {
   private static instance: MainWebSocketManager
   private client: Client
   private config: WebSocketConfig
-  private subscriptions = new Map<string, { callback: (message: any) => void; subscription: StompSubscription | null }>()
+  private subscriptions = new Map<string, SubscriptionEntry>()
   private reconnectAttempts = 0
   private reconnectTimer: NodeJS.Timeout | null = null
   private connectionPromise: Promise<void> | null = null
@@ -79,7 +109,7 @@ class MainWebSocketManager {
         resolve()
       }
 
-      const onError = (error: any) => {
+      const onError = (error: StompErrorFrame) => {
         this.client.onConnect = this.onConnect.bind(this)
         reject(error)
       }
@@ -112,17 +142,22 @@ class MainWebSocketManager {
     useSocketStore.getState().setConnectionState('disconnected')
   }
 
-  public subscribe(destination: string, callback: (message: any) => void): Subscription {
+  public subscribe(destination: string, callback: SubscriptionCallback): Subscription {
     this.subscriptions.set(destination, { callback, subscription: null })
 
     if (this.client.connected) {
       const subscription = this.client.subscribe(destination, (message: IMessage) => {
         try {
-          const data = JSON.parse(message.body)
+          const data = JSON.parse(message.body) as WebSocketMessage
           callback(data)
         } catch (error) {
           logger.errorLog('[WebSocket] Failed to parse message:', error)
-          callback(message.body)
+          // 파싱 실패 시 원본 메시지를 WebSocketMessage 형태로 래핑
+          callback({
+            type: 'raw',
+            payload: message.body,
+            timestamp: Date.now()
+          })
         }
       })
 
@@ -131,7 +166,6 @@ class MainWebSocketManager {
     }
 
     return {
-      destination,
       unsubscribe: () => this.unsubscribe(destination)
     }
   }
@@ -145,7 +179,7 @@ class MainWebSocketManager {
     logger.infoLog(`[WebSocket] Unsubscribed from ${destination}`)
   }
 
-  public send(destination: string, message: any): void {
+  public send(destination: string, message: GameMessage): void {
     if (!this.client.connected) {
       logger.warnLog('[WebSocket] Cannot send message - not connected')
       return
@@ -188,7 +222,7 @@ class MainWebSocketManager {
     this.attemptReconnect()
   }
 
-  private onError(frame: any): void {
+  private onError(frame: StompErrorFrame): void {
     logger.errorLog('[WebSocket] STOMP Error:', frame.headers?.message, frame.body)
     useSocketStore.getState().setConnectionState('error')
   }
@@ -242,7 +276,7 @@ class MainWebSocketManager {
 
   private handlePong(message: IMessage): void {
     try {
-      const data = JSON.parse(message.body)
+      const data = JSON.parse(message.body) as { timestamp: number }
       this.latency = Date.now() - data.timestamp
       useSocketStore.getState().setLatency(this.latency)
     } catch (error) {
@@ -255,11 +289,15 @@ class MainWebSocketManager {
       if (this.client.connected) {
         const subscription = this.client.subscribe(destination, (message: IMessage) => {
           try {
-            const data = JSON.parse(message.body)
+            const data = JSON.parse(message.body) as WebSocketMessage
             callback(data)
           } catch (error) {
             logger.errorLog('[WebSocket] Failed to parse message:', error)
-            callback(message.body)
+            callback({
+              type: 'raw',
+              payload: message.body,
+              timestamp: Date.now()
+            })
           }
         })
         this.subscriptions.set(destination, { callback, subscription })

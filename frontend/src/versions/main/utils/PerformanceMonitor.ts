@@ -19,6 +19,15 @@ interface MemoryMetrics {
   jsHeapSizeLimit: number
 }
 
+// 성능 이슈 타입 정의
+interface PerformanceIssue {
+  type: 'slow-render' | 'memory-leak' | 'network-error' | 'bundle-size' | 'custom';
+  message: string;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  timestamp: number;
+  metadata?: Record<string, unknown>;
+}
+
 class PerformanceMonitor {
   private static instance: PerformanceMonitor
   private metrics: Partial<PerformanceMetrics> = {}
@@ -67,7 +76,7 @@ class PerformanceMonitor {
     }
   }
 
-  public reportIssue(type: string, data: any): void {
+  public reportIssue(type: string, data: PerformanceIssue): void {
     // In production, this would send to monitoring service
     if (import.meta.env.DEV) {
       console.warn(`[Performance Issue] ${type}:`, data)

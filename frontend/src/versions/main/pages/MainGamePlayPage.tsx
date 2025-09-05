@@ -15,10 +15,36 @@ import {useNotification} from "@/versions/main/providers/NotificationProvider"
 import {useGameStateSubscriber} from "@/versions/main/hooks/useGameStateSubscriber"
 import type {GamePhase, Player} from "@/shared/types/api.types"
 
+// 게임 액션 타입 정의
+interface GameAction {
+  action: 'VOTE' | 'HINT_SUBMIT' | 'DEFENSE_SUBMIT' | 'FINAL_GUESS' | 'READY';
+  data?: {
+    targetPlayerId?: number;
+    hint?: string;
+    defense?: string;
+    subject?: string;
+    message?: string;
+  };
+}
+
+// 게임 상태 타입 정의
+interface GameState {
+  gameNumber: number;
+  phase: GamePhase;
+  timeRemaining: number;
+  currentRound: number;
+  totalRounds: number;
+  players: Player[];
+  currentPlayerId: number;
+  subject?: string;
+  isLiar: boolean;
+  votingResults?: Record<number, number>;
+}
+
 interface GameStageProps {
-  gameState: any
+  gameState: GameState
   currentPlayer: Player
-  onAction: (action: string, data?: any) => boolean
+  onAction: (action: string, data?: GameAction['data']) => boolean
 }
 
 // 게임 단계별 컴포넌트들

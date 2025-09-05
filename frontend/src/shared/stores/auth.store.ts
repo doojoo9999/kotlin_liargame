@@ -91,7 +91,7 @@ export const useAuthStore = create<AuthStore>()(
         }
 
         try {
-          const response = await fetch(`${import.meta.env.VITE_API_URL}${API_ENDPOINTS.AUTH.REFRESH}`, {
+          const response = await fetch(`${import.meta.env.VITE_API_URL}${API_ENDPOINTS.AUTH.REFRESH_SESSION}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ refreshToken: currentRefreshToken }),

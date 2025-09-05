@@ -10,7 +10,7 @@
     "build": "vite build",
     "build:main-demo": "vite build --mode production src/main-demo.tsx",
     "build:phase4": "vite build --mode production",
-    "type-check": "tsc -b",
+    "type-check": "tsc --noEmit",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest",

@@ -1,9 +1,10 @@
 import {fireEvent, render, screen, waitFor} from '@testing-library/react';
+import {vi} from 'vitest';
 import {AdvancedPlayerCard} from '../components/AdvancedPlayerCard';
 import {Player} from '@/shared/types/game';
 
 // 모킹
-jest.mock('framer-motion', () => ({
+vi.mock('framer-motion', () => ({
   motion: {
     div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
     button: ({ children, ...props }: any) => <button {...props}>{children}</button>
@@ -47,7 +48,7 @@ describe('AdvancedPlayerCard', () => {
   });
 
   it('투표 기능이 올바르게 작동한다', async () => {
-    const mockOnVote = jest.fn();
+    const mockOnVote = vi.fn();
 
     render(
       <AdvancedPlayerCard
@@ -76,7 +77,7 @@ describe('AdvancedPlayerCard', () => {
   });
 
   it('비활성화 상태에서 클릭이 작동하지 않는다', () => {
-    const mockOnVote = jest.fn();
+    const mockOnVote = vi.fn();
 
     render(
       <AdvancedPlayerCard
@@ -102,8 +103,7 @@ describe('AdvancedPlayerCard', () => {
       />
     );
 
-    // 스타일 클래스나 속성으로 확인 가능
-    const playerCard = screen.getByText('테스트플레이어').closest('div');
-    expect(playerCard).toHaveStyle({ opacity: expect.stringMatching(/0\.[0-9]+/) });
+    const playerCard = screen.getByTestId('player-card');
+    expect(playerCard).toHaveClass('opacity-50');
   });
 });

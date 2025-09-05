@@ -1,7 +1,7 @@
 import React from 'react';
 import {createRoot} from 'react-dom/client';
 import {GameComponentsDemo} from './features/demo/GameComponentsDemo';
-import './app/styles/globals.css';
+import '../styles/globals.css';
 
 const App: React.FC = () => {
   return (

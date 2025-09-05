@@ -57,9 +57,6 @@ const darkColors = [
 export const theme = createTheme({
   primaryColor: 'gameNeon',
 
-  // Linear.app 스타일 다크 테마
-  colorScheme: 'dark',
-
   fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif',
   headings: {
     fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif',

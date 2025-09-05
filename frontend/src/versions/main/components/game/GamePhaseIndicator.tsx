@@ -3,7 +3,7 @@ import {motion} from 'framer-motion';
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
 import {Badge} from '@/components/ui/badge';
 import {Progress} from '@/components/ui/progress';
-import {cn} from '@/lib/utils';
+import {cn} from '@/versions/main/lib/utils';
 import {Clock, Target, Trophy, Users} from 'lucide-react';
 
 type GamePhase = 'WAITING' | 'DISCUSSING' | 'VOTING' | 'REVEALING' | 'ENDED';

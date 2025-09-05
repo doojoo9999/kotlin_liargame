@@ -1,0 +1,47 @@
+src/app/styles/theme.ts(61,3): error TS2353: Object literal may only specify known properties, and 'colorScheme' does not exist in type '{ focusRing?: "auto" | "always" | "never" | undefined; scale?: number | undefined; fontSmoothing?: boolean | undefined; white?: string | undefined; black?: string | undefined; colors?: { ...; } | undefined; ... 21 more ...; other?: { ...; } | undefined; }'.
+src/app/styles/theme.ts(214,18): error TS7006: Parameter 'theme' implicitly has an 'any' type.
+src/dev/palette.tsx(2,54): error TS2307: Cannot find module '@react-buddy/ide-toolbox' or its corresponding type declarations.
+src/dev/previews.tsx(1,24): error TS2307: Cannot find module '@react-buddy/ide-toolbox' or its corresponding type declarations.
+src/dev/useInitial.ts(2,33): error TS2307: Cannot find module '@react-buddy/ide-toolbox' or its corresponding type declarations.
+src/features/chat/components/ChatSystem.tsx(178,12): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(props: FixedSizeListProps<any>): FixedSizeList<any>', gave the following error.
+    Property 'width' is missing in type '{ children: ({ index, style }: { index: number; style: CSSProperties; }) => Element; ref: RefObject<FixedSizeList<any> | null>; height: number; itemCount: number; itemSize: number; className: string; }' but required in type 'Readonly<FixedSizeListProps<any>>'.
+  Overload 2 of 2, '(props: FixedSizeListProps<any>, context: any): FixedSizeList<any>', gave the following error.
+    Property 'width' is missing in type '{ children: ({ index, style }: { index: number; style: CSSProperties; }) => Element; ref: RefObject<FixedSizeList<any> | null>; height: number; itemCount: number; itemSize: number; className: string; }' but required in type 'Readonly<FixedSizeListProps<any>>'.
+src/features/game/components/__tests__/AdvancedPlayerCard.test.tsx(2,34): error TS2307: Cannot find module '../components/AdvancedPlayerCard' or its corresponding type declarations.
+src/features/game/components/__tests__/AdvancedPlayerCard.test.tsx(6,1): error TS2304: Cannot find name 'jest'.
+src/features/game/components/__tests__/AdvancedPlayerCard.test.tsx(25,1): error TS2582: Cannot find name 'describe'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/features/game/components/__tests__/AdvancedPlayerCard.test.tsx(26,3): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/features/game/components/__tests__/AdvancedPlayerCard.test.tsx(34,5): error TS2304: Cannot find name 'expect'.
+src/features/game/components/__tests__/AdvancedPlayerCard.test.tsx(37,3): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/features/game/components/__tests__/AdvancedPlayerCard.test.tsx(46,5): error TS2304: Cannot find name 'expect'.
+src/features/game/components/__tests__/AdvancedPlayerCard.test.tsx(49,3): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/features/game/components/__tests__/AdvancedPlayerCard.test.tsx(50,24): error TS2304: Cannot find name 'jest'.
+src/features/game/components/__tests__/AdvancedPlayerCard.test.tsx(63,7): error TS2304: Cannot find name 'expect'.
+src/features/game/components/__tests__/AdvancedPlayerCard.test.tsx(67,3): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/features/game/components/__tests__/AdvancedPlayerCard.test.tsx(75,5): error TS2304: Cannot find name 'expect'.
+src/features/game/components/__tests__/AdvancedPlayerCard.test.tsx(78,3): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/features/game/components/__tests__/AdvancedPlayerCard.test.tsx(79,24): error TS2304: Cannot find name 'jest'.
+src/features/game/components/__tests__/AdvancedPlayerCard.test.tsx(92,5): error TS2304: Cannot find name 'expect'.
+src/features/game/components/__tests__/AdvancedPlayerCard.test.tsx(95,3): error TS2582: Cannot find name 'it'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+src/features/game/components/__tests__/AdvancedPlayerCard.test.tsx(107,5): error TS2304: Cannot find name 'expect'.
+src/features/game/components/__tests__/AdvancedPlayerCard.test.tsx(107,47): error TS2304: Cannot find name 'expect'.
+src/features/game/components/GameBoard.tsx(183,17): error TS2322: Type '{ hidden: { opacity: number; scale: number; }; visible: { opacity: number; scale: number; transition: { duration: number; ease: string; }; }; exit: { opacity: number; scale: number; transition: { duration: number; }; }; }' is not assignable to type 'Variants'.
+  Property 'visible' is incompatible with index signature.
+    Type '{ opacity: number; scale: number; transition: { duration: number; ease: string; }; }' is not assignable to type 'Variant'.
+      Type '{ opacity: number; scale: number; transition: { duration: number; ease: string; }; }' is not assignable to type 'TargetAndTransition'.
+        Type '{ opacity: number; scale: number; transition: { duration: number; ease: string; }; }' is not assignable to type '{ transition?: Transition<any> | undefined; transitionEnd?: ResolvedValues | undefined; }'.
+          Types of property 'transition' are incompatible.
+            Type '{ duration: number; ease: string; }' is not assignable to type 'Transition<any> | undefined'.
+              Type '{ duration: number; ease: string; }' is not assignable to type 'TransitionWithValueOverrides<any>'.
+                Type '{ duration: number; ease: string; }' is not assignable to type 'ValueAnimationTransition<any>'.
+                  Types of property 'ease' are incompatible.
+                    Type 'string' is not assignable to type 'Easing | Easing[] | undefined'.
+src/main-phase2-demo.tsx(4,8): error TS2307: Cannot find module './app/styles/globals.css' or its corresponding type declarations.
+src/main.tsx(4,8): error TS2307: Cannot find module './app/styles/global.css' or its corresponding type declarations.
+src/shared/ui/ActionButtons.tsx(2,60): error TS2724: '"@tabler/icons-react"' has no exported member named 'IconInfo'. Did you mean 'IconInbox'?
+src/shared/ui/ChatMessage.tsx(4,19): error TS2307: Cannot find module 'dayjs' or its corresponding type declarations.
+src/shared/ui/GameStatusPanel.tsx(182,17): error TS2322: Type 'boolean | 0 | undefined' is not assignable to type 'boolean | undefined'.
+  Type '0' is not assignable to type 'boolean | undefined'.
+src/shared/ui/GameStatusPanel.tsx(382,17): error TS2322: Type 'boolean | 0 | undefined' is not assignable to type 'boolean | undefined'.
+  Type '0' is not assignable to type 'boolean | undefined'.

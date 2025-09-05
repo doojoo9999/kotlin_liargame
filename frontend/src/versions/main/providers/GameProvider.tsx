@@ -1,6 +1,24 @@
 import React, {createContext, useContext, useReducer} from 'react'
 import type {GamePhase, Player} from '@/shared/types/api.types'
 
+// 게임 결과 타입 정의
+interface GameResult {
+  winner: 'LIAR' | 'CITIZENS';
+  liarId: number;
+  liarNickname: string;
+  votingResults: {
+    playerId: number;
+    votes: number;
+  }[];
+  gameEndReason: 'LIAR_FOUND' | 'LIAR_GUESSED_SUBJECT' | 'TIME_UP';
+  finalSubject?: string;
+  roundResults: {
+    round: number;
+    eliminatedPlayerId?: number;
+    votingResults: Record<number, number>;
+  }[];
+}
+
 interface GameState {
   gameNumber: number | null
   phase: GamePhase
@@ -12,7 +30,7 @@ interface GameState {
   selectedVote: number | null
   subject: string | null
   isLiar: boolean
-  gameResult: any | null
+  gameResult: GameResult | null
 }
 
 type GameAction =

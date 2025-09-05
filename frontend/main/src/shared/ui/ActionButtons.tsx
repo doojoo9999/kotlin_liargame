@@ -1,5 +1,5 @@
 import {Box, Button, Group, Modal, Stack, Text} from '@mantine/core';
-import {IconAlertTriangle, IconCheck, IconExclamationMark, IconInfo, IconX} from '@tabler/icons-react';
+import {IconAlertTriangle, IconCheck, IconExclamationMark, IconInfoCircle, IconX} from '@tabler/icons-react';
 import {AnimatePresence, motion} from 'framer-motion';
 
 interface ActionButtonsProps {
@@ -112,7 +112,7 @@ export function ConfirmModal({
         };
       case 'info':
         return {
-          icon: IconInfo,
+          icon: IconInfoCircle,
           iconColor: 'var(--game-neon-primary)',
           iconBg: 'rgba(14, 165, 233, 0.1)',
           confirmColor: 'blue',

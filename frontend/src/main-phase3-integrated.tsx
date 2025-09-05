@@ -2,7 +2,7 @@ import React from 'react';
 import {createRoot} from 'react-dom/client';
 import {IntegratedVersionDemo} from './features/demo/IntegratedVersionDemo';
 import {VersionRouter} from './app/VersionRouter';
-import './app/styles/globals.css';
+import './versions/main/styles/globals.css';
 
 const App: React.FC = () => {
   // URL 파라미터로 데모 모드 결정

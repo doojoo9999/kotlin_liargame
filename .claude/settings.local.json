@@ -34,7 +34,9 @@
       "Bash(npm install:*)",
       "Read(/D:\\workspaces\\kotlin_liargame\\frontend/**)",
       "Bash(cat:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(npm ls:*)",
+      "Bash(sed:*)"
     ],
     "deny": [],
     "ask": []

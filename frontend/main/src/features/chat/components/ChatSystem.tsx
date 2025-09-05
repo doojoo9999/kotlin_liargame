@@ -178,6 +178,7 @@ export const ChatSystem: React.FC<ChatSystemProps> = ({
           <List
             ref={listRef}
             height={300}
+            width="100%"
             itemCount={messages.length}
             itemSize={80}
             className="scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100"

@@ -27,13 +27,16 @@ export class BaseApiClient {
   ): Promise<T> {
     const url = `${this.baseURL}${endpoint}`;
 
+    const auth = this.getAuthHeaders();
+    const merged: HeadersInit = {
+      'Content-Type': 'application/json',
+      ...auth,
+      ...(options.headers as any || {})
+    };
+
     const response = await fetch(url, {
       ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...this.getAuthHeaders(),
-        ...options.headers,
-      },
+      headers: merged,
     });
 
     if (!response.ok) {
