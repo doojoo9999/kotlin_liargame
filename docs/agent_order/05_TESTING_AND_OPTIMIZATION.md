@@ -33,7 +33,7 @@ describe('PlayerCard', () => {
 
 **담당 에이전트**: `test-engineer`
 
-**예상 작업 시간**: 3-4일
+**예상 작업 시간**: 4-5일
 
 ### 5.2 통합 테스트 (Integration Testing)
 
@@ -61,7 +61,7 @@ describe('WebSocket Integration', () => {
 
 **담당 에이전트**: `test-engineer`
 
-**예상 작업 시간**: 4-5일
+**예상 작업 시간**: 5-6일
 
 ### 5.3 E2E 테스트 (End-to-End Testing)
 
@@ -99,7 +99,7 @@ test('complete game flow', async ({ browser }) => {
 
 **담당 에이전트**: `test-automator`
 
-**예상 작업 시간**: 3-4일
+**예상 작업 시간**: 4-5일
 
 ### 5.4 성능 최적화
 
@@ -143,7 +143,7 @@ const GameResultPage = lazy(() => import('./pages/GameResultPage'));
 
 **담당 에이전트**: `performance-profiler`
 
-**예상 작업 시간**: 3-4일
+**예상 작업 시간**: 4-5일
 
 ### 5.5 접근성 테스트 및 개선
 
@@ -171,7 +171,7 @@ test('should not have accessibility violations', async () => {
 
 **담당 에이전트**: `frontend-developer`
 
-**예상 작업 시간**: 2-3일
+**예상 작업 시간**: 3일
 
 ### 5.6 성능 모니터링 및 분석
 
@@ -202,7 +202,7 @@ performanceObserver.observe({ entryTypes: ['navigation', 'paint'] });
 
 **담당 에이전트**: `performance-profiler`
 
-**예상 작업 시간**: 2일
+**예상 작업 시간**: 3일
 
 ### 5.7 사용자 경험 테스트
 
@@ -219,7 +219,7 @@ performanceObserver.observe({ entryTypes: ['navigation', 'paint'] });
 
 **담당 에이전트**: `ui-ux-designer`
 
-**예상 작업 시간**: 2-3일
+**예상 작업 시간**: 3일
 
 ## 📊 성능 목표 지표
 
@@ -266,12 +266,52 @@ jobs:
 
 **담당 에이전트**: `test-automator`
 
+## ⚠️ 리스크 및 대응방안
+
+### API 통합 테스트 리스크
+- **백엔드 API 변경**: 매주 신규 API 명세 통합 테스트 수행
+- **투표 API 차이점**: `targetPlayerId` vs `targetUserId` 최종 검증
+- **채팅 타입**: `NORMAL` → `DISCUSSION` 전환 완전성 확인
+- **WebSocket 메시지**: 실제 서버 환경에서 대용량 테스트
+
+### 테스트 복잡도 관리
+- **통합 테스트 시간 증가**: API 대기 시간 고려한 리얼 테스트
+- **에러 시나리오**: 예상치 못한 에러 케이스 발견 및 대응
+- **성능 벤치마크**: 목표 수치 달성 실패 시 대안 마련
+
+### 일정 리스크 대응
+- **테스트 실패 비율 증가**: MVP 기능 우선 검증 후 점진적 확장
+- **기능 완성도 부족**: 코어 기능 100% 우선, 옵셔널 기능 2차 일정
+
+## 🤝 에이전트 협업 강화
+
+### 전문 영역별 분리
+1. **API 통합 테스트** (`api-documenter` + `test-engineer`)
+2. **성능 최적화** (`react-performance-optimization` + `performance-profiler`)
+3. **접근성 테스트** (`ui-ux-designer` + `test-automator`)
+4. **에러 분석** (`error-detective` + `debugger`)
+
+### MVP vs 고도화 테스트
+
+#### Phase 1 (코어 기능 테스트)
+- [ ] 기본 게임 플로우 E2E 테스트
+- [ ] 핵심 API 호출 통합 테스트
+- [ ] WebSocket 기본 통신 테스트
+- [ ] 코어 컴포넌트 단위 테스트
+
+#### Phase 2 (고도화 테스트)
+- [ ] 성능 최적화 및 접근성
+- [ ] 크로스 브라우저 호환성
+- [ ] 고급 에러 시나리오
+- [ ] 다국어 및 공유 기능
+
 ## 📋 완료 조건
+- [ ] **백엔드 API 통합 테스트 100% 통과**
+- [ ] **MVP 기능 E2E 테스트 모든 시나리오 통과**
 - [ ] 단위 테스트 커버리지 > 80%
-- [ ] E2E 테스트 모든 시나리오 통과
 - [ ] 성능 지표 목표 달성
-- [ ] 접근성 AA 등급 인증
-- [ ] 크로스 브라우저 호환성 확인
+- [ ] 기본 접근성 A 등급 달성 (AA는 2차 목표)
+- [ ] 코어 브라우저 호환성 확인
 - [ ] 메모리 누수 0건 달성
 
 ## 🔄 다음 단계

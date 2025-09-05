@@ -12,7 +12,7 @@ export interface ChatMessage {
   player: string
   message: string
   timestamp: string
-  type: 'NORMAL' | 'SYSTEM' | 'HINT' | 'DEFENSE'
+  type: 'DISCUSSION' | 'SYSTEM' | 'HINT' | 'DEFENSE' // NORMAL → DISCUSSION 변경
   isOwnMessage?: boolean
 }
 

@@ -1,10 +1,31 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:20021';
+const resolvedBaseUrl =
+  (import.meta.env && import.meta.env.VITE_API_BASE_URL) ||
+  (typeof window !== 'undefined' && (window as any).__API_BASE_URL__) ||
+  '/';
+
+const API_BASE_URL = resolvedBaseUrl !== '/' ? resolvedBaseUrl.replace(/\/$/, '') : resolvedBaseUrl;
+
+if (import.meta.env.DEV) {
+  console.log('[apiClient] Using API base URL:', API_BASE_URL);
+}
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
-  withCredentials: true, // 세션/쿠키를 위한 설정
+  withCredentials: true,
 });
 
-// TODO: Add interceptors for request/response handling (e.g., auth tokens, error handling)
+apiClient.interceptors.request.use(
+  (config) => {
+    return config;
+  },
+  (error) => Promise.reject(error),
+);
+
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    return Promise.reject(error);
+  },
+);

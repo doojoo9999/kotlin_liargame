@@ -36,9 +36,9 @@ const LightGamePlayPage: React.FC = () => {
   ];
 
   const mockMessages = [
-    { id: "1", player: "System", message: "게임이 시작되었습니다! 주제어는 '동물'입니다.", timestamp: "14:30", type: "SYSTEM" },
-    { id: "2", player: "플레이어1", message: "이것은 털이 있고 네 발로 걸어다녀요", timestamp: "14:31", type: "NORMAL" },
-    { id: "3", player: "플레이어2", message: "집에서 기를 수 있고 사람과 친해요", timestamp: "14:32", type: "NORMAL" }
+    { id: "1", player: "시스템", message: "게임이 시작되었습니다", timestamp: "14:30", type: "SYSTEM" },
+    { id: "2", player: "플레이어1", message: "이것은 털이 있고 네 발로 걸어다녀요", timestamp: "14:31", type: "DISCUSSION" },
+    { id: "3", player: "플레이어2", message: "집에서 기를 수 있고 사람과 친해요", timestamp: "14:32", type: "DISCUSSION" }
   ];
 
   useEffect(() => {

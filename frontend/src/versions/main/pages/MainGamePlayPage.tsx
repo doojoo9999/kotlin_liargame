@@ -1,359 +1,513 @@
 import * as React from "react"
-import {AnimatePresence, motion} from "framer-motion"
+import {motion} from "framer-motion"
+import {useNavigate, useParams} from "react-router-dom"
+import {Eye, EyeOff, Users} from "lucide-react"
+import {useMutation, useQuery} from "@tanstack/react-query"
+import {GameScreenLayout} from "@/versions/main/components/layout"
+import {GameStatus, HintDisplay, PlayerCard, Timer, TurnIndicator, VoteInterface} from "@/versions/main/components/game"
+import {RealtimeChatSystem} from "@/versions/main/components/game/RealtimeChatSystem"
+import {ConnectionStatus, OfflineIndicator} from "@/versions/main/components/ui/ConnectionStatus"
 import {Button} from "@/versions/main/components/ui/button"
 import {Card, CardContent, CardHeader, CardTitle} from "@/versions/main/components/ui/card"
 import {Badge} from "@/versions/main/components/ui/badge"
-import {Avatar, AvatarFallback} from "@/versions/main/components/ui/avatar"
-import {Input} from "@/versions/main/components/ui/input"
-import {Progress} from "@/versions/main/components/ui/progress"
-import {Separator} from "@/versions/main/components/ui/separator"
-import {Clock, MessageSquare, Send, Trophy, Vote} from "lucide-react"
+import {useGame} from "@/versions/main/providers/GameProvider"
+import {useNotification} from "@/versions/main/providers/NotificationProvider"
+import {useGameStateSubscriber} from "@/versions/main/hooks/useGameStateSubscriber"
+import type {GamePhase, Player} from "@/shared/types/api.types"
 
-type GamePhase = 'WAITING' | 'DISCUSSING' | 'VOTING' | 'REVEALING' | 'FINISHED'
-type PlayerRole = 'CITIZEN' | 'LIAR' | 'UNKNOWN'
-
-interface GamePlayer {
-  id: string
-  nickname: string
-  role: PlayerRole
-  isAlive: boolean
-  votesReceived: number
-  hasVoted: boolean
+interface GameStageProps {
+  gameState: any
+  currentPlayer: Player
+  onAction: (action: string, data?: any) => boolean
 }
 
-interface GameMessage {
-  id: string
-  player: string
-  message: string
-  timestamp: string
-  type: 'NORMAL' | 'SYSTEM' | 'VOTE'
+// 게임 단계별 컴포넌트들
+function WaitingStage({ gameState }: GameStageProps) {
+  return (
+    <div className="text-center space-y-6">
+      <div className="text-6xl mb-4">⏳</div>
+      <h2 className="text-2xl font-bold">게임 시작 준비 중</h2>
+      <p className="text-muted-foreground">
+        모든 플레이어가 준비될 때까지 잠시 기다려주세요
+      </p>
+      <Timer timeRemaining={10} totalTime={10} />
+    </div>
+  )
 }
 
-const mockPlayers: GamePlayer[] = [
-  { id: "1", nickname: "플레이어1", role: "CITIZEN", isAlive: true, votesReceived: 0, hasVoted: false },
-  { id: "2", nickname: "플레이어2", role: "LIAR", isAlive: true, votesReceived: 2, hasVoted: true },
-  { id: "3", nickname: "플레이어3", role: "CITIZEN", isAlive: true, votesReceived: 1, hasVoted: true },
-  { id: "4", nickname: "플레이어4", role: "CITIZEN", isAlive: true, votesReceived: 0, hasVoted: false },
-  { id: "5", nickname: "플레이어5", role: "CITIZEN", isAlive: true, votesReceived: 1, hasVoted: true }
-]
+function RoleAssignmentStage({ gameState, currentPlayer }: GameStageProps) {
+  const [showRole, setShowRole] = React.useState(false)
 
-const mockMessages: GameMessage[] = [
-  { id: "1", player: "System", message: "게임이 시작되었습니다! 주제어는 '동물'입니다.", timestamp: "14:30", type: "SYSTEM" },
-  { id: "2", player: "플레이어1", message: "이것은 털이 있고 네 발로 걸어다녀요", timestamp: "14:31", type: "NORMAL" },
-  { id: "3", player: "플레이어2", message: "집에서 기를 수 있고 사람과 친해요", timestamp: "14:32", type: "NORMAL" }
-]
+  return (
+    <div className="text-center space-y-6">
+      <div className="space-y-4">
+        <h2 className="text-2xl font-bold">역할이 배정되었습니다</h2>
+        <p className="text-muted-foreground">
+          당신의 역할을 확인하고 게임을 준비하세요
+        </p>
+      </div>
 
-export default function MainGamePlayPage() {
-  const [gamePhase, setGamePhase] = React.useState<GamePhase>('DISCUSSING')
-  const [timeRemaining, setTimeRemaining] = React.useState(120) // 2분
-  const [message, setMessage] = React.useState("")
-  const [messages, setMessages] = React.useState(mockMessages)
-  const [selectedVote, setSelectedVote] = React.useState<string | null>(null)
-  const [currentWord, setCurrentWord] = React.useState("강아지")
-  const [isLiar] = React.useState(false) // 현재 플레이어가 라이어인지
-  const currentPlayer = mockPlayers[0]
+      <Card className="max-w-md mx-auto">
+        <CardContent className="p-8 text-center">
+          {!showRole ? (
+            <div className="space-y-4">
+              <div className="text-6xl">🎭</div>
+              <Button
+                onClick={() => setShowRole(true)}
+                variant="game-primary"
+                size="lg"
+              >
+                <Eye className="w-4 h-4 mr-2" />
+                역할 확인하기
+              </Button>
+            </div>
+          ) : (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="space-y-4"
+            >
+              <div className={`text-6xl ${currentPlayer.role === 'LIAR' ? 'animate-pulse' : ''}`}>
+                {currentPlayer.role === 'LIAR' ? '🃏' : '👤'}
+              </div>
+              <div className="space-y-2">
+                <Badge
+                  variant={currentPlayer.role === 'LIAR' ? "destructive" : "default"}
+                  className="text-lg px-4 py-2"
+                >
+                  {currentPlayer.role === 'LIAR' ? '라이어' : '시민'}
+                </Badge>
+                <div className="text-sm text-muted-foreground">
+                  {currentPlayer.role === 'LIAR'
+                    ? "다른 플레이어들의 힌트를 듣고 주제어를 추리하세요"
+                    : "주제어에 대한 힌트를 제공하세요"
+                  }
+                </div>
+              </div>
+              <Button
+                onClick={() => setShowRole(false)}
+                variant="outline"
+                size="sm"
+              >
+                <EyeOff className="w-4 h-4 mr-2" />
+                숨기기
+              </Button>
+            </motion.div>
+          )}
+        </CardContent>
+      </Card>
 
-  // 타이머 효과
-  React.useEffect(() => {
-    const timer = setInterval(() => {
-      setTimeRemaining(prev => {
-        if (prev <= 1) {
-          // 시간 종료 시 다음 페이즈로
-          if (gamePhase === 'DISCUSSING') {
-            setGamePhase('VOTING')
-            return 60 // 투표 시간 1분
-          } else if (gamePhase === 'VOTING') {
-            setGamePhase('REVEALING')
-            return 10 // 결과 공개 10초
-          }
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
+      {gameState.subject && currentPlayer.role !== 'LIAR' && showRole && (
+        <Card className="max-w-md mx-auto bg-blue-50 border-blue-200">
+          <CardContent className="p-6 text-center">
+            <div className="text-sm text-blue-600 mb-2">주제어</div>
+            <div className="text-2xl font-bold text-blue-800">
+              {gameState.subject}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  )
+}
 
-    return () => clearInterval(timer)
-  }, [gamePhase])
+function HintProvidingStage({ gameState, currentPlayer, onAction }: GameStageProps) {
+  const currentTurnPlayer = gameState.players[gameState.currentTurnIndex]
+  const isMyTurn = currentTurnPlayer?.id === currentPlayer.id
 
-  const handleSendMessage = () => {
-    if (message.trim() && gamePhase === 'DISCUSSING') {
-      const newMessage: GameMessage = {
-        id: Date.now().toString(),
-        player: currentPlayer.nickname,
-        message: message.trim(),
-        timestamp: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
-        type: 'NORMAL'
-      }
-      setMessages(prev => [...prev, newMessage])
-      setMessage("")
-    }
-  }
-
-  const handleVote = (playerId: string) => {
-    if (gamePhase === 'VOTING' && !currentPlayer.hasVoted) {
-      setSelectedVote(playerId)
-    }
-  }
-
-  const confirmVote = () => {
-    if (selectedVote && gamePhase === 'VOTING') {
-      const voteMessage: GameMessage = {
-        id: Date.now().toString(),
-        player: "System",
-        message: `${currentPlayer.nickname}이 투표했습니다.`,
-        timestamp: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
-        type: 'VOTE'
-      }
-      setMessages(prev => [...prev, voteMessage])
-      // 실제로는 서버에 투표 전송
-    }
-  }
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
-    return `${mins}:${secs.toString().padStart(2, '0')}`
-  }
-
-  const getPhaseColor = () => {
-    switch (gamePhase) {
-      case 'DISCUSSING': return 'blue'
-      case 'VOTING': return 'red'
-      case 'REVEALING': return 'purple'
-      default: return 'gray'
-    }
-  }
-
-  const getPhaseText = () => {
-    switch (gamePhase) {
-      case 'DISCUSSING': return '토론 시간'
-      case 'VOTING': return '투표 시간'
-      case 'REVEALING': return '결과 공개'
-      default: return '대기 중'
-    }
+  const handleSubmitHint = (hint: string) => {
+    onAction('SUBMIT_HINT', { hint })
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100 p-4">
-      <div className="max-w-7xl mx-auto">
-        {/* 게임 헤더 */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-6"
-        >
-          <div className="flex items-center justify-center gap-4 mb-4">
-            <Badge variant="game-primary" className="text-lg px-4 py-2">
-              {getPhaseText()}
-            </Badge>
-            <div className="flex items-center gap-2 text-2xl font-bold">
-              <Clock className="w-6 h-6" />
-              {formatTime(timeRemaining)}
-            </div>
-          </div>
+    <div className="space-y-6">
+      <div className="text-center">
+        <h2 className="text-2xl font-bold mb-2">힌트 제공 시간</h2>
+        <p className="text-muted-foreground">
+          {isMyTurn ? "당신의 차례입니다. 힌트를 제공하세요!" : "다른 플레이어의 힌트를 기다리고 있습니다."}
+        </p>
+      </div>
 
-          {/* 주제어 표시 */}
-          <Card className="max-w-md mx-auto">
-            <CardContent className="p-6 text-center">
-              <div className="text-sm text-gray-600 mb-2">
-                {isLiar ? "당신은 라이어입니다!" : "주제어"}
-              </div>
-              <div className="text-3xl font-bold text-gray-800">
-                {isLiar ? "???" : currentWord}
-              </div>
-              {isLiar && (
-                <div className="text-sm text-red-600 mt-2">
-                  다른 플레이어들의 설명을 듣고 주제어를 추리하세요
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </motion.div>
+      <TurnIndicator
+        players={gameState.players}
+        currentTurnIndex={gameState.currentTurnIndex}
+        direction="horizontal"
+        showAll={true}
+      />
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* 플레이어 카드들 */}
-          <div className="lg:col-span-3">
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
-              {mockPlayers.map((player, index) => (
-                <motion.div
-                  key={player.id}
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.1 * index }}
-                  className={`cursor-pointer transition-all ${
-                    selectedVote === player.id ? 'ring-2 ring-red-500' : ''
-                  }`}
-                  onClick={() => handleVote(player.id)}
-                >
-                  <Card className={`${gamePhase === 'VOTING' && player.id !== currentPlayer.id ? 'hover:shadow-lg' : ''}`}>
-                    <CardContent className="p-4 text-center">
-                      <Avatar className="mx-auto mb-2">
-                        <AvatarFallback>{player.nickname[0]}</AvatarFallback>
-                      </Avatar>
-                      <div className="text-sm font-medium mb-2">{player.nickname}</div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <HintDisplay
+          hints={gameState.hints || []}
+          currentPlayer={currentPlayer.nickname}
+          showTimestamp={true}
+          compact={false}
+        />
 
-                      {gamePhase === 'REVEALING' && (
-                        <Badge
-                          variant={player.role === 'LIAR' ? 'role-liar' : 'role-citizen'}
-                          className="mb-2"
-                        >
-                          {player.role === 'LIAR' ? '라이어' : '시민'}
-                        </Badge>
-                      )}
-
-                      {gamePhase === 'VOTING' && (
-                        <div className="text-xs text-gray-600">
-                          투표 {player.votesReceived}표
-                          {player.hasVoted && (
-                            <div className="text-green-600">✓ 투표완료</div>
-                          )}
-                        </div>
-                      )}
-
-                      {gamePhase === 'VOTING' && player.id !== currentPlayer.id && (
-                        <Button
-                          size="sm"
-                          variant={selectedVote === player.id ? 'game-danger' : 'outline'}
-                          className="w-full mt-2"
-                        >
-                          <Vote className="w-3 h-3 mr-1" />
-                          투표
-                        </Button>
-                      )}
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              ))}
-            </div>
-
-            {/* 투표 확인 버튼 */}
-            {gamePhase === 'VOTING' && selectedVote && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="text-center mb-6"
-              >
-                <Button
-                  onClick={confirmVote}
-                  variant="game-danger"
-                  size="lg"
-                  className="px-8"
-                >
-                  {mockPlayers.find(p => p.id === selectedVote)?.nickname}에게 투표하기
-                </Button>
-              </motion.div>
+        {isMyTurn && (
+          <div className="space-y-4">
+            {gameState.subject && currentPlayer.role !== 'LIAR' && (
+              <Card className="bg-blue-50 border-blue-200">
+                <CardContent className="p-4 text-center">
+                  <div className="text-sm text-blue-600 mb-1">주제어</div>
+                  <div className="text-xl font-bold text-blue-800">
+                    {gameState.subject}
+                  </div>
+                </CardContent>
+              </Card>
             )}
 
-            {/* 게임 진행 상황 */}
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Trophy className="w-5 h-5" />
-                  게임 진행 상황
-                </CardTitle>
+                <CardTitle>힌트 입력</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div>
-                    <div className="flex justify-between text-sm mb-2">
-                      <span>시간 진행</span>
-                      <span>{formatTime(timeRemaining)}</span>
-                    </div>
-                    <Progress
-                      value={(timeRemaining / 120) * 100}
-                      className="h-2"
-                    />
-                  </div>
-
-                  <Separator />
-
-                  <div className="grid grid-cols-2 gap-4 text-center">
-                    <div>
-                      <div className="text-2xl font-bold text-blue-600">
-                        {mockPlayers.filter(p => p.hasVoted).length}
-                      </div>
-                      <div className="text-sm text-gray-600">투표 완료</div>
-                    </div>
-                    <div>
-                      <div className="text-2xl font-bold text-green-600">
-                        {mockPlayers.length}
-                      </div>
-                      <div className="text-sm text-gray-600">전체 플레이어</div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* 채팅 */}
-          <div className="lg:col-span-1">
-            <Card className="h-[600px] flex flex-col">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <MessageSquare className="w-5 h-5" />
-                  게임 채팅
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="flex-1 flex flex-col">
-                <div className="flex-1 overflow-y-auto space-y-2 mb-4">
-                  <AnimatePresence>
-                    {messages.map((msg) => (
-                      <motion.div
-                        key={msg.id}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className={`p-2 rounded text-sm ${
-                          msg.type === 'SYSTEM'
-                            ? "bg-gray-100 text-gray-600 text-center"
-                            : msg.type === 'VOTE'
-                            ? "bg-red-100 text-red-700 text-center"
-                            : msg.player === currentPlayer.nickname
-                            ? "bg-blue-500 text-white ml-auto max-w-[80%]"
-                            : "bg-white border max-w-[80%]"
-                        }`}
-                      >
-                        {msg.type === 'NORMAL' && (
-                          <div className="text-xs opacity-70 mb-1">
-                            {msg.player} · {msg.timestamp}
-                          </div>
-                        )}
-                        <div>{msg.message}</div>
-                      </motion.div>
-                    ))}
-                  </AnimatePresence>
-                </div>
-
-                {gamePhase === 'DISCUSSING' && (
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="힌트를 말해주세요..."
-                      value={message}
-                      onChange={(e) => setMessage(e.target.value)}
-                      onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                      className="flex-1"
-                    />
-                    <Button
-                      onClick={handleSendMessage}
-                      disabled={!message.trim()}
-                      size="icon"
-                    >
-                      <Send className="w-4 h-4" />
+                  <textarea
+                    placeholder="주제어에 대한 힌트를 입력하세요..."
+                    className="w-full p-3 border rounded-lg resize-none h-24"
+                    maxLength={100}
+                  />
+                  <div className="flex justify-between items-center">
+                    <Timer timeRemaining={gameState.timeRemaining || 30} totalTime={30} />
+                    <Button onClick={() => handleSubmitHint("예시 힌트")} variant="game-primary">
+                      힌트 제공
                     </Button>
                   </div>
-                )}
-
-                {gamePhase === 'VOTING' && (
-                  <div className="text-center text-sm text-gray-600 p-4">
-                    투표 시간입니다!<br />
-                    라이어라고 생각하는 플레이어를 선택하세요.
-                  </div>
-                )}
+                </div>
               </CardContent>
             </Card>
           </div>
-        </div>
+        )}
       </div>
     </div>
   )
+}
+
+function VotingStage({ gameState, currentPlayer, onAction }: GameStageProps) {
+  const handleVote = (targetId: number) => {
+    onAction('CAST_VOTE', { targetId })
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="text-center">
+        <h2 className="text-2xl font-bold mb-2">투표 시간</h2>
+        <p className="text-muted-foreground">
+          라이어라고 생각하는 플레이어에게 투표하세요
+        </p>
+      </div>
+
+      <VoteInterface
+        players={gameState.players}
+        currentPlayerId={currentPlayer.id}
+        onVote={handleVote}
+        votedFor={currentPlayer.votedFor}
+        timeRemaining={gameState.timeRemaining}
+      />
+    </div>
+  )
+}
+
+function ResultStage({ gameState }: GameStageProps) {
+  return (
+    <div className="text-center space-y-6">
+      <div className="text-6xl mb-4">🏆</div>
+      <h2 className="text-2xl font-bold">게임 결과</h2>
+
+      {gameState.winner && (
+        <Card className="max-w-md mx-auto">
+          <CardContent className="p-6 text-center">
+            <Badge
+              variant={gameState.winner === 'CITIZENS' ? "default" : "destructive"}
+              className="text-lg px-4 py-2 mb-4"
+            >
+              {gameState.winner === 'CITIZENS' ? '시민팀 승리!' : '라이어팀 승리!'}
+            </Badge>
+            <p className="text-muted-foreground">
+              {gameState.actualSubject && `실제 주제어: ${gameState.actualSubject}`}
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      <Timer timeRemaining={10} totalTime={10} />
+    </div>
+  )
+}
+
+export default function MainGamePlayPage() {
+  const { gameNumber } = useParams<{ gameNumber: string }>()
+  const navigate = useNavigate()
+  const { state, actions } = useGame()
+  const { addNotification } = useNotification()
+
+  const currentUserId = 1
+  const currentPlayerNickname = "플레이어1"
+
+  const { data: gameState, isLoading } = useQuery({
+    queryKey: ['gameState', gameNumber],
+    queryFn: async () => {
+      return mockGameState
+    },
+    refetchInterval: 5000,
+  })
+
+  const {
+    isConnected,
+    connectionState,
+    latency,
+    sendGameAction,
+    reconnect
+  } = useGameStateSubscriber({
+    gameNumber: parseInt(gameNumber || '0'),
+    onGameStateUpdate: (newGameState) => {
+      actions.setGame(newGameState)
+    },
+    onPhaseChange: (phase) => {
+      actions.updatePhase(phase)
+    },
+    onPlayerUpdate: (player) => {
+      console.log('Player updated:', player)
+    },
+    onTurnChange: (currentPlayerId) => {
+      console.log('Turn changed to:', currentPlayerId)
+    }
+  })
+
+  const actionMutation = useMutation({
+    mutationFn: async ({ action, data }: { action: string; data?: any }) => {
+      const success = sendGameAction(action, data)
+      if (!success) {
+        throw new Error('Failed to send game action')
+      }
+      await new Promise(resolve => setTimeout(resolve, 500))
+    },
+    onSuccess: () => {
+      addNotification({
+        type: 'success',
+        title: '액션 성공',
+        message: '게임 액션이 처리되었습니다.'
+      })
+    },
+    onError: () => {
+      addNotification({
+        type: 'error',
+        title: '액션 실패',
+        message: '게임 액션 처리에 실패했습니다.'
+      })
+    }
+  })
+
+  const currentPlayer = gameState?.players.find(p => p.userId === currentUserId)
+
+  const handleGameAction = (action: string, data?: any) => {
+    actionMutation.mutate({ action, data })
+    return !actionMutation.isError
+  }
+
+  const handleLeaveGame = () => {
+    navigate('/main/lobby')
+  }
+
+  const renderGameStage = () => {
+    if (!gameState || !currentPlayer) return null
+
+    const stageProps = {
+      gameState,
+      currentPlayer,
+      onAction: handleGameAction
+    }
+
+    switch (gameState.phase) {
+      case 'WAITING':
+        return <WaitingStage {...stageProps} />
+      case 'ROLE_ASSIGNMENT':
+        return <RoleAssignmentStage {...stageProps} />
+      case 'HINT_PROVIDING':
+        return <HintProvidingStage {...stageProps} />
+      case 'VOTING':
+        return <VotingStage {...stageProps} />
+      case 'RESULT':
+        return <ResultStage {...stageProps} />
+      default:
+        return <div>알 수 없는 게임 단계입니다.</div>
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <GameScreenLayout>
+        <div className="flex items-center justify-center h-96">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p>게임 상태를 불러오는 중...</p>
+          </div>
+        </div>
+      </GameScreenLayout>
+    )
+  }
+
+  if (!gameState) {
+    return (
+      <GameScreenLayout>
+        <div className="text-center py-12">
+          <h2 className="text-2xl font-bold mb-4">게임을 찾을 수 없습니다</h2>
+          <Button onClick={() => navigate('/main/lobby')}>
+            로비로 돌아가기
+          </Button>
+        </div>
+      </GameScreenLayout>
+    )
+  }
+
+  const sidebar = (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm">연결 상태</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <ConnectionStatus
+            isConnected={isConnected}
+            connectionState={connectionState}
+            latency={latency}
+            onReconnect={reconnect}
+          />
+        </CardContent>
+      </Card>
+
+      <GameStatus
+        gamePhase={gameState.phase}
+        timeRemaining={gameState.timeRemaining}
+        currentRound={gameState.currentRound}
+        totalRounds={gameState.totalRounds}
+        playersTotal={gameState.players.length}
+        playersVoted={gameState.players.filter(p => p.hasVoted).length}
+      />
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="w-5 h-5" />
+            플레이어 목록
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {gameState.players.map((player) => (
+            <PlayerCard
+              key={player.id}
+              player={player}
+              isCurrentPlayer={player.userId === currentUserId}
+              showRole={gameState.phase === 'RESULT'}
+              className="w-full"
+            />
+          ))}
+        </CardContent>
+      </Card>
+    </div>
+  )
+
+  const chat = (
+    <RealtimeChatSystem
+      gameNumber={parseInt(gameNumber || '0')}
+      currentPlayerNickname={currentPlayerNickname}
+      gamePhase={gameState.phase}
+      disabled={!isConnected}
+    />
+  )
+
+  return (
+    <>
+      <OfflineIndicator
+        isOffline={!isConnected && connectionState !== 'connecting'}
+        onReconnect={reconnect}
+      />
+
+      <GameScreenLayout
+        sidebar={sidebar}
+        chat={chat}
+        phase={getPhaseLabel(gameState.phase)}
+        timeRemaining={gameState.timeRemaining}
+        onLeave={handleLeaveGame}
+      >
+        <div className="h-full flex flex-col">
+          <motion.div
+            key={gameState.phase}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.3 }}
+            className="flex-1"
+          >
+            {renderGameStage()}
+          </motion.div>
+        </div>
+      </GameScreenLayout>
+    </>
+  )
+}
+
+function getPhaseLabel(phase: GamePhase): string {
+  const labels: Record<GamePhase, string> = {
+    'WAITING': '대기 중',
+    'ROLE_ASSIGNMENT': '역할 배정',
+    'HINT_PROVIDING': '힌트 제공',
+    'DISCUSSION': '토론 시간',
+    'VOTING': '투표 시간',
+    'DEFENSE': '변론 시간',
+    'FINAL_VOTING': '최종 투표',
+    'LIAR_GUESS': '라이어 추측',
+    'RESULT': '결과 발표',
+    'FINISHED': '게임 종료'
+  }
+  return labels[phase] || phase
+}
+
+// 임시 목업 데이터
+const mockGameState = {
+  gameNumber: 1,
+  phase: 'HINT_PROVIDING' as GamePhase,
+  currentRound: 1,
+  totalRounds: 3,
+  timeRemaining: 45,
+  currentTurnIndex: 0,
+  subject: "강아지",
+  players: [
+    {
+      id: 1,
+      userId: 1,
+      nickname: "플레이어1",
+      isHost: true,
+      isAlive: true,
+      role: 'CITIZEN' as const,
+      joinedAt: new Date().toISOString(),
+      votesReceived: 0,
+      hasVoted: false,
+      hasProvidedHint: false
+    },
+    {
+      id: 2,
+      userId: 2,
+      nickname: "플레이어2",
+      isHost: false,
+      isAlive: true,
+      role: 'LIAR' as const,
+      joinedAt: new Date().toISOString(),
+      votesReceived: 0,
+      hasVoted: false,
+      hasProvidedHint: false
+    }
+  ],
+  hints: [
+    {
+      id: "1",
+      playerId: 1,
+      playerNickname: "플레이어1",
+      content: "네 발로 걸어다녀요",
+      timestamp: new Date(Date.now() - 60000).toISOString(),
+      turnIndex: 0
+    }
+  ]
 }

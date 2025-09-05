@@ -1,5 +1,6 @@
-import React, {Suspense} from 'react';
+import React from 'react';
 import {Navigate, Route, Routes} from 'react-router-dom';
+import {PageTransition} from '@/versions/main/animations';
 
 // Loading component for Suspense
 const RouteLoadingFallback: React.FC = () => (
@@ -36,20 +37,43 @@ const RouteLoadingFallback: React.FC = () => (
 const MainLobbyPage = React.lazy(() => import('../pages/MainLobbyPage'));
 const MainGameRoomPage = React.lazy(() => import('../pages/MainGameRoomPage'));
 const MainGamePlayPage = React.lazy(() => import('../pages/MainGamePlayPage'));
-const EnhancedGameDemo = React.lazy(() => import('../../../features/demo/EnhancedGameDemo'));
 
 const MainRouter: React.FC = () => {
   return (
-    <Suspense fallback={<RouteLoadingFallback />}>
-      <Routes>
-        <Route path="/" element={<Navigate to="/lobby" replace />} />
-        <Route path="/lobby" element={<MainLobbyPage />} />
-        <Route path="/demo" element={<EnhancedGameDemo />} />
-        <Route path="/room/:roomId" element={<MainGameRoomPage />} />
-        <Route path="/game/:gameNumber" element={<MainGamePlayPage />} />
-        <Route path="*" element={<Navigate to="/lobby" replace />} />
-      </Routes>
-    </Suspense>
+    <Routes>
+      <Route path="/main" element={<Navigate to="/main/lobby" replace />} />
+      <Route
+        path="/main/lobby"
+        element={
+          <React.Suspense fallback={<RouteLoadingFallback />}>
+            <PageTransition>
+              <MainLobbyPage />
+            </PageTransition>
+          </React.Suspense>
+        }
+      />
+      <Route
+        path="/main/room/:roomId"
+        element={
+          <React.Suspense fallback={<RouteLoadingFallback />}>
+            <PageTransition>
+              <MainGameRoomPage />
+            </PageTransition>
+          </React.Suspense>
+        }
+      />
+      <Route
+        path="/main/game/:gameNumber"
+        element={
+          <React.Suspense fallback={<RouteLoadingFallback />}>
+            <PageTransition>
+              <MainGamePlayPage />
+            </PageTransition>
+          </React.Suspense>
+        }
+      />
+      <Route path="*" element={<Navigate to="/main/lobby" replace />} />
+    </Routes>
   );
 };
 

@@ -41,7 +41,7 @@ const typeColors = {
 }
 
 function ChatMessageComponent({ message, animated = true }: ChatMessageProps) {
-  const isSystem = (message.type || 'NORMAL') === 'SYSTEM'
+  const isSystem = (message.type || 'DISCUSSION') === 'SYSTEM' // NORMAL → DISCUSSION 변경
   const isCurrentUser = false // TODO: 현재 사용자 체크 로직
 
   const messageType = message.type || 'DISCUSSION'
@@ -79,7 +79,7 @@ function ChatMessageComponent({ message, animated = true }: ChatMessageProps) {
         {messageContent}
       </div>
 
-      {messageType !== 'DISCUSSION' && messageType !== 'SYSTEM' && messageType !== 'NORMAL' && (
+      {messageType !== 'DISCUSSION' && messageType !== 'SYSTEM' && (
         <Badge variant="outline" className="mt-1 text-xs">
           {messageType === 'HINT' && '힌트'}
           {messageType === 'DEFENSE' && '변론'}
@@ -170,7 +170,7 @@ export function ChatSystem({
                   animated={true}
                 />
               ))
-            )}
+            }
           </div>
         </ScrollArea>
 

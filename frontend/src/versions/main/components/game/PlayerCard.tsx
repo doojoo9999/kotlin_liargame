@@ -1,130 +1,118 @@
 import * as React from "react"
 import {motion} from "framer-motion"
-import {Card, CardContent} from "../ui/card"
-import {Avatar, AvatarFallback} from "../ui/avatar"
-import {Badge} from "../ui/badge"
-import {Crown, Users} from "lucide-react"
-import {cn} from "../../lib/utils"
+import {cn} from "@/versions/main/lib/utils"
+import {Badge} from "@/versions/main/components/ui/badge"
+import {Avatar, AvatarFallback} from "@/versions/main/components/ui/avatar"
+import {useVoteAnimation} from "@/versions/main/animations"
+import type {Player, PlayerRole} from "@/shared/types/api.types"
 
-export interface PlayerCardProps {
-  player: {
-    id: string
-    nickname: string
-    role?: 'CITIZEN' | 'LIAR' | 'UNKNOWN'
-    isHost: boolean
-    isAlive: boolean
-    votesReceived: number
-    hasVoted?: boolean
-    isCurrentPlayer?: boolean
-  }
-  selected?: boolean
-  onSelect?: (playerId: string) => void
-  interactive?: boolean
+interface PlayerCardProps {
+  player: Player
+  isCurrentPlayer?: boolean
+  canVote?: boolean
+  isSelected?: boolean
   showRole?: boolean
-  compact?: boolean
+  onVote?: (playerId: number) => void
+  className?: string
+}
+
+const roleColors: Record<PlayerRole, string> = {
+  CITIZEN: "bg-green-100 text-green-800 border-green-300",
+  LIAR: "bg-red-100 text-red-800 border-red-300"
 }
 
 export function PlayerCard({
   player,
-  selected = false,
-  onSelect,
-  interactive = false,
+  isCurrentPlayer = false,
+  canVote = false,
+  isSelected = false,
   showRole = false,
-  compact = false
+  onVote,
+  className
 }: PlayerCardProps) {
+  const { controls, selectVote, deselectVote } = useVoteAnimation()
+
+  React.useEffect(() => {
+    if (isSelected) {
+      selectVote(player.id.toString())
+    } else {
+      deselectVote()
+    }
+  }, [isSelected, player.id, selectVote, deselectVote])
+
   const handleClick = () => {
-    if (interactive && onSelect) {
-      onSelect(player.id)
+    if (canVote && onVote && !isCurrentPlayer) {
+      onVote(player.id)
     }
-  }
-
-  const getRoleColor = (role?: string) => {
-    switch (role) {
-      case 'LIAR': return 'destructive'
-      case 'CITIZEN': return 'default'
-      default: return 'secondary'
-    }
-  }
-
-  const getPlayerInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map(word => word[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2)
   }
 
   return (
     <motion.div
-      whileHover={interactive ? { scale: 1.02 } : undefined}
-      whileTap={interactive ? { scale: 0.98 } : undefined}
+      animate={controls}
+      whileHover={canVote && !isCurrentPlayer ? { scale: 1.02 } : {}}
+      whileTap={canVote && !isCurrentPlayer ? { scale: 0.98 } : {}}
+      onClick={handleClick}
+      className={cn(
+        "relative p-4 rounded-lg border bg-card transition-colors",
+        canVote && !isCurrentPlayer && "cursor-pointer hover:bg-accent",
+        isCurrentPlayer && "ring-2 ring-primary",
+        isSelected && "ring-2 ring-blue-500",
+        !player.isAlive && "opacity-50 grayscale",
+        className
+      )}
     >
-      <Card
-        className={cn(
-          "transition-all duration-200 cursor-pointer",
-          {
-            "ring-2 ring-primary": selected,
-            "hover:shadow-md": interactive,
-            "opacity-50": !player.isAlive,
-            "h-20": compact,
-            "h-24": !compact
-          }
+      <div className="flex flex-col items-center space-y-3">
+        <div className="relative">
+          <Avatar className="h-12 w-12">
+            <AvatarFallback className="text-sm font-medium">
+              {player.nickname.slice(0, 2).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+
+          {isCurrentPlayer && (
+            <div className="absolute -top-1 -right-1 w-4 h-4 bg-primary rounded-full border-2 border-background" />
+          )}
+
+          {!player.isAlive && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full">
+              <span className="text-white text-xs">✕</span>
+            </div>
+          )}
+        </div>
+
+        <div className="text-center space-y-1">
+          <p className="font-medium text-sm">{player.nickname}</p>
+
+          {player.isHost && (
+            <Badge variant="secondary" className="text-xs">방장</Badge>
+          )}
+        </div>
+
+        {showRole && player.role && (
+          <Badge
+            variant="outline"
+            className={cn("text-xs", roleColors[player.role as PlayerRole])}
+          >
+            {player.role === 'LIAR' ? '라이어' : '시민'}
+          </Badge>
         )}
-        onClick={handleClick}
-      >
-        <CardContent className={cn("p-3", { "p-2": compact })}>
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <Avatar className={cn("h-10 w-10", { "h-8 w-8": compact })}>
-                <AvatarFallback>
-                  {getPlayerInitials(player.nickname)}
-                </AvatarFallback>
-              </Avatar>
-              {player.isHost && (
-                <Crown className="absolute -top-1 -right-1 h-4 w-4 text-yellow-500" />
-              )}
-            </div>
 
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className={cn(
-                  "font-medium truncate",
-                  { "text-sm": compact }
-                )}>
-                  {player.nickname}
-                </span>
-                {player.hasVoted && (
-                  <Badge variant="outline" className="text-xs">
-                    투표완료
-                  </Badge>
-                )}
-              </div>
+        <div className="flex items-center space-x-2 text-xs text-muted-foreground">
+          {player.hasVoted && (
+            <span className="text-green-600">✓ 투표완료</span>
+          )}
 
-              <div className="flex items-center gap-2 mt-1">
-                {showRole && player.role && (
-                  <Badge variant={getRoleColor(player.role)} className="text-xs">
-                    {player.role === 'LIAR' ? '라이어' :
-                     player.role === 'CITIZEN' ? '시민' : '미확인'}
-                  </Badge>
-                )}
+          {player.votesReceived > 0 && (
+            <span>{player.votesReceived}표</span>
+          )}
+        </div>
 
-                {player.votesReceived > 0 && (
-                  <Badge variant="secondary" className="text-xs">
-                    {player.votesReceived}표
-                  </Badge>
-                )}
-              </div>
-            </div>
-
-            {player.isCurrentPlayer && (
-              <div className="text-primary">
-                <Users className="h-4 w-4" />
-              </div>
-            )}
+        {canVote && !isCurrentPlayer && (
+          <div className="text-xs text-center text-muted-foreground">
+            클릭하여 투표
           </div>
-        </CardContent>
-      </Card>
+        )}
+      </div>
     </motion.div>
   )
 }
