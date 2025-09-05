@@ -1,237 +1,397 @@
 import * as React from "react"
-import {motion} from "framer-motion"
+import {AnimatePresence, motion} from "framer-motion"
+import {useNavigate, useParams} from "react-router-dom"
+import {Copy, Crown, LogOut, Play, Settings, Users} from "lucide-react"
+import {useMutation, useQuery} from "@tanstack/react-query"
+import {GameScreenLayout} from "@/versions/main/components/layout"
+import {ChatSystem, PlayerCard} from "@/versions/main/components/game"
 import {Button} from "@/versions/main/components/ui/button"
-import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/versions/main/components/ui/card"
+import {Card, CardContent, CardHeader, CardTitle} from "@/versions/main/components/ui/card"
 import {Badge} from "@/versions/main/components/ui/badge"
-import {Avatar, AvatarFallback} from "@/versions/main/components/ui/avatar"
-import {Input} from "@/versions/main/components/ui/input"
 import {Separator} from "@/versions/main/components/ui/separator"
-import {Crown, LogOut, MessageSquare, Play, Send, Settings} from "lucide-react"
+import {staggerContainer, staggerItem} from "@/versions/main/animations"
+import {useGame} from "@/versions/main/providers/GameProvider"
+import {useNotification} from "@/versions/main/providers/NotificationProvider"
+import type {ChatMessage, Player} from "@/shared/types/api.types"
 
-interface GameRoomPlayer {
-  id: string
-  nickname: string
-  isHost: boolean
-  isReady: boolean
-  avatar?: string
+interface GameRoom {
+  id: number
+  title: string
+  hostUserId: number
+  status: 'WAITING' | 'IN_PROGRESS' | 'FINISHED'
+  gameParticipants: number
+  gameLiarCount: number
+  gameTotalRounds: number
+  gameMode: 'LIARS_KNOW' | 'LIARS_DIFFERENT_WORD'
+  targetPoints: number
+  createdAt: string
+  players: Player[]
 }
-
-interface ChatMessage {
-  id: string
-  player: string
-  message: string
-  timestamp: string
-  isSystem?: boolean
-}
-
-const mockPlayers: GameRoomPlayer[] = [
-  { id: "1", nickname: "플레이어1", isHost: true, isReady: true },
-  { id: "2", nickname: "플레이어2", isHost: false, isReady: true },
-  { id: "3", nickname: "플레이어3", isHost: false, isReady: false },
-  { id: "4", nickname: "플레이어4", isHost: false, isReady: true }
-]
-
-const mockMessages: ChatMessage[] = [
-  { id: "1", player: "플레이어1", message: "안녕하세요! 게임 시작하죠", timestamp: "14:30" },
-  { id: "2", player: "System", message: "플레이어2가 준비 완료했습니다.", timestamp: "14:31", isSystem: true },
-  { id: "3", player: "플레이어2", message: "준비됐습니다!", timestamp: "14:31" }
-]
 
 export default function MainGameRoomPage() {
-  const [message, setMessage] = React.useState("")
-  const [messages, setMessages] = React.useState(mockMessages)
-  const [isReady, setIsReady] = React.useState(false)
-  const currentPlayer = mockPlayers[1] // 현재 플레이어는 두번째 플레이어라고 가정
+  const { roomId } = useParams<{ roomId: string }>()
+  const navigate = useNavigate()
+  const { state, actions } = useGame()
+  const { addNotification } = useNotification()
 
-  const handleSendMessage = () => {
-    if (message.trim()) {
-      const newMessage: ChatMessage = {
-        id: Date.now().toString(),
-        player: currentPlayer.nickname,
-        message: message.trim(),
-        timestamp: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
-      }
-      setMessages(prev => [...prev, newMessage])
-      setMessage("")
+  const [chatMessages, setChatMessages] = React.useState<ChatMessage[]>([])
+  const currentUserId = 1 // TODO: 실제 사용자 ID로 교체
+
+  const { data: gameRoom, isLoading } = useQuery({
+    queryKey: ['gameRoom', roomId],
+    queryFn: async () => {
+      // TODO: 실제 API 호출로 교체
+      return mockGameRoom
+    },
+    refetchInterval: 2000, // 2초마다 업데이트
+  })
+
+  const startGameMutation = useMutation({
+    mutationFn: async () => {
+      // TODO: 게임 시작 API 호출
+      await new Promise(resolve => setTimeout(resolve, 1000))
+    },
+    onSuccess: () => {
+      addNotification({
+        type: 'success',
+        title: '게임 시작!',
+        message: '게임이 시작되었습니다.'
+      })
+      navigate(`/main/game/${roomId}`)
+    },
+    onError: () => {
+      addNotification({
+        type: 'error',
+        title: '게임 시작 실패',
+        message: '게임을 시작할 수 없습니다.'
+      })
+    }
+  })
+
+  const leaveGameMutation = useMutation({
+    mutationFn: async () => {
+      // TODO: 게임 나가기 API 호출
+      await new Promise(resolve => setTimeout(resolve, 500))
+    },
+    onSuccess: () => {
+      navigate('/main/lobby')
+    }
+  })
+
+  const isHost = gameRoom?.hostUserId === currentUserId
+  const canStartGame = isHost && gameRoom?.players.length >= 4
+  const currentPlayer = gameRoom?.players.find(p => p.userId === currentUserId)
+
+  const handleStartGame = () => {
+    if (canStartGame) {
+      startGameMutation.mutate()
     }
   }
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSendMessage()
+  const handleLeaveGame = () => {
+    leaveGameMutation.mutate()
+  }
+
+  const handleSendMessage = (message: string) => {
+    const newMessage: ChatMessage = {
+      id: Date.now(),
+      gameNumber: parseInt(roomId || '0'),
+      playerNickname: currentPlayer?.nickname || '익명',
+      content: message,
+      timestamp: new Date().toISOString(),
+      type: 'DISCUSSION'
     }
+    setChatMessages(prev => [...prev, newMessage])
   }
 
-  const toggleReady = () => {
-    setIsReady(!isReady)
+  const handleCopyRoomId = () => {
+    navigator.clipboard.writeText(roomId || '')
+    addNotification({
+      type: 'success',
+      title: '복사 완료',
+      message: '방 번호가 클립보드에 복사되었습니다.'
+    })
   }
 
-  const canStartGame = mockPlayers.filter(p => p.isReady).length >= 3
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-100 p-6">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex items-center justify-between mb-6"
-        >
-          <div>
-            <h1 className="text-3xl font-bold text-gray-800">초보자 방</h1>
-            <p className="text-gray-600">라이어를 찾아라! · 플레이어 {mockPlayers.length}/8</p>
+  if (isLoading) {
+    return (
+      <GameScreenLayout>
+        <div className="flex items-center justify-center h-96">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p>게임방 정보를 불러오는 중...</p>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline">
-              <Settings className="w-4 h-4 mr-2" />
-              설정
-            </Button>
-            <Button variant="destructive">
-              <LogOut className="w-4 h-4 mr-2" />
-              나가기
-            </Button>
-          </div>
-        </motion.div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* 플레이어 목록 */}
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="lg:col-span-2"
-          >
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Crown className="w-5 h-5 text-yellow-500" />
-                  플레이어 목록
-                </CardTitle>
-                <CardDescription>
-                  게임 시작까지 최소 3명이 필요합니다
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {mockPlayers.map((player, index) => (
-                    <motion.div
-                      key={player.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.1 * index }}
-                      className="flex items-center justify-between p-4 border rounded-lg bg-white/50"
-                    >
-                      <div className="flex items-center gap-3">
-                        <Avatar>
-                          <AvatarFallback>{player.nickname[0]}</AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium">{player.nickname}</span>
-                            {player.isHost && (
-                              <Crown className="w-4 h-4 text-yellow-500" />
-                            )}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {player.id === currentPlayer.id ? "나" : "플레이어"}
-                          </div>
-                        </div>
-                      </div>
-                      <Badge
-                        variant={player.isReady ? "game-success" : "game-warning"}
-                      >
-                        {player.isReady ? "준비완료" : "대기중"}
-                      </Badge>
-                    </motion.div>
-                  ))}
-                </div>
-
-                <Separator className="my-4" />
-
-                {/* 게임 시작 버튼 */}
-                <div className="space-y-3">
-                  <Button
-                    onClick={toggleReady}
-                    variant={isReady ? "game-warning" : "game-success"}
-                    className="w-full"
-                  >
-                    {isReady ? "준비 해제" : "준비 완료"}
-                  </Button>
-
-                  {currentPlayer.isHost && (
-                    <Button
-                      variant="game-primary"
-                      className="w-full"
-                      disabled={!canStartGame}
-                    >
-                      <Play className="w-4 h-4 mr-2" />
-                      게임 시작 ({mockPlayers.filter(p => p.isReady).length}/3)
-                    </Button>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-
-          {/* 채팅 */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="lg:col-span-1"
-          >
-            <Card className="h-[600px] flex flex-col">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <MessageSquare className="w-5 h-5" />
-                  채팅
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="flex-1 flex flex-col">
-                {/* 메시지 목록 */}
-                <div className="flex-1 overflow-y-auto space-y-3 mb-4">
-                  {messages.map((msg) => (
-                    <div
-                      key={msg.id}
-                      className={`p-3 rounded-lg ${
-                        msg.isSystem
-                          ? "bg-gray-100 text-gray-600 text-sm text-center"
-                          : msg.player === currentPlayer.nickname
-                          ? "bg-blue-500 text-white ml-auto max-w-[80%]"
-                          : "bg-white border max-w-[80%]"
-                      }`}
-                    >
-                      {!msg.isSystem && (
-                        <div className="text-xs opacity-70 mb-1">
-                          {msg.player} · {msg.timestamp}
-                        </div>
-                      )}
-                      <div>{msg.message}</div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* 메시지 입력 */}
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="메시지를 입력하세요..."
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    className="flex-1"
-                  />
-                  <Button
-                    onClick={handleSendMessage}
-                    disabled={!message.trim()}
-                    size="icon"
-                  >
-                    <Send className="w-4 h-4" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
         </div>
-      </div>
+      </GameScreenLayout>
+    )
+  }
+
+  if (!gameRoom) {
+    return (
+      <GameScreenLayout>
+        <div className="text-center py-12">
+          <h2 className="text-2xl font-bold mb-4">게임방을 찾을 수 없습니다</h2>
+          <Button onClick={() => navigate('/main/lobby')}>
+            로비로 돌아가기
+          </Button>
+        </div>
+      </GameScreenLayout>
+    )
+  }
+
+  const sidebar = (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Settings className="w-5 h-5" />
+            게임 설정
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <div className="flex justify-between">
+              <span>참여자:</span>
+              <span>{gameRoom.players.length}/{gameRoom.gameParticipants}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>라이어:</span>
+              <span>{gameRoom.gameLiarCount}명</span>
+            </div>
+            <div className="flex justify-between">
+              <span>라운드:</span>
+              <span>{gameRoom.gameTotalRounds}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>목표점수:</span>
+              <span>{gameRoom.targetPoints}점</span>
+            </div>
+          </div>
+
+          <Separator />
+
+          <div>
+            <div className="text-sm font-medium mb-2">게임 모드</div>
+            <Badge variant="outline" className="text-xs">
+              {gameRoom.gameMode === 'LIARS_KNOW' ? '라이어 서로 알기' : '라이어 다른 단어'}
+            </Badge>
+          </div>
+
+          <div>
+            <div className="text-sm font-medium mb-2">방 번호</div>
+            <div className="flex items-center gap-2">
+              <code className="text-sm bg-muted px-2 py-1 rounded">
+                {roomId}
+              </code>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-6 w-6"
+                onClick={handleCopyRoomId}
+              >
+                <Copy className="w-3 h-3" />
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {isHost && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Crown className="w-5 h-5 text-yellow-500" />
+              방장 메뉴
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Button
+              onClick={handleStartGame}
+              disabled={!canStartGame || startGameMutation.isPending}
+              variant="game-primary"
+              className="w-full"
+            >
+              <Play className="w-4 h-4 mr-2" />
+              {startGameMutation.isPending ? "시작 중..." : "게임 시작"}
+            </Button>
+
+            {!canStartGame && (
+              <p className="text-xs text-muted-foreground text-center">
+                최소 4명의 플레이어가 필요합니다
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      <Card>
+        <CardContent className="pt-6">
+          <Button
+            onClick={handleLeaveGame}
+            disabled={leaveGameMutation.isPending}
+            variant="outline"
+            className="w-full text-red-600 border-red-200 hover:bg-red-50"
+          >
+            <LogOut className="w-4 h-4 mr-2" />
+            {leaveGameMutation.isPending ? "나가는 중..." : "게임방 나가기"}
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   )
+
+  const chat = (
+    <ChatSystem
+      messages={chatMessages}
+      onSendMessage={handleSendMessage}
+      gameNumber={parseInt(roomId || '0')}
+      currentPhase="대기실"
+      placeholder="대기실에서 자유롭게 채팅하세요..."
+    />
+  )
+
+  return (
+    <GameScreenLayout
+      sidebar={sidebar}
+      chat={chat}
+      phase="게임 대기실"
+      onLeave={handleLeaveGame}
+    >
+      <div className="space-y-6 h-full">
+        <div className="text-center space-y-2">
+          <h1 className="text-2xl font-bold">{gameRoom.title}</h1>
+          <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground">
+            <div className="flex items-center gap-1">
+              <Users className="w-4 h-4" />
+              <span>{gameRoom.players.length}/{gameRoom.gameParticipants} 참여</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Crown className="w-4 h-4 text-yellow-500" />
+              <span>방장: {gameRoom.players.find(p => p.isHost)?.nickname}</span>
+            </div>
+          </div>
+        </div>
+
+        <Card className="flex-1">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5" />
+              참여자 목록
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {gameRoom.players.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p>아직 참여한 플레이어가 없습니다</p>
+              </div>
+            ) : (
+              <motion.div
+                variants={staggerContainer}
+                initial="initial"
+                animate="animate"
+                className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"
+              >
+                <AnimatePresence>
+                  {gameRoom.players.map((player) => (
+                    <motion.div
+                      key={player.id}
+                      variants={staggerItem}
+                      layout
+                    >
+                      <PlayerCard
+                        player={player}
+                        isCurrentPlayer={player.userId === currentUserId}
+                        className="h-full"
+                      />
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+
+                {/* 빈 슬롯 표시 */}
+                {[...Array(gameRoom.gameParticipants - gameRoom.players.length)].map((_, index) => (
+                  <motion.div
+                    key={`empty-${index}`}
+                    variants={staggerItem}
+                    className="p-4 rounded-lg border-2 border-dashed border-muted-foreground/20 flex flex-col items-center justify-center text-muted-foreground"
+                  >
+                    <Users className="w-8 h-8 mb-2 opacity-50" />
+                    <span className="text-sm">대기 중</span>
+                  </motion.div>
+                ))}
+              </motion.div>
+            )}
+          </CardContent>
+        </Card>
+
+        {gameRoom.players.length >= 4 && !isHost && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center"
+          >
+            <Card className="bg-green-50 border-green-200">
+              <CardContent className="py-4">
+                <p className="text-green-800 font-medium">
+                  게임 시작 준비가 완료되었습니다!
+                </p>
+                <p className="text-sm text-green-600 mt-1">
+                  방장이 게임을 시작할 때까지 기다려주세요.
+                </p>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+      </div>
+    </GameScreenLayout>
+  )
+}
+
+// 임시 목업 데이터
+const mockGameRoom: GameRoom = {
+  id: 1,
+  title: "재미있는 라이어 게임",
+  hostUserId: 1,
+  status: 'WAITING',
+  gameParticipants: 6,
+  gameLiarCount: 1,
+  gameTotalRounds: 3,
+  gameMode: 'LIARS_KNOW',
+  targetPoints: 10,
+  createdAt: new Date().toISOString(),
+  players: [
+    {
+      id: 1,
+      userId: 1,
+      nickname: "게임마스터",
+      isHost: true,
+      isAlive: true,
+      joinedAt: new Date().toISOString(),
+      votesReceived: 0,
+      hasVoted: false,
+      hasProvidedHint: false
+    },
+    {
+      id: 2,
+      userId: 2,
+      nickname: "플레이어2",
+      isHost: false,
+      isAlive: true,
+      joinedAt: new Date().toISOString(),
+      votesReceived: 0,
+      hasVoted: false,
+      hasProvidedHint: false
+    },
+    {
+      id: 3,
+      userId: 3,
+      nickname: "플레이어3",
+      isHost: false,
+      isAlive: true,
+      joinedAt: new Date().toISOString(),
+      votesReceived: 0,
+      hasVoted: false,
+      hasProvidedHint: false
+    }
+  ]
 }

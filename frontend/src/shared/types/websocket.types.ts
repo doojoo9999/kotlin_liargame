@@ -59,9 +59,24 @@ export interface ErrorMessage extends WebSocketMessage {
   data: { message: string; code?: string };
 }
 
-export interface ChatMessage extends WebSocketMessage {
-  type: 'CHAT_MESSAGE';
-  data: { playerId: string; message: string; timestamp: string };
+// 채팅 메시지 관련 타입 (백엔드 명세에 맞게 수정)
+export interface ChatMessage {
+  id: number;
+  gameNumber: number;
+  playerNickname: string;
+  content: string;
+  timestamp: string;
+  type: "HINT" | "DISCUSSION" | "DEFENSE" | "POST_ROUND" | "SYSTEM"; // NORMAL → DISCUSSION 변경
+}
+
+export interface ChatMessageReceivedMessage extends WebSocketMessage {
+  type: 'CHAT_MESSAGE_RECEIVED';
+  data: ChatMessage;
+}
+
+export interface ChatMessageSentMessage extends WebSocketMessage {
+  type: 'CHAT_MESSAGE_SENT';
+  data: ChatMessage;
 }
 
 // WebSocket 상태

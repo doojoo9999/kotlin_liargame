@@ -30,7 +30,7 @@ export interface ChatMessage {
   gameNumber?: number;
   playerNickname?: string;
   content?: string;
-  type?: 'NORMAL' | 'SYSTEM' | 'HINT' | 'DEFENSE' | 'DISCUSSION' | 'POST_ROUND';
+  type?: 'DISCUSSION' | 'SYSTEM' | 'HINT' | 'DEFENSE' | 'POST_ROUND'; // NORMAL → DISCUSSION 변경
 }
 
 export type GamePhase = 'WAITING' | 'DISCUSSING' | 'VOTING' | 'REVEALING' | 'ENDED' |
@@ -38,7 +38,7 @@ export type GamePhase = 'WAITING' | 'DISCUSSING' | 'VOTING' | 'REVEALING' | 'END
 
 export type PlayerRole = 'CITIZEN' | 'LIAR' | 'UNKNOWN';
 
-export type ChatMessageType = 'HINT' | 'DISCUSSION' | 'DEFENSE' | 'POST_ROUND' | 'SYSTEM' | 'NORMAL';
+export type ChatMessageType = 'HINT' | 'DISCUSSION' | 'DEFENSE' | 'POST_ROUND' | 'SYSTEM'; // NORMAL 제거
 
 export interface GameRoom {
   id: number;

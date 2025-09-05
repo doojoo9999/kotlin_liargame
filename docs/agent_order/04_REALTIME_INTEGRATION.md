@@ -46,31 +46,45 @@ interface GameStateSubscriber {
 
 **담당 에이전트**: `frontend-developer`
 
-#### 투표 시스템 실시간 피드백
+#### 투표 시스템 실시간 피드백 (수정요청) ⚠️
+- [ ] **중요**: 신규 `/cast-vote` API 사용 (`targetUserId` 파라미터)
+- [ ] 기존 `/vote` API 대신 신규 API 전환
 - [ ] 투표 현황 실시간 업데이트
 - [ ] 투표 완료 시 즉시 결과 표시
 - [ ] 투표 결과 공개 애니메이션
 - [ ] 동점 상황 처리
 
+```typescript
+// ⚠️ 수정된 투표 API - API_DTO_SPECIFICATION.md 참조
+const castVote = (gameNumber: number, targetUserId: number) => {
+  return fetch('/api/v1/game/cast-vote', {
+    method: 'POST',
+    body: JSON.stringify({ gameNumber, targetUserId }) // targetPlayerId가 아닌 targetUserId!
+  });
+};
+```
+
 **담당 에이전트**: `game-designer`
 
-**예상 작업 시간**: 2일
+**예상 작업 시간**: 3일
 
 ### 4.3 실시간 채팅 시스템
 
-#### 채팅 메시지 실시간 처리
+#### 채팅 메시지 실시간 처리 (수정요청) ⚠️
 - [ ] `/topic/game/{gameNumber}/chat` 구독
-- [ ] 메시지 타입별 렌더링 (HINT, DISCUSSION, DEFENSE, SYSTEM)
+- [ ] **중요**: 메시지 타입 `NORMAL` → `DISCUSSION` 수정 반영
+- [ ] 메시지 타입별 렌더링 (HINT, DISCUSSION, DEFENSE, POST_ROUND, SYSTEM)
 - [ ] 발화자별 메시지 구분
 - [ ] 시간 순서 보장
 
 ```typescript
+// ⚠️ 수정된 ChatMessage 타입 - API_DTO_SPECIFICATION.md 참조
 interface ChatMessage {
   id: number;
   gameNumber: number;
   playerNickname: string | null;
   content: string;
-  type: 'HINT' | 'DISCUSSION' | 'DEFENSE' | 'POST_ROUND' | 'SYSTEM';
+  type: 'HINT' | 'DISCUSSION' | 'DEFENSE' | 'POST_ROUND' | 'SYSTEM'; // NORMAL 제거
   timestamp: string;
 }
 ```
@@ -90,7 +104,7 @@ interface ChatMessage {
 
 **담당 에이전트**: `frontend-developer`
 
-**예상 작업 시간**: 3일
+**예상 작업 시간**: 4일
 
 ### 4.4 시스템 알림 및 피드백
 
@@ -225,7 +239,38 @@ sequenceDiagram
 
 **담당 에이전트**: `test-engineer`
 
+## ⚠️ 리스크 및 대응방안
+
+### API 변경 대응 리스크
+- **투표 API 전환**: 기존 `/vote` → 신규 `/cast-vote` 완전 전환 필요
+- **채팅 타입 수정**: 모든 `NORMAL` → `DISCUSSION` 타입 변경 검증
+- **라이어 추측 API**: 기존 `/submit-liar-guess` → 신규 `/guess-word` 고려
+- **파라미터 불일치**: `targetPlayerId` vs `targetUserId` 철저한 검증
+
+### 실시간 통신 리스크
+- **대용량 메시지**: WebSocket 메시지 압축 및 배칭 처리
+- **연결 불안정**: 모바일 환경 네트워크 변경 시 재연결 로직
+- **메모리 누수**: 구독 해제 및 이벤트 리스너 정리 자동화
+- **동기화 실패**: 서버-클라이언트 상태 불일치 복구 메커니즘
+
+### 성능 저하 대응
+- **메시지 폭주**: 채팅 메시지 throttling 및 rate limiting
+- **렌더링 지연**: 대용량 채팅 히스토리 가상화 적용
+- **배터리 소모**: 백그라운드 연결 관리 최적화
+
+## 🤝 에이전트 협업 강화
+
+### 순차적 개발 전략
+1. **API 정확성 검증** (`api-documenter`) → **WebSocket 기본** (`frontend-developer`)
+2. **투표 시스템** (`game-designer`) → **채팅 시스템** (`frontend-developer`)
+3. **에러 처리** (`debugger`) → **성능 최적화** (`performance-profiler`)
+
+### 병렬 개발 가능 영역
+- **알림 시스템** (`ui-ux-designer`) + **재연결 로직** (`frontend-developer`) 동시
+- **모바일 최적화** + **테스트 시나리오** 작성 병행
+
 ## 📋 완료 조건
+- [ ] **백엔드 API 100% 정확성 확인** (최우선)
 - [ ] WebSocket 연결 안정성 99% 이상
 - [ ] 메시지 전달 지연 시간 < 100ms
 - [ ] 재연결 성공률 95% 이상

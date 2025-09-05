@@ -62,110 +62,15 @@
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 212.7 26.8% 83.9%;
-
-    /* 다크 모드 게임 색상 */
-    --game-primary: 217 91% 70%;
-    --game-secondary: 142 76% 46%;
-    --game-danger: 0 84% 70%;
-    --game-success: 142 76% 46%;
-    --game-warning: 48 96% 63%;
-
-    --role-citizen: 142 76% 46%;
-    --role-liar: 0 84% 70%;
-
-    --vote-selected: 217 91% 70%;
-    --chat-user: 262 83% 68%;
-    --chat-system: 215 20% 75%;
   }
 }
 
 @layer base {
   * {
-    border-color: hsl(var(--border));
+    @apply border-border;
   }
-
   body {
     @apply bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1;
-  }
-
-  /* 게임 특화 기본 스타일 */
-  .game-container {
-    @apply min-h-screen bg-gradient-to-br from-background via-background to-secondary/20;
-  }
-
-  .game-card {
-    @apply bg-card border border-border rounded-lg shadow-sm;
-  }
-
-  .role-badge {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
-  }
-
-  .role-citizen {
-    @apply bg-role-citizen/10 text-role-citizen border border-role-citizen/20;
-  }
-
-  .role-liar {
-    @apply bg-role-liar/10 text-role-liar border border-role-liar/20;
-  }
-
-  /* 투표 관련 스타일 */
-  .vote-button {
-    @apply relative overflow-hidden transition-all duration-200 hover:scale-105;
-  }
-
-  .vote-button.selected {
-    @apply bg-vote-selected text-white shadow-lg animate-vote-pulse;
-  }
-
-  /* 채팅 관련 스타일 */
-  .chat-message {
-    @apply p-3 rounded-lg max-w-[80%] break-words;
-  }
-
-  .chat-user {
-    @apply bg-chat-user/10 border-l-4 border-chat-user;
-  }
-
-  .chat-system {
-    @apply bg-chat-system/10 border-l-4 border-chat-system italic;
-  }
-
-  /* 게임 상태별 배경 효과 */
-  .game-phase-discussion {
-    @apply bg-gradient-to-br from-game-primary/5 to-game-secondary/5;
-  }
-
-  .game-phase-voting {
-    @apply bg-gradient-to-br from-game-warning/5 to-game-danger/5;
-  }
-
-  .game-phase-result {
-    @apply bg-gradient-to-br from-game-success/5 to-game-primary/5;
-  }
-
-  /* 스크롤바 스타일링 */
-  .custom-scrollbar {
-    scrollbar-width: thin;
-    scrollbar-color: hsl(var(--muted-foreground)) transparent;
-  }
-
-  .custom-scrollbar::-webkit-scrollbar {
-    width: 6px;
-  }
-
-  .custom-scrollbar::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  .custom-scrollbar::-webkit-scrollbar-thumb {
-    background-color: hsl(var(--muted-foreground));
-    border-radius: 3px;
-  }
-
-  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background-color: hsl(var(--foreground));
   }
 }
 
@@ -215,6 +120,26 @@
 
   .status-offline {
     @apply bg-muted-foreground;
+  }
+
+  .game-container {
+    @apply min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800;
+  }
+
+  .game-card {
+    @apply bg-white/90 backdrop-blur-sm border border-white/20 shadow-lg dark:bg-gray-800/90;
+  }
+
+  .phase-indicator {
+    @apply px-3 py-1 rounded-full text-sm font-medium animate-pulse;
+  }
+
+  .player-card {
+    @apply transition-all duration-200 hover:scale-105 hover:shadow-md;
+  }
+
+  .chat-message {
+    @apply max-w-xs break-words animate-in slide-in-from-bottom-2 duration-200;
   }
 }
 

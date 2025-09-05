@@ -31,7 +31,10 @@
       "Read(/D:\\workspaces\\kotlin_liargame\\frontend\\src\\features\\demo/**)",
       "Read(/D:\\workspaces\\kotlin_liargame\\frontend\\src\\features\\demo/**)",
       "Bash(mkdir:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Read(/D:\\workspaces\\kotlin_liargame\\frontend/**)",
+      "Bash(cat:*)",
+      "Bash(npx tsc:*)"
     ],
     "deny": [],
     "ask": []

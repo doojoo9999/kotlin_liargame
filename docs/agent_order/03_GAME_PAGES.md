@@ -23,7 +23,7 @@
 
 **담당 에이전트**: `ui-ux-designer` + `frontend-developer`
 
-**예상 작업 시간**: 2-3일
+**예상 작업 시간**: 3-4일
 
 ### 3.2 게임방 대기실
 
@@ -47,7 +47,7 @@ interface GameWaitingRoomProps {
 
 **담당 에이전트**: `frontend-developer`
 
-**예상 작업 시간**: 2일
+**예상 작업 시간**: 2-3일
 
 ### 3.3 게임 진행 페이지들
 
@@ -71,7 +71,7 @@ interface GameWaitingRoomProps {
 
 **담당 에이전트**: `game-designer` + `frontend-developer`
 
-**예상 작업 시간**: 4-5일
+**예상 작업 시간**: 5-6일
 
 ### 3.4 게임 단계별 컴포넌트
 
@@ -132,7 +132,7 @@ interface SpeechStageProps {
 
 **담당 에이전트**: `frontend-developer`
 
-**예상 작업 시간**: 5-6일
+**예상 작업 시간**: 6-7일
 
 ### 3.5 결과 페이지
 
@@ -145,7 +145,7 @@ interface SpeechStageProps {
 
 **담당 에이전트**: `ui-ux-designer`
 
-**예상 작업 시간**: 1-2일
+**예상 작업 시간**: 2일
 
 ## 📱 모바일 최적화
 
@@ -191,12 +191,50 @@ interface SpeechStageProps {
 └── /profile                 # 사용자 프로필
 ```
 
+## ⚠️ 리스크 및 대응방안
+
+### 백엔드 연동 리스크
+- **API 명세 불일치**: `API_DTO_SPECIFICATION.md` 기준 철저한 검증
+- **투표 API 선택**: 신규 `/cast-vote` API 사용 결정 및 테스트
+- **채팅 타입**: `NORMAL` → `DISCUSSION` 변경사항 반영
+- **WebSocket 대역폭**: 대용량 메시지 처리 최적화
+
+### 복잡도 관리 전략
+- **게임 단계 방식**: 단계별 컴포넌트 점진적 개발
+- **에러 처리**: WebSocket 연결 끊김/재연결 시나리오 대응
+- **상태 동기화**: 실시간 게임 상태와 UI 상태 불일치 방지
+
+## 🤝 에이전트 협업 최적화
+
+### 병렬 개발 가능 영역
+1. **로비 페이지** (`frontend-developer`) + **게임 선이바이션** (`game-designer`) 동시
+2. **모바일 최적화** (`frontend-developer`) + **접근성** (`ui-ux-designer`) 독립
+3. **게임 단계별 컴포넌트** 병렬 개발 (단계별 전담 에이전트)
+
+### MVP 우선순위 정리
+
+#### Phase 1 (MVP - 핵심 기능)
+- [ ] LobbyPage, GameCreatePage 기본 기능
+- [ ] GameWaitingRoom 참여자 관리
+- [ ] SpeechStage, VotingForLiarStage 핵심 로직
+- [ ] 기본 게임 플로우 부분
+
+#### Phase 2 (Enhancement)
+- [ ] DefendingStage, VotingForSurvivalStage 고도화
+- [ ] GuessingWordStage, GameResultPage 완성형
+- [ ] 모바일 최적화 및 접근성
+- [ ] 고급 애니메이션 및 UX 개선
+
 ## 📋 완료 조건
-- [ ] 모든 게임 단계가 정상 작동
+- [ ] **MVP 게임 단계 100% 작동**
+- [ ] **백엔드 API 연동 정상 동작**
 - [ ] WebSocket 실시간 통신 안정성 확보
-- [ ] 모바일 반응형 디자인 완성
-- [ ] 접근성 AA 등급 달성
+- [ ] 기본 모바일 반응형 디자인 완성
 - [ ] 게임 플로우 통합 테스트 통과
 
 ## 🔄 다음 단계
 `04_REALTIME_INTEGRATION.md` - WebSocket 및 실시간 기능 통합
+
+**다음 단계 준비사항**:
+- [ ] 모든 페이지 컴포넌트 완성 후 WebSocket 통합 시작
+- [ ] API 연동 테스트 결과를 4단계에 반영
