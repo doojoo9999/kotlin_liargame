@@ -1,0 +1,18 @@
+@import "tailwindcss";
+
+/* Simple reset and base styles */
+body {
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+/* Fix for any lingering Mantine overrides */
+.dark-theme-override {
+  background-color: rgb(9, 9, 11) !important; /* gray-950 */
+  color: white !important;
+}
+
+.dark-theme-override * {
+  color: white !important;
+}

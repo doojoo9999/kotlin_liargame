@@ -136,7 +136,7 @@ POST /api/v1/auth/refresh-session
 
 #### 게임 단계 (GamePhase)
 - `WAITING_FOR_PLAYERS`: 플레이어 대기
-- `SPEECH`: 힌트 제공 단계
+- `SPEECH`: 힌트 제공 단계 (GIVING_HINTS 대신 SPEECH 사용)
 - `VOTING_FOR_LIAR`: 라이어 투표 단계
 - `DEFENDING`: 변론 단계
 - `VOTING_FOR_SURVIVAL`: 최종 투표 단계
@@ -311,7 +311,7 @@ POST /api/v1/game/hint
 - 턴 인덱스 증가
 - 모든 힌트 완료 시 VOTING_FOR_LIAR 단계로 전환
 
-#### 5. 라이어 투표
+#### 5. 라이어 투표 (기존 방식)
 ```http
 POST /api/v1/game/vote
 ```
@@ -330,6 +330,30 @@ POST /api/v1/game/vote
   "gameNumber": 123,
   "gameState": "IN_PROGRESS",
   "currentPhase": "VOTING_FOR_LIAR"
+}
+```
+
+#### 5-1. 라이어 투표 (새로운 방식) - 추가됨
+```http
+POST /api/v1/game/cast-vote
+```
+
+**Request Body:**
+```json
+{
+  "gameNumber": 123,
+  "targetUserId": 2
+}
+```
+
+**Response:**
+```json
+{
+  "gameNumber": 123,
+  "voterUserId": 1,
+  "targetUserId": 2,
+  "isSuccessful": true,
+  "message": "투표가 성공적으로 처리되었습니다."
 }
 ```
 
@@ -375,16 +399,16 @@ POST /api/v1/game/submit-defense
 1. 지목된 플레이어인지 확인
 2. 변론 시간 내인지 확인
 3. 이미 변론했는지 확인
-4. Redis에 변론 내용 저장
+4. 변론 내용 저장
 5. 다른 플레이어들에게 변론 내용 브로드캐스트
 6. 최종 투표 단계 스케줄링
 
 **상태 변화:**
 - 지목된 플레이어 상태: ACCUSED → DEFENDED
-- Redis에 변론 상태 저장
+- 변론 상태 저장
 - 최종 투표 단계로 전환
 
-#### 6-1. 변론 즉시 종료 (NEW)
+#### 6-1. 변론 즉시 종료
 ```http
 POST /api/v1/game/defense/end
 ```
@@ -419,7 +443,7 @@ POST /api/v1/game/defense/end
 - 즉시 VOTING_FOR_SURVIVAL 단계로 전환
 - 모든 플레이어에게 단계 전환 브로드캐스트
 
-#### 7. 최종 투표 (처형/생존) - 업데이트됨
+#### 7. 최종 투표 (처형/생존)
 ```http
 POST /api/v1/game/vote/final
 ```
@@ -443,7 +467,7 @@ POST /api/v1/game/vote/final
 
 **Service 로직:**
 1. 최종 투표 권한 확인
-2. 투표 내용 Redis에 저장
+2. 투표 내용 저장
 3. 모든 투표 완료 시 결과 계산
 4. 과반수에 따라 처형/생존 결정
 5. 게임 종료 조건 확인
@@ -454,9 +478,33 @@ POST /api/v1/game/vote/final
 - 처형 결정에 따른 게임 진행
 - 게임 종료 또는 라이어 추측 단계로 전환
 
-#### 8. 라이어 단어 추측
+#### 8-1. 라이어 단어 추측 (기존)
 ```http
 POST /api/v1/game/submit-liar-guess
+```
+
+**Request Body:**
+```json
+{
+  "gameNumber": 123,
+  "guess": "강아지"
+}
+```
+
+**Response:**
+```json
+{
+  "gameNumber": 123,
+  "guess": "강아지",
+  "isCorrect": true,
+  "actualWord": "강아지",
+  "success": true
+}
+```
+
+#### 8-2. 라이어 단어 추측 (새로운 방식) - 추가됨
+```http
+POST /api/v1/game/guess-word
 ```
 
 **Request Body:**
@@ -490,6 +538,36 @@ POST /api/v1/game/submit-liar-guess
 - 승리 팀 결정 (라이어 승리 or 시민 승리)
 - 게임 결과 저장
 
+#### 9. 라운드 종료 처리 - 새로 추가됨
+```http
+POST /api/v1/game/end-of-round
+```
+
+**Request Body:**
+```json
+{
+  "gameNumber": 123
+}
+```
+
+**Response:**
+```json
+{
+  "gameNumber": 123,
+  "gameState": "IN_PROGRESS",
+  "currentPhase": "WAITING_FOR_PLAYERS",
+  "gameCurrentRound": 2,
+  "scoreboard": [...]
+}
+```
+
+**Service 로직:**
+1. 라운드 종료 권한 확인
+2. 현재 라운드 점수 계산
+3. 다음 라운드 준비 또는 게임 종료
+4. 점수판 업데이트
+5. 게임 상태 반환
+
 ### 게임 상태 조회
 
 #### 게임 상태 조회
@@ -501,17 +579,21 @@ GET /api/v1/game/{gameNumber}
 ```json
 {
   "gameNumber": 123,
+  "gameName": "게임방 이름",
+  "gameOwner": "player1",
   "gameState": "IN_PROGRESS",
   "currentPhase": "SPEECH",
   "players": [
     {
       "id": 1,
+      "userId": 1,
       "nickname": "player1",
       "isAlive": true,
-      "role": "CITIZEN",
       "state": "GAVE_HINT",
-      "isCurrentTurn": false,
-      "assignedWord": "강아지"
+      "hint": "네 다리가 있어요",
+      "defense": null,
+      "votesReceived": 0,
+      "hasVoted": false
     }
   ],
   "gameMode": "LIARS_KNOW",
@@ -519,11 +601,56 @@ GET /api/v1/game/{gameNumber}
   "gameLiarCount": 1,
   "gameTotalRounds": 3,
   "gameCurrentRound": 1,
+  "yourRole": "CITIZEN",
+  "yourWord": "강아지",
+  "accusedPlayer": null,
+  "isChatAvailable": true,
+  "citizenSubject": "동물",
+  "liarSubject": null,
+  "subjects": ["동물"],
   "turnOrder": ["player1", "player2"],
   "currentTurnIndex": 1,
-  "currentPlayerId": 2,
   "phaseEndTime": "2025-08-27T17:30:00Z",
-  "isChatAvailable": true
+  "winner": null,
+  "reason": null,
+  "targetPoints": 10,
+  "scoreboard": [
+    {
+      "userId": 1,
+      "nickname": "player1",
+      "isAlive": true,
+      "score": 0
+    }
+  ],
+  "finalVotingRecord": null
+}
+```
+
+#### 게임 상태 복구 - 새로 추가됨
+```http
+GET /api/v1/game/recover-state/{gameNumber}
+```
+
+**Response:**
+```json
+{
+  "gameNumber": 123,
+  "gameState": "IN_PROGRESS",
+  "defense": {
+    "hasActiveDefense": true,
+    "hasActiveFinalVoting": false,
+    "accusedPlayerId": 2,
+    "defenseText": "저는 라이어가 아닙니다...",
+    "isDefenseSubmitted": true
+  },
+  "player": {
+    "id": 1,
+    "userId": 1,
+    "nickname": "player1",
+    "isAlive": true,
+    "role": "CITIZEN"
+  },
+  "timestamp": "2025-08-27T17:30:00Z"
 }
 ```
 
@@ -558,6 +685,13 @@ GET /api/v1/game/rooms
 
 ## 채팅 시스템 (Chat)
 
+### 채팅 메시지 타입 (ChatMessageType) - 업데이트됨
+- `HINT`: 힌트 단계에서의 메시지
+- `DISCUSSION`: 토론 단계에서의 메시지 (기존 NORMAL 대신)
+- `DEFENSE`: 변론 단계에서의 메시지
+- `POST_ROUND`: 라운드 종료 후 채팅
+- `SYSTEM`: 시스템 메시지 (사회자, 게임 상태 알림 등)
+
 ### API 엔드포인트
 
 #### 1. 채팅 메시지 전송
@@ -570,19 +704,19 @@ POST /api/v1/chat/send
 {
   "gameNumber": 123,
   "content": "안녕하세요!",
-  "type": "NORMAL"
+  "type": "DISCUSSION"
 }
 ```
 
 **Response:**
 ```json
 {
-  "success": true,
-  "messageId": 1,
+  "id": 1,
+  "gameNumber": 123,
+  "playerNickname": "player1",
   "content": "안녕하세요!",
-  "senderNickname": "player1",
   "timestamp": "2025-08-27T17:30:00Z",
-  "type": "NORMAL"
+  "type": "DISCUSSION"
 }
 ```
 
@@ -617,10 +751,11 @@ POST /api/v1/chat/history
   "messages": [
     {
       "id": 1,
+      "gameNumber": 123,
+      "playerNickname": "player1",
       "content": "안녕하세요!",
-      "senderNickname": "player1",
       "timestamp": "2025-08-27T17:30:00Z",
-      "type": "NORMAL"
+      "type": "DISCUSSION"
     }
   ],
   "totalElements": 25,
@@ -632,13 +767,13 @@ POST /api/v1/chat/history
 ### 채팅 제한 규칙
 
 **단계별 채팅 가능 여부:**
-- `WAITING_FOR_PLAYERS`: 자유 채팅
-- `SPEECH`: 현재 턴 플레이어만 채팅 가능
+- `WAITING_FOR_PLAYERS`: 자유 채팅 (DISCUSSION)
+- `SPEECH`: 현재 턴 플레이어만 채팅 가능 (HINT)
 - `VOTING_FOR_LIAR`: 투표 중 채팅 금지
-- `DEFENDING`: 지목된 플레이어만 채팅 가능
+- `DEFENDING`: 지목된 플레이어만 채팅 가능 (DEFENSE)
 - `VOTING_FOR_SURVIVAL`: 투표 중 채팅 금지
 - `GUESSING_WORD`: 라이어만 채팅 가능
-- `GAME_OVER`: 자유 채팅
+- `GAME_OVER`: 자유 채팅 (POST_ROUND)
 
 ---
 
@@ -886,64 +1021,6 @@ GET /api/v1/game/result/{gameNumber}
 }
 ```
 
-#### 3. 방장 권한 연장
-```http
-POST /api/v1/game/{gameNumber}/extend-time
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "게임 시작 시간이 5분 연장되었습니다.",
-  "extendedUntil": "2025-08-27T18:00:00Z"
-}
-```
-
-#### 4. 방장 강퇴 및 권한 이양
-```http
-POST /api/v1/game/{gameNumber}/kick-owner
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "방장이 강퇴되고 권한이 이양되었습니다.",
-  "newOwner": "player2",
-  "kickedPlayer": "player1"
-}
-```
-
-### 게임 상태 복구
-
-#### 게임 상태 복구
-```http
-GET /api/v1/game/recover-state/{gameNumber}
-```
-
-**Response:**
-```json
-{
-  "gameNumber": 123,
-  "gameState": "IN_PROGRESS",
-  "defense": {
-    "hasActiveDefense": true,
-    "hasActiveFinalVoting": false,
-    "accusedPlayerId": 2,
-    "defenseText": "저는 라이어가 아닙니다...",
-    "isDefenseSubmitted": true
-  },
-  "player": {
-    "id": 1,
-    "nickname": "player1",
-    "isAlive": true,
-    "role": "CITIZEN"
-  },
-  "timestamp": "2025-08-27T17:30:00Z"
-}
-```
-
 ---
 
 ## 실시간 통신 상세
@@ -1097,6 +1174,7 @@ stompClient.connect({}, function(frame) {
 interface GameEntity {
   id: number;
   gameNumber: number;
+  gameName: string;  // 게임방 이름 추가
   gameOwner: string;
   gameState: 'WAITING' | 'IN_PROGRESS' | 'ENDED';
   currentPhase: GamePhase;
@@ -1112,12 +1190,13 @@ interface GameEntity {
   phaseEndTime?: string;
   gameStartDeadline?: string;
   timeExtensionCount?: number;
+  targetPoints: number;  // 목표 점수 추가
   createdAt: string;
   gameEndTime?: string;
 }
 ```
 
-### 플레이어 엔티티 구조
+### 플레이어 엔티티 구조 - 업데이트됨
 ```typescript
 interface PlayerEntity {
   id: number;
@@ -1131,21 +1210,31 @@ interface PlayerEntity {
   defense?: string;
   votedFor?: number;
   votesReceived: number;
-  finalVote?: boolean;
+  hasVoted: boolean;  // 투표 여부 추가
+  cumulativeScore: number;  // 누적 점수 추가
   joinedAt: string;
 }
 ```
 
-### 채팅 메시지 구조
+### 채팅 메시지 구조 - 업데이트됨
 ```typescript
 interface ChatMessage {
   id: number;
   gameNumber: number;
-  senderId: number;
-  senderNickname: string;
+  playerNickname: string | null;  // 시스템 메시지는 null
   content: string;
-  type: 'NORMAL' | 'SYSTEM' | 'HINT' | 'DEFENSE';
-  timestamp: string;
+  type: 'HINT' | 'DISCUSSION' | 'DEFENSE' | 'POST_ROUND' | 'SYSTEM';
+  timestamp: string;  // ISO 8601 format
+}
+```
+
+### 점수판 엔티티 구조 - 새로 추가됨
+```typescript
+interface ScoreboardEntry {
+  userId: number;
+  nickname: string;
+  isAlive: boolean;
+  score: number;
 }
 ```
 
@@ -1233,4 +1322,4 @@ EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "/app.jar"]
 ```
 
-이 문서는 프론트엔드 개발자가 백엔드 API를 완전히 이해하고 활용할 수 있도록 모든 필요한 정보를 포함하고 있습니다.
+이 문서는 프론트엔드 개발자가 백엔드 API를 완전히 이해하고 활용할 수 있도록 현재 시스템의 모든 필요한 정보를 포함하고 있습니다.

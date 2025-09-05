@@ -35,7 +35,7 @@ class VotingService(
     private val gameProperties: GameProperties,
     @Lazy private val gameProgressService: GameProgressService,
     private val sessionService: org.example.kotlin_liargame.global.session.SessionService,
-    @Lazy private val chatSystemMessenger: org.example.kotlin_liargame.domain.chat.service.ChatSystemMessenger
+    @Lazy private val chatService: org.example.kotlin_liargame.domain.chat.service.ChatService
 ) {
 
     fun startVotingPhase(game: GameEntity) {
@@ -90,8 +90,8 @@ class VotingService(
 
         // 투표 시작 시스템 메시지 전송
         try {
-            chatSystemMessenger.sendSystemMessage(game, "🗳️ 투표 단계가 시작되었습니다! 라이어라고 생각하는 플레이어에게 투표해주세요.")
-            chatSystemMessenger.sendSystemMessage(game, "⏰ ${gameProperties.votingTimeSeconds}초 안에 투표를 완료해주세요.")
+            chatService.sendSystemMessage(game, "🗳️ 투표 단계가 시작되었습니다! 라이어라고 생각하는 플레이어에게 투표해주세요.")
+            chatService.sendSystemMessage(game, "⏰ ${gameProperties.votingTimeSeconds}초 안에 투표를 완료해주세요.")
             println("[VotingService] Voting start messages sent successfully")
         } catch (e: Exception) {
             println("[VotingService] ERROR: Could not send voting start messages: ${e.message}")
@@ -342,7 +342,7 @@ class VotingService(
             processVoteResults(game)
 
             // 시스템 메시지 전송
-            chatSystemMessenger.sendSystemMessage(game, "⏰ 투표 시간이 만료되었습니다. 투표 결과를 집계합니다.")
+            chatService.sendSystemMessage(game, "⏰ 투표 시간이 만료되었습니다. 투표 결과를 집계합니다.")
 
             println("[VotingService] === VOTING PHASE END COMPLETED ===")
         } catch (e: Exception) {

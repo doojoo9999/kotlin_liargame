@@ -3,7 +3,6 @@ package org.example.kotlin_liargame.global.security
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import jakarta.servlet.http.HttpSession
-import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.time.LocalDateTime
 
@@ -11,7 +10,6 @@ import java.time.LocalDateTime
 class SessionDataManager(
     private val objectMapper: ObjectMapper
 ) {
-    private val log = LoggerFactory.getLogger(SessionDataManager::class.java)
 
     init {
         // LocalDateTime 직렬화를 위한 모듈 등록
@@ -51,7 +49,8 @@ class SessionDataManager(
             session.setAttribute("_touch", System.currentTimeMillis())
             session.removeAttribute("_touch")
         } catch (e: Exception) {
-            log.warn("Failed to touch session: {}", e.message)
+            // 터치 실패는 로그만 남기고 계속 진행
+            println("[WARNING] Failed to touch session: ${e.message}")
         }
     }
 
