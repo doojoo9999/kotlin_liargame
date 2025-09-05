@@ -6,7 +6,6 @@ import org.example.kotlin_liargame.tools.websocket.dto.ConnectionState
 import org.example.kotlin_liargame.tools.websocket.dto.ConnectionStats
 import org.example.kotlin_liargame.tools.websocket.dto.HeartbeatMessage
 import org.example.kotlin_liargame.tools.websocket.enum.ConnectionStatus
-import org.slf4j.LoggerFactory
 import org.springframework.context.annotation.Lazy
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.scheduling.TaskScheduler
@@ -15,14 +14,14 @@ import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ScheduledFuture
 
+
 @Component
 class WebSocketConnectionManager(
     @Lazy private val messagingTemplate: SimpMessagingTemplate,
     private val taskScheduler: TaskScheduler,
     @Lazy private val gameService: GameService
 ) {
-    private val log = LoggerFactory.getLogger(WebSocketConnectionManager::class.java)
-
+    
     private val connectionStates = ConcurrentHashMap<String, ConnectionState>()
     private val heartbeatTasks = ConcurrentHashMap<String, ScheduledFuture<*>>()
     private val reconnectionAttempts = ConcurrentHashMap<String, Int>()
@@ -45,7 +44,8 @@ class WebSocketConnectionManager(
         connectionStates[sessionId] = connectionState
         startHeartbeatMonitoring(sessionId)
         
-        log.info("[CONNECTION] Registered: {} (userId: {})", sessionId, userId)
+        // 연결 등록 로그 간소화
+        println("[CONNECTION] Registered: $sessionId (userId: $userId)")
 
         messagingTemplate.convertAndSendToUser(
             sessionId,
@@ -61,7 +61,7 @@ class WebSocketConnectionManager(
     fun handleDisconnection(sessionId: String) {
         val connectionState = connectionStates[sessionId]
         if (connectionState != null) {
-            log.info("[CONNECTION] WebSocket disconnected: {} (userId: {})", sessionId, connectionState.userId)
+            println("[CONNECTION] WebSocket disconnected: $sessionId (userId: ${connectionState.userId})")
 
             connectionState.userId?.let { userId ->
                 val player = gameService.findPlayerInActiveGame(userId)
@@ -81,9 +81,10 @@ class WebSocketConnectionManager(
             try {
                 // GameService의 cleanupPlayerByUserId 메서드를 직접 호출하여 안전하게 처리
                 gameService.cleanupPlayerByUserId(userId)
-                log.info("[CONNECTION] Successfully cleaned up player by userId: {}", userId)
+                println("[CONNECTION] Successfully cleaned up player by userId: $userId")
             } catch (e: Exception) {
-                log.warn("[CONNECTION] Error during connection cleanup for sessionId: {}, userId: {} - {}", sessionId, userId, e.message)
+                println("[CONNECTION] Error during connection cleanup for sessionId: $sessionId, userId: $userId - ${e.message}")
+                // 로그만 남기고 계속 진행 (예외로 인한 중단 방지)
             }
         }
 
@@ -92,7 +93,7 @@ class WebSocketConnectionManager(
         heartbeatTasks.remove(sessionId)
         reconnectionAttempts.remove(sessionId)
         
-        log.info("[CONNECTION] Cleaned up connection: {}", sessionId)
+        println("[CONNECTION] Cleaned up connection: $sessionId")
     }
 
     fun handleHeartbeat(sessionId: String) {
@@ -131,7 +132,7 @@ class WebSocketConnectionManager(
             
             reconnectionAttempts.remove(oldSessionId)
             
-            log.info("[CONNECTION] Reconnection successful: {} -> {} (userId: {})", oldSessionId, newSessionId, userId)
+            println("[CONNECTION] Reconnection successful: $oldSessionId -> $newSessionId (userId: $userId)")
             messagingTemplate.convertAndSendToUser(
                 newSessionId,
                 "/topic/connection",
@@ -176,7 +177,7 @@ class WebSocketConnectionManager(
                     message
                 )
             } catch (e: Exception) {
-                log.error("Failed to send message to user {} session {}: {}", userId, connection.sessionId, e.message)
+                println("[ERROR] Failed to send message to user $userId session ${connection.sessionId}: ${e.message}")
             }
         }
     }
@@ -198,8 +199,8 @@ class WebSocketConnectionManager(
         
         if (timeSinceLastHeartbeat.seconds > CONNECTION_TIMEOUT_SECONDS) {
             connectionState.status = ConnectionStatus.TIMEOUT
-            log.warn("[CONNECTION] Connection timeout detected: {}", sessionId)
-
+            println("[CONNECTION] Connection timeout detected: $sessionId")
+            
             triggerReconnection(sessionId)
         } else {
             try {
@@ -213,7 +214,7 @@ class WebSocketConnectionManager(
                     )
                 )
             } catch (e: Exception) {
-                log.error("Failed to send heartbeat to {}: {}", sessionId, e.message)
+                println("[ERROR] Failed to send heartbeat to $sessionId: ${e.message}")
                 connectionState.status = ConnectionStatus.ERROR
             }
         }
@@ -237,11 +238,12 @@ class WebSocketConnectionManager(
                     )
                 )
             } catch (e: Exception) {
-                log.error("Failed to send reconnection request to {}: {}", sessionId, e.message)
+                println("[ERROR] Failed to send reconnection request to $sessionId: ${e.message}")
             }
         } else {
+            // Max attempts reached, mark as failed
             connectionState.status = ConnectionStatus.FAILED
-            log.warn("[CONNECTION] Max reconnection attempts reached for {}", sessionId)
+            println("[CONNECTION] Max reconnection attempts reached for $sessionId")
             cleanupConnection(sessionId)
         }
     }
@@ -268,7 +270,7 @@ class WebSocketConnectionManager(
         if (connectionState != null) {
             connectionState.lastHeartbeat = Instant.now()
             connectionState.status = ConnectionStatus.CONNECTED
-            log.debug("[ACTIVITY] Updated last activity for session: {}", sessionId)
+            println("[ACTIVITY] Updated last activity for session: $sessionId")
         }
     }
 }
