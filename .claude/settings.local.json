@@ -52,7 +52,9 @@
       "Bash(npm uninstall:*)",
       "Bash(taskkill:*)",
       "Bash(npx vite:*)",
-      "Bash(/dev/null)"
+      "Bash(/dev/null)",
+      "Bash(npm create:*)",
+      "Bash(./node_modules/.bin/tailwindcss:*)"
     ],
     "deny": [],
     "ask": []
