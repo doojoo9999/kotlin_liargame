@@ -2,40 +2,68 @@ import React, {useEffect, useState} from 'react';
 import {motion} from 'framer-motion';
 import {Card, CardContent} from '@/components/ui/card';
 import {Progress} from '@/components/ui/progress';
-import {AlertCircle, CheckCircle, Clock} from 'lucide-react';
+import {Badge} from '@/components/ui/badge';
+import {AlertCircle, CheckCircle, Clock, Wifi, WifiOff} from 'lucide-react';
 import {cn} from '@/lib/utils';
+import {useGameStore} from '@/store/gameStore';
+import {useWebSocketActions} from '@/hooks/useWebSocketConnection';
 
 interface GameTimerProps {
-  timeRemaining: number; // seconds
-  totalTime: number; // seconds
-  phase: string;
-  isActive: boolean;
-  onTimeUp?: () => void;
   showProgress?: boolean;
   size?: 'sm' | 'md' | 'lg';
   variant?: 'minimal' | 'detailed';
   className?: string;
+  onTimeUp?: () => void;
 }
 
 export const GameTimer: React.FC<GameTimerProps> = ({
-  timeRemaining,
-  totalTime,
-  phase,
-  isActive,
-  onTimeUp,
   showProgress = true,
   size = 'md',
   variant = 'detailed',
   className,
+  onTimeUp
 }) => {
+  // Get timer data from store
+  const {
+    timer,
+    gamePhase,
+    connectionState
+  } = useGameStore()
+  
+  const { isConnected } = useWebSocketActions()
+  
+  const { isActive, timeRemaining, totalTime, phase } = timer
   const [displayTime, setDisplayTime] = useState(timeRemaining);
+  const [lastSyncTime, setLastSyncTime] = useState(Date.now());
 
+  // Sync display time with server time
   useEffect(() => {
     setDisplayTime(timeRemaining);
+    setLastSyncTime(Date.now());
     if (timeRemaining === 0 && onTimeUp) {
       onTimeUp();
     }
   }, [timeRemaining, onTimeUp]);
+
+  // Client-side countdown for smooth display (sync with server updates)
+  useEffect(() => {
+    if (!isActive || timeRemaining <= 0) return;
+
+    const interval = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - lastSyncTime) / 1000);
+      const calculatedTime = Math.max(0, timeRemaining - elapsed);
+      
+      setDisplayTime(calculatedTime);
+      
+      // Call onTimeUp when time reaches 0
+      if (calculatedTime <= 0) {
+        clearInterval(interval);
+        onTimeUp?.();
+      }
+    }, 100); // Update every 100ms for smooth animation
+
+    return () => clearInterval(interval);
+  }, [isActive, timeRemaining, lastSyncTime, onTimeUp]);
 
   const formatTime = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
@@ -58,6 +86,27 @@ export const GameTimer: React.FC<GameTimerProps> = ({
   };
 
   const config = sizeConfig[size];
+
+  const getPhaseTitle = () => {
+    switch (gamePhase) {
+      case 'WAITING_FOR_PLAYERS':
+        return 'Waiting for Players'
+      case 'SPEECH':
+        return 'Discussion Time'
+      case 'VOTING_FOR_LIAR':
+        return 'Voting for Liar'
+      case 'DEFENDING':
+        return 'Defense Phase'
+      case 'VOTING_FOR_SURVIVAL':
+        return 'Final Vote'
+      case 'GUESSING_WORD':
+        return 'Liar Guessing'
+      case 'GAME_OVER':
+        return 'Game Over'
+      default:
+        return phase || 'Game'
+    }
+  }
 
   const getStatusIcon = () => {
     if (isExpired) return CheckCircle;
@@ -113,6 +162,27 @@ export const GameTimer: React.FC<GameTimerProps> = ({
       )}>
         <CardContent className={config.card}>
           <div className="text-center space-y-3">
+            {/* Phase and Connection Status */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Badge variant={isActive ? "default" : "secondary"}>
+                  {getPhaseTitle()}
+                </Badge>
+              </div>
+              
+              {/* Connection Status */}
+              <div className="flex items-center space-x-1">
+                {isConnected ? (
+                  <Wifi className="w-3 h-3 text-green-500" />
+                ) : (
+                  <WifiOff className="w-3 h-3 text-red-500 animate-pulse" />
+                )}
+                <span className="text-xs text-gray-500 capitalize">
+                  {connectionState}
+                </span>
+              </div>
+            </div>
+            
             <div className="flex items-center justify-center space-x-2">
               <StatusIcon className={cn(
                 config.icon,

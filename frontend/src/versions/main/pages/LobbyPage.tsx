@@ -33,6 +33,7 @@ import {
 import {useGameStore} from '@/store/gameStore'
 import {useGameStatus, useSetReady, useStartGame} from '@/hooks/useGameQueries'
 import {useToast} from '@/hooks/useToast'
+import {useWebSocketConnection} from '@/hooks/useWebSocketConnection'
 import type {Player} from '../components'
 import {LobbyPlayerCard, PlayerCardSkeleton} from '../components'
 
@@ -43,6 +44,7 @@ export function MainLobbyPage() {
   
   const {
     gameId,
+    gameNumber,
     sessionCode,
     players,
     currentPlayer,
@@ -50,10 +52,21 @@ export function MainLobbyPage() {
     timeLimit,
     totalRounds,
     gamePhase,
+    connectionState,
     updatePlayers,
     setGamePhase,
     updateGameSettings
   } = useGameStore()
+
+  // WebSocket connection
+  const {
+    connect,
+    disconnect,
+    isConnected,
+    setReady,
+    connectionState: wsConnectionState,
+    reconnectAttempts
+  } = useWebSocketConnection()
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isShareOpen, setIsShareOpen] = useState(false)
@@ -107,6 +120,20 @@ export function MainLobbyPage() {
   const canStartGame = isHost && allPlayersReady && currentPlayers.length >= 3
   const readyCount = currentPlayers.filter(p => p.isReady).length
 
+  // WebSocket connection effect
+  useEffect(() => {
+    if (gameNumber && currentPlayer?.id) {
+      console.log('[Lobby] Connecting to WebSocket:', gameNumber, currentPlayer.id)
+      connect(gameNumber, currentPlayer.id)
+    }
+
+    // Cleanup on unmount
+    return () => {
+      console.log('[Lobby] Disconnecting from WebSocket')
+      disconnect()
+    }
+  }, [gameNumber, currentPlayer?.id, connect, disconnect])
+
   // Handle game status updates
   useEffect(() => {
     if (gameStatus) {
@@ -114,11 +141,22 @@ export function MainLobbyPage() {
       setGamePhase(gameStatus.phase)
       
       // Redirect if game starts
-      if (gameStatus.phase === 'playing') {
+      if (gameStatus.phase === 'playing' || gamePhase === 'SPEECH') {
         navigate(`/main/game/${roomId}`)
       }
     }
-  }, [gameStatus, roomId, navigate, updatePlayers, setGamePhase])
+  }, [gameStatus, gamePhase, roomId, navigate, updatePlayers, setGamePhase])
+
+  // Handle connection status changes
+  useEffect(() => {
+    if (wsConnectionState === 'error' && reconnectAttempts >= 5) {
+      toast({
+        title: "Connection Lost",
+        description: "Failed to connect to game server. Please refresh the page.",
+        variant: "destructive",
+      })
+    }
+  }, [wsConnectionState, reconnectAttempts, toast])
 
   const handleCopyCode = async () => {
     if (sessionCode) {
@@ -168,7 +206,16 @@ export function MainLobbyPage() {
   const handleToggleReady = async () => {
     try {
       const newReadyState = !currentPlayer?.isReady
-      await setReadyMutation.mutateAsync({ ready: newReadyState })
+      
+      // Use WebSocket if connected, otherwise fallback to HTTP API
+      if (isConnected) {
+        const success = setReady(newReadyState)
+        if (!success) {
+          throw new Error('Failed to send ready status via WebSocket')
+        }
+      } else {
+        await setReadyMutation.mutateAsync({ ready: newReadyState })
+      }
       
       toast({
         title: newReadyState ? "You're ready!" : "Ready status removed",

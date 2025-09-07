@@ -1,17 +1,16 @@
 import * as React from "react"
-import { motion, AnimatePresence } from "framer-motion"
-import { Send, MessageCircle, Users, Smile, MoreVertical, Minimize2, Maximize2, Wifi, WifiOff } from "lucide-react"
-import { ScrollArea } from "@radix-ui/react-scroll-area"
-import { Avatar, AvatarFallback, AvatarImage } from "@radix-ui/react-avatar"
+import {AnimatePresence, motion} from "framer-motion"
+import {Maximize2, MessageCircle, Minimize2, Send, Users, WifiOff} from "lucide-react"
+import {Avatar, AvatarFallback} from "@radix-ui/react-avatar"
 
-import { cn } from "@/lib/utils"
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { GameButton } from "@/components/ui/game-button"
-import { Badge } from "@/components/ui/badge"
-import { useGameStore, type Player } from "@/store/gameStore"
-import { useWebSocketActions } from "@/hooks/useWebSocketConnection"
-import { type ChatMessage } from "@/api/websocket"
+import {cn} from "@/lib/utils"
+import {Card, CardContent, CardHeader} from "@/components/ui/card"
+import {Input} from "@/components/ui/input"
+import {GameButton} from "@/components/ui/game-button"
+import {Badge} from "@/components/ui/badge"
+import {type Player, useGameStore} from "@/store/gameStore"
+import {useWebSocketActions} from "@/hooks/useWebSocketConnection"
+import {type ChatMessage} from "@/api/websocket"
 
 export interface ChatBoxProps {
   className?: string
@@ -226,23 +225,63 @@ export const ChatBox: React.FC<ChatBoxProps> = ({
   const scrollAreaRef = React.useRef<HTMLDivElement>(null)
   const messagesEndRef = React.useRef<HTMLDivElement>(null)
 
-  const displayMessages = messages.slice(-maxMessages)
-  const typingPlayers = players.filter(p => p.isTyping && p.id !== currentPlayer.id)
+  const displayMessages = chatMessages.slice(-maxMessages)
+  
+  // Determine chat restrictions based on game phase
+  const isChatRestricted = () => {
+    switch (gamePhase) {
+      case 'VOTING_FOR_LIAR':
+      case 'VOTING_FOR_SURVIVAL':
+        return true // No chat during voting
+      case 'DEFENDING':
+        // Only the targeted player can defend (this would need additional logic)
+        return false
+      case 'SPEECH':
+        // During speech phase, only current turn player can give hints
+        return false
+      default:
+        return false
+    }
+  }
+
+  const getChatPlaceholder = () => {
+    if (!isConnected) return "Connecting to chat..."
+    if (isChatRestricted()) {
+      switch (gamePhase) {
+        case 'VOTING_FOR_LIAR':
+        case 'VOTING_FOR_SURVIVAL':
+          return "Chat disabled during voting"
+        default:
+          return "Chat restricted in this phase"
+      }
+    }
+    return "Type a message..."
+  }
+
+  const getChatType = (): 'DISCUSSION' | 'HINT' | 'DEFENSE' => {
+    switch (gamePhase) {
+      case 'SPEECH':
+        return 'HINT'
+      case 'DEFENDING':
+        return 'DEFENSE'
+      default:
+        return 'DISCUSSION'
+    }
+  }
 
   // Auto scroll to bottom when new messages arrive
   React.useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [messages])
+  }, [chatMessages])
 
   const handleSendMessage = () => {
-    if (!message.trim() || isDisabled || !onSendMessage) return
+    if (!message.trim() || isChatRestricted() || !isConnected) return
     
-    onSendMessage(message.trim())
-    setMessage("")
-    
-    // Stop typing indicator
-    if (onPlayerStopTyping) {
-      onPlayerStopTyping()
+    const success = sendChat(message.trim(), getChatType())
+    if (success) {
+      setMessage("")
+      // Stop typing indicator
+      stopTyping()
     }
   }
 
@@ -250,8 +289,8 @@ export const ChatBox: React.FC<ChatBoxProps> = ({
     setMessage(e.target.value)
     
     // Typing indicator logic
-    if (onPlayerStartTyping && !typingTimeout) {
-      onPlayerStartTyping()
+    if (!typingTimeout && isConnected) {
+      startTyping()
     }
     
     if (typingTimeout) {
@@ -259,9 +298,7 @@ export const ChatBox: React.FC<ChatBoxProps> = ({
     }
     
     const timeout = setTimeout(() => {
-      if (onPlayerStopTyping) {
-        onPlayerStopTyping()
-      }
+      stopTyping()
       setTypingTimeout(null)
     }, 2000)
     
@@ -305,6 +342,20 @@ export const ChatBox: React.FC<ChatBoxProps> = ({
               <div className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-1 rounded-full text-xs font-medium">
                 {players.filter(p => p.isOnline).length} online
               </div>
+              
+              {/* Connection Status Indicator */}
+              {connectionState !== 'connected' && (
+                <div className="flex items-center space-x-1">
+                  {connectionState === 'connecting' || connectionState === 'reconnecting' ? (
+                    <WifiOff className="w-4 h-4 text-yellow-500 animate-pulse" />
+                  ) : (
+                    <WifiOff className="w-4 h-4 text-red-500" />
+                  )}
+                  <span className="text-xs text-gray-500 capitalize">
+                    {connectionState}
+                  </span>
+                </div>
+              )}
             </div>
             
             <div className="flex items-center space-x-2">
@@ -363,7 +414,7 @@ export const ChatBox: React.FC<ChatBoxProps> = ({
                     
                     {/* Typing Indicator */}
                     <AnimatePresence>
-                      <TypingIndicator typingPlayers={typingPlayers} />
+                      <TypingIndicator typingPlayerIds={typingPlayers} players={players} />
                     </AnimatePresence>
                     
                     <div ref={messagesEndRef} />
@@ -377,15 +428,15 @@ export const ChatBox: React.FC<ChatBoxProps> = ({
                       value={message}
                       onChange={handleInputChange}
                       onKeyPress={handleKeyPress}
-                      placeholder={isDisabled ? "Chat is disabled" : "Type a message..."}
-                      disabled={isDisabled}
+                      placeholder={getChatPlaceholder()}
+                      disabled={isChatRestricted() || !isConnected}
                       className="flex-1"
                       maxLength={500}
                     />
                     
                     <GameButton
                       onClick={handleSendMessage}
-                      disabled={!message.trim() || isDisabled}
+                      disabled={!message.trim() || isChatRestricted() || !isConnected}
                       size="icon"
                       variant="primary"
                     >
