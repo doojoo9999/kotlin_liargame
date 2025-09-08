@@ -1,6 +1,12 @@
-export function Footer() {
+import {cn} from '@/lib/utils'
+
+interface FooterProps {
+  className?: string
+}
+
+export function Footer({ className }: FooterProps = {}) {
   return (
-    <footer className="border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <footer className={cn("border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60", className)}>
       <div className="container mx-auto px-4 py-6">
         <div className="flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
