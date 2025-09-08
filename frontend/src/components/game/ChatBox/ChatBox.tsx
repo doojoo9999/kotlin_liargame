@@ -23,7 +23,7 @@ const MessageComponent: React.FC<{
   message: ChatMessage
   currentPlayer: Player
   isLatest?: boolean
-}> = ({ message, currentPlayer, isLatest }) => {
+}> = ({ message, currentPlayer }) => {
   const isOwn = message.playerId === currentPlayer.id
   const isSystem = message.type === 'SYSTEM'
 
@@ -33,7 +33,7 @@ const MessageComponent: React.FC<{
       opacity: 1, 
       y: 0, 
       scale: 1,
-      transition: { type: "spring", stiffness: 300, damping: 25 }
+      transition: { type: "spring" as const, stiffness: 300, damping: 25 }
     },
     exit: { opacity: 0, y: -10, scale: 0.95 }
   }
@@ -406,7 +406,7 @@ export const ChatBox: React.FC<ChatBoxProps> = ({
                         <MessageComponent
                           key={msg.id}
                           message={msg}
-                          currentPlayer={currentPlayer}
+                          currentPlayer={currentPlayer!}
                           isLatest={index === displayMessages.length - 1}
                         />
                       ))}

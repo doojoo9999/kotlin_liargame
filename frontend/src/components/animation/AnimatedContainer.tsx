@@ -1,7 +1,8 @@
 import * as React from "react"
-import {HTMLMotionProps, motion, Variants} from "framer-motion"
+import { motion } from "framer-motion"
+import type { HTMLMotionProps, Variants } from "framer-motion"
 import {cn} from "@/lib/utils"
-import {AnimationProps, AnimationType} from "@/types/game"
+import type { AnimationProps, AnimationType } from "@/types/game"
 
 // Animation variants for different types
 const animationVariants: Record<AnimationType, Variants> = {
@@ -94,9 +95,9 @@ export const AnimatedContainer: React.FC<AnimatedContainerProps> = ({
   const customVariants = duration ? {
     ...variants,
     animate: {
-      ...variants.animate,
+      ...(typeof variants.animate === 'object' ? variants.animate : {}),
       transition: {
-        ...variants.animate.transition,
+        ...(typeof variants.animate === 'object' && variants.animate.transition ? variants.animate.transition : {}),
         duration
       }
     }

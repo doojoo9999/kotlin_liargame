@@ -10,8 +10,6 @@ export function useWebSocketConnection() {
   
   // Store actions
   const {
-    gameNumber,
-    currentPlayer,
     setConnectionState,
     setReconnectAttempts,
     handleGameStateUpdate,

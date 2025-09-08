@@ -1,5 +1,4 @@
 import * as React from "react"
-import {Slot} from "@radix-ui/react-slot"
 import {cva, type VariantProps} from "class-variance-authority"
 import {motion} from "framer-motion"
 
@@ -46,7 +45,6 @@ const gameButtonVariants = cva(
 export interface GameButtonProps
   extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'color'>,
     VariantProps<typeof gameButtonVariants> {
-  asChild?: boolean
   loading?: boolean
   leftIcon?: React.ReactNode
   rightIcon?: React.ReactNode
@@ -70,13 +68,10 @@ const GameButton = React.forwardRef<HTMLButtonElement, GameButtonProps>(
     leftIcon, 
     rightIcon, 
     children, 
-    asChild = false, 
     animate = true,
     disabled,
     ...props 
   }, ref) => {
-    const Comp = asChild ? Slot : motion.button
-    const MotionComp = asChild ? Slot : (animate ? motion.button : "button")
 
     const buttonContent = (
       <>
@@ -102,13 +97,18 @@ const GameButton = React.forwardRef<HTMLButtonElement, GameButtonProps>(
       ...props
     }
 
-    if (animate && !asChild) {
+    if (animate) {
       return (
         <motion.button
-          {...buttonProps}
+          className={buttonProps.className}
+          disabled={buttonProps.disabled}
           whileTap={{ scale: disabled || loading ? 1 : 0.98 }}
           whileHover={{ scale: disabled || loading ? 1 : 1.02 }}
           transition={{ type: "spring", stiffness: 400, damping: 17 }}
+          onClick={props.onClick}
+          type={props.type}
+          form={props.form}
+          ref={ref}
         >
           {buttonContent}
         </motion.button>
@@ -116,9 +116,14 @@ const GameButton = React.forwardRef<HTMLButtonElement, GameButtonProps>(
     }
 
     return (
-      <Comp {...buttonProps}>
+      <button
+        className={buttonProps.className}
+        disabled={buttonProps.disabled}
+        ref={ref}
+        {...props}
+      >
         {buttonContent}
-      </Comp>
+      </button>
     )
   }
 )

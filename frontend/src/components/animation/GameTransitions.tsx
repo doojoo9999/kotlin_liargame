@@ -1,5 +1,6 @@
 import * as React from "react"
-import {AnimatePresence, motion, Variants} from "framer-motion"
+import { AnimatePresence, motion } from "framer-motion"
+import type { Variants } from "framer-motion"
 import {cn} from "@/lib/utils"
 
 // Page transition animations

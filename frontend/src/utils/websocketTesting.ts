@@ -4,7 +4,6 @@ import {gameWebSocket} from '@/api/websocket'
 
 // Development WebSocket tester
 export class WebSocketTester {
-  private listeners: Map<string, Function[]> = new Map()
   
   constructor() {
     // Set up test event listeners
@@ -187,7 +186,6 @@ export class WebSocketTester {
 
 // Mock WebSocket server for testing
 export class MockWebSocketServer {
-  private listeners: Map<string, Function[]> = new Map()
   private connected = false
   
   // Simulate server responses

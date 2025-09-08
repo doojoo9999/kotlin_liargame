@@ -1,12 +1,13 @@
-import {createBrowserRouter, Navigate} from 'react-router-dom'
+import {createBrowserRouter} from 'react-router-dom'
 import {Layout} from '@/components/layout/Layout'
+import {AuthLayout} from '@/components/layout/AuthLayout'
+import {ProtectedRoute} from '@/components/auth/ProtectedRoute'
 
 // Main Version Pages
-import {MainHomePage} from '@/versions/main/pages/HomePage'
-import {MainLoginPage} from '@/versions/main/pages/LoginPage'
-import {MainLobbyPage} from '@/versions/main/pages/LobbyPage'
-import {MainGamePage} from '@/versions/main/pages/GamePage'
-import {MainResultsPage} from '@/versions/main/pages/ResultsPage'
+import {MainLoginPage as LoginPage} from '@/versions/main/pages/LoginPage'
+import {MainLobbyPage as LobbyPage} from '@/versions/main/pages/LobbyPage'
+import {MainGamePage as GamePage} from '@/versions/main/pages/GamePage'
+import {MainResultsPage as ResultsPage} from '@/versions/main/pages/ResultsPage'
 
 // Error Pages
 import {ErrorBoundary} from '@/components/common/ErrorBoundary'
@@ -15,55 +16,48 @@ import {NotFoundPage} from '@/components/common/NotFoundPage'
 export const router = createBrowserRouter([
   {
     path: "/",
-    element: <Layout />,
+    element: <AuthLayout />,
     errorElement: <ErrorBoundary />,
     children: [
       {
         index: true,
-        element: <Navigate to="/main" replace />,
+        element: <LoginPage />,
+      }
+    ]
+  },
+  {
+    path: "/",
+    element: <Layout />,
+    errorElement: <ErrorBoundary />,
+    children: [
+      {
+        path: "lobby",
+        element: <ProtectedRoute><LobbyPage /></ProtectedRoute>,
       },
       {
-        path: "main",
-        children: [
-          {
-            index: true,
-            element: <MainHomePage />,
-          },
-          {
-            path: "login",
-            element: <MainLoginPage />,
-          },
-          {
-            path: "lobby/:sessionCode?",
-            element: <MainLobbyPage />,
-          },
-          {
-            path: "game/:gameId",
-            element: <MainGamePage />,
-          },
-          {
-            path: "results/:gameId",
-            element: <MainResultsPage />,
-          },
-        ],
+        path: "game/:gameId",
+        element: <ProtectedRoute><GamePage /></ProtectedRoute>,
+      },
+      {
+        path: "results/:gameId", 
+        element: <ProtectedRoute><ResultsPage /></ProtectedRoute>,
       },
       {
         path: "*",
         element: <NotFoundPage />,
       },
-    ],
+    ]
   },
 ])
 
-// Route Guards
+// Auth guard hook - import authStore where needed
 export const useAuthGuard = () => {
-  // Implementation for route protection
-  const token = localStorage.getItem('auth-token')
-  return !!token
+  // This function should be used in components that need auth checking
+  // The actual useAuthStore import should be done in the component
+  return true // Placeholder - actual implementation in components
 }
 
 export const useGameGuard = (gameId?: string) => {
-  // Implementation for game-specific route protection
-  const token = localStorage.getItem('auth-token')
-  return !!token && !!gameId
+  const isAuthenticated = useAuthGuard()
+  return isAuthenticated && !!gameId
 }

@@ -26,13 +26,14 @@ export interface JoinGameResponse {
 
 export interface LoginRequest {
   nickname: string
-  gameId?: string
+  password?: string | null
 }
 
 export interface LoginResponse {
-  playerId: string
-  token: string
-  nickname: string
+  success: boolean
+  userId: number | null  
+  nickname: string | null
+  message?: string | null
 }
 
 export interface GameStatusResponse {

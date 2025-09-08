@@ -5,7 +5,7 @@ import {Avatar, AvatarFallback} from '@/components/ui/avatar'
 import {Check, Crown, Eye, EyeOff, Target, Wifi, WifiOff, X} from 'lucide-react'
 import {cn} from '@/lib/utils'
 
-interface Player {
+export interface Player {
   id: string
   nickname: string
   isHost: boolean
@@ -24,6 +24,7 @@ interface PlayerCardProps {
   selected?: boolean
   disabled?: boolean
   showVoteCount?: boolean
+  votes?: number
   className?: string
 }
 

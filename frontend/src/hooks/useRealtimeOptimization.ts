@@ -7,7 +7,7 @@ export function useDebounce<T extends (...args: any[]) => any>(
   callback: T,
   delay: number
 ): T {
-  const timeoutRef = useRef<NodeJS.Timeout>()
+  const timeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
 
   return useCallback(
     ((...args: Parameters<T>) => {
@@ -48,32 +48,14 @@ export function useThrottle<T extends (...args: any[]) => any>(
 export function useGameStoreSelector<T>(
   selector: (state: ReturnType<typeof useGameStore.getState>) => T
 ): T {
-  return useGameStore(selector, shallow)
+  return useGameStore(selector)
 }
 
-// Shallow comparison function for selectors
-function shallow<T>(a: T, b: T): boolean {
-  if (a === b) return true
-  if (typeof a !== 'object' || typeof b !== 'object') return false
-  if (a === null || b === null) return false
-
-  const keysA = Object.keys(a as any)
-  const keysB = Object.keys(b as any)
-
-  if (keysA.length !== keysB.length) return false
-
-  for (const key of keysA) {
-    if (!keysB.includes(key)) return false
-    if ((a as any)[key] !== (b as any)[key]) return false
-  }
-
-  return true
-}
 
 // Batch state updates to prevent cascade of re-renders
 export function useBatchedUpdates() {
   const batchRef = useRef<(() => void)[]>([])
-  const timeoutRef = useRef<NodeJS.Timeout>()
+  const timeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
 
   const batchUpdate = useCallback((update: () => void) => {
     batchRef.current.push(update)
@@ -132,13 +114,13 @@ export function useOptimizedConnectionStatus() {
     let statusColor = 'gray'
     
     if (isConnected) {
-      statusText = 'Connected'
+      statusText = 'connected'
       statusColor = 'green'
     } else if (isReconnecting) {
-      statusText = `Reconnecting (${reconnectAttempts}/10)`
+      statusText = 'reconnecting'
       statusColor = 'yellow'
     } else if (hasError) {
-      statusText = 'Connection Failed'
+      statusText = 'error'
       statusColor = 'red'
     }
     

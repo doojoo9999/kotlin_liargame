@@ -1,164 +1,133 @@
-import {useState} from 'react'
-import {useNavigate, useSearchParams} from 'react-router-dom'
+import {useState, useEffect} from 'react'
+import {useNavigate} from 'react-router-dom'
 import {motion} from 'framer-motion'
 import {Button} from '@/components/ui/button'
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card'
 import {Input} from '@/components/ui/input'
 import {ArrowRight, User} from 'lucide-react'
-import {useJoinGame, useLogin} from '@/hooks/useGameQueries'
+import {useLogin} from '@/hooks/useGameQueries'
 import {useToast} from '@/hooks/useToast'
+import {useAuthStore} from '@/stores/authStore'
 
 export function MainLoginPage() {
   const [nickname, setNickname] = useState('')
-  const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const { toast } = useToast()
+  const { isAuthenticated } = useAuthStore()
   
   const loginMutation = useLogin()
-  const joinGameMutation = useJoinGame()
-  
-  const action = searchParams.get('action')
-  const gameId = searchParams.get('gameId')
-  const sessionCode = searchParams.get('sessionCode')
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/lobby', { replace: true })
+    }
+  }, [isAuthenticated, navigate])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
     if (!nickname.trim()) {
       toast({
-        title: "Nickname required",
-        description: "Please enter a nickname to continue",
+        title: "닉네임이 필요합니다",
+        description: "계속하려면 닉네임을 입력해주세요",
         variant: "destructive",
       })
       return
     }
 
     try {
-      if (action === 'create' && gameId) {
-        // Login and go to lobby as host
-        await loginMutation.mutateAsync({ 
-          nickname: nickname.trim(),
-          gameId 
-        })
-        navigate(`/main/lobby/${sessionCode}`)
-        
-      } else if (action === 'join' && sessionCode) {
-        // Login first, then join game
-        await loginMutation.mutateAsync({ 
-          nickname: nickname.trim() 
-        })
-        
-        // Then join the game
-        await joinGameMutation.mutateAsync({
-          sessionCode,
-          nickname: nickname.trim()
-        })
-        
-        navigate(`/main/lobby/${sessionCode}`)
-        
-      } else {
-        // Regular login
-        await loginMutation.mutateAsync({ 
-          nickname: nickname.trim() 
-        })
-        navigate('/main')
-      }
-      
-      toast({
-        title: "Welcome!",
-        description: `Logged in as ${nickname}`,
+      // 닉네임과 password null로 간단한 인증
+      await loginMutation.mutateAsync({ 
+        nickname: nickname.trim(),
+        password: null
       })
       
+      // 인증 상태 저장
+      useAuthStore.getState().login(nickname.trim())
+      
+      // 항상 로비로 리다이렉트
+      navigate('/lobby')
+      
+      toast({
+        title: "환영합니다!",
+        description: `${nickname}님으로 로그인되었습니다`,
+      })
     } catch (error: any) {
       toast({
-        title: "Login failed",
-        description: error.message,
+        title: "로그인 실패",
+        description: error.message || "로그인 중 오류가 발생했습니다",
         variant: "destructive",
       })
     }
   }
 
-  const getTitle = () => {
-    if (action === 'create') return "Create Your Game"
-    if (action === 'join') return "Join Game"
-    return "Enter Your Nickname"
-  }
-
-  const getDescription = () => {
-    if (action === 'create' && sessionCode) {
-      return `You're creating a new game with session code: ${sessionCode}`
-    }
-    if (action === 'join' && sessionCode) {
-      return `You're joining game: ${sessionCode}`
-    }
-    return "Choose a nickname to get started"
-  }
-
-  const isLoading = loginMutation.isPending || joinGameMutation.isPending
-
   return (
-    <div className="min-h-[60vh] flex items-center justify-center">
-      <motion.div 
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
+    <div
+      className="min-h-screen flex items-center justify-center"
+      style={{
+        background: 'linear-gradient(to bottom right, #eff6ff, #e0e7ff)',
+        minHeight: '100vh'
+      }}
+    >
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
         className="w-full max-w-md"
       >
-        <Card>
+        <Card className="shadow-xl">
           <CardHeader className="text-center">
-            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-              <User className="h-8 w-8 text-primary" />
-            </div>
-            <CardTitle>{getTitle()}</CardTitle>
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+              className="mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4"
+              style={{
+                background: 'linear-gradient(to right, #3b82f6, #8b5cf6)'
+              }}
+            >
+              <User className="w-8 h-8 text-white" />
+            </motion.div>
+            <CardTitle className="text-2xl font-bold">라이어 게임에 오신 것을 환영합니다</CardTitle>
             <CardDescription>
-              {getDescription()}
+              게임을 시작하려면 닉네임을 입력해주세요
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
+                <label htmlFor="nickname" className="text-sm font-medium">
+                  닉네임
+                </label>
                 <Input
+                  id="nickname"
                   type="text"
-                  placeholder="Enter your nickname"
+                  placeholder="당신의 닉네임을 입력하세요"
                   value={nickname}
                   onChange={(e) => setNickname(e.target.value)}
-                  className="text-center"
-                  maxLength={20}
+                  className="text-center text-lg"
+                  disabled={loginMutation.isPending}
                   autoFocus
-                  disabled={isLoading}
                 />
-                <p className="text-xs text-muted-foreground text-center">
-                  This is how other players will see you
-                </p>
               </div>
               
-              <Button 
+              <Button
                 type="submit"
                 className="w-full"
-                disabled={isLoading || !nickname.trim()}
+                size="lg"
+                disabled={loginMutation.isPending || !nickname.trim()}
               >
-                {isLoading ? (
-                  'Please wait...'
+                {loginMutation.isPending ? (
+                  "로그인 중..."
                 ) : (
                   <>
-                    Continue
+                    게임 시작하기
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </>
                 )}
               </Button>
             </form>
-            
-            {(action === 'create' || action === 'join') && (
-              <div className="mt-4 p-3 bg-muted rounded-lg">
-                <p className="text-sm text-center">
-                  {action === 'create' ? (
-                    <>You'll be the host of this game</>
-                  ) : (
-                    <>Joining existing game session</>
-                  )}
-                </p>
-              </div>
-            )}
           </CardContent>
         </Card>
       </motion.div>

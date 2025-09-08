@@ -5,7 +5,7 @@ import {CheckCircle2, Eye, MessageSquare, Target, Trophy, Users, Vote} from "luc
 import {cn} from "@/lib/utils"
 import {Card, CardContent} from "@/components/ui/card"
 import {Progress} from "@/components/ui/progress"
-import {GamePhase, RoundInfo} from "@/types/game"
+import type {GamePhase, RoundInfo} from "@/types/game"
 
 export interface RoundIndicatorProps {
   roundInfo: RoundInfo
@@ -82,7 +82,7 @@ const PhaseStep: React.FC<{
   isFirst?: boolean
   isLast?: boolean
   size?: 'sm' | 'md' | 'lg'
-}> = ({ phase, isActive, isCompleted, isFirst, isLast, size = 'md' }) => {
+}> = ({ phase, isActive, isCompleted, isLast, size = 'md' }) => {
   const config = phaseConfig[phase]
   const PhaseIcon = config.icon
 
