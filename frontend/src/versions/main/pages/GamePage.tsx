@@ -7,6 +7,7 @@ import {Badge} from '@/components/ui/badge'
 import {Alert, AlertDescription} from '@/components/ui/alert'
 import {Textarea} from '@/components/ui/textarea'
 import {Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle} from '@/components/ui/dialog'
+import {ScrollArea} from '@/components/ui/scroll-area'
 import {CheckCircle, Eye, EyeOff, LogOut, MessageCircle, Shield, Target, Users} from 'lucide-react'
 import {useGameStore} from '@/store/gameStore'
 import {useGameStatus, useSubmitAnswer, useVote} from '@/hooks/useGameQueries'
@@ -230,12 +231,12 @@ export function MainGamePage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Game Header */}
+    <div className="h-full flex flex-col overflow-hidden">
+      {/* Fixed Game Header */}
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="text-center space-y-3"
+        className="shrink-0 text-center space-y-3 p-4 border-b"
       >
         <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground">
           <span className="flex items-center gap-1">
@@ -250,60 +251,67 @@ export function MainGamePage() {
         
         <div className="space-y-2">
           <div className="flex items-center justify-center gap-2">
-            <h1 className="text-3xl font-bold">{getPhaseTitle()}</h1>
+            <h1 className="text-2xl font-bold">{getPhaseTitle()}</h1>
             <Badge variant="outline">{localPhase}</Badge>
           </div>
-          <p className="text-muted-foreground max-w-2xl mx-auto">
+          <p className="text-muted-foreground max-w-2xl mx-auto text-sm">
             {getPhaseDescription()}
           </p>
         </div>
       </motion.div>
 
-      {/* Topic Reveal Dialog */}
-      <Dialog open={showTopicDialog && localPhase === 'topic'}>
-        <DialogContent className="max-w-md">
-          <DialogHeader className="text-center">
-            <DialogTitle className="text-2xl">
-              {isLiar ? 'You are the LIAR!' : 'Your Topic'}
-            </DialogTitle>
-            <DialogDescription>
-              {isLiar 
-                ? 'Try to blend in and figure out what the topic is'
-                : 'Discuss this topic naturally, but don\'t be too obvious!'
-              }
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="text-center space-y-4">
-            <div className={`p-6 rounded-lg text-4xl font-bold ${
-              isLiar 
-                ? 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300'
-                : 'bg-primary/10 text-primary'
-            }`}>
-              {isLiar ? 'LIAR' : mockTopic}
-            </div>
-            
-            {isLiar && (
-              <Alert>
-                <Target className="h-4 w-4" />
-                <AlertDescription>
-                  Listen carefully to figure out the topic. You'll get a chance to guess later!
-                </AlertDescription>
-              </Alert>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Main Content Area */}
+      <div className="flex-1 overflow-hidden flex">
+        {/* Primary Game Content - Scrollable */}
+        <div className="flex-1 overflow-hidden">
+          <ScrollArea className="h-full">
+            <div className="p-4 space-y-4">
 
-      {/* Phase Content */}
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={localPhase}
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -20 }}
-          transition={{ duration: 0.3 }}
-        >
+              {/* Topic Reveal Dialog */}
+              <Dialog open={showTopicDialog && localPhase === 'topic'}>
+                <DialogContent className="max-w-md">
+                  <DialogHeader className="text-center">
+                    <DialogTitle className="text-2xl">
+                      {isLiar ? 'You are the LIAR!' : 'Your Topic'}
+                    </DialogTitle>
+                    <DialogDescription>
+                      {isLiar 
+                        ? 'Try to blend in and figure out what the topic is'
+                        : 'Discuss this topic naturally, but don\'t be too obvious!'
+                      }
+                    </DialogDescription>
+                  </DialogHeader>
+                  
+                  <div className="text-center space-y-4">
+                    <div className={`p-6 rounded-lg text-4xl font-bold ${
+                      isLiar 
+                        ? 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300'
+                        : 'bg-primary/10 text-primary'
+                    }`}>
+                      {isLiar ? 'LIAR' : mockTopic}
+                    </div>
+                    
+                    {isLiar && (
+                      <Alert>
+                        <Target className="h-4 w-4" />
+                        <AlertDescription>
+                          Listen carefully to figure out the topic. You'll get a chance to guess later!
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                  </div>
+                </DialogContent>
+              </Dialog>
+
+              {/* Phase Content */}
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={localPhase}
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.3 }}
+                >
           {/* Discussion Phase */}
           {localPhase === 'discussion' && (
             <div className="space-y-6">
@@ -509,35 +517,69 @@ export function MainGamePage() {
               </Card>
             </div>
           )}
-        </motion.div>
-      </AnimatePresence>
-
-      {/* Players Status */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            Players
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            <AnimatePresence>
-              {currentPlayers.map((player) => (
-                <motion.div
-                  key={player.id}
-                  layout
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                >
-                  <GamePlayerCard player={player} />
-                </motion.div>
-              ))}
+              </motion.div>
             </AnimatePresence>
+            </div>
+          </ScrollArea>
+        </div>
+
+        {/* Sidebar - Players and Chat */}
+        <div className="w-80 border-l flex flex-col shrink-0">
+          {/* Players Section - Scrollable if many players */}
+          <div className="flex-1 overflow-hidden">
+            <ScrollArea className="h-full">
+              <Card className="m-4 mb-2">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Users className="h-5 w-5" />
+                    Players
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <AnimatePresence>
+                      {currentPlayers.map((player) => (
+                        <motion.div
+                          key={player.id}
+                          layout
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.9 }}
+                        >
+                          <GamePlayerCard player={player} />
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
+                  </div>
+                </CardContent>
+              </Card>
+            </ScrollArea>
           </div>
-        </CardContent>
-      </Card>
+
+          {/* Chat Area - Fixed height with internal scroll */}
+          <div className="h-64 border-t">
+            <Card className="m-4 mt-2 h-full flex flex-col">
+              <CardHeader className="pb-2 shrink-0">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <MessageCircle className="h-5 w-5" />
+                  Chat
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex-1 overflow-hidden p-3">
+                <ScrollArea className="h-full">
+                  <div className="space-y-2 text-sm">
+                    <div className="bg-muted/50 rounded-lg p-6 text-center text-muted-foreground">
+                      <MessageCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p className="font-medium mb-1">Real-time Chat</p>
+                      <p className="text-xs">Chat integration coming soon</p>
+                    </div>
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
