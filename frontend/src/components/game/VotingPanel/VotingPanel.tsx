@@ -4,7 +4,8 @@ import {Card, CardContent, CardHeader} from '@/components/ui/card';
 import {Button} from '@/components/ui/button';
 import {Badge} from '@/components/ui/badge';
 import {Progress} from '@/components/ui/progress';
-import {type Player, PlayerCard} from '../PlayerCard';
+import {type Player} from '@/types/game';
+import {PlayerCard} from '@/versions/main/components/PlayerCard';
 import {CheckCircle, Shield, Target, Users, Vote} from 'lucide-react';
 import {cn} from '@/lib/utils';
 
@@ -71,7 +72,7 @@ export const VotingPanel: React.FC<VotingPanelProps> = ({
   const handlePlayerSelect = (player: Player) => {
     if (hasVoted && !allowVoteChange) return;
     if (player.id === currentUserId) return; // Can't vote for yourself
-    if (player.status === 'eliminated') return;
+    if (!player.isOnline) return;
     
     const newSelectedId = player.id === localSelectedId ? undefined : player.id;
     setLocalSelectedId(newSelectedId);
@@ -92,16 +93,6 @@ export const VotingPanel: React.FC<VotingPanelProps> = ({
     return voteResults.find(result => result.playerId === playerId)?.voteCount || 0;
   };
 
-  const getVotersForPlayer = (playerId: string): string[] => {
-    return voteResults.find(result => result.playerId === playerId)?.voters || [];
-  };
-
-  const getMostVotedPlayer = (): VoteResult | undefined => {
-    if (voteResults.length === 0) return undefined;
-    return voteResults.reduce((prev, current) => 
-      prev.voteCount > current.voteCount ? prev : current
-    );
-  };
 
   const formatTime = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
@@ -194,9 +185,12 @@ export const VotingPanel: React.FC<VotingPanelProps> = ({
             value={getProgressPercentage()} 
             className={cn(
               "h-2",
-              isTimeCritical && "[&>div]:bg-red-500",
-              isTimeWarning && !isTimeCritical && "[&>div]:bg-orange-500"
+              isTimeCritical && "text-red-500",
+              isTimeWarning && !isTimeCritical && "text-orange-500"
             )}
+            style={{
+              '--progress-color': isTimeCritical ? '#ef4444' : isTimeWarning ? '#f97316' : undefined
+            } as React.CSSProperties}
           />
         </div>
       </CardHeader>
@@ -224,12 +218,11 @@ export const VotingPanel: React.FC<VotingPanelProps> = ({
           >
             <PlayerCard
               player={player}
-              variant={variant === 'compact' ? 'voting' : 'detailed'}
-              isSelected={localSelectedId === player.id}
-              showStatus={true}
-              onSelect={handlePlayerSelect}
+              variant={variant === 'compact' ? 'voting' : 'game'}
+              selected={localSelectedId === player.id}
+              onVote={(_playerId) => handlePlayerSelect(player)}
               className={cn(
-                player.status === 'eliminated' && "opacity-50 cursor-not-allowed",
+                !player.isOnline && "opacity-50 cursor-not-allowed",
                 player.id === currentUserId && "opacity-50 cursor-not-allowed"
               )}
             />
@@ -250,7 +243,7 @@ export const VotingPanel: React.FC<VotingPanelProps> = ({
         <div className="flex items-center space-x-2 text-sm text-muted-foreground">
           <Users className="h-4 w-4" />
           <span>
-            {players.filter(p => p.status === 'voted').length} / {players.length - 1} 명 투표 완료
+            {players.filter(p => p.hasVoted).length} / {players.length - 1} 명 투표 완료
           </span>
         </div>
         
@@ -298,16 +291,14 @@ export const VotingPanel: React.FC<VotingPanelProps> = ({
           <div className="inline-flex items-center space-x-2 bg-orange-50 dark:bg-orange-950 px-4 py-2 rounded-lg">
             <Shield className="h-5 w-5 text-orange-600" />
             <span className="text-sm font-medium text-orange-800 dark:text-orange-200">
-              {defendingPlayer.name}님이 변론 중입니다
+              {defendingPlayer.nickname}님이 변론 중입니다
             </span>
           </div>
         </div>
         
         <PlayerCard
           player={defendingPlayer}
-          variant="detailed"
-          showRole={false}
-          showScore={false}
+          variant="game"
           className="max-w-md mx-auto"
         />
         
@@ -333,7 +324,6 @@ export const VotingPanel: React.FC<VotingPanelProps> = ({
   };
 
   const renderResultsContent = () => {
-    const mostVotedPlayer = getMostVotedPlayer();
     const eliminatedPlayer = players.find(p => p.id === eliminatedPlayerId);
 
     return (
@@ -343,15 +333,13 @@ export const VotingPanel: React.FC<VotingPanelProps> = ({
             <div className="inline-flex items-center space-x-2 bg-red-50 dark:bg-red-950 px-4 py-2 rounded-lg mb-4">
               <Target className="h-5 w-5 text-red-600" />
               <span className="text-sm font-medium text-red-800 dark:text-red-200">
-                {eliminatedPlayer.name}님이 탈락했습니다
+                {eliminatedPlayer.nickname}님이 탈락했습니다
               </span>
             </div>
             
             <PlayerCard
               player={eliminatedPlayer}
-              variant="result"
-              showRole={true}
-              showScore={true}
+              variant="results"
               className="max-w-md mx-auto"
             />
           </div>

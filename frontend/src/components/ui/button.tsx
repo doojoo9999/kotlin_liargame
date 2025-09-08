@@ -18,12 +18,12 @@ const buttonVariants = cva(
           "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
-        // Game-specific variants
-        vote: "bg-blue-600 text-white hover:bg-blue-700 border-2 border-blue-500 shadow-lg transition-all duration-200",
-        danger: "bg-red-600 text-white hover:bg-red-700 border-2 border-red-500 shadow-lg transition-all duration-200",
-        success: "bg-green-600 text-white hover:bg-green-700 border-2 border-green-500 shadow-lg transition-all duration-200",
-        game: "bg-purple-600 text-white hover:bg-purple-700 border-2 border-purple-500 shadow-lg transition-all duration-200",
-        selected: "bg-orange-600 text-white hover:bg-orange-700 border-2 border-orange-500 shadow-lg transform scale-105 transition-all duration-200",
+        // Game-specific variants - improved with better contrast and accessibility
+        vote: "bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white border border-blue-500 hover:border-blue-400 shadow-lg hover:shadow-xl transition-all duration-200 focus:ring-2 focus:ring-blue-400 focus:ring-offset-2",
+        danger: "bg-red-600 hover:bg-red-700 active:bg-red-800 text-white border border-red-500 hover:border-red-400 shadow-lg hover:shadow-xl transition-all duration-200 focus:ring-2 focus:ring-red-400 focus:ring-offset-2",
+        success: "bg-green-600 hover:bg-green-700 active:bg-green-800 text-white border border-green-500 hover:border-green-400 shadow-lg hover:shadow-xl transition-all duration-200 focus:ring-2 focus:ring-green-400 focus:ring-offset-2",
+        game: "bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white border border-purple-500 hover:border-purple-400 shadow-lg hover:shadow-xl transition-all duration-200 focus:ring-2 focus:ring-purple-400 focus:ring-offset-2",
+        selected: "bg-orange-600 hover:bg-orange-700 active:bg-orange-800 text-white border border-orange-500 hover:border-orange-400 shadow-xl transform scale-105 transition-all duration-200 ring-2 ring-orange-400 ring-offset-2",
       },
       size: {
         default: "h-10 px-4 py-2",

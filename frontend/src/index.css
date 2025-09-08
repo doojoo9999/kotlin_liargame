@@ -68,5 +68,36 @@
     background-color: hsl(var(--card));
     color: hsl(var(--card-foreground));
     box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+    transition: all 0.2s ease-in-out;
+  }
+  
+  .game-card:hover {
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    transform: translateY(-1px);
+  }
+  
+  /* Progress bar custom colors */
+  .progress-bar-red .progress-indicator {
+    background-color: #ef4444;
+  }
+  
+  .progress-bar-orange .progress-indicator {
+    background-color: #f97316;
+  }
+  
+  /* Animation improvements */
+  .animate-bounce-soft {
+    animation: bounce-soft 2s infinite;
+  }
+  
+  @keyframes bounce-soft {
+    0%, 100% {
+      transform: translateY(0);
+      animation-timing-function: cubic-bezier(0.8, 0, 1, 1);
+    }
+    50% {
+      transform: translateY(-5%);
+      animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
+    }
   }
 }

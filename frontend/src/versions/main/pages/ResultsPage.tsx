@@ -1,24 +1,20 @@
-import {useEffect, useState} from 'react'
-import {useNavigate, useParams} from 'react-router-dom'
-import {AnimatePresence, motion} from 'framer-motion'
-import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card'
-import {Button} from '@/components/ui/button'
-import {Badge} from '@/components/ui/badge'
-import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs'
-import {Separator} from '@/components/ui/separator'
+import { useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { motion } from 'framer-motion'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger
-} from '@/components/ui/dialog'
-import {Activity, Crown, Home, RotateCcw, Share2, Target, Trophy} from 'lucide-react'
-import {useGameStore} from '@/store/gameStore'
-import {useRoundResults} from '@/hooks/useGameQueries'
-import {useToast} from '@/hooks/useToast'
-import {CompactScoreBoard, FinalScoreBoard} from '../components'
+  Trophy,
+  Crown,
+  Target,
+  Home,
+  RotateCcw,
+  Share2,
+  Medal,
+  Star
+} from 'lucide-react'
+import { useToast } from '@/hooks/useToast'
 
 interface PlayerScore {
   id: string
@@ -33,495 +29,282 @@ interface PlayerScore {
   isCurrentUser?: boolean
 }
 
-interface RoundResult {
-  roundNumber: number
-  liarId: string
-  topic: string
-  votes: Record<string, string[]> // playerId -> array of voter IDs
-  liarAnswer?: string
-  liarAnswerCorrect?: boolean
-}
-
 export function MainResultsPage() {
-  const { roomId } = useParams<{ roomId: string }>()
+  const { gameId } = useParams<{ gameId: string }>()
   const navigate = useNavigate()
   const { toast } = useToast()
 
-  const {
-    gameId,
-    players,
-    currentPlayer,
-    currentRound,
-    totalRounds,
-    gameResults,
-    resetGame
-  } = useGameStore()
-
-  const [activeTab, setActiveTab] = useState('overview')
-  const [showShareDialog, setShowShareDialog] = useState(false)
-  const [celebrationDone, setCelebrationDone] = useState(false)
-
-  // Mock data for comprehensive results
-  const mockPlayerScores: PlayerScore[] = [
-    {
-      id: '1',
-      nickname: 'You',
-      totalScore: 240,
-      roundScores: [80, 60, 100],
-      roundsWon: 2,
-      timesLiar: 1,
-      timesDetected: 2,
-      timesEvaded: 0,
-      rank: 1,
-      isCurrentUser: true
-    },
-    {
-      id: '2',
-      nickname: 'Alice',
-      totalScore: 220,
-      roundScores: [60, 80, 80],
-      roundsWon: 1,
-      timesLiar: 1,
-      timesDetected: 2,
-      timesEvaded: 1,
-      rank: 2
-    },
-    {
-      id: '3',
-      nickname: 'Bob',
-      totalScore: 180,
-      roundScores: [40, 60, 80],
-      roundsWon: 0,
-      timesLiar: 1,
-      timesDetected: 1,
-      timesEvaded: 0,
-      rank: 3
-    },
-    {
-      id: '4',
-      nickname: 'Charlie',
-      totalScore: 200,
-      roundScores: [60, 40, 100],
-      roundsWon: 1,
-      timesLiar: 0,
-      timesDetected: 3,
-      timesEvaded: 0,
-      rank: 2
-    }
-  ].sort((a, b) => b.totalScore - a.totalScore).map((player, index) => ({
-    ...player,
-    rank: index + 1
-  }))
-
-  const mockRoundResults: RoundResult[] = [
-    {
-      roundNumber: 1,
-      liarId: '3',
-      topic: 'ANIMALS',
-      votes: {
-        '3': ['1', '2', '4'], // Bob got 3 votes
-        '2': ['3'] // Alice got 1 vote
+  // 임시 데이터 - 실제로는 API에서 가져올 데이터
+  const [gameResults] = useState({
+    isComplete: true,
+    totalRounds: 5,
+    winner: 'Player1',
+    players: [
+      {
+        id: '1',
+        nickname: 'Player1',
+        totalScore: 85,
+        roundScores: [20, 15, 20, 15, 15],
+        roundsWon: 3,
+        timesLiar: 2,
+        timesDetected: 1,
+        timesEvaded: 1,
+        rank: 1,
+        isCurrentUser: true
       },
-      liarAnswer: 'Animals',
-      liarAnswerCorrect: true
-    },
-    {
-      roundNumber: 2,
-      liarId: '2',
-      topic: 'FOOD',
-      votes: {
-        '2': ['1', '3'], // Alice got 2 votes
-        '1': ['2'], // You got 1 vote
-        '4': ['4'] // Charlie got 1 vote
+      {
+        id: '2',
+        nickname: 'Player2',
+        totalScore: 70,
+        roundScores: [15, 20, 10, 15, 10],
+        roundsWon: 2,
+        timesLiar: 1,
+        timesDetected: 0,
+        timesEvaded: 1,
+        rank: 2,
+        isCurrentUser: false
       },
-      liarAnswer: 'Food',
-      liarAnswerCorrect: true
-    },
-    {
-      roundNumber: 3,
-      liarId: '1',
-      topic: 'MOVIES',
-      votes: {
-        '1': ['2', '3'], // You got 2 votes
-        '3': ['1', '4'] // Bob got 2 votes
-      },
-      liarAnswer: 'Movies',
-      liarAnswerCorrect: true
-    }
-  ]
-
-  const winner = mockPlayerScores[0]
-  const isGameComplete = currentRound >= totalRounds
-  const isWinner = winner.isCurrentUser
-
-  // Queries
-  const { data: roundResults } = useRoundResults(gameId, currentRound || 1)
-
-  // Celebration effect
-  useEffect(() => {
-    if (isGameComplete && !celebrationDone) {
-      setTimeout(() => {
-        setCelebrationDone(true)
-      }, 2000)
-    }
-  }, [isGameComplete, celebrationDone])
+      {
+        id: '3',
+        nickname: 'Player3',
+        totalScore: 55,
+        roundScores: [10, 10, 15, 10, 10],
+        roundsWon: 1,
+        timesLiar: 2,
+        timesDetected: 2,
+        timesEvaded: 0,
+        rank: 3,
+        isCurrentUser: false
+      }
+    ] as PlayerScore[]
+  })
 
   const handlePlayAgain = () => {
-    resetGame()
-    navigate('/main')
+    // 같은 게임으로 돌아가기 (새 라운드 시작)
+    navigate(`/game/${gameId}`)
     toast({
-      title: "Ready for another game!",
-      description: "Create a new game or join an existing one"
+      title: "새 게임을 시작합니다",
+      description: "같은 방에서 새로운 게임이 시작됩니다",
     })
   }
 
-  const handleBackToHome = () => {
-    resetGame()
-    navigate('/main')
+  const handleReturnToLobby = () => {
+    // 로비로 돌아가기
+    navigate('/lobby')
+    toast({
+      title: "로비로 돌아갑니다",
+      description: "다른 게임방을 찾거나 새로 만들 수 있습니다",
+    })
   }
 
-  const handleShareResults = async () => {
-    const shareText = `Just played Liar Game! 🎮
-${isWinner ? '🏆 I won!' : `🎯 ${winner.nickname} won!`}
-Final Score: ${winner.totalScore} points
-Want to play? Join us at ${window.location.origin}/main`
+  const handleShareResults = () => {
+    // 결과 공유 기능
+    const resultText = `라이어 게임 결과!\n🏆 우승자: ${gameResults.winner}\n📊 총 ${gameResults.totalRounds}라운드`
 
     if (navigator.share) {
-      try {
-        await navigator.share({
-          title: 'Liar Game Results',
-          text: shareText
+      navigator.share({
+        title: '라이어 게임 결과',
+        text: resultText,
+      }).catch(() => {
+        // 공유 실패 시 클립보드에 복사
+        navigator.clipboard.writeText(resultText)
+        toast({
+          title: "결과가 복사되었습니다",
+          description: "클립보드에 게임 결과가 복사되었습니다",
         })
-      } catch (error) {
-        // User cancelled or share failed
-        try {
-          await navigator.clipboard.writeText(shareText)
-          toast({
-            title: "Results copied!",
-            description: "Share your victory with friends"
-          })
-        } catch (clipError) {
-          toast({
-            title: "Sharing failed",
-            description: "Could not share results",
-            variant: "destructive"
-          })
-        }
-      }
+      })
     } else {
-      try {
-        await navigator.clipboard.writeText(shareText)
-        toast({
-          title: "Results copied!",
-          description: "Share your victory with friends"
-        })
-      } catch (error) {
-        toast({
-          title: "Sharing failed",
-          description: "Could not share results",
-          variant: "destructive"
-        })
-      }
+      navigator.clipboard.writeText(resultText)
+      toast({
+        title: "결과가 복사되었습니다",
+        description: "클립보드에 게임 결과가 복사되었습니다",
+      })
+    }
+  }
+
+  const getRankIcon = (rank: number) => {
+    switch (rank) {
+      case 1:
+        return <Crown className="h-5 w-5 text-yellow-500" />
+      case 2:
+        return <Medal className="h-5 w-5 text-gray-400" />
+      case 3:
+        return <Star className="h-5 w-5 text-amber-600" />
+      default:
+        return <Target className="h-5 w-5 text-muted-foreground" />
+    }
+  }
+
+  const getRankBadge = (rank: number) => {
+    switch (rank) {
+      case 1:
+        return <Badge className="bg-yellow-500 hover:bg-yellow-600">1위</Badge>
+      case 2:
+        return <Badge className="bg-gray-400 hover:bg-gray-500">2위</Badge>
+      case 3:
+        return <Badge className="bg-amber-600 hover:bg-amber-700">3위</Badge>
+      default:
+        return <Badge variant="outline">{rank}위</Badge>
     }
   }
 
   return (
-    <div className="space-y-8">
-      {/* Victory Animation */}
-      <AnimatePresence>
-        {isGameComplete && !celebrationDone && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm"
-          >
-            <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ duration: 2, ease: "linear" }}
-              className="text-8xl"
-            >
-              {isWinner ? '🏆' : '🎉'}
-            </motion.div>
-            <motion.div
-              initial={{ y: 50, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.5 }}
-              className="absolute text-center"
-            >
-              <h2 className="text-4xl font-bold mb-2">
-                {isWinner ? 'You Won!' : 'Game Complete!'}
-              </h2>
-              <p className="text-muted-foreground">
-                {isWinner ? 'Congratulations! 🎊' : `${winner.nickname} is the winner!`}
-              </p>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Header */}
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="text-center space-y-4"
-      >
-        <div className="w-20 h-20 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center mx-auto">
-          <Trophy className="h-10 w-10 text-white" />
-        </div>
-        
-        <div className="space-y-2">
-          <div className="flex items-center justify-center gap-2">
-            <h1 className="text-4xl font-bold">Game Complete!</h1>
-            <Badge variant="outline" className="text-lg px-3 py-1">
-              {totalRounds} rounds
-            </Badge>
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-100 dark:from-gray-900 dark:to-gray-800">
+      <div className="container mx-auto p-6 space-y-6">
+        {/* 헤더 */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="text-center"
+        >
+          <div className="flex items-center justify-center gap-2 mb-4">
+            <Trophy className="h-8 w-8 text-yellow-500" />
+            <h1 className="text-4xl font-bold text-gray-900 dark:text-white">
+              게임 결과
+            </h1>
           </div>
-          
-          <div className="space-y-1">
-            <p className="text-xl text-muted-foreground">
-              {isWinner ? (
-                <span className="text-primary font-semibold">🎊 You are the champion! 🎊</span>
-              ) : (
-                <span><strong>{winner.nickname}</strong> is the winner with {winner.totalScore} points!</span>
-              )}
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Thanks for playing! Want to go again?
-            </p>
-          </div>
-        </div>
-      </motion.div>
+          <p className="text-muted-foreground text-lg">
+            {gameResults.totalRounds}라운드 게임이 완료되었습니다!
+          </p>
+        </motion.div>
 
-      {/* Main Results Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full max-w-md mx-auto grid-cols-3">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="scoreboard">Scoreboard</TabsTrigger>
-          <TabsTrigger value="rounds">Rounds</TabsTrigger>
-        </TabsList>
-
-        {/* Overview Tab */}
-        <TabsContent value="overview" className="space-y-6">
-          {/* Winner Highlight */}
-          <Card className="max-w-2xl mx-auto bg-gradient-to-br from-yellow-50 to-orange-50 dark:from-yellow-950 dark:to-orange-950 border-yellow-200 dark:border-yellow-800">
+        {/* 우승자 카드 */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+        >
+          <Card className="border-yellow-200 bg-gradient-to-r from-yellow-50 to-amber-50 dark:from-yellow-900/20 dark:to-amber-900/20">
             <CardHeader className="text-center">
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center mx-auto mb-3">
-                <Crown className="h-8 w-8 text-white" />
-              </div>
-              <CardTitle className="text-2xl text-yellow-700 dark:text-yellow-300">
-                Champion: {winner.nickname}
+              <CardTitle className="text-2xl flex items-center justify-center gap-2">
+                <Crown className="h-6 w-6 text-yellow-500" />
+                🎉 우승자: {gameResults.winner} 🎉
               </CardTitle>
             </CardHeader>
-            <CardContent className="text-center space-y-4">
-              <div className="text-4xl font-bold text-yellow-700 dark:text-yellow-300">
-                {winner.totalScore} points
-              </div>
-              
-              <div className="grid grid-cols-3 gap-4 pt-4">
-                <div>
-                  <div className="text-2xl font-bold">{winner.roundsWon}</div>
-                  <div className="text-sm text-muted-foreground">Rounds Won</div>
-                </div>
-                <div>
-                  <div className="text-2xl font-bold">{winner.timesDetected}</div>
-                  <div className="text-sm text-muted-foreground">Correct Guesses</div>
-                </div>
-                <div>
-                  <div className="text-2xl font-bold">{winner.timesEvaded}</div>
-                  <div className="text-sm text-muted-foreground">Times Evaded</div>
-                </div>
-              </div>
-            </CardContent>
           </Card>
+        </motion.div>
 
-          {/* Game Statistics */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Activity className="h-5 w-5" />
-                Game Statistics
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
-                <div>
-                  <div className="text-3xl font-bold text-primary">{totalRounds}</div>
-                  <div className="text-sm text-muted-foreground">Total Rounds</div>
-                </div>
-                <div>
-                  <div className="text-3xl font-bold text-green-600">
-                    {mockPlayerScores.reduce((sum, p) => sum + p.timesDetected, 0)}
-                  </div>
-                  <div className="text-sm text-muted-foreground">Total Detections</div>
-                </div>
-                <div>
-                  <div className="text-3xl font-bold text-blue-600">
-                    {mockPlayerScores.reduce((sum, p) => sum + p.timesEvaded, 0)}
-                  </div>
-                  <div className="text-sm text-muted-foreground">Successful Lies</div>
-                </div>
-                <div>
-                  <div className="text-3xl font-bold text-purple-600">
-                    {Math.max(...mockPlayerScores.map(p => p.totalScore))}
-                  </div>
-                  <div className="text-sm text-muted-foreground">Highest Score</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Quick Scoreboard */}
-          <CompactScoreBoard
-            players={mockPlayerScores}
-            currentRound={totalRounds}
-            totalRounds={totalRounds}
-          />
-        </TabsContent>
-
-        {/* Detailed Scoreboard Tab */}
-        <TabsContent value="scoreboard" className="space-y-6">
-          <FinalScoreBoard
-            players={mockPlayerScores}
-            currentRound={totalRounds}
-            totalRounds={totalRounds}
-            variant="final"
-            showRoundDetails={true}
-          />
-        </TabsContent>
-
-        {/* Round-by-Round Results Tab */}
-        <TabsContent value="rounds" className="space-y-6">
-          <div className="space-y-4">
-            {mockRoundResults.map((round, index) => {
-              const liar = mockPlayerScores.find(p => p.id === round.liarId)
-              const voteEntries = Object.entries(round.votes)
-              const maxVotes = Math.max(...voteEntries.map(([,votes]) => votes.length))
-              const suspectedLiars = voteEntries.filter(([,votes]) => votes.length === maxVotes)
-              const wasLiarCaught = suspectedLiars.some(([playerId]) => playerId === round.liarId)
-
-              return (
-                <motion.div
-                  key={round.roundNumber}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                >
-                  <Card>
-                    <CardHeader>
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="flex items-center gap-2">
-                          <span>Round {round.roundNumber}</span>
-                          <Badge variant="outline">{round.topic}</Badge>
-                        </CardTitle>
-                        <Badge variant={wasLiarCaught ? "destructive" : "secondary"}>
-                          {wasLiarCaught ? "Liar Caught" : "Liar Escaped"}
-                        </Badge>
+        {/* 최종 순위 */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.4 }}
+          className="space-y-4"
+        >
+          <h2 className="text-2xl font-bold text-center">최종 순위</h2>
+          <div className="space-y-3">
+            {gameResults.players.map((player, index) => (
+              <motion.div
+                key={player.id}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.4, delay: 0.5 + index * 0.1 }}
+              >
+                <Card className={`${player.isCurrentUser ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/20' : ''}`}>
+                  <CardContent className="py-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        {getRankIcon(player.rank)}
+                        <div>
+                          <h3 className="font-semibold text-lg">
+                            {player.nickname}
+                            {player.isCurrentUser && (
+                              <Badge variant="outline" className="ml-2">나</Badge>
+                            )}
+                          </h3>
+                          <p className="text-muted-foreground">
+                            총 점수: {player.totalScore}점
+                          </p>
+                        </div>
                       </div>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="flex items-center gap-2">
-                        <Target className="h-4 w-4 text-red-500" />
-                        <span className="text-sm">
-                          Liar: <strong>{liar?.nickname}</strong>
-                          {round.liarAnswer && (
-                            <span className="text-muted-foreground ml-2">
-                              (Guessed: "{round.liarAnswer}" - {round.liarAnswerCorrect ? '✓' : '✗'})
-                            </span>
-                          )}
-                        </span>
+                      <div className="text-right">
+                        {getRankBadge(player.rank)}
+                        <div className="text-sm text-muted-foreground mt-2">
+                          승리: {player.roundsWon}회
+                        </div>
                       </div>
-
-                      <div className="space-y-2">
-                        <h4 className="font-medium">Voting Results:</h4>
-                        {voteEntries.map(([playerId, voters]) => {
-                          const player = mockPlayerScores.find(p => p.id === playerId)
-                          const isLiar = playerId === round.liarId
-                          
-                          return (
-                            <div 
-                              key={playerId}
-                              className={`flex items-center justify-between p-2 rounded-lg ${
-                                isLiar ? 'bg-red-100 dark:bg-red-950' : 'bg-muted'
-                              }`}
-                            >
-                              <div className="flex items-center gap-2">
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                                  isLiar 
-                                    ? 'bg-red-200 text-red-700 dark:bg-red-900 dark:text-red-300' 
-                                    : 'bg-primary text-primary-foreground'
-                                }`}>
-                                  {player?.nickname[0]}
-                                </div>
-                                <span className="font-medium">{player?.nickname}</span>
-                                {isLiar && (
-                                  <Badge variant="destructive" className="text-xs">
-                                    Liar
-                                  </Badge>
-                                )}
-                              </div>
-                              <span className="text-sm text-muted-foreground">
-                                {voters.length} vote{voters.length !== 1 ? 's' : ''}
-                              </span>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              )
-            })}
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
           </div>
-        </TabsContent>
-      </Tabs>
+        </motion.div>
 
-      <Separator />
+        {/* 게임 통계 */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.8 }}
+          className="grid gap-4 md:grid-cols-3"
+        >
+          <Card>
+            <CardHeader className="text-center">
+              <CardTitle className="text-sm font-medium">총 라운드</CardTitle>
+            </CardHeader>
+            <CardContent className="text-center">
+              <div className="text-3xl font-bold">{gameResults.totalRounds}</div>
+            </CardContent>
+          </Card>
 
-      {/* Action Buttons */}
-      <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-        <Button size="lg" onClick={handlePlayAgain}>
-          <RotateCcw className="h-5 w-5 mr-2" />
-          Play Again
-        </Button>
-        
-        <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
-          <DialogTrigger asChild>
-            <Button variant="outline" size="lg">
-              <Share2 className="h-5 w-5 mr-2" />
-              Share Results
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Share Your Results</DialogTitle>
-              <DialogDescription>
-                Let everyone know how the game went!
-              </DialogDescription>
-            </DialogHeader>
-            
-            <div className="space-y-4">
-              <div className="p-4 bg-muted rounded-lg">
-                <p className="text-sm">
-                  Just played Liar Game! 🎮<br />
-                  {isWinner ? '🏆 I won!' : `🎯 ${winner.nickname} won!`}<br />
-                  Final Score: {winner.totalScore} points<br />
-                  Want to play? Join us at liargame.com
-                </p>
+          <Card>
+            <CardHeader className="text-center">
+              <CardTitle className="text-sm font-medium">플레이어 수</CardTitle>
+            </CardHeader>
+            <CardContent className="text-center">
+              <div className="text-3xl font-bold">{gameResults.players.length}</div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="text-center">
+              <CardTitle className="text-sm font-medium">최고 점수</CardTitle>
+            </CardHeader>
+            <CardContent className="text-center">
+              <div className="text-3xl font-bold">
+                {Math.max(...gameResults.players.map(p => p.totalScore))}
               </div>
-              
-              <Button onClick={handleShareResults} className="w-full">
-                <Share2 className="h-4 w-4 mr-2" />
-                Share Results
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </CardContent>
+          </Card>
+        </motion.div>
 
-        <Button variant="outline" size="lg" onClick={handleBackToHome}>
-          <Home className="h-5 w-5 mr-2" />
-          Home
-        </Button>
+        {/* 액션 버튼 */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 1.0 }}
+          className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-6"
+        >
+          <Button
+            size="lg"
+            onClick={handlePlayAgain}
+            className="w-full sm:w-auto"
+          >
+            <RotateCcw className="mr-2 h-5 w-5" />
+            한판 더
+          </Button>
+
+          <Button
+            variant="outline"
+            size="lg"
+            onClick={handleReturnToLobby}
+            className="w-full sm:w-auto"
+          >
+            <Home className="mr-2 h-5 w-5" />
+            로비로 돌아가기
+          </Button>
+
+          <Button
+            variant="secondary"
+            size="lg"
+            onClick={handleShareResults}
+            className="w-full sm:w-auto"
+          >
+            <Share2 className="mr-2 h-5 w-5" />
+            결과 공유
+          </Button>
+        </motion.div>
       </div>
     </div>
   )

@@ -1,16 +1,17 @@
-import {Link, useLocation} from 'react-router-dom'
+import {Link, useLocation, useNavigate} from 'react-router-dom'
 import {Button} from '@/components/ui/button'
 import {ThemeToggle} from '@/components/common/ThemeToggle'
-import {useGameStore} from '@/store/gameStore'
+import {useAuthStore} from '@/stores/authStore'
 import {Home, LogOut, User} from 'lucide-react'
 
 export function Header() {
   const location = useLocation()
-  const { currentPlayer, sessionCode, resetGame } = useGameStore()
+  const navigate = useNavigate()
+  const { nickname, logout } = useAuthStore()
   
   const handleLogout = () => {
-    localStorage.removeItem('auth-token')
-    resetGame()
+    logout()
+    navigate('/')
   }
 
   return (
@@ -19,7 +20,7 @@ export function Header() {
         <div className="flex h-16 items-center justify-between">
           {/* Logo and Navigation */}
           <div className="flex items-center gap-6">
-            <Link to="/main" className="flex items-center gap-2">
+            <Link to="/lobby" className="flex items-center gap-2">
               <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
                 <span className="text-primary-foreground font-bold text-sm">LG</span>
               </div>
@@ -28,32 +29,29 @@ export function Header() {
             
             {/* Breadcrumb Navigation */}
             <nav className="hidden md:flex items-center gap-2 text-sm text-muted-foreground">
-              {location.pathname !== '/main' && (
+              {location.pathname !== '/lobby' && location.pathname !== '/' && (
                 <>
-                  <Link to="/main" className="hover:text-foreground transition-colors">
+                  <Link to="/lobby" className="hover:text-foreground transition-colors">
                     <Home className="h-4 w-4" />
                   </Link>
                   <span>/</span>
                 </>
-              )}
-              {sessionCode && (
-                <span className="font-medium">Room: {sessionCode}</span>
               )}
             </nav>
           </div>
 
           {/* User Actions */}
           <div className="flex items-center gap-4">
-            {currentPlayer && (
+            {nickname && (
               <div className="flex items-center gap-2">
                 <User className="h-4 w-4" />
-                <span className="text-sm font-medium">{currentPlayer.nickname}</span>
+                <span className="text-sm font-medium">{nickname}</span>
               </div>
             )}
             
             <ThemeToggle />
             
-            {currentPlayer && (
+            {nickname && (
               <Button
                 variant="ghost"
                 size="sm"

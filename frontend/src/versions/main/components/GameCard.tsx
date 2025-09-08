@@ -5,7 +5,7 @@ import {Badge} from '@/components/ui/badge'
 import {Clock, Lock, Play, Users} from 'lucide-react'
 import {cn} from '@/lib/utils'
 
-interface GameRoom {
+export interface GameRoom {
   id: string
   name: string
   sessionCode: string

@@ -9,7 +9,7 @@ export interface Player {
   isHost: boolean
   isOnline: boolean
   isAlive?: boolean
-  role?: 'CITIZEN' | 'LIAR'
+  role?: 'civilian' | 'liar'
   votedFor?: string
   hasVoted?: boolean
 }

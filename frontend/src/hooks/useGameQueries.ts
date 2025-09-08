@@ -46,14 +46,16 @@ export function useLogin() {
   return useMutation({
     mutationFn: gameApi.login,
     onSuccess: (data) => {
-      localStorage.setItem('auth-token', data.token)
-      setCurrentPlayer({
-        id: data.playerId,
-        nickname: data.nickname,
-        isReady: false,
-        isHost: false,
-        isOnline: true,
-      })
+      if (data.success && data.userId && data.nickname) {
+        // 백엔드 응답에 맞춰 세션 기반 인증 사용
+        setCurrentPlayer({
+          id: data.userId.toString(),
+          nickname: data.nickname,
+          isReady: false,
+          isHost: false,
+          isOnline: true,
+        })
+      }
     },
   })
 }

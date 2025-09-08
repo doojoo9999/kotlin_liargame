@@ -113,11 +113,9 @@ export function MainHomePage() {
   const handleCreateGame = async () => {
     try {
       const result = await createGameMutation.mutateAsync({
-        name: createForm.gameName || `${createForm.maxPlayers}P Game`,
         maxPlayers: createForm.maxPlayers,
         timeLimit: createForm.timeLimit,
-        totalRounds: createForm.totalRounds,
-        isPrivate: createForm.isPrivate
+        totalRounds: createForm.totalRounds
       })
       
       setIsCreateDialogOpen(false)

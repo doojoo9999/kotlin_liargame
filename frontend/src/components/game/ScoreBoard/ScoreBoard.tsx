@@ -6,7 +6,7 @@ import {Avatar, AvatarFallback} from "@radix-ui/react-avatar"
 import {cn} from "@/lib/utils"
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card"
 import {GameButton} from "@/components/ui/game-button"
-import {GameResults, Player} from "@/types/game"
+import type {GameResults, Player} from "@/types/game"
 
 export interface ScoreBoardProps {
   players: Player[]
@@ -62,7 +62,7 @@ const PlayerScoreCard: React.FC<{
       y: 0,
       scale: 1,
       transition: {
-        type: "spring",
+        type: "spring" as const,
         stiffness: 300,
         damping: 20,
         delay
@@ -71,7 +71,7 @@ const PlayerScoreCard: React.FC<{
     hover: {
       scale: 1.02,
       y: -2,
-      transition: { type: "spring", stiffness: 400, damping: 17 }
+      transition: { type: "spring" as const, stiffness: 400, damping: 17 }
     }
   }
 
@@ -187,7 +187,7 @@ const PlayerScoreCard: React.FC<{
 const VoteResultsSection: React.FC<{
   gameResults: GameResults
   players: Player[]
-}> = ({ gameResults, players }) => {
+}> = ({ gameResults }) => {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}

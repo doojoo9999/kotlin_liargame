@@ -1,7 +1,7 @@
 import {useEffect, useState} from 'react'
 import {useNavigate, useParams} from 'react-router-dom'
 import {AnimatePresence, motion} from 'framer-motion'
-import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card'
+import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card'
 import {Button} from '@/components/ui/button'
 import {Badge} from '@/components/ui/badge'
 import {Alert, AlertDescription} from '@/components/ui/alert'
@@ -12,7 +12,8 @@ import {useGameStore} from '@/store/gameStore'
 import {useGameStatus, useSubmitAnswer, useVote} from '@/hooks/useGameQueries'
 import {useToast} from '@/hooks/useToast'
 import type {Player} from '../components'
-import {CompactTimer, DefenseTimer, DiscussionTimer, GamePlayerCard, VotingPanel} from '../components'
+import {CompactTimer, DefenseTimer, DiscussionTimer, GamePlayerCard} from '../components'
+import {VotingPanel} from '@/components/game/VotingPanel/VotingPanel'
 
 type GamePhase = 'topic' | 'discussion' | 'voting' | 'defense' | 'results'
 
@@ -23,19 +24,14 @@ export function MainGamePage() {
 
   const {
     gameId,
-    sessionCode,
     players,
     currentPlayer,
-    gamePhase,
     currentRound,
     totalRounds,
     timeLimit,
     currentTopic,
     currentLiar,
     userVote,
-    updatePlayers,
-    setGamePhase,
-    setCurrentTopic,
     setUserVote
   } = useGameStore()
 
@@ -87,7 +83,7 @@ export function MainGamePage() {
   const isLiar = currentLiar === currentPlayer?.id
 
   // Queries and mutations
-  const { data: gameStatus, isLoading } = useGameStatus(gameId)
+  const { } = useGameStatus(gameId)
   const voteMutation = useVote()
   const submitAnswerMutation = useSubmitAnswer()
 
@@ -182,15 +178,15 @@ export function MainGamePage() {
     setSelectedVote('')
     setDefenseAnswer('')
     setShowTopicDialog(true)
-    setUserVote(null)
+    setUserVote('')
   }
 
   const handleEndGame = () => {
-    navigate(`/main/results/${roomId}`)
+    navigate(`/results/${roomId}`)
   }
 
   const handleLeaveGame = () => {
-    navigate('/main')
+    navigate('/lobby')
     toast({
       title: "Left game",
       description: "You have left the game"
@@ -387,13 +383,14 @@ export function MainGamePage() {
           {localPhase === 'voting' && (
             <VotingPanel
               players={currentPlayers}
+              currentUserId="1"
+              phase="voting"
               selectedPlayerId={selectedVote}
-              onVote={handleVote}
-              onConfirm={handleConfirmVote}
+              onPlayerSelect={handleVote}
+              onVoteSubmit={handleConfirmVote}
               timeRemaining={timeRemaining}
               totalTime={60}
               hasVoted={!!userVote}
-              isLoading={voteMutation.isPending}
             />
           )}
 
