@@ -323,63 +323,23 @@ export function MainGamePage() {
                 className="max-w-md mx-auto"
               />
 
-              {/* Topic Display */}
-              {!isLiar && (
-                <Card className="max-w-md mx-auto">
-                  <CardHeader className="text-center">
-                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-2">
-                      <Eye className="h-6 w-6 text-primary" />
-                    </div>
-                    <CardTitle>Your Topic</CardTitle>
-                  </CardHeader>
-                  <CardContent className="text-center">
-                    <div className="p-4 bg-muted rounded-lg">
-                      <p className="text-2xl font-bold">{mockTopic}</p>
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-3">
-                      Discuss this topic naturally. Don't be too obvious!
-                    </p>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Liar Hint */}
-              {isLiar && (
-                <Card className="max-w-md mx-auto bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800">
-                  <CardHeader className="text-center">
-                    <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900 flex items-center justify-center mx-auto mb-2">
-                      <EyeOff className="h-6 w-6 text-red-600 dark:text-red-400" />
-                    </div>
-                    <CardTitle className="text-red-700 dark:text-red-300">You're the Liar</CardTitle>
-                  </CardHeader>
-                  <CardContent className="text-center">
-                    <p className="text-sm text-red-600 dark:text-red-400 mb-4">
-                      Listen carefully and try to blend in. Figure out what the topic is!
-                    </p>
-                    <Alert>
-                      <Target className="h-4 w-4" />
-                      <AlertDescription>
-                        You'll get a chance to guess the topic later for bonus points
-                      </AlertDescription>
-                    </Alert>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Chat Placeholder */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <MessageCircle className="h-5 w-5" />
-                    Discussion
-                  </CardTitle>
+              {/* Discussion Instructions */}
+              <Card className="max-w-2xl mx-auto">
+                <CardHeader className="text-center">
+                  <CardTitle className="text-xl">Discussion Time!</CardTitle>
+                  <CardDescription>
+                    {isLiar 
+                      ? 'Listen carefully to the conversation and try to figure out what the topic is. Blend in naturally!'
+                      : 'Discuss the topic with other players. Try to identify who doesn\'t know what they\'re talking about!'
+                    }
+                  </CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <div className="bg-muted/50 rounded-lg p-8 text-center text-muted-foreground">
-                    <MessageCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p className="text-lg font-medium mb-2">Chat Integration</p>
-                    <p className="text-sm">
-                      Real-time chat will be integrated here for players to discuss the topic
+                <CardContent className="text-center">
+                  <div className="bg-muted/30 rounded-lg p-6">
+                    <MessageCircle className="h-8 w-8 mx-auto mb-3 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">
+                      Use the chat on the right to communicate with other players.<br/>
+                      {isLiar ? 'Your goal: Figure out the topic and avoid detection!' : 'Your goal: Find the liar among you!'}
                     </p>
                   </div>
                 </CardContent>
@@ -523,20 +483,86 @@ export function MainGamePage() {
           </ScrollArea>
         </div>
 
-        {/* Sidebar - Players and Chat */}
+        {/* Sidebar - Topic, Players and Chat */}
         <div className="w-80 border-l flex flex-col shrink-0">
-          {/* Players Section - Scrollable if many players */}
-          <div className="flex-1 overflow-hidden">
+          {/* Topic Display - Always visible at top */}
+          <div className="shrink-0 p-4 border-b">
+            {localPhase === 'discussion' && !isLiar && (
+              <Card className="bg-primary/5 border-primary/20">
+                <CardContent className="p-4 text-center">
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <Eye className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-medium">Your Topic</span>
+                  </div>
+                  <div className="text-xl font-bold text-primary">{mockTopic}</div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Discuss naturally!
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+            {localPhase === 'discussion' && isLiar && (
+              <Card className="bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800">
+                <CardContent className="p-4 text-center">
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <EyeOff className="h-4 w-4 text-red-600 dark:text-red-400" />
+                    <span className="text-sm font-medium text-red-700 dark:text-red-300">You're the Liar</span>
+                  </div>
+                  <div className="text-lg font-bold text-red-700 dark:text-red-300">Listen & Blend In</div>
+                  <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                    Figure out the topic!
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+            {(localPhase === 'voting' || localPhase === 'defense' || localPhase === 'results') && (
+              <Card className="bg-muted/30">
+                <CardContent className="p-4 text-center">
+                  <div className="text-sm font-medium text-muted-foreground mb-1">Topic was</div>
+                  <div className="text-lg font-bold">{mockTopic}</div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {/* Chat Area - Much larger, taking most space */}
+          <div className="flex-1 border-b">
+            <Card className="m-4 mb-2 h-full flex flex-col">
+              <CardHeader className="pb-2 shrink-0">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <MessageCircle className="h-5 w-5" />
+                  Discussion Chat
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex-1 overflow-hidden p-3">
+                <ScrollArea className="h-full">
+                  <div className="space-y-2 text-sm">
+                    <div className="bg-muted/50 rounded-lg p-8 text-center text-muted-foreground">
+                      <MessageCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p className="font-medium mb-2">Real-time Discussion</p>
+                      <p className="text-xs">
+                        Players will discuss the topic here.<br/>
+                        Chat integration coming soon.
+                      </p>
+                    </div>
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Players Section - Compact at bottom */}
+          <div className="h-48 overflow-hidden">
             <ScrollArea className="h-full">
-              <Card className="m-4 mb-2">
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <Users className="h-5 w-5" />
-                    Players
+              <Card className="m-4 mt-2">
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Users className="h-4 w-4" />
+                    Players ({currentPlayers.length})
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
+                <CardContent className="p-3">
+                  <div className="grid grid-cols-1 gap-2">
                     <AnimatePresence>
                       {currentPlayers.map((player) => (
                         <motion.div
@@ -554,29 +580,6 @@ export function MainGamePage() {
                 </CardContent>
               </Card>
             </ScrollArea>
-          </div>
-
-          {/* Chat Area - Fixed height with internal scroll */}
-          <div className="h-64 border-t">
-            <Card className="m-4 mt-2 h-full flex flex-col">
-              <CardHeader className="pb-2 shrink-0">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <MessageCircle className="h-5 w-5" />
-                  Chat
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="flex-1 overflow-hidden p-3">
-                <ScrollArea className="h-full">
-                  <div className="space-y-2 text-sm">
-                    <div className="bg-muted/50 rounded-lg p-6 text-center text-muted-foreground">
-                      <MessageCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                      <p className="font-medium mb-1">Real-time Chat</p>
-                      <p className="text-xs">Chat integration coming soon</p>
-                    </div>
-                  </div>
-                </ScrollArea>
-              </CardContent>
-            </Card>
           </div>
         </div>
       </div>
