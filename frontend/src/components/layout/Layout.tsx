@@ -11,12 +11,14 @@ export function Layout() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="system" storageKey="liar-game-theme">
-        <div className="min-h-screen bg-background flex flex-col">
-          <Header />
-          <main className="flex-1 container mx-auto px-4 py-8">
-            <Outlet />
+        <div className="h-screen bg-background flex flex-col overflow-hidden">
+          <Header className="shrink-0" />
+          <main className="flex-1 overflow-hidden container mx-auto px-4">
+            <div className="h-full py-8 overflow-hidden">
+              <Outlet />
+            </div>
           </main>
-          <Footer />
+          <Footer className="shrink-0" />
           <Toaster />
         </div>
         <ReactQueryDevtools initialIsOpen={false} />
