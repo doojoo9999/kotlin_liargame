@@ -3,8 +3,13 @@ import {Button} from '@/components/ui/button'
 import {ThemeToggle} from '@/components/common/ThemeToggle'
 import {useAuthStore} from '@/stores/authStore'
 import {Home, LogOut, User} from 'lucide-react'
+import {cn} from '@/lib/utils'
 
-export function Header() {
+interface HeaderProps {
+  className?: string
+}
+
+export function Header({ className }: HeaderProps = {}) {
   const location = useLocation()
   const navigate = useNavigate()
   const { nickname, logout } = useAuthStore()
@@ -15,7 +20,7 @@ export function Header() {
   }
 
   return (
-    <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className={cn("border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60", className)}>
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between">
           {/* Logo and Navigation */}
