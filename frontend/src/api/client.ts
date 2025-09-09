@@ -21,7 +21,7 @@ export const API_CONFIG = {
       STATE: '/api/v1/game',                 // /{gameNumber}
       RESULT: '/api/v1/game/result',         // /result/{gameNumber}
       RECOVER_STATE: '/api/v1/game/recover-state', // /recover-state/{gameNumber}
-      
+
       // 게임 진행 관련
       HINT: '/api/v1/game/hint',
       VOTE: '/api/v1/game/vote',
@@ -46,7 +46,7 @@ export const API_CONFIG = {
       POST_ROUND: '/api/v1/chat/post-round', // /post-round/{gameNumber}
       SPEECH_COMPLETE: '/api/v1/chat/speech/complete',
     },
-    // Subject Management (완전한 SubjectController API)  
+    // Subject Management (완전한 SubjectController API)
     SUBJECT: {
       LIST: '/api/v1/subjects/listsubj',     // 실제 경로
       CREATE: '/api/v1/subjects/applysubj',  // 실제 경로
