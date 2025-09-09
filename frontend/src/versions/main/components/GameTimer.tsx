@@ -220,7 +220,7 @@ export function GameTimer({
                 className="flex items-center justify-center space-x-2 text-red-600 dark:text-red-400"
               >
                 <AlertTriangle className="h-4 w-4" />
-                <span className="text-sm font-medium">Time almost up!</span>
+                <span className="text-sm font-medium">시간이 거의 끝나갑니다!</span>
               </motion.div>
             )}
 
@@ -231,14 +231,14 @@ export function GameTimer({
                 animate={{ opacity: 1, scale: 1 }}
                 className="text-gray-600 dark:text-gray-400"
               >
-                <div className="text-sm font-medium">Time's up!</div>
+                <div className="text-sm font-medium">시간 종료!</div>
               </motion.div>
             )}
 
             {/* Paused Indicator */}
             {paused && !isExpired && variant !== 'compact' && (
               <div className="text-sm text-muted-foreground">
-                Timer paused
+                타이머 일시정지됨
               </div>
             )}
           </div>
@@ -250,15 +250,15 @@ export function GameTimer({
 
 // Preset timer variants for common use cases
 export function DiscussionTimer(props: Omit<GameTimerProps, 'phase'>) {
-  return <GameTimer {...props} phase="Discussion Phase" />
+  return <GameTimer {...props} phase="토론 단계" />
 }
 
 export function VotingTimer(props: Omit<GameTimerProps, 'phase' | 'warningThreshold'>) {
-  return <GameTimer {...props} phase="Voting Phase" warningThreshold={15} />
+  return <GameTimer {...props} phase="투표 단계" warningThreshold={15} />
 }
 
 export function DefenseTimer(props: Omit<GameTimerProps, 'phase' | 'warningThreshold'>) {
-  return <GameTimer {...props} phase="Defense Phase" warningThreshold={10} />
+  return <GameTimer {...props} phase="변명 단계" warningThreshold={10} />
 }
 
 export function CompactTimer(props: Omit<GameTimerProps, 'variant' | 'showProgress'>) {
