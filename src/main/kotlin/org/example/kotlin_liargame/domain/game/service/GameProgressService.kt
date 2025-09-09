@@ -506,4 +506,48 @@ class GameProgressService(
             phaseEndTime = game.phaseEndTime?.toString()
         )
     }
+
+    @Transactional
+    fun startGameBySystem(gameNumber: Int): GameStateResponse {
+        val game = gameRepository.findByGameNumber(gameNumber)
+            ?: throw RuntimeException("Game not found: $gameNumber")
+
+        if (game.gameState != GameState.WAITING) {
+            throw RuntimeException("Game is not in waiting state")
+        }
+
+        val playerCount = playerRepository.countByGame(game)
+        if (playerCount < gameProperties.minPlayers || playerCount > gameProperties.maxPlayers) {
+            throw RuntimeException("Insufficient players to start the game. (min=${gameProperties.minPlayers}, max=${gameProperties.maxPlayers})")
+        }
+
+        val players = playerRepository.findByGame(game)
+        val selectedSubjects = selectSubjects(game)
+
+        game.turnOrder = players.shuffled().joinToString(",") { it.nickname }
+        assignRolesAndSubjects(game, players, selectedSubjects)
+
+        game.startGame()
+        val savedGame = gameRepository.save(game)
+
+        try {
+            chatService.sendSystemMessage(savedGame, "🎮 게임이 시작되었습니다!")
+            when (savedGame.gameMode) {
+                GameMode.LIARS_KNOW -> chatService.sendSystemMessage(savedGame, "🤫 라이어는 자신이 라이어임을 알고 있습니다.")
+                GameMode.LIARS_DIFFERENT_WORD -> chatService.sendSystemMessage(savedGame, "🎭 라이어는 다른 주제의 단어를 받았습니다.")
+            }
+            chatService.sendSystemMessage(savedGame, "⏰ 각 플레이어는 ${gameProperties.turnTimeoutSeconds}초 안에 힌트를 말해야 합니다.")
+        } catch (_: Exception) { }
+
+        startNewTurn(savedGame)
+
+        val gameStateResponse = getGameStateResponse(savedGame, null)
+        gameMonitoringService.broadcastGameState(savedGame, gameStateResponse)
+        return gameStateResponse
+    }
+
+    @Transactional
+    fun startGame(gameNumber: Int): GameStateResponse {
+        return startGameBySystem(gameNumber)
+    }
 }
