@@ -35,4 +35,10 @@ export const QUERY_KEYS = {
   ROUND: {
     RESULTS: (gameId: string, round: number) => ['round', 'results', gameId, round],
   },
+  REALTIME: {
+    READY_STATUS: (gameNumber: number) => ['realtime', 'ready-status', gameNumber],
+    COUNTDOWN: (gameNumber: number) => ['realtime', 'countdown', gameNumber],
+    CONNECTION_STATUS: (gameNumber: number) => ['realtime', 'connection-status', gameNumber],
+    VOTING_STATUS: (gameNumber: number) => ['realtime', 'voting-status', gameNumber],
+  }
 } as const

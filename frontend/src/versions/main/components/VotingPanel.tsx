@@ -76,9 +76,9 @@ export function VotingPanel({
         <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900 flex items-center justify-center mx-auto">
           <Target className="h-6 w-6 text-red-600 dark:text-red-400" />
         </div>
-        <h2 className="text-2xl font-bold">Time to Vote</h2>
+        <h2 className="text-2xl font-bold">투표 시간</h2>
         <p className="text-muted-foreground">
-          Who do you think is the liar? Choose carefully!
+          누가 라이어라고 생각하나요? 신중하게 선택하세요!
         </p>
       </div>
 
@@ -92,7 +92,7 @@ export function VotingPanel({
                 <div className="flex justify-between text-sm mb-2">
                   <span className="flex items-center gap-1">
                     <Clock className="h-4 w-4" />
-                    Time Remaining
+                    남은 시간
                   </span>
                   <span className="font-mono">
                     {Math.floor(timeRemaining / 60)}:{(timeRemaining % 60).toString().padStart(2, '0')}
@@ -114,7 +114,7 @@ export function VotingPanel({
                 <div className="flex justify-between text-sm mb-2">
                   <span className="flex items-center gap-1">
                     <Users className="h-4 w-4" />
-                    Players Voted
+                    투표 완료 인원
                   </span>
                   <span>{votedCount}/{totalPlayers}</span>
                 </div>
@@ -132,12 +132,12 @@ export function VotingPanel({
             <div className="flex items-start gap-3">
               <AlertCircle className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
               <div className="text-sm text-blue-700 dark:text-blue-300">
-                <p className="font-medium mb-1">Voting Instructions:</p>
+                <p className="font-medium mb-1">투표 안내:</p>
                 <ul className="space-y-1 text-xs">
-                  <li>• Click on a player to select them as your suspect</li>
-                  <li>• You cannot vote for yourself</li>
-                  <li>• Confirm your vote when you're ready</li>
-                  <li>• Once confirmed, you cannot change your vote</li>
+                  <li>• 의심되는 플레이어를 클릭해 선택하세요</li>
+                  <li>• 자신에게는 투표할 수 없습니다</li>
+                  <li>• 준비되면 투표를 확인하세요</li>
+                  <li>• 한 번 확인하면 변경할 수 없습니다</li>
                 </ul>
               </div>
             </div>
@@ -149,11 +149,11 @@ export function VotingPanel({
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">
-            {showResults ? 'Voting Results' : 'Select the Liar'}
+            {showResults ? '투표 결과' : '라이어 지목'}
           </CardTitle>
           {!showResults && (
             <CardDescription>
-              Click on the player you suspect is the liar
+              라이어라고 생각하는 플레이어를 클릭하세요
             </CardDescription>
           )}
         </CardHeader>
@@ -198,13 +198,13 @@ export function VotingPanel({
                 <div className="text-center space-y-4">
                   <div>
                     <p className="text-sm text-muted-foreground mb-1">
-                      You selected:
+                      선택한 플레이어
                     </p>
                     <p className="text-lg font-semibold">
                       {selectedPlayer.nickname}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      Are you sure they're the liar?
+                      정말 이 플레이어가 라이어인가요?
                     </p>
                   </div>
                   
@@ -214,14 +214,14 @@ export function VotingPanel({
                       onClick={() => onVote('')}
                       disabled={isLoading || isConfirming}
                     >
-                      Change Vote
+                      다시 선택
                     </Button>
                     <Button
                       onClick={handleConfirmVote}
                       disabled={isLoading || isConfirming}
                       className="min-w-24"
                     >
-                      {isConfirming ? 'Confirming...' : 'Confirm Vote'}
+                      {isConfirming ? '확인 중...' : '투표 확인'}
                     </Button>
                   </div>
                 </div>
@@ -243,12 +243,12 @@ export function VotingPanel({
                 <Target className="h-6 w-6 text-green-600 dark:text-green-400" />
               </div>
               <h3 className="text-lg font-semibold text-green-700 dark:text-green-300 mb-2">
-                Vote Confirmed!
+                투표 완료!
               </h3>
               <p className="text-sm text-green-600 dark:text-green-400">
-                You voted for <strong>{selectedPlayer?.nickname}</strong>.
+                <strong>{selectedPlayer?.nickname}</strong> 님에게 투표했습니다.
                 <br />
-                Waiting for other players to finish voting...
+                다른 플레이어들의 투표를 기다리는 중...
               </p>
             </CardContent>
           </Card>
@@ -263,9 +263,9 @@ export function VotingPanel({
         >
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Final Results</CardTitle>
+              <CardTitle className="text-lg">최종 결과</CardTitle>
               <CardDescription>
-                Here's how everyone voted
+                모두의 투표 현황입니다
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -288,7 +288,7 @@ export function VotingPanel({
                         </div>
                         <div className="text-right">
                           <div className="text-sm font-semibold">
-                            {votes} vote{votes !== 1 ? 's' : ''}
+                            {votes}표
                           </div>
                           <div className="text-xs text-muted-foreground">
                             {percentage.toFixed(0)}%

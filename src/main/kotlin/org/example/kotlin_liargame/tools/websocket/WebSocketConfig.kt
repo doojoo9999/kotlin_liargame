@@ -109,19 +109,15 @@ class WebSocketConfig(
                                 val httpSession = accessor.sessionAttributes?.get("HTTP.SESSION") as? jakarta.servlet.http.HttpSession
 
                                 if (httpSession != null) {
-                                    // JSON 직렬화 방식으로 사용자 정보 가져오기 (재시도 메커니즘 포함)
+                                    // 세션 정보 조회 및 재시도 로직
                                     var userId = sessionUtil.getUserId(httpSession)
                                     var nickname = sessionUtil.getUserNickname(httpSession)
-
-                                    // 세션 정보가 없는 경우 Redis 동기화를 위해 재시도
                                     if (userId == null || nickname == null) {
                                         println("[WARN] Initial session data not found during WebSocket connect, attempting retry...")
-                                        Thread.sleep(50) // 짧은 지연
+                                        Thread.sleep(50)
                                         userId = sessionUtil.getUserId(httpSession)
                                         nickname = sessionUtil.getUserNickname(httpSession)
-
                                         if (userId == null || nickname == null) {
-                                            // 두 번째 시도
                                             Thread.sleep(100)
                                             userId = sessionUtil.getUserId(httpSession)
                                             nickname = sessionUtil.getUserNickname(httpSession)
@@ -129,27 +125,39 @@ class WebSocketConfig(
                                     }
 
                                     if (userId != null) {
-                                        // WebSocket 세션 속성을 HTTP 세션의 최신 정보로 업데이트
                                         accessor.sessionAttributes = accessor.sessionAttributes ?: mutableMapOf()
                                         accessor.sessionAttributes!!["userId"] = userId
-
-                                        if (nickname != null) {
-                                            accessor.sessionAttributes!!["nickname"] = nickname
-                                        }
+                                        if (nickname != null) accessor.sessionAttributes!!["nickname"] = nickname
 
                                         println("[CONNECTION] WebSocket connected: sessionId=$sessionId, userId=$userId, nickname=$nickname")
 
-                                        // WebSocketSessionManager에 최신 정보 저장
+                                        // WebSocket 세션 저장
                                         sessionId?.let { wsSessionId ->
                                             webSocketSessionManager.storeSession(wsSessionId, httpSession)
                                         }
+
+                                        // === 표준 재연결 경로: x-old-session-id 헤더 처리 ===
+                                        val oldSessionId = accessor.getFirstNativeHeader("x-old-session-id")
+                                        var reconnected = false
+                                        if (!oldSessionId.isNullOrBlank() && sessionId != null && oldSessionId != sessionId) {
+                                            try {
+                                                reconnected = connectionManager.handleReconnection(oldSessionId, sessionId, userId)
+                                                if (reconnected) {
+                                                    println("[CONNECTION] Standardized reconnection via header: $oldSessionId -> $sessionId (userId=$userId)")
+                                                }
+                                            } catch (e: Exception) {
+                                                println("[ERROR] Standardized reconnection failed: ${e.message}")
+                                            }
+                                        }
+
+                                        // 신규 연결 등록 (재연결 실패 시에만)
+                                        if (!reconnected) {
+                                            sessionId?.let { wsSessionId ->
+                                                connectionManager.registerConnection(wsSessionId, userId)
+                                            }
+                                        }
                                     } else {
                                         println("[WARN] No userId found in HTTP session after retries")
-                                    }
-
-                                    // Register connection with ConnectionManager
-                                    sessionId?.let { wsSessionId ->
-                                        connectionManager.registerConnection(wsSessionId, userId)
                                     }
                                 } else {
                                     println("[WARN] No HTTP session found in WebSocket connection")
