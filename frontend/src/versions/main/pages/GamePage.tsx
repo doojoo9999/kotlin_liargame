@@ -15,8 +15,11 @@ import {useToast} from '@/hooks/useToast'
 import type {Player} from '../components'
 import {CompactTimer, DefenseTimer, DiscussionTimer, GamePlayerCard} from '../components'
 import {VotingPanel} from '@/components/game/VotingPanel/VotingPanel'
-import {useVotingStatus} from '@/hooks/useRealtime'
 import {VotingStatusPanel} from '@/components/game/StatusPanels/VotingStatusPanel'
+import {GameStartPanel} from '@/components/game/StatusPanels/GameStartPanel'
+import {ConnectionStatusPanel} from '@/components/game/StatusPanels/ConnectionStatusPanel'
+import {GameEndPanel} from '@/components/game/StatusPanels/GameEndPanel'
+import {TopicManagementPanel} from '@/components/game/StatusPanels/TopicManagementPanel'
 
 type GamePhase = 'topic' | 'discussion' | 'voting' | 'defense' | 'results'
 
@@ -46,7 +49,6 @@ export function MainGamePage() {
 
   // 투표 현황 (roomId가 숫자인 경우만 폴링)
   const gameNumberParam = roomId && !isNaN(Number(roomId)) ? Number(roomId) : null
-  const { data: votingStatus } = useVotingStatus(gameNumberParam)
 
   // Mock data for demo
   const mockTopic = currentTopic || '동물'
@@ -271,10 +273,37 @@ export function MainGamePage() {
           </span>
         </div>
 
-        {/* 투표 현황 패널 (옵션) */}
-        {votingStatus && (
-          <div className="max-w-3xl mx-auto">
-            <VotingStatusPanel status={votingStatus} />
+        {/* 게임 상태 패널들 - 모바일 최적화 */}
+        {gameNumberParam && (
+          <div className="max-w-6xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-6 px-2 sm:px-0">
+            {localPhase === 'topic' && (
+              <GameStartPanel 
+                gameNumber={gameNumberParam}
+                playerCount={currentPlayers.length}
+                minPlayers={3}
+                maxPlayers={15}
+                isOwner={currentPlayer?.nickname === 'owner'} // 실제 owner 로직 필요
+                myPlayerId={currentPlayer?.id ? Number(currentPlayer.id) : undefined}
+              />
+            )}
+            <ConnectionStatusPanel gameNumber={gameNumberParam} />
+            {localPhase === 'topic' && (
+              <TopicManagementPanel 
+                gameNumber={gameNumberParam}
+                isOwner={currentPlayer?.nickname === 'owner'}
+                canManageTopics={true}
+              />
+            )}
+            {(localPhase === 'voting' || localPhase === 'defense') && (
+              <VotingStatusPanel gameNumber={gameNumberParam} />
+            )}
+            {localPhase === 'results' && (
+              <GameEndPanel 
+                gameNumber={gameNumberParam}
+                onPlayAgain={() => navigate(`/room/${roomId}/lobby`)}
+                onLeaveGame={() => navigate('/lobby')}
+              />
+            )}
           </div>
         )}
 

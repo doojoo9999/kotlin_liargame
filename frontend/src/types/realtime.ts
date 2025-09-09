@@ -7,6 +7,18 @@ export interface PlayerReadyResponse {
   isOwner: boolean
 }
 
+export interface HostPermissions {
+  canStartGame: boolean
+  canKickPlayers: boolean
+  canTransferHost: boolean
+  canModifySettings: boolean
+}
+
+export interface HostTransferRequest {
+  targetPlayerId: number
+  targetNickname: string
+}
+
 export interface CountdownResponse {
   isActive: boolean
   startedAt?: string // ISO timestamp
@@ -32,7 +44,7 @@ export interface ConnectionStatusResponse {
   playerStatuses: PlayerConnectionStatus[]
 }
 
-export type VotingPhase = 'ACCUSATION' | 'DEFENSE' | 'COMPLETED'
+export type VotingPhase = 'LIAR_ELIMINATION' | 'SURVIVAL_VOTE' | 'TIE_BREAKER' | 'ACCUSATION' | 'DEFENSE' | 'COMPLETED'
 
 export interface PlayerVoteInfo {
   playerId: number
@@ -87,3 +99,33 @@ export interface VotingProgressPayload {
   currentVotes: number
   activePlayersCount: number
 }
+
+export type WinningTeam = 'LIARS' | 'CITIZENS' | 'DRAW'
+
+export interface PlayerResultInfo {
+  userId: number
+  nickname: string
+  role: string
+  points: number
+  isAlive: boolean
+}
+
+export interface GameStatistics {
+  totalRounds: number
+  completedRounds: number
+  totalVotes: number
+  averageVotingTime: number
+}
+
+export interface GameEndResponse {
+  gameNumber: number
+  winner: WinningTeam
+  citizens: PlayerResultInfo[]
+  liars: PlayerResultInfo[]
+  citizenSubject?: string
+  liarSubject?: string
+  gameStatistics: GameStatistics
+  timestamp: string
+}
+
+export type GameEndCondition = 'LIAR_VICTORY' | 'CITIZEN_VICTORY' | 'NEXT_ROUND'
