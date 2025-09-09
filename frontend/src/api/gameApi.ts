@@ -1,157 +1,76 @@
-import {API_CONFIG, apiClient} from './client'
+import {apiClient} from './client';
 import type {
-    ConnectionStatusResponse,
-    CountdownResponse,
-    PlayerReadyResponse,
-    VotingStatusResponse
-} from '@/types/realtime'
+    CreateGameRequest,
+    GameListResponse,
+    GameMode,
+    GameRoomInfo,
+    GameStateResponse,
+    JoinGameRequest
+} from '../types/game';
 
-export interface CreateGameRequest {
-  maxPlayers: number
-  timeLimit: number
-  totalRounds: number
-}
+export class GameService {
+  private static instance: GameService;
 
-export interface CreateGameResponse {
-  gameId: string
-  sessionCode: string
-  hostId: string
-}
+  static getInstance(): GameService {
+    if (!GameService.instance) {
+      GameService.instance = new GameService();
+    }
+    return GameService.instance;
+  }
 
-export interface JoinGameRequest {
-  sessionCode: string
-  nickname: string
-}
+  // 게임방 목록 조회
+  async getGameList(page: number = 0, size: number = 10): Promise<GameListResponse> {
+    const response = await apiClient.get<GameListResponse>(`/api/v1/game/list?page=${page}&size=${size}`);
+    return response;
+  }
 
-export interface JoinGameResponse {
-  gameId: string
-  playerId: string
-  players: any[]
-}
+  // 게임방 생성
+  async createGame(gameData: CreateGameRequest): Promise<GameStateResponse> {
+    const response = await apiClient.post<GameStateResponse>('/api/v1/game/create', gameData);
+    return response;
+  }
 
-export interface LoginRequest {
-  nickname: string
-  password?: string | null
-}
+  // 게임방 참여
+  async joinGame(joinData: JoinGameRequest): Promise<GameStateResponse> {
+    const response = await apiClient.post<GameStateResponse>('/api/v1/game/join', joinData);
+    return response;
+  }
 
-export interface LoginResponse {
-  success: boolean
-  userId: number | null  
-  nickname: string | null
-  message?: string | null
-}
+  // 게임방 나가기
+  async leaveGame(gameNumber: number): Promise<void> {
+    await apiClient.post<void>(`/api/v1/game/${gameNumber}/leave`);
+  }
 
-export interface GameStatusResponse {
-  gameId: string
-  phase: string
-  players: any[]
-  currentRound: number
-  totalRounds: number
-  timeRemaining?: number
-  currentTopic?: string
-}
+  // 게임 상태 조회
+  async getGameState(gameNumber: number): Promise<GameStateResponse> {
+    const response = await apiClient.get<GameStateResponse>(`/api/v1/game/${gameNumber}/state`);
+    return response;
+  }
 
-export interface VoteRequest {
-  suspectedLiarId: string
-}
+  // 게임 시작
+  async startGame(gameNumber: number): Promise<GameStateResponse> {
+    const response = await apiClient.post<GameStateResponse>(`/api/v1/game/${gameNumber}/start`);
+    return response;
+  }
 
-export interface VoteResponse {
-  success: boolean
-  results?: {
-    votes: Record<string, number>
-    actualLiar: string
-    winners: string[]
+  // 플레이어 준비 상태 변경
+  async toggleReady(gameNumber: number): Promise<GameStateResponse> {
+    const response = await apiClient.post<GameStateResponse>(`/api/v1/game/${gameNumber}/ready`);
+    return response;
+  }
+
+  // 게임 모드 목록 조회
+  async getGameModes(): Promise<GameMode[]> {
+    const response = await apiClient.get<GameMode[]>('/api/v1/game/modes');
+    return response;
+  }
+
+  // 특정 게임방 정보 조회
+  async getGameInfo(gameNumber: number): Promise<GameRoomInfo> {
+    const response = await apiClient.get<GameRoomInfo>(`/api/v1/game/${gameNumber}/info`);
+    return response;
   }
 }
 
-// API Functions
-export const gameApi = {
-  // Authentication
-  async login(data: LoginRequest): Promise<LoginResponse> {
-    return apiClient.post<LoginResponse>(API_CONFIG.ENDPOINTS.AUTH.LOGIN, data)
-  },
-
-  async logout(): Promise<void> {
-    return apiClient.post<void>(API_CONFIG.ENDPOINTS.AUTH.LOGOUT)
-  },
-
-  // Game Management
-  async createGame(data: CreateGameRequest): Promise<CreateGameResponse> {
-    return apiClient.post<CreateGameResponse>(API_CONFIG.ENDPOINTS.GAME.CREATE, data)
-  },
-
-  async joinGame(data: JoinGameRequest): Promise<JoinGameResponse> {
-    return apiClient.post<JoinGameResponse>(API_CONFIG.ENDPOINTS.GAME.JOIN, data)
-  },
-
-  async leaveGame(gameId: string): Promise<void> {
-    return apiClient.post<void>(API_CONFIG.ENDPOINTS.GAME.LEAVE, { gameId })
-  },
-
-  async startGame(gameId: string): Promise<void> {
-    return apiClient.post<void>(API_CONFIG.ENDPOINTS.GAME.START, { gameId })
-  },
-
-  async getGameStatus(gameId: string): Promise<GameStatusResponse> {
-    // REST 스타일: /api/v1/game/{gameId}
-    return apiClient.get<GameStatusResponse>(`${API_CONFIG.ENDPOINTS.GAME.STATE}/${gameId}`)
-  },
-
-  async updateGameSettings(gameId: string, settings: Partial<CreateGameRequest>): Promise<void> {
-    // 실제 경로로 직접 호출 (키 불일치 방지)
-    return apiClient.put<void>('/api/v1/game/settings', { gameId, ...settings })
-  },
-
-  // Player Actions
-  async setReady(gameId: string, ready: boolean): Promise<void> {
-    return apiClient.post<void>('/api/v1/game/player/ready', { gameId, ready })
-  },
-
-  async vote(gameId: string, data: VoteRequest): Promise<VoteResponse> {
-    return apiClient.post<VoteResponse>('/api/v1/game/player/vote', { gameId, ...data })
-  },
-
-  async getPlayerProfile(playerId: string): Promise<any> {
-    return apiClient.get<any>(`/api/v1/player/profile?playerId=${playerId}`)
-  },
-
-  async submitAnswer(gameId: string, answer: string): Promise<void> {
-    return apiClient.post<void>('/api/v1/game/round/submit-answer', { gameId, answer })
-  },
-
-  async getRoundResults(gameId: string): Promise<any> {
-    return apiClient.get<any>(`/api/v1/game/round/results?gameId=${gameId}`)
-  },
-
-  async nextRound(gameId: string): Promise<void> {
-    return apiClient.post<void>('/api/v1/game/round/next', { gameId })
-  },
-
-  async toggleReady(gameNumber: number): Promise<void> {
-    return apiClient.post<void>(`/api/v1/game/${gameNumber}/ready`)
-  },
-
-  async getReadyStatus(gameNumber: number): Promise<PlayerReadyResponse[]> {
-    return apiClient.get<PlayerReadyResponse[]>(`/api/v1/game/${gameNumber}/ready-status`)
-  },
-
-  async startCountdown(gameNumber: number): Promise<void> {
-    return apiClient.post<void>(`/api/v1/game/${gameNumber}/countdown/start`)
-  },
-
-  async cancelCountdown(gameNumber: number): Promise<void> {
-    return apiClient.post<void>(`/api/v1/game/${gameNumber}/countdown/cancel`)
-  },
-
-  async getCountdownStatus(gameNumber: number): Promise<CountdownResponse> {
-    return apiClient.get<CountdownResponse>(`/api/v1/game/${gameNumber}/countdown/status`)
-  },
-
-  async getConnectionStatus(gameNumber: number): Promise<ConnectionStatusResponse> {
-    return apiClient.get<ConnectionStatusResponse>(`/api/v1/game/${gameNumber}/connection-status`)
-  },
-
-  async getVotingStatus(gameNumber: number): Promise<VotingStatusResponse> {
-    return apiClient.get<VotingStatusResponse>(`/api/v1/game/${gameNumber}/voting-status`)
-  },
-}
+// 싱글톤 인스턴스 export
+export const gameService = GameService.getInstance();

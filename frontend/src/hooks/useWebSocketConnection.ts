@@ -1,5 +1,5 @@
 // WebSocket Connection Hook with Store Integration
-import {useCallback, useEffect, useRef} from 'react'
+import {useCallback, useEffect, useRef, useState} from 'react'
 import {useGameStore} from '@/store/gameStore'
 import {type ChatMessage, type GameStateUpdate, gameWebSocket, type PlayerAction} from '@/api/websocket'
 import {useToast} from './useToast'
@@ -22,22 +22,49 @@ export function useWebSocketConnection() {
     handleChatMessage,
     addTypingPlayer,
     removeTypingPlayer,
-    setError
+    setError,
+    connectWebSocket,
+    disconnectWebSocket,
+    isConnected,
+    connectionError,
+    setConnectionError
   } = useGameStore()
 
+  const [isConnecting, setIsConnecting] = useState(false)
+
   // Connection management
-  const connect = useCallback(async (gameNumber: number, playerId: string) => {
+  const connect = useCallback(async () => {
+    if (isConnecting || isConnected) return
+
+    setIsConnecting(true)
+    setConnectionError(null)
+
     try {
-      await gameWebSocket.connect(gameNumber, playerId)
+      await connectWebSocket()
+      toast.success('실시간 연결이 성공했습니다')
     } catch (error) {
-      console.error('[WebSocket Hook] Connection failed:', error)
-      setError(`Connection failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      const errorMessage = error instanceof Error ? error.message : '연결에 실패했습니다'
+      setConnectionError(errorMessage)
+      toast.error(errorMessage)
+      throw error
+    } finally {
+      setIsConnecting(false)
     }
-  }, [setError])
+  }, [isConnecting, isConnected, connectWebSocket, setConnectionError])
 
   const disconnect = useCallback(() => {
-    gameWebSocket.disconnect()
-  }, [])
+    disconnectWebSocket()
+    toast.info('실시간 연결이 종료되었습니다')
+  }, [disconnectWebSocket])
+
+  const retry = useCallback(async () => {
+    if (isConnected) {
+      disconnect()
+      // Wait a bit before reconnecting
+      await new Promise(resolve => setTimeout(resolve, 1000))
+    }
+    return connect()
+  }, [isConnected, connect, disconnect])
 
   // Setup event listeners
   const setupEventListeners = useCallback(() => {
