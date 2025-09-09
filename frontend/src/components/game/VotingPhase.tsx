@@ -4,7 +4,7 @@ import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
 import {Avatar, AvatarFallback} from '@/components/ui/avatar';
 import {useGameFlow} from '@/hooks/useGameFlow';
 import {Clock, Users, Vote} from 'lucide-react';
-import {Player} from '@/store/gameStore';
+import type {Player} from '@/store/gameStore';
 
 interface VotingPhaseProps {
   players: Player[];

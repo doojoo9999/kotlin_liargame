@@ -16,8 +16,8 @@ import {
 } from '@/components/ui/dialog'
 import {Lock, Play, Plus, RefreshCw, Unlock, Users} from 'lucide-react'
 import {useToast} from '@/hooks/useToast'
-import {useAuthStore} from '@/stores/authStore'
-import useGameStore from '@/stores/gameStore'
+import {useAuthStore} from '@/store/authStore'
+import {useGameStore} from '@/store/gameStore'
 import type {CreateGameRequest, JoinGameRequest} from '@/types/game'
 
 export function GameRoomsSection() {
@@ -116,8 +116,9 @@ export function GameRoomsSection() {
 
       // 비공개 방인 경우 비밀번호 입력 받기
       if (isPrivate) {
-        password = prompt('비밀번호를 입력하세요:')
-        if (!password) return // 사용자가 취소한 경우
+        const passwordInput = prompt('비밀번호를 입력하세요:')
+        if (!passwordInput) return // 사용자가 취소한 경우
+        password = passwordInput
       }
 
       const joinData: JoinGameRequest = {

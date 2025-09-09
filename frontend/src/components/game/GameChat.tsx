@@ -1,14 +1,14 @@
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {Button} from '@/components/ui/button';
-import {Input} from '@/components/ui/input';
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
-import {Avatar, AvatarFallback} from '@/components/ui/avatar';
 import {Badge} from '@/components/ui/badge';
-import {useGameFlow} from '@/hooks/useGameFlow';
-import {websocketService} from '@/services/websocketService';
+import {Avatar, AvatarFallback} from '@/components/ui/avatar';
 import {MessageCircle, Send, Users} from 'lucide-react';
-import {ChatMessage} from '@/types/gameFlow';
-import {Player} from '@/store/gameStore';
+import {Input} from '@/components/ui/input';
+import type {ChatMessage} from '../../../services/websocketService';
+import type {Player} from '../../../store/gameStore';
+import {useGameStore} from '@/store/gameStore';
+import {websocketService} from '@/services/websocketService';
 
 interface GameChatProps {
   players: Player[];
@@ -26,12 +26,22 @@ export const GameChat: React.FC<GameChatProps> = ({
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isExpanded, setIsExpanded] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { sendChatMessage, loadChatHistory, chatMessages } = useGameFlow();
+  const messagesEndRef = React.useRef<HTMLDivElement>(null);
+  const { sendChatMessage, loadChatHistory, chatMessages } = useGameStore();
 
   // 채팅 메시지 동기화
   useEffect(() => {
-    setMessages(chatMessages);
+    // Convert websocket ChatMessage format to gameFlow ChatMessage format
+    const convertedMessages = chatMessages.map(msg => ({
+      id: msg.id,
+      gameNumber: parseInt(msg.gameId),
+      userId: parseInt(msg.playerId),
+      nickname: msg.playerName,
+      message: msg.message,
+      timestamp: msg.timestamp,
+      type: msg.type as 'CHAT' | 'SYSTEM'
+    }));
+    setMessages(convertedMessages);
   }, [chatMessages]);
 
   // 메시지 목록 끝으로 스크롤

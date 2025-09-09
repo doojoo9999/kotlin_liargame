@@ -1,5 +1,5 @@
 import {useEffect, useRef} from 'react';
-import {useAuthStore} from '../stores/authStore';
+import {useAuthStore} from '../store/authStore';
 
 // 세션 갱신 간격 (15분)
 const SESSION_REFRESH_INTERVAL = 15 * 60 * 1000;

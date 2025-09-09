@@ -101,6 +101,11 @@ export interface GameStateResponse {
   gameLiarCount: number;
   gameTotalRounds: number;
   gameCurrentRound: number;
+  gameMaxPlayers: number;
+  gameTopic?: string;
+  gameWord?: string;
+  currentTurnUserId?: number;
+  totalRounds: number;
   yourRole?: 'CITIZEN' | 'LIAR';
   yourWord?: string;
   accusedPlayer?: Player | null;
@@ -125,12 +130,13 @@ export interface ScoreboardEntry {
 }
 
 export interface GameMode {
+  id: string;
   name: string;
   description: string;
-  minPlayers: number;
-  maxPlayers: number;
-  roundTimeLimit: number;
-  liarCount: number;
+  minPlayers?: number;
+  maxPlayers?: number;
+  roundTimeLimit?: number;
+  liarCount?: number;
 }
 
 export interface CreateGameRequest {

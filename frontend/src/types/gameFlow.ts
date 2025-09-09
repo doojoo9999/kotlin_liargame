@@ -63,17 +63,6 @@ export interface GameResult {
     nickname: string;
     role: 'CITIZEN' | 'LIAR';
     isAlive: boolean;
-    isWinner: boolean;
-    score: number;
-  }[];
-  gameStatistics: {
-    totalRounds: number;
-    currentRound: number;
-    totalDuration: number;
-    averageRoundDuration: number;
-  };
-  reason: string;
-}
 
 // 라운드 종료 응답
 export interface RoundEndResponse {
