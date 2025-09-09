@@ -1,66 +1,78 @@
-import {useState, useEffect} from 'react'
-import {useNavigate} from 'react-router-dom'
-import {motion} from 'framer-motion'
-import {Button} from '@/components/ui/button'
-import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card'
-import {Input} from '@/components/ui/input'
-import {ArrowRight, User} from 'lucide-react'
-import {useLogin} from '@/hooks/useGameQueries'
-import {useToast} from '@/hooks/useToast'
-import {useAuthStore} from '@/stores/authStore'
+import React, {useState} from 'react';
+import {Navigate, useLocation, useNavigate} from 'react-router-dom';
+import {motion} from 'framer-motion';
+import {Button} from '@/components/ui/button';
+import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card';
+import {Input} from '@/components/ui/input';
+import {Label} from '@/components/ui/label';
+import {ArrowRight, Lock, User} from 'lucide-react';
+import {useToast} from '@/hooks/useToast';
+import {useAuthStore} from '@/stores/authStore';
 
 export function MainLoginPage() {
-  const [nickname, setNickname] = useState('')
-  const navigate = useNavigate()
-  const { toast } = useToast()
-  const { isAuthenticated } = useAuthStore()
-  
-  const loginMutation = useLogin()
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { toast } = useToast();
+  const { isAuthenticated, login } = useAuthStore();
 
-  // Redirect if already authenticated
-  useEffect(() => {
-    if (isAuthenticated) {
-      navigate('/lobby', { replace: true })
-    }
-  }, [isAuthenticated, navigate])
+  const [nickname, setNickname] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  // 이미 인증된 경우 리다이렉트
+  if (isAuthenticated) {
+    const from = location.state?.from?.pathname || '/lobby';
+    return <Navigate to={from} replace />;
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
+    e.preventDefault();
+
     if (!nickname.trim()) {
       toast({
-        title: "닉네임이 필요합니다",
-        description: "계속하려면 닉네임을 입력해주세요",
+        title: "닉네임 입력 오류",
+        description: "닉네임을 입력해주세요",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
 
-    try {
-      // 닉네임과 password null로 간단한 인증
-      await loginMutation.mutateAsync({ 
-        nickname: nickname.trim(),
-        password: null
-      })
-      
-      // 인증 상태 저장
-      useAuthStore.getState().login(nickname.trim())
-      
-      // 항상 로비로 리다이렉트
-      navigate('/lobby')
-      
+    if (!password.trim()) {
       toast({
-        title: "환영합니다!",
-        description: `${nickname}님으로 로그인되었습니다`,
-      })
-    } catch (error: any) {
+        title: "패스워드 입력 오류",
+        description: "패스워드를 입력해주세요",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      await login(nickname.trim(), password);
+
+      toast({
+        title: "로그인 성공",
+        description: `${nickname}님, 환영합니다!`,
+      });
+
+      const from = location.state?.from?.pathname || '/lobby';
+      navigate(from, { replace: true });
+
+    } catch (error: unknown) {
+      console.error('Login error:', error);
+
+      const errorMessage = error instanceof Error ? error.message : "로그인에 실패했습니다. 닉네임과 패스워드를 확인해주세요.";
+
       toast({
         title: "로그인 실패",
-        description: error.message || "로그인 중 오류가 발생했습니다",
+        description: errorMessage,
         variant: "destructive",
       })
+    } finally {
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <div
@@ -89,48 +101,76 @@ export function MainLoginPage() {
             >
               <User className="w-8 h-8 text-white" />
             </motion.div>
-            <CardTitle className="text-2xl font-bold">라이어 게임에 오신 것을 환영합니다</CardTitle>
+            <CardTitle className="text-2xl font-bold">라이어 게임</CardTitle>
             <CardDescription>
-              게임을 시작하려면 닉네임을 입력해주세요
+              닉네임과 패스워드를 입력해주세요
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
-                <label htmlFor="nickname" className="text-sm font-medium">
+                <Label htmlFor="nickname" className="text-sm font-medium">
                   닉네임
-                </label>
-                <Input
-                  id="nickname"
-                  type="text"
-                  placeholder="당신의 닉네임을 입력하세요"
-                  value={nickname}
-                  onChange={(e) => setNickname(e.target.value)}
-                  className="text-center text-lg"
-                  disabled={loginMutation.isPending}
-                  autoFocus
-                />
+                </Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="nickname"
+                    type="text"
+                    placeholder="닉네임을 입력하세요"
+                    value={nickname}
+                    onChange={(e) => setNickname(e.target.value)}
+                    className="pl-10"
+                    disabled={loading}
+                    autoComplete="username"
+                    autoFocus
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="password" className="text-sm font-medium">
+                  패스워드
+                </Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="패스워드를 입력하세요"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="pl-10"
+                    disabled={loading}
+                    autoComplete="current-password"
+                  />
+                </div>
               </div>
               
               <Button
                 type="submit"
                 className="w-full"
                 size="lg"
-                disabled={loginMutation.isPending || !nickname.trim()}
+                disabled={loading || !nickname.trim() || !password.trim()}
               >
-                {loginMutation.isPending ? (
+                {loading ? (
                   "로그인 중..."
                 ) : (
                   <>
-                    게임 시작하기
+                    로그인
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </>
                 )}
               </Button>
             </form>
+
+            <div className="mt-6 text-center text-sm text-gray-600">
+              <p>테스트 계정을 사용하시거나</p>
+              <p>새로운 닉네임과 패스워드로 가입하세요</p>
+            </div>
           </CardContent>
         </Card>
       </motion.div>
     </div>
-  )
+  );
 }

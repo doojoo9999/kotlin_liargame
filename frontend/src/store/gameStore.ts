@@ -1,6 +1,8 @@
-import {create} from 'zustand'
-import {devtools, persist} from 'zustand/middleware'
-import type {ChatMessage, ConnectionState} from '@/api/websocket'
+import {create} from 'zustand';
+import {devtools, persist} from 'zustand/middleware';
+import {gameService} from '../api/gameApi';
+import type {CreateGameRequest, GameMode, GameRoomInfo, GameStateResponse, JoinGameRequest} from '../types/game';
+import type {ChatMessage, ConnectionState} from '@/api/websocket';
 
 export interface Player {
   id: string
@@ -24,13 +26,22 @@ export interface GameTimer {
 export interface VotingState {
   isActive: boolean
   phase: 'LIAR_VOTE' | 'SURVIVAL_VOTE' | null
-  votes: Record<string, string> // playerId -> targetId
+  votes: Record<string, string>
   targetPlayerId?: string
   results?: {
     votes: Record<string, number>
     actualLiar?: string
     winners?: string[]
   }
+}
+
+export interface GameResults {
+  liarId: string
+  liarName: string
+  topic: string
+  votes: Record<string, number>
+  liarWon: boolean
+  roundScores: Record<string, number>
 }
 
 export interface GameState {
@@ -41,7 +52,7 @@ export interface GameState {
   players: Player[]
   currentPlayer: Player | null
   gamePhase: 'WAITING_FOR_PLAYERS' | 'SPEECH' | 'VOTING_FOR_LIAR' | 'DEFENDING' | 'VOTING_FOR_SURVIVAL' | 'GUESSING_WORD' | 'GAME_OVER'
-  
+
   // Game Settings
   maxPlayers: number
   timeLimit: number
@@ -49,25 +60,32 @@ export interface GameState {
   totalRounds: number
   currentTurnPlayerId?: string
   turnOrder: string[]
-  
+
   // Game Logic
   currentTopic: string | null
   currentWord: string | null
   currentLiar: string | null
   userVote: string | null
-  gameResults: any[] | null
-  
+  gameResults: GameResults[] | null
+
   // Real-time Features
   timer: GameTimer
   voting: VotingState
   chatMessages: ChatMessage[]
   typingPlayers: Set<string>
-  
+
   // Connection State
   connectionState: ConnectionState
   reconnectAttempts: number
   isLoading: boolean
   error: string | null
+
+  // 백엔드 API 연동을 위한 새로운 상태
+  gameList: GameRoomInfo[]
+  gameListLoading: boolean
+  gameListError: string | null
+  availableGameModes: GameMode[]
+  currentGameState: GameStateResponse | null
 }
 
 interface GameActions {
@@ -80,7 +98,7 @@ interface GameActions {
   addPlayer: (player: Player) => void
   removePlayer: (playerId: string) => void
   updatePlayer: (playerId: string, updates: Partial<Player>) => void
-  
+
   // Game Flow Actions
   setGamePhase: (phase: GameState['gamePhase']) => void
   setCurrentTopic: (topic: string) => void
@@ -89,46 +107,64 @@ interface GameActions {
   setCurrentTurnPlayer: (playerId: string) => void
   setTurnOrder: (order: string[]) => void
   setUserVote: (vote: string) => void
-  setGameResults: (results: any[]) => void
-  
+  setGameResults: (results: GameResults[]) => void
+
   // Timer Actions
   updateTimer: (timer: Partial<GameTimer>) => void
   startTimer: (totalTime: number, phase: string) => void
   stopTimer: () => void
-  
+
   // Voting Actions
   startVoting: (phase: 'LIAR_VOTE' | 'SURVIVAL_VOTE', targetPlayerId?: string) => void
   stopVoting: () => void
   addVote: (playerId: string, targetId: string) => void
   setVotingResults: (results: VotingState['results']) => void
-  
+
   // Chat Actions
   addChatMessage: (message: ChatMessage) => void
   setChatMessages: (messages: ChatMessage[]) => void
   clearChat: () => void
-  
+
   // Typing Indicators
   addTypingPlayer: (playerId: string) => void
   removeTypingPlayer: (playerId: string) => void
   clearTypingPlayers: () => void
-  
+
   // Connection Actions
   setConnectionState: (state: ConnectionState) => void
   setReconnectAttempts: (attempts: number) => void
-  
+
   // Settings Actions
   updateGameSettings: (settings: Partial<Pick<GameState, 'maxPlayers' | 'timeLimit' | 'totalRounds'>>) => void
-  
+
   // UI Actions
   setLoading: (loading: boolean) => void
   setError: (error: string | null) => void
-  
+
   // Reset Actions
   resetGame: () => void
   resetVote: () => void
-  
+
+  // 백엔드 API 연동 액션들
+  fetchGameList: (page?: number, size?: number) => Promise<void>
+  createGame: (gameData: CreateGameRequest) => Promise<GameStateResponse>
+  joinGame: (joinData: JoinGameRequest) => Promise<GameStateResponse>
+  leaveGame: () => Promise<void>
+  startGame: () => Promise<void>
+  toggleReady: () => Promise<void>
+  fetchGameModes: () => Promise<void>
+  refreshGameState: () => Promise<void>
+
+  // 상태 업데이트 액션들
+  setGameList: (games: GameRoomInfo[]) => void
+  setGameListLoading: (loading: boolean) => void
+  setGameListError: (error: string | null) => void
+  setAvailableGameModes: (modes: GameMode[]) => void
+  setCurrentGameState: (state: GameStateResponse) => void
+  updateFromGameState: (gameState: GameStateResponse) => void
+
   // WebSocket Event Handlers
-  handleGameStateUpdate: (update: any) => void
+  handleGameStateUpdate: (update: unknown) => void
   handlePlayerJoined: (player: Player) => void
   handlePlayerLeft: (playerId: string) => void
   handlePlayerReady: (playerId: string, ready: boolean) => void
@@ -147,20 +183,20 @@ const initialState: GameState = {
   players: [],
   currentPlayer: null,
   gamePhase: 'WAITING_FOR_PLAYERS',
-  
+
   maxPlayers: 6,
   timeLimit: 120,
   currentRound: 0,
   totalRounds: 3,
   currentTurnPlayerId: undefined,
   turnOrder: [],
-  
+
   currentTopic: null,
   currentWord: null,
   currentLiar: null,
   userVote: null,
   gameResults: null,
-  
+
   timer: {
     isActive: false,
     timeRemaining: 0,
@@ -175,11 +211,32 @@ const initialState: GameState = {
   },
   chatMessages: [],
   typingPlayers: new Set(),
-  
+
   connectionState: 'disconnected',
   reconnectAttempts: 0,
   isLoading: false,
   error: null,
+
+  // 백엔드 API 연동을 위한 새로운 상태
+  gameList: [],
+  gameListLoading: false,
+  gameListError: null,
+  availableGameModes: [],
+  currentGameState: null,
+}
+
+// 게임 상태 매핑 헬퍼 함수
+const mapGamePhase = (gameState: string): GameState['gamePhase'] => {
+  switch (gameState) {
+    case 'WAITING':
+      return 'WAITING_FOR_PLAYERS'
+    case 'IN_PROGRESS':
+      return 'SPEECH'
+    case 'ENDED':
+      return 'GAME_OVER'
+    default:
+      return 'WAITING_FOR_PLAYERS'
+  }
 }
 
 export const useGameStore = create<GameStore>()(
@@ -187,25 +244,25 @@ export const useGameStore = create<GameStore>()(
     persist(
       (set, get) => ({
         ...initialState,
-        
+
         // Session Actions
         setGameId: (gameId) => set({ gameId }),
         setGameNumber: (gameNumber) => set({ gameNumber }),
         setSessionCode: (sessionCode) => set({ sessionCode }),
         setCurrentPlayer: (currentPlayer) => set({ currentPlayer }),
         updatePlayers: (players) => set({ players }),
-        addPlayer: (player) => set((state) => ({ 
-          players: [...state.players, player] 
+        addPlayer: (player) => set((state) => ({
+          players: [...state.players, player]
         })),
-        removePlayer: (playerId) => set((state) => ({ 
-          players: state.players.filter(p => p.id !== playerId) 
+        removePlayer: (playerId) => set((state) => ({
+          players: state.players.filter(p => p.id !== playerId)
         })),
         updatePlayer: (playerId, updates) => set((state) => ({
-          players: state.players.map(p => 
+          players: state.players.map(p =>
             p.id === playerId ? { ...p, ...updates } : p
           )
         })),
-        
+
         // Game Flow Actions
         setGamePhase: (gamePhase) => set({ gamePhase }),
         setCurrentTopic: (currentTopic) => set({ currentTopic }),
@@ -215,7 +272,7 @@ export const useGameStore = create<GameStore>()(
         setTurnOrder: (turnOrder) => set({ turnOrder }),
         setUserVote: (userVote) => set({ userVote }),
         setGameResults: (gameResults) => set({ gameResults }),
-        
+
         // Timer Actions
         updateTimer: (timer) => set((state) => ({
           timer: { ...state.timer, ...timer }
@@ -231,7 +288,7 @@ export const useGameStore = create<GameStore>()(
         stopTimer: () => set((state) => ({
           timer: { ...state.timer, isActive: false }
         })),
-        
+
         // Voting Actions
         startVoting: (phase, targetPlayerId) => set({
           voting: {
@@ -254,14 +311,14 @@ export const useGameStore = create<GameStore>()(
         setVotingResults: (results) => set((state) => ({
           voting: { ...state.voting, results }
         })),
-        
+
         // Chat Actions
         addChatMessage: (message) => set((state) => ({
           chatMessages: [...state.chatMessages, message]
         })),
         setChatMessages: (chatMessages) => set({ chatMessages }),
         clearChat: () => set({ chatMessages: [] }),
-        
+
         // Typing Indicators
         addTypingPlayer: (playerId) => set((state) => ({
           typingPlayers: new Set([...state.typingPlayers, playerId])
@@ -272,85 +329,226 @@ export const useGameStore = create<GameStore>()(
           return { typingPlayers: newSet }
         }),
         clearTypingPlayers: () => set({ typingPlayers: new Set() }),
-        
+
         // Connection Actions
         setConnectionState: (connectionState) => set({ connectionState }),
         setReconnectAttempts: (reconnectAttempts) => set({ reconnectAttempts }),
-        
+
         // Settings Actions
         updateGameSettings: (settings) => set((state) => ({ ...state, ...settings })),
-        
+
         // UI Actions
         setLoading: (isLoading) => set({ isLoading }),
         setError: (error) => set({ error }),
-        
+
         // Reset Actions
         resetGame: () => set({ ...initialState, typingPlayers: new Set() }),
         resetVote: () => set({ userVote: null }),
-        
-        // WebSocket Event Handlers
-        handleGameStateUpdate: (update) => set((state) => {
-          const newState: Partial<GameState> = {}
-          
-          if (update.gameState) newState.gamePhase = update.gameState
-          if (update.players) newState.players = update.players
-          if (update.currentRound !== undefined) newState.currentRound = update.currentRound
-          if (update.currentTurnPlayerId) newState.currentTurnPlayerId = update.currentTurnPlayerId
-          if (update.timeRemaining !== undefined) {
-            newState.timer = {
-              ...state.timer,
-              timeRemaining: update.timeRemaining,
-              isActive: update.timeRemaining > 0
-            }
-          }
-          
-          return newState
-        }),
-        
-        handlePlayerJoined: (player) => {
-          const state = get()
-          if (!state.players.find(p => p.id === player.id)) {
-            set((state) => ({ players: [...state.players, player] }))
+
+        // 백엔드 API 연동 액션들
+        fetchGameList: async (page = 0, size = 10) => {
+          set({ gameListLoading: true, gameListError: null })
+          try {
+            const response = await gameService.getGameList(page, size)
+            set({ gameList: response.games, gameListLoading: false })
+          } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Failed to fetch game list'
+            set({ gameListLoading: false, gameListError: errorMessage })
           }
         },
-        
-        handlePlayerLeft: (playerId) => set((state) => ({
-          players: state.players.filter(p => p.id !== playerId)
-        })),
-        
-        handlePlayerReady: (playerId, ready) => set((state) => ({
-          players: state.players.map(p => 
-            p.id === playerId ? { ...p, isReady: ready } : p
-          )
-        })),
-        
-        handlePhaseChange: (phase) => set({ gamePhase: phase }),
-        
-        handleTimerUpdate: (timeRemaining) => set((state) => ({
-          timer: {
-            ...state.timer,
-            timeRemaining,
-            isActive: timeRemaining > 0
+
+        createGame: async (gameData) => {
+          set({ isLoading: true, error: null })
+          try {
+            const gameState = await gameService.createGame(gameData)
+            set({
+              isLoading: false,
+              currentGameState: gameState,
+              gameNumber: gameState.gameNumber,
+              gameId: gameState.gameNumber.toString()
+            })
+            get().updateFromGameState(gameState)
+            return gameState
+          } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Failed to create game'
+            set({ isLoading: false, error: errorMessage })
+            throw error
           }
-        })),
-        
-        handleVoteUpdate: (votes) => set((state) => ({
-          voting: { ...state.voting, votes }
-        })),
-        
-        handleChatMessage: (message) => set((state) => ({
-          chatMessages: [...state.chatMessages, message]
-        })),
+        },
+
+        joinGame: async (joinData) => {
+          set({ isLoading: true, error: null })
+          try {
+            const gameState = await gameService.joinGame(joinData)
+            set({
+              isLoading: false,
+              currentGameState: gameState,
+              gameNumber: gameState.gameNumber,
+              gameId: gameState.gameNumber.toString()
+            })
+            get().updateFromGameState(gameState)
+            return gameState
+          } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Failed to join game'
+            set({ isLoading: false, error: errorMessage })
+            throw error
+          }
+        },
+
+        leaveGame: async () => {
+          const { gameNumber } = get()
+          if (!gameNumber) return
+
+          set({ isLoading: true, error: null })
+          try {
+            await gameService.leaveGame(gameNumber)
+            set({ isLoading: false })
+            get().resetGame()
+          } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Failed to leave game'
+            set({ isLoading: false, error: errorMessage })
+            throw error
+          }
+        },
+
+        startGame: async () => {
+          const { gameNumber } = get()
+          if (!gameNumber) return
+
+          set({ isLoading: true, error: null })
+          try {
+            const gameState = await gameService.startGame(gameNumber)
+            set({ isLoading: false, currentGameState: gameState })
+            get().updateFromGameState(gameState)
+          } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Failed to start game'
+            set({ isLoading: false, error: errorMessage })
+            throw error
+          }
+        },
+
+        toggleReady: async () => {
+          const { gameNumber } = get()
+          if (!gameNumber) return
+
+          set({ isLoading: true, error: null })
+          try {
+            const gameState = await gameService.toggleReady(gameNumber)
+            set({ isLoading: false, currentGameState: gameState })
+            get().updateFromGameState(gameState)
+          } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Failed to toggle ready state'
+            set({ isLoading: false, error: errorMessage })
+            throw error
+          }
+        },
+
+        fetchGameModes: async () => {
+          try {
+            const modes = await gameService.getAvailableGameModes()
+            set({ availableGameModes: modes })
+          } catch (error) {
+            console.error('Failed to fetch game modes:', error)
+          }
+        },
+
+        refreshGameState: async () => {
+          const { gameNumber } = get()
+          if (!gameNumber) return
+
+          try {
+            const gameState = await gameService.getGameState(gameNumber)
+            set({ currentGameState: gameState })
+            get().updateFromGameState(gameState)
+          } catch (error) {
+            console.error('Failed to refresh game state:', error)
+          }
+        },
+
+        // 상태 업데이트 액션들
+        setGameList: (gameList) => set({ gameList }),
+        setGameListLoading: (gameListLoading) => set({ gameListLoading }),
+        setGameListError: (gameListError) => set({ gameListError }),
+        setAvailableGameModes: (availableGameModes) => set({ availableGameModes }),
+        setCurrentGameState: (currentGameState) => set({ currentGameState }),
+
+        updateFromGameState: (gameState) => {
+          const mappedPlayers = gameState.players.map(p => ({
+            id: p.userId.toString(),
+            nickname: p.nickname,
+            isReady: p.isReady,
+            isHost: p.isHost,
+            isOnline: true,
+            isAlive: p.isAlive,
+            role: p.role?.toLowerCase() as 'civilian' | 'liar' | undefined,
+          }))
+
+          set({
+            gamePhase: mapGamePhase(gameState.gameState),
+            players: mappedPlayers,
+            currentRound: gameState.currentRound,
+            totalRounds: gameState.maxRounds,
+            maxPlayers: gameState.maxPlayers,
+            currentTopic: gameState.currentTopic,
+            currentWord: gameState.currentWord,
+            currentTurnPlayerId: gameState.currentTurnPlayerId?.toString(),
+          })
+        },
+
+        // WebSocket Event Handlers
+        handleGameStateUpdate: (update: any) => {
+          console.log('Game state update received:', update)
+          if (update.gameState) {
+            get().updateFromGameState(update.gameState)
+          }
+        },
+
+        handlePlayerJoined: (player) => {
+          get().addPlayer(player)
+        },
+
+        handlePlayerLeft: (playerId) => {
+          get().removePlayer(playerId)
+        },
+
+        handlePlayerReady: (playerId, ready) => {
+          get().updatePlayer(playerId, { isReady: ready })
+        },
+
+        handlePhaseChange: (phase) => {
+          get().setGamePhase(phase)
+        },
+
+        handleTimerUpdate: (timeRemaining) => {
+          set((state) => ({
+            timer: { ...state.timer, timeRemaining }
+          }))
+        },
+
+        handleVoteUpdate: (votes) => {
+          set((state) => ({
+            voting: { ...state.voting, votes }
+          }))
+        },
+
+        handleChatMessage: (message) => {
+          get().addChatMessage(message)
+        },
       }),
       {
-        name: 'liar-game-store',
-        partialize: (state) => ({ 
-          currentPlayer: state.currentPlayer,
+        name: 'game-store',
+        partialize: (state) => ({
           gameId: state.gameId,
           gameNumber: state.gameNumber,
-          sessionCode: state.sessionCode
+          sessionCode: state.sessionCode,
+          maxPlayers: state.maxPlayers,
+          timeLimit: state.timeLimit,
+          totalRounds: state.totalRounds,
         }),
       }
-    )
+    ),
+    {
+      name: 'game-store',
+    }
   )
 )
