@@ -15,6 +15,8 @@ import {useToast} from '@/hooks/useToast'
 import type {Player} from '../components'
 import {CompactTimer, DefenseTimer, DiscussionTimer, GamePlayerCard} from '../components'
 import {VotingPanel} from '@/components/game/VotingPanel/VotingPanel'
+import {useVotingStatus} from '@/hooks/useRealtime'
+import {VotingStatusPanel} from '@/components/game/StatusPanels/VotingStatusPanel'
 
 type GamePhase = 'topic' | 'discussion' | 'voting' | 'defense' | 'results'
 
@@ -42,12 +44,16 @@ export function MainGamePage() {
   const [defenseAnswer, setDefenseAnswer] = useState('')
   const [showTopicDialog, setShowTopicDialog] = useState(true)
 
+  // 투표 현황 (roomId가 숫자인 경우만 폴링)
+  const gameNumberParam = roomId && !isNaN(Number(roomId)) ? Number(roomId) : null
+  const { data: votingStatus } = useVotingStatus(gameNumberParam)
+
   // Mock data for demo
-  const mockTopic = currentTopic || 'ANIMALS'
+  const mockTopic = currentTopic || '동물'
   const mockPlayers: Player[] = [
     {
       id: '1',
-      nickname: 'You',
+      nickname: '나',
       isHost: false,
       isReady: true,
       isOnline: true,
@@ -60,7 +66,7 @@ export function MainGamePage() {
       isHost: true,
       isReady: true,
       isOnline: true,
-      hasVoted: localPhase === 'voting' ? true : false
+      hasVoted: localPhase === 'voting'
     },
     {
       id: '3',
@@ -68,7 +74,7 @@ export function MainGamePage() {
       isHost: false,
       isReady: true,
       isOnline: true,
-      hasVoted: localPhase === 'voting' ? false : false
+      hasVoted: false
     },
     {
       id: '4',
@@ -76,14 +82,13 @@ export function MainGamePage() {
       isHost: false,
       isReady: true,
       isOnline: true,
-      hasVoted: localPhase === 'voting' ? true : false
+      hasVoted: localPhase === 'voting'
     }
   ]
 
   const currentPlayers = players.length > 0 ? players : mockPlayers
   const isLiar = currentLiar === currentPlayer?.id
 
-  // Queries and mutations
   const { } = useGameStatus(gameId)
   const voteMutation = useVote()
   const submitAnswerMutation = useSubmitAnswer()
@@ -135,14 +140,14 @@ export function MainGamePage() {
       await voteMutation.mutateAsync({ suspectedLiarId: selectedVote })
       setUserVote(selectedVote)
       toast({
-        title: "Vote submitted!",
-        description: "Waiting for other players to vote"
+        title: '투표가 제출되었습니다!',
+        description: '다른 플레이어의 투표를 기다리는 중입니다.'
       })
     } catch (error: any) {
       toast({
-        title: "Failed to submit vote",
+        title: '투표 제출 실패',
         description: error.message,
-        variant: "destructive"
+        variant: 'destructive'
       })
     }
   }
@@ -150,9 +155,9 @@ export function MainGamePage() {
   const handleSubmitDefense = async () => {
     if (!defenseAnswer.trim()) {
       toast({
-        title: "Please enter your answer",
-        description: "You need to guess what the topic was",
-        variant: "destructive"
+        title: '답변을 입력해주세요',
+        description: '주제가 무엇이었는지 추측을 입력해야 합니다.',
+        variant: 'destructive'
       })
       return
     }
@@ -160,15 +165,15 @@ export function MainGamePage() {
     try {
       await submitAnswerMutation.mutateAsync({ answer: defenseAnswer })
       toast({
-        title: "Answer submitted!",
-        description: "Your defense has been recorded"
+        title: '답변이 제출되었습니다!',
+        description: '변명이 기록되었습니다.'
       })
       setLocalPhase('results')
     } catch (error: any) {
       toast({
-        title: "Failed to submit answer",
+        title: '답변 제출 실패',
         description: error.message,
-        variant: "destructive"
+        variant: 'destructive'
       })
     }
   }
@@ -189,42 +194,59 @@ export function MainGamePage() {
   const handleLeaveGame = () => {
     navigate('/lobby')
     toast({
-      title: "Left game",
-      description: "You have left the game"
+      title: '게임에서 나감',
+      description: '게임에서 나갔습니다'
     })
   }
 
   const getPhaseTitle = () => {
     switch (localPhase) {
       case 'topic':
-        return 'Receiving Topic...'
+        return '주제를 확인하는 중...'
       case 'discussion':
-        return 'Discussion Phase'
+        return '토론 단계'
       case 'voting':
-        return 'Voting Phase'
+        return '투표 단계'
       case 'defense':
-        return 'Defense Phase'
+        return '변명 단계'
       case 'results':
-        return 'Round Results'
+        return '라운드 결과'
       default:
-        return 'Game'
+        return '게임'
     }
   }
 
   const getPhaseDescription = () => {
     switch (localPhase) {
       case 'topic':
-        return 'Get ready to see your topic!'
+        return '곧 당신의 주제가 공개됩니다!'
       case 'discussion':
         return isLiar 
-          ? 'Blend in! Try to figure out what the topic is and act natural'
-          : 'Talk about your topic and try to figure out who\'s the liar!'
+          ? '자연스럽게 섞이세요! 대화를 들으며 주제가 무엇인지 파악해 보세요.'
+          : '주제에 대해 자연스럽게 이야기하며 누가 라이어인지 찾아보세요.'
       case 'voting':
-        return 'Time to vote! Who do you think is the liar?'
+        return '이제 투표 시간입니다! 누가 라이어라고 생각하나요?'
       case 'defense':
-        return 'Liar\'s chance! Guess what the topic was to earn points'
+        return '라이어의 기회! 점수를 얻기 위해 주제를 맞혀 보세요.'
       case 'results':
-        return 'Let\'s see how everyone did this round'
+        return '이번 라운드에서 모두가 어떻게 했는지 확인해 봅시다.'
+      default:
+        return ''
+    }
+  }
+
+  const getPhaseBadgeLabel = () => {
+    switch (localPhase) {
+      case 'topic':
+        return '주제'
+      case 'discussion':
+        return '토론'
+      case 'voting':
+        return '투표'
+      case 'defense':
+        return '변명'
+      case 'results':
+        return '결과'
       default:
         return ''
     }
@@ -241,18 +263,25 @@ export function MainGamePage() {
         <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground">
           <span className="flex items-center gap-1">
             <Users className="h-4 w-4" />
-            Round {currentRound || 1} of {totalRounds}
+            라운드 {currentRound || 1} / {totalRounds}
           </span>
           <span className="flex items-center gap-1">
             <Target className="h-4 w-4" />
-            {currentPlayers.length} players
+            {currentPlayers.length}명 플레이어
           </span>
         </div>
-        
+
+        {/* 투표 현황 패널 (옵션) */}
+        {votingStatus && (
+          <div className="max-w-3xl mx-auto">
+            <VotingStatusPanel status={votingStatus} />
+          </div>
+        )}
+
         <div className="space-y-2">
           <div className="flex items-center justify-center gap-2">
             <h1 className="text-2xl font-bold">{getPhaseTitle()}</h1>
-            <Badge variant="outline">{localPhase}</Badge>
+            <Badge variant="outline">{getPhaseBadgeLabel()}</Badge>
           </div>
           <p className="text-muted-foreground max-w-2xl mx-auto text-sm">
             {getPhaseDescription()}
@@ -272,12 +301,12 @@ export function MainGamePage() {
                 <DialogContent className="max-w-md">
                   <DialogHeader className="text-center">
                     <DialogTitle className="text-2xl">
-                      {isLiar ? 'You are the LIAR!' : 'Your Topic'}
+                      {isLiar ? '당신은 라이어입니다!' : '당신의 주제'}
                     </DialogTitle>
                     <DialogDescription>
                       {isLiar 
-                        ? 'Try to blend in and figure out what the topic is'
-                        : 'Discuss this topic naturally, but don\'t be too obvious!'
+                        ? '자연스럽게 섞이며 대화를 들으면서 주제가 무엇인지 파악해 보세요.'
+                        : '이 주제에 대해 자연스럽게 이야기하세요. 너무 노골적이지 않게!'
                       }
                     </DialogDescription>
                   </DialogHeader>
@@ -288,14 +317,14 @@ export function MainGamePage() {
                         ? 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300'
                         : 'bg-primary/10 text-primary'
                     }`}>
-                      {isLiar ? 'LIAR' : mockTopic}
+                      {isLiar ? '라이어' : mockTopic}
                     </div>
-                    
+
                     {isLiar && (
                       <Alert>
                         <Target className="h-4 w-4" />
                         <AlertDescription>
-                          Listen carefully to figure out the topic. You'll get a chance to guess later!
+                          대화를 잘 듣고 주제를 파악하세요. 나중에 맞힐 기회가 있어요!
                         </AlertDescription>
                       </Alert>
                     )}
@@ -326,11 +355,11 @@ export function MainGamePage() {
               {/* Discussion Instructions */}
               <Card className="max-w-2xl mx-auto">
                 <CardHeader className="text-center">
-                  <CardTitle className="text-xl">Discussion Time!</CardTitle>
+                  <CardTitle className="text-xl">토론 시간!</CardTitle>
                   <CardDescription>
                     {isLiar 
-                      ? 'Listen carefully to the conversation and try to figure out what the topic is. Blend in naturally!'
-                      : 'Discuss the topic with other players. Try to identify who doesn\'t know what they\'re talking about!'
+                      ? '대화를 주의 깊게 듣고 주제가 무엇인지 파악해 보세요. 자연스럽게 섞이세요!'
+                      : '다른 플레이어들과 주제에 대해 이야기하세요. 누가 주제를 모르는지 찾아보세요!'
                     }
                   </CardDescription>
                 </CardHeader>
@@ -338,8 +367,8 @@ export function MainGamePage() {
                   <div className="bg-muted/30 rounded-lg p-6">
                     <MessageCircle className="h-8 w-8 mx-auto mb-3 text-muted-foreground" />
                     <p className="text-sm text-muted-foreground">
-                      Use the chat on the right to communicate with other players.<br/>
-                      {isLiar ? 'Your goal: Figure out the topic and avoid detection!' : 'Your goal: Find the liar among you!'}
+                      오른쪽 채팅을 사용해 다른 플레이어와 소통하세요.<br/>
+                      {isLiar ? '목표: 주제를 파악하고 들키지 마세요!' : '목표: 라이어를 찾아내세요!'}
                     </p>
                   </div>
                 </CardContent>
@@ -378,14 +407,14 @@ export function MainGamePage() {
                   <div className="w-12 h-12 rounded-full bg-yellow-100 dark:bg-yellow-900 flex items-center justify-center mx-auto mb-2">
                     <Shield className="h-6 w-6 text-yellow-600 dark:text-yellow-400" />
                   </div>
-                  <CardTitle>Liar's Defense</CardTitle>
+                  <CardTitle>라이어의 변명</CardTitle>
                   <CardDescription>
-                    You've been caught! Guess what the topic was to earn points
+                    정체가 들켰습니다! 점수를 얻기 위해 주제를 맞혀 보세요.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <Textarea
-                    placeholder="What do you think the topic was?"
+                    placeholder="주제가 무엇이었는지 추측해 보세요"
                     value={defenseAnswer}
                     onChange={(e) => setDefenseAnswer(e.target.value)}
                     className="min-h-24"
@@ -395,7 +424,7 @@ export function MainGamePage() {
                     disabled={submitAnswerMutation.isPending || !defenseAnswer.trim()}
                     className="w-full"
                   >
-                    {submitAnswerMutation.isPending ? 'Submitting...' : 'Submit Answer'}
+                    {submitAnswerMutation.isPending ? '제출 중...' : '답변 제출'}
                   </Button>
                 </CardContent>
               </Card>
@@ -410,9 +439,9 @@ export function MainGamePage() {
                   <div className="w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center mx-auto mb-4">
                     <Shield className="h-8 w-8 text-blue-600 dark:text-blue-400" />
                   </div>
-                  <h3 className="text-lg font-semibold mb-2">Defense Phase</h3>
+                  <h3 className="text-lg font-semibold mb-2">변명 단계</h3>
                   <p className="text-muted-foreground">
-                    The liar is making their defense. Hang tight!
+                    라이어가 변명을 제출하는 중입니다. 잠시만 기다려주세요.
                   </p>
                   <CompactTimer
                     duration={30}
@@ -432,53 +461,53 @@ export function MainGamePage() {
                   <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center mx-auto mb-3">
                     <CheckCircle className="h-8 w-8 text-green-600 dark:text-green-400" />
                   </div>
-                  <CardTitle className="text-2xl">Round Complete!</CardTitle>
+                  <CardTitle className="text-2xl">라운드 종료!</CardTitle>
                   <CardDescription>
-                    Here's how everyone did this round
+                    이번 라운드 결과입니다
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="text-center space-y-6">
                   <div>
                     <p className="text-lg mb-2">
-                      The liar was: <strong>Bob</strong>
+                      라이어: <strong>Bob</strong>
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      Topic: <span className="font-medium">{mockTopic}</span>
+                      주제: <span className="font-medium">{mockTopic}</span>
                     </p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4 text-center">
                     <div>
                       <div className="text-2xl font-bold text-green-600 dark:text-green-400">3</div>
-                      <div className="text-sm text-muted-foreground">Correct Votes</div>
+                      <div className="text-sm text-muted-foreground">정답 투표</div>
                     </div>
                     <div>
                       <div className="text-2xl font-bold text-red-600 dark:text-red-400">1</div>
-                      <div className="text-sm text-muted-foreground">Wrong Votes</div>
+                      <div className="text-sm text-muted-foreground">오답 투표</div>
                     </div>
                   </div>
 
                   <div className="flex gap-3 justify-center">
                     {currentRound < totalRounds ? (
                       <Button onClick={handleNextRound}>
-                        Next Round
+                        다음 라운드
                       </Button>
                     ) : (
                       <Button onClick={handleEndGame}>
-                        View Final Results
+                        최종 결과 보기
                       </Button>
                     )}
                     <Button variant="outline" onClick={handleLeaveGame}>
                       <LogOut className="h-4 w-4 mr-2" />
-                      Leave Game
+                      게임 나가기
                     </Button>
                   </div>
                 </CardContent>
               </Card>
             </div>
           )}
-              </motion.div>
-            </AnimatePresence>
+                </motion.div>
+              </AnimatePresence>
             </div>
           </ScrollArea>
         </div>
@@ -492,11 +521,11 @@ export function MainGamePage() {
                 <CardContent className="p-4 text-center">
                   <div className="flex items-center justify-center gap-2 mb-2">
                     <Eye className="h-4 w-4 text-primary" />
-                    <span className="text-sm font-medium">Your Topic</span>
+                    <span className="text-sm font-medium">나의 주제</span>
                   </div>
                   <div className="text-xl font-bold text-primary">{mockTopic}</div>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Discuss naturally!
+                    자연스럽게 대화하세요!
                   </p>
                 </CardContent>
               </Card>
@@ -506,11 +535,11 @@ export function MainGamePage() {
                 <CardContent className="p-4 text-center">
                   <div className="flex items-center justify-center gap-2 mb-2">
                     <EyeOff className="h-4 w-4 text-red-600 dark:text-red-400" />
-                    <span className="text-sm font-medium text-red-700 dark:text-red-300">You're the Liar</span>
+                    <span className="text-sm font-medium text-red-700 dark:text-red-300">당신은 라이어입니다</span>
                   </div>
-                  <div className="text-lg font-bold text-red-700 dark:text-red-300">Listen & Blend In</div>
+                  <div className="text-lg font-bold text-red-700 dark:text-red-300">잘 듣고 자연스럽게 섞이세요</div>
                   <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-                    Figure out the topic!
+                    주제를 파악하세요!
                   </p>
                 </CardContent>
               </Card>
@@ -518,7 +547,7 @@ export function MainGamePage() {
             {(localPhase === 'voting' || localPhase === 'defense' || localPhase === 'results') && (
               <Card className="bg-muted/30">
                 <CardContent className="p-4 text-center">
-                  <div className="text-sm font-medium text-muted-foreground mb-1">Topic was</div>
+                  <div className="text-sm font-medium text-muted-foreground mb-1">주제는 다음이었습니다</div>
                   <div className="text-lg font-bold">{mockTopic}</div>
                 </CardContent>
               </Card>
@@ -531,7 +560,7 @@ export function MainGamePage() {
               <CardHeader className="pb-2 shrink-0">
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <MessageCircle className="h-5 w-5" />
-                  Discussion Chat
+                  토론 채팅
                 </CardTitle>
               </CardHeader>
               <CardContent className="flex-1 overflow-hidden p-3">
@@ -539,10 +568,10 @@ export function MainGamePage() {
                   <div className="space-y-2 text-sm">
                     <div className="bg-muted/50 rounded-lg p-8 text-center text-muted-foreground">
                       <MessageCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                      <p className="font-medium mb-2">Real-time Discussion</p>
+                      <p className="font-medium mb-2">실시간 토론</p>
                       <p className="text-xs">
-                        Players will discuss the topic here.<br/>
-                        Chat integration coming soon.
+                        플레이어들이 여기서 대화합니다.<br/>
+                        채팅 연동은 곧 제공될 예정입니다.
                       </p>
                     </div>
                   </div>
@@ -558,7 +587,7 @@ export function MainGamePage() {
                 <CardHeader className="pb-2">
                   <CardTitle className="flex items-center gap-2 text-base">
                     <Users className="h-4 w-4" />
-                    Players ({currentPlayers.length})
+                    플레이어 ({currentPlayers.length})
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-3">
