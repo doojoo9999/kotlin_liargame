@@ -1,12 +1,14 @@
 import React, {useMemo} from 'react'
-import type {ConnectionStatusResponse, PlayerConnectionStatus} from '@/types/realtime'
+import type {PlayerConnectionStatus} from '@/types/realtime'
+import {useRealtimeConnectionStatus} from '@/hooks/useRealtimeGameStatus'
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card'
 import {Badge} from '@/components/ui/badge'
 import {Progress} from '@/components/ui/progress'
-import {Plug, PlugZap, Timer} from 'lucide-react'
+import {AlertCircle, Plug, PlugZap, Timer} from 'lucide-react'
+import {Alert, AlertDescription} from '@/components/ui/alert'
 
 export interface ConnectionStatusPanelProps {
-  status?: ConnectionStatusResponse
+  gameNumber: number
   showList?: boolean
 }
 
@@ -30,7 +32,13 @@ function StatePill({ s }: { s: PlayerConnectionStatus }) {
   )
 }
 
-export const ConnectionStatusPanel: React.FC<ConnectionStatusPanelProps> = ({ status, showList = true }) => {
+export const ConnectionStatusPanel: React.FC<ConnectionStatusPanelProps> = ({ 
+  gameNumber, 
+  showList = true 
+}) => {
+  const { connectionStatus, error } = useRealtimeConnectionStatus(gameNumber)
+  const status = connectionStatus
+
   const pct = useMemo(() => {
     if (!status) return 0
     if (status.totalCount === 0) return 0
@@ -39,8 +47,8 @@ export const ConnectionStatusPanel: React.FC<ConnectionStatusPanelProps> = ({ st
 
   return (
     <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-base">
+      <CardHeader className="pb-2 sm:pb-3">
+        <CardTitle className="flex items-center gap-2 text-sm sm:text-base">
           <Plug className="h-4 w-4" />
           연결 상태
           <Badge variant="secondary" className="ml-2">
@@ -49,9 +57,18 @@ export const ConnectionStatusPanel: React.FC<ConnectionStatusPanelProps> = ({ st
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        <Progress value={pct} />
+        {error && (
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        <Progress 
+          value={pct} 
+          aria-label={`연결 상태: ${status?.connectedCount ?? 0}명 중 ${status?.totalCount ?? 0}명 연결됨`}
+        />
         {showList && (
-          <div className="space-y-2 text-sm">
+          <div className="space-y-2 text-xs sm:text-sm">
             {(status?.playerStatuses ?? []).map((p) => (
               <div key={p.playerId} className="flex items-center justify-between">
                 <div className="flex items-center gap-2">

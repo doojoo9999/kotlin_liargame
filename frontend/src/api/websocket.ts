@@ -14,7 +14,15 @@ export interface WebSocketEvents {
   PLAYER_LEFT: 'player_left'
   PLAYER_READY: 'player_ready'
   PLAYER_UNREADY: 'player_unready'
+  PLAYER_READY_UPDATE: 'player_ready_update'
   ROOM_SETTINGS_UPDATED: 'room_settings_updated'
+  
+  // Enhanced Game Events
+  COUNTDOWN_STARTED: 'countdown_started'
+  COUNTDOWN_CANCELLED: 'countdown_cancelled'
+  CONNECTION_STATUS_UPDATE: 'connection_status_update'
+  VOTING_PROGRESS: 'voting_progress'
+  PLAYER_RECONNECTED: 'player_reconnected'
   
   // Game Flow Events
   GAME_START: 'game_start'
