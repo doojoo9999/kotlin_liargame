@@ -1,12 +1,10 @@
 package org.example.kotlin_liargame.domain.game.service
 
-import jakarta.servlet.http.HttpSession
 import org.example.kotlin_liargame.domain.game.dto.response.VotingStatusResponse
 import org.example.kotlin_liargame.domain.game.model.enum.GameState
 import org.example.kotlin_liargame.domain.game.repository.GameRepository
 import org.example.kotlin_liargame.domain.game.repository.PlayerRepository
 import org.example.kotlin_liargame.global.exception.GameNotFoundException
-import org.example.kotlin_liargame.global.session.SessionService
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -14,15 +12,8 @@ import org.springframework.transaction.annotation.Transactional
 @Transactional
 class EnhancedVotingService(
     private val gameRepository: GameRepository,
-    private val playerRepository: PlayerRepository,
-    private val votingService: VotingService,
-    private val sessionService: SessionService
+    private val playerRepository: PlayerRepository
 ) {
-    fun submitVote(gameNumber: Int, targetPlayerId: Long, session: HttpSession): org.example.kotlin_liargame.domain.game.dto.response.VoteResponse {
-        val userId = sessionService.getCurrentUserId(session)
-        return votingService.castVote(gameNumber, userId, targetPlayerId)
-    }
-
     fun getVotingStatus(gameNumber: Int): VotingStatusResponse {
         val game = gameRepository.findByGameNumber(gameNumber)
             ?: throw GameNotFoundException(gameNumber)
@@ -50,4 +41,3 @@ class EnhancedVotingService(
         )
     }
 }
-
