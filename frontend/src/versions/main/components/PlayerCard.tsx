@@ -117,7 +117,7 @@ export function PlayerCard({
                 {/* Current User Badge */}
                 {player.isCurrentUser && (
                   <Badge variant="outline" className="text-xs px-1.5 py-0.5">
-                    You
+                    나
                   </Badge>
                 )}
 
@@ -125,7 +125,7 @@ export function PlayerCard({
                 {player.isLiar && variant === 'results' && (
                   <Badge variant="destructive" className="text-xs px-1.5 py-0.5">
                     <Target className="h-3 w-3 mr-1" />
-                    Liar
+                    라이어
                   </Badge>
                 )}
               </div>
@@ -138,12 +138,12 @@ export function PlayerCard({
                     {player.isReady ? (
                       <>
                         <Check className="h-3 w-3 text-green-500" />
-                        <span className="text-xs text-green-600 dark:text-green-400">Ready</span>
+                        <span className="text-xs text-green-600 dark:text-green-400">준비됨</span>
                       </>
                     ) : (
                       <>
                         <X className="h-3 w-3 text-yellow-500" />
-                        <span className="text-xs text-yellow-600 dark:text-yellow-400">Not Ready</span>
+                        <span className="text-xs text-yellow-600 dark:text-yellow-400">준비 안 됨</span>
                       </>
                     )}
                   </div>
@@ -153,7 +153,7 @@ export function PlayerCard({
                 {variant === 'game' && (
                   <div className="flex items-center space-x-1">
                     <Eye className="h-3 w-3 text-muted-foreground" />
-                    <span className="text-xs text-muted-foreground">In Game</span>
+                    <span className="text-xs text-muted-foreground">게임 중</span>
                   </div>
                 )}
 
@@ -163,12 +163,12 @@ export function PlayerCard({
                     {player.hasVoted ? (
                       <>
                         <Check className="h-3 w-3 text-green-500" />
-                        <span className="text-xs text-green-600 dark:text-green-400">Voted</span>
+                        <span className="text-xs text-green-600 dark:text-green-400">투표 완료</span>
                       </>
                     ) : (
                       <>
                         <EyeOff className="h-3 w-3 text-muted-foreground" />
-                        <span className="text-xs text-muted-foreground">Thinking...</span>
+                        <span className="text-xs text-muted-foreground">생각 중...</span>
                       </>
                     )}
                   </div>
@@ -177,7 +177,7 @@ export function PlayerCard({
                 {/* Results Variant - Vote Count */}
                 {variant === 'results' && showVoteCount && typeof player.votes === 'number' && (
                   <Badge variant="secondary" className="text-xs">
-                    {player.votes} vote{player.votes !== 1 ? 's' : ''}
+                    {player.votes}표
                   </Badge>
                 )}
               </div>
