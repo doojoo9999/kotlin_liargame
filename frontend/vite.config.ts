@@ -1,49 +1,61 @@
+import path from "path"
 import {defineConfig} from 'vite'
 import react from '@vitejs/plugin-react'
-import {resolve} from 'path'
+import { visualizer } from 'rollup-plugin-visualizer'
 
-// https://vitejs.dev/config/
+// https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
-  define: {
-    global: 'globalThis',
-  },
+  plugins: [
+    react(),
+    // Bundle analyzer - only in analyze mode
+    ...(process.env.ANALYZE ? [visualizer({
+      filename: 'dist/stats.html',
+      open: true,
+      gzipSize: true,
+      brotliSize: true,
+    })] : [])
+  ],
   resolve: {
     alias: {
-      "@": resolve(process.cwd(), "./src"),
-      "@/lib": resolve(process.cwd(), "./src/versions/main/lib"),
-      "@/shared": resolve(process.cwd(), "./src/shared"),
-      "@/main": resolve(process.cwd(), "./src/versions/main"),
-      "@/light": resolve(process.cwd(), "./src/versions/light"),
+      "@": path.resolve(__dirname, "./src"),
     },
   },
   build: {
+    // Optimize chunks
     rollupOptions: {
-      input: {
-        main: resolve(__dirname, 'index.html'),
-        'phase4-demo': resolve(__dirname, 'phase4-demo.html'),
-      },
       output: {
         manualChunks: {
+          // Vendor chunks
           'react-vendor': ['react', 'react-dom'],
-          'animation-vendor': ['framer-motion'],
-          'ui-vendor': ['@radix-ui/react-dialog', '@radix-ui/react-tabs'],
-          'optimization': ['react-window'],
-        },
-      },
+          'router': ['react-router-dom'],
+          'ui-vendor': [
+            '@radix-ui/react-avatar',
+            '@radix-ui/react-dialog',
+            '@radix-ui/react-dropdown-menu'
+          ],
+          'query': ['@tanstack/react-query'],
+          'animation': ['framer-motion'],
+          'icons': ['lucide-react'],
+          'utils': ['clsx', 'tailwind-merge']
+        }
+      }
     },
-    target: ['es2020', 'edge88', 'firefox78', 'chrome87', 'safari12'],
-    minify: 'esbuild',
+    // Source maps for production debugging
+    sourcemap: true,
+    // Optimize for modern browsers
+    target: 'es2020',
+    // Compress output
+    minify: 'esbuild'
   },
-  server: {
-    host: '0.0.0.0',
-    port: 5173,
-    proxy: {
-      '/api': {
-        target: 'http://localhost:20021',
-        changeOrigin: true,
-      },
-    },
-  },
-
+  // Development optimizations
+  optimizeDeps: {
+    include: [
+      'react',
+      'react-dom',
+      'react-router-dom',
+      '@tanstack/react-query',
+      'zustand',
+      'framer-motion'
+    ]
+  }
 })

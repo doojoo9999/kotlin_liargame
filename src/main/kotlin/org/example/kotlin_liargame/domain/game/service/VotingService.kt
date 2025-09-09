@@ -7,10 +7,7 @@ import org.example.kotlin_liargame.domain.game.dto.response.FinalJudgmentResultR
 import org.example.kotlin_liargame.domain.game.dto.response.GameStateResponse
 import org.example.kotlin_liargame.domain.game.dto.response.VoteResponse
 import org.example.kotlin_liargame.domain.game.model.GameEntity
-import org.example.kotlin_liargame.domain.game.model.enum.GamePhase
-import org.example.kotlin_liargame.domain.game.model.enum.GameState
-import org.example.kotlin_liargame.domain.game.model.enum.PlayerRole
-import org.example.kotlin_liargame.domain.game.model.enum.PlayerState
+import org.example.kotlin_liargame.domain.game.model.enum.*
 import org.example.kotlin_liargame.domain.game.repository.GameRepository
 import org.example.kotlin_liargame.domain.game.repository.PlayerRepository
 import org.example.kotlin_liargame.global.config.GameProperties
@@ -57,10 +54,21 @@ class VotingService(
         game.currentPlayerId = null // 투표 단계에서는 특정 플레이어 턴이 없음
         game.currentTurnIndex = game.turnOrder?.split(',')?.size ?: 0 // 모든 턴 완료 표시
         game.accusedPlayerId = null // 회귀 시 이전 피고인 정보 초기화
+
+        // 동적 임계치 초기화
+        val alivePlayers = playerRepository.findByGameAndIsAlive(game, true)
+        val totalAlive = alivePlayers.size
+        val required = (totalAlive / 2) + 1
+        game.activePlayersCount = totalAlive
+        game.requiredVotes = required
+        game.currentVotes = 0
+        game.votingPhase = VotingPhase.LIAR_ELIMINATION
+
         val savedGame = gameRepository.save(game)
 
         println("[VotingService] Game phase updated to: ${savedGame.currentPhase}")
         println("[VotingService] Phase end time: ${savedGame.phaseEndTime}")
+        println("[VotingService] Voting threshold set: required=$required, totalAlive=$totalAlive")
 
         // 모든 플레이어 상태를 투표 대기로 변경 + 투표 이력 초기화 (회귀 대응)
         val players = playerRepository.findByGame(savedGame)
@@ -133,7 +141,7 @@ class VotingService(
             throw RuntimeException("You are eliminated from the game")
         }
 
-        if (voter.state != PlayerState.WAITING_FOR_VOTE) {
+        if (voter.state != PlayerState.WAITING_FOR_VOTE && voter.state != PlayerState.VOTED) {
             throw RuntimeException("You are not in the voting phase")
         }
 
@@ -154,7 +162,7 @@ class VotingService(
         }
 
         // 새로운 투표 정보 설정
-        voter.voteFor(targetPlayer.userId) // targetPlayer.id -> targetPlayer.userId로 변경
+        voter.voteFor(targetPlayer.userId)
         voter.state = PlayerState.VOTED
         playerRepository.save(voter)
 
@@ -165,14 +173,48 @@ class VotingService(
 
         gameMonitoringService.notifyPlayerVoted(gameNumber, voter.userId, targetPlayer.userId)
 
-        // 투표 완료 조건 확인
-        val players = playerRepository.findByGame(game)
-        val alivePlayers = players.filter { it.isAlive }
+        // 투표 진행 상황 갱신 및 임계치 검사
+        val alivePlayers = playerRepository.findByGameAndIsAlive(game, true)
         val votedPlayers = alivePlayers.filter { it.state == PlayerState.VOTED }
+        val totalAlive = alivePlayers.size
+        val currentVotes = votedPlayers.size
+        val required = game.requiredVotes ?: ((totalAlive / 2) + 1)
 
-        println("[VotingService] Vote progress: ${votedPlayers.size}/${alivePlayers.size} players voted")
+        // GameEntity 진행 수치 갱신
+        game.activePlayersCount = totalAlive
+        game.currentVotes = currentVotes
+        if (game.requiredVotes == null || game.requiredVotes!! != required) {
+            game.requiredVotes = required
+        }
+        gameRepository.save(game)
 
-        if (votedPlayers.size >= alivePlayers.size) {
+        // 진행 상황 브로드캐스트
+        try {
+            val progressPayload = mapOf(
+                "type" to "VOTING_PROGRESS",
+                "gameNumber" to gameNumber,
+                "currentVotes" to currentVotes,
+                "requiredVotes" to required,
+                "totalPlayers" to totalAlive,
+                "lastVoterId" to voter.userId,
+                "lastTargetId" to targetPlayer.userId
+            )
+            gameMonitoringService.broadcastGameState(game, progressPayload)
+        } catch (_: Exception) {}
+
+        // 과반 즉시 확정 처리: 대상 플레이어가 임계치 달성 시 바로 변론 단계로 전환
+        if (targetPlayer.votesReceived >= required) {
+            println("[VotingService] Majority reached early: ${targetPlayer.nickname} (${targetPlayer.votesReceived}/$required)")
+            defenseService.startDefensePhase(game, targetPlayer)
+            return VoteResponse(
+                voterNickname = voter.nickname,
+                targetNickname = targetPlayer.nickname,
+                success = true
+            )
+        }
+
+        // 모든 플레이어가 투표를 마친 경우 결과 처리 (기존 로직)
+        if (currentVotes >= totalAlive) {
             println("[VotingService] All players have voted, processing vote results")
             processVoteResults(game)
         }

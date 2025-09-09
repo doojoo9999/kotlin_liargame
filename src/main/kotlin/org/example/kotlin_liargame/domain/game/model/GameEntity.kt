@@ -38,10 +38,8 @@ class GameEntity(
     @JoinColumn(name = "liar_subject_id")
     var liarSubject: SubjectEntity? = null,
 
-    // 현재 턴인 플레이어의 userId (PlayerEntity.userId, not PlayerEntity.id)
     var currentPlayerId: Long? = null,
 
-    // 라이어로 지목된 플레이어의 userId (PlayerEntity.userId, not PlayerEntity.id)
     var accusedPlayerId: Long? = null,
 
     var turnStartedAt: Instant? = null,
@@ -51,18 +49,37 @@ class GameEntity(
     var currentTurnIndex: Int = 0,
     var phaseEndTime: Instant? = null,
 
-    // 게임 시작 시간 연장을 위한 필드
     var gameStartDeadline: Instant? = null,
 
-    // 마지막 활동 시간 (채팅, 게임 액션 등)
     var lastActivityAt: Instant? = null,
 
     @Column(nullable = true)
     var timeExtensionCount: Int? = null,
 
-    // 목표 점수 (점수 기반 승리 조건)
     @Column(nullable = false)
-    val targetPoints: Int = 10
+    val targetPoints: Int = 10,
+
+    @Column(name = "countdown_started_at")
+    var countdownStartedAt: Instant? = null,
+
+    @Column(name = "countdown_end_time")
+    var countdownEndTime: Instant? = null,
+
+    @Column(name = "countdown_duration_seconds")
+    var countdownDurationSeconds: Int = 10,
+
+    @Column(name = "required_votes")
+    var requiredVotes: Int? = null,
+
+    @Column(name = "current_votes")
+    var currentVotes: Int = 0,
+
+    @Column(name = "active_players_count")
+    var activePlayersCount: Int = 0,
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "voting_phase")
+    var votingPhase: org.example.kotlin_liargame.domain.game.model.enum.VotingPhase? = null
 ) : BaseEntity() {
 
     @Id

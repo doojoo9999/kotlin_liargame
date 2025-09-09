@@ -1,12 +1,27 @@
-// Main Version Component Index
-// Export all UI components
-export * from './ui'
+// Game UI Components
+export { GameCard, GameCardSkeleton } from './GameCard'
+export { 
+  PlayerCard, 
+  LobbyPlayerCard, 
+  GamePlayerCard, 
+  VotingPlayerCard, 
+  ResultsPlayerCard,
+  PlayerCardSkeleton 
+} from './PlayerCard'
+export { VotingPanel } from './VotingPanel'
+export { 
+  GameTimer, 
+  DiscussionTimer, 
+  VotingTimer, 
+  DefenseTimer, 
+  CompactTimer 
+} from './GameTimer'
+export { 
+  ScoreBoard, 
+  CompactScoreBoard, 
+  FinalScoreBoard 
+} from './ScoreBoard'
 
-// Export layout components
-export * from './layout'
-
-// Export game-specific components
-export * from './game'
-
-// Export common components
-export * from './common'
+// Component Types
+export type { GameRoom } from './GameCard'
+export type { Player } from './PlayerCard'

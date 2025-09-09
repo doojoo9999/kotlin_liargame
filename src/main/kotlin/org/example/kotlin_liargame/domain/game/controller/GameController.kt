@@ -32,7 +32,11 @@ class GameController(
     private val recoveryResponseFactory: RecoveryResponseFactory,
     private val sessionUtil: SessionUtil,
     private val errorHandler: ControllerErrorHandler,
-    private val webSocketSessionManager: org.example.kotlin_liargame.tools.websocket.WebSocketSessionManager
+    private val webSocketSessionManager: org.example.kotlin_liargame.tools.websocket.WebSocketSessionManager,
+    private val playerReadinessService: PlayerReadinessService,
+    private val gameCountdownService: GameCountdownService,
+    private val enhancedVotingService: EnhancedVotingService,
+    private val enhancedConnectionService: org.example.kotlin_liargame.global.connection.service.EnhancedConnectionService
 ) {
     
     @PostMapping("/create")
@@ -390,6 +394,59 @@ class GameController(
                 "message" to "시간 연장 처리 중 오류가 발생했습니다." as Any
             ))
         }
+    }
+
+    // === 플레이어 준비 상태 ===
+    @PostMapping("/{gameNumber}/ready")
+    fun togglePlayerReady(
+        @PathVariable gameNumber: Int,
+        session: HttpSession
+    ): ResponseEntity<PlayerReadyResponse> {
+        return ResponseEntity.ok(playerReadinessService.togglePlayerReady(gameNumber, session))
+    }
+
+    @GetMapping("/{gameNumber}/ready-status")
+    fun getAllReadyStates(
+        @PathVariable gameNumber: Int
+    ): ResponseEntity<List<PlayerReadyResponse>> {
+        return ResponseEntity.ok(playerReadinessService.getAllReadyStates(gameNumber))
+    }
+
+    // === 카운트다운 ===
+    @PostMapping("/{gameNumber}/countdown/start")
+    fun startCountdown(
+        @PathVariable gameNumber: Int,
+        session: HttpSession
+    ): ResponseEntity<CountdownResponse> {
+        return ResponseEntity.ok(gameCountdownService.startCountdown(gameNumber, session))
+    }
+
+    @PostMapping("/{gameNumber}/countdown/cancel")
+    fun cancelCountdown(
+        @PathVariable gameNumber: Int
+    ): ResponseEntity<CountdownResponse> {
+        return ResponseEntity.ok(gameCountdownService.cancelCountdown(gameNumber))
+    }
+
+    @GetMapping("/{gameNumber}/countdown/status")
+    fun getCountdownStatus(
+        @PathVariable gameNumber: Int
+    ): ResponseEntity<CountdownResponse?> {
+        return ResponseEntity.ok(gameCountdownService.getCountdownStatus(gameNumber))
+    }
+
+    @GetMapping("/{gameNumber}/voting-status")
+    fun getVotingStatus(
+        @PathVariable gameNumber: Int
+    ): ResponseEntity<VotingStatusResponse> {
+        return ResponseEntity.ok(enhancedVotingService.getVotingStatus(gameNumber))
+    }
+
+    @GetMapping("/{gameNumber}/connection-status")
+    fun getConnectionStatus(
+        @PathVariable gameNumber: Int
+    ): ResponseEntity<List<org.example.kotlin_liargame.global.connection.dto.PlayerConnectionStatus>> {
+        return ResponseEntity.ok(enhancedConnectionService.getConnectionStatus(gameNumber))
     }
 
     /**

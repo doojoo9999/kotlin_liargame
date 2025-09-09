@@ -2,9 +2,12 @@
 module.exports = {
   darkMode: ["class"],
   content: [
-    "./src/**/*.{js,ts,jsx,tsx}",
-    "./src/versions/main/**/*.{js,ts,jsx,tsx}", // Main 버전 전용
+    './pages/**/*.{ts,tsx}',
+    './components/**/*.{ts,tsx}',
+    './app/**/*.{ts,tsx}',
+    './src/**/*.{ts,tsx}',
   ],
+  prefix: "",
   theme: {
     container: {
       center: true,
@@ -48,17 +51,6 @@ module.exports = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        // 게임 특화 색상 추가
-        "game-primary": "hsl(var(--game-primary))",
-        "game-secondary": "hsl(var(--game-secondary))",
-        "game-danger": "hsl(var(--game-danger))",
-        "game-success": "hsl(var(--game-success))",
-        "game-warning": "hsl(var(--game-warning))",
-        "role-citizen": "hsl(var(--role-citizen))",
-        "role-liar": "hsl(var(--role-liar))",
-        "vote-selected": "hsl(var(--vote-selected))",
-        "chat-user": "hsl(var(--chat-user))",
-        "chat-system": "hsl(var(--chat-system))",
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -74,42 +66,10 @@ module.exports = {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
-        // 게임 특화 애니메이션
-        "vote-pulse": {
-          "0%, 100%": { transform: "scale(1)", opacity: "1" },
-          "50%": { transform: "scale(1.05)", opacity: "0.8" },
-        },
-        "hint-glow": {
-          "0%, 100%": { boxShadow: "0 0 0 rgba(59, 130, 246, 0)" },
-          "50%": { boxShadow: "0 0 20px rgba(59, 130, 246, 0.5)" },
-        },
-        "role-reveal": {
-          "0%": { transform: "rotateY(0deg)" },
-          "50%": { transform: "rotateY(90deg)" },
-          "100%": { transform: "rotateY(0deg)" },
-        },
-        "timer-warning": {
-          "0%, 100%": { backgroundColor: "hsl(var(--game-warning))", opacity: "0.3" },
-          "50%": { backgroundColor: "hsl(var(--game-danger))", opacity: "0.7" },
-        },
-        "slide-in-from-top": {
-          "0%": { transform: "translateY(-100%)", opacity: "0" },
-          "100%": { transform: "translateY(0)", opacity: "1" },
-        },
-        "slide-out-to-top": {
-          "0%": { transform: "translateY(0)", opacity: "1" },
-          "100%": { transform: "translateY(-100%)", opacity: "0" },
-        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
-        "vote-pulse": "vote-pulse 1s ease-in-out infinite",
-        "hint-glow": "hint-glow 2s ease-in-out infinite",
-        "role-reveal": "role-reveal 0.8s ease-in-out",
-        "timer-warning": "timer-warning 1s ease-in-out infinite",
-        "slide-in-from-top": "slide-in-from-top 0.3s ease-out",
-        "slide-out-to-top": "slide-out-to-top 0.3s ease-in",
       },
     },
   },

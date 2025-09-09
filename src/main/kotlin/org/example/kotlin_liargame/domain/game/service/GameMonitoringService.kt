@@ -2,6 +2,7 @@ package org.example.kotlin_liargame.domain.game.service
 
 import org.example.kotlin_liargame.domain.game.model.GameEntity
 import org.example.kotlin_liargame.domain.game.model.PlayerEntity
+import org.example.kotlin_liargame.domain.game.model.PlayerReadinessEntity
 import org.example.kotlin_liargame.tools.websocket.dto.HintSubmittedEvent
 import org.example.kotlin_liargame.tools.websocket.dto.PlayerVotedEvent
 import org.example.kotlin_liargame.tools.websocket.dto.TurnChangedEvent
@@ -66,5 +67,36 @@ class GameMonitoringService(
     fun notifyTurnChanged(gameNumber: Int, currentPlayerId: Long, turnStartedAt: Instant) {
         val event = TurnChangedEvent(gameNumber = gameNumber, currentPlayerId = currentPlayerId, turnStartedAt = turnStartedAt)
         gameMessagingService.broadcastGameEvent(gameNumber, event)
+    }
+
+    fun notifyPlayerReadyStateChanged(game: GameEntity, readiness: PlayerReadinessEntity, allReady: Boolean) {
+        val payload = mapOf(
+            "type" to "PLAYER_READY_CHANGED",
+            "gameNumber" to game.gameNumber,
+            "userId" to readiness.userId,
+            "nickname" to readiness.nickname,
+            "isReady" to readiness.isReady,
+            "allReady" to allReady,
+            "updatedAt" to readiness.updatedAt.toString()
+        )
+        gameMessagingService.sendRoomUpdate(game.gameNumber, payload)
+    }
+
+    fun notifyCountdownStarted(game: GameEntity, countdownEndTime: Instant) {
+        val payload = mapOf(
+            "type" to "COUNTDOWN_STARTED",
+            "gameNumber" to game.gameNumber,
+            "endTime" to countdownEndTime.toString(),
+            "durationSeconds" to (game.countdownDurationSeconds)
+        )
+        gameMessagingService.sendRoomUpdate(game.gameNumber, payload)
+    }
+
+    fun notifyCountdownCancelled(game: GameEntity) {
+        val payload = mapOf(
+            "type" to "COUNTDOWN_CANCELLED",
+            "gameNumber" to game.gameNumber
+        )
+        gameMessagingService.sendRoomUpdate(game.gameNumber, payload)
     }
 }
