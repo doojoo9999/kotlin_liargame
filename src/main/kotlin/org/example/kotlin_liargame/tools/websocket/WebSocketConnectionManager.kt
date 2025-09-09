@@ -19,7 +19,8 @@ import java.util.concurrent.ScheduledFuture
 class WebSocketConnectionManager(
     @Lazy private val messagingTemplate: SimpMessagingTemplate,
     private val taskScheduler: TaskScheduler,
-    @Lazy private val gameService: GameService
+    @Lazy private val gameService: GameService,
+    @Lazy private val enhancedConnectionService: org.example.kotlin_liargame.global.connection.service.EnhancedConnectionService
 ) {
     
     private val connectionStates = ConcurrentHashMap<String, ConnectionState>()
@@ -66,6 +67,13 @@ class WebSocketConnectionManager(
             connectionState.userId?.let { userId ->
                 val player = gameService.findPlayerInActiveGame(userId)
                 player?.let {
+                    // 새 연결: 향상된 연결 로그/알림 서비스 호출
+                    try {
+                        enhancedConnectionService.handleDisconnection(userId, it.game.gameNumber)
+                    } catch (e: Exception) {
+                        println("[CONNECTION] Enhanced disconnection handling failed: ${e.message}")
+                    }
+                    // 기존 게임 서비스 처리 유지
                     gameService.handlePlayerDisconnection(userId)
                 }
             }
@@ -145,6 +153,16 @@ class WebSocketConnectionManager(
             
             userId?.let {
                 gameService.handlePlayerReconnection(it)
+
+                // 새 연결: 향상된 연결 로그/알림 서비스 호출
+                try {
+                    val player = gameService.findPlayerInActiveGame(it)
+                    if (player != null) {
+                        enhancedConnectionService.handleReconnection(it, player.game.gameNumber)
+                    }
+                } catch (e: Exception) {
+                    println("[CONNECTION] Enhanced reconnection handling failed: ${e.message}")
+                }
             }
 
             return true

@@ -11,6 +11,7 @@
 8. [비속어 관리 (Profanity)](#비속어-관리-profanity)
 9. [WebSocket 통신](#websocket-통신)
 10. [데이터 플로우 및 상태 관리](#데이터-플로우-및-상태-관리)
+11. [최근 업데이트(2025-09-09)](#최근-업데이트2025-09-09)
 
 ---
 
@@ -37,6 +38,17 @@ kotlin_liargame/
   - `LIARS_KNOW`: 라이어가 자신이 라이어임을 아는 모드
   - `LIARS_DIFFERENT_WORD`: 라이어가 다른 주제의 단어를 받는 모드
 - **게임 단계**: 대기 → 힌트 제공 → 투표 → 변론 → 최종 투표 → 결과
+
+---
+
+## 최근 업데이트(2025-09-09)
+이번 스프린트 반영 사항 요약입니다.
+- 준비/카운트다운 기능 추가: 모든 플레이어 준비 완료 후 방장이 카운트다운 시작, 만료 시 자동 시작.
+- 연결 관리 고도화: 연결 해제/유예/재연결 로깅 및 브로드캐스트, 연결 상태 조회 API 추가.
+- WebSocket 재연결 표준화: STOMP CONNECT 시 `x-old-session-id` 헤더로 재연결 핸드셰이크 지원.
+- 투표 현황 조회 API 추가: 현재 득표/필요 표/대기자 목록 등 반환.
+- 동적 투표 임계치 실사용: 과반수 즉시 확정(변론 단계 전환) 로직 VotingService에 반영.
+- GameEntity 확장: 카운트다운/투표 관련 필드(countdownStartedAt, countdownEndTime, countdownDurationSeconds, requiredVotes, currentVotes, activePlayersCount, votingPhase) 추가.
 
 ---
 
@@ -1169,12 +1181,12 @@ stompClient.connect({}, function(frame) {
 
 ## 데이터 모델 상세
 
-### 게임 엔티티 구조
+### 게임 엔티티 구조(업데이트)
 ```typescript
 interface GameEntity {
   id: number;
   gameNumber: number;
-  gameName: string;  // 게임방 이름 추가
+  gameName: string;
   gameOwner: string;
   gameState: 'WAITING' | 'IN_PROGRESS' | 'ENDED';
   currentPhase: GamePhase;
@@ -1190,136 +1202,75 @@ interface GameEntity {
   phaseEndTime?: string;
   gameStartDeadline?: string;
   timeExtensionCount?: number;
-  targetPoints: number;  // 목표 점수 추가
+  targetPoints: number;
   createdAt: string;
   gameEndTime?: string;
+  // 새로 추가된 필드
+  countdownStartedAt?: string;
+  countdownEndTime?: string;
+  countdownDurationSeconds?: number;
+  requiredVotes?: number;
+  currentVotes?: number;
+  activePlayersCount?: number;
+  votingPhase?: 'LIAR_ELIMINATION' | 'SURVIVAL_VOTE' | 'TIE_BREAKER';
 }
 ```
 
-### 플레이어 엔티티 구조 - 업데이트됨
+### 투표 현황 구조 - 새로 추가됨
 ```typescript
-interface PlayerEntity {
-  id: number;
-  userId: number;
-  nickname: string;
-  isAlive: boolean;
-  role: 'CITIZEN' | 'LIAR';
-  state: PlayerState;
-  assignedWord?: string;
-  hint?: string;
-  defense?: string;
-  votedFor?: number;
-  votesReceived: number;
-  hasVoted: boolean;  // 투표 여부 추가
-  cumulativeScore: number;  // 누적 점수 추가
-  joinedAt: string;
-}
-```
-
-### 채팅 메시지 구조 - 업데이트됨
-```typescript
-interface ChatMessage {
-  id: number;
+interface VotingStatusResponse {
   gameNumber: number;
-  playerNickname: string | null;  // 시스템 메시지는 null
-  content: string;
-  type: 'HINT' | 'DISCUSSION' | 'DEFENSE' | 'POST_ROUND' | 'SYSTEM';
-  timestamp: string;  // ISO 8601 format
+  currentVotes: number;
+  requiredVotes: number;
+  totalPlayers: number;
+  votedPlayers: { userId: number; nickname: string; votedAt?: string | null }[];
+  pendingPlayers: { userId: number; nickname: string; votedAt?: string | null }[];
+  votingDeadline?: string | null;
+  canChangeVote: boolean;
 }
 ```
 
-### 점수판 엔티티 구조 - 새로 추가됨
+### 연결 상태 구조 - 새로 추가됨
 ```typescript
-interface ScoreboardEntry {
+type ConnectionStability = 'STABLE' | 'UNSTABLE' | 'POOR';
+interface PlayerConnectionStatus {
   userId: number;
   nickname: string;
-  isAlive: boolean;
-  score: number;
+  isConnected: boolean;
+  hasGracePeriod: boolean;
+  lastSeenAt: string; // ISO 8601
+  connectionStability: ConnectionStability;
+}
+```
+
+### 준비 상태 구조 - 새로 추가됨
+```typescript
+interface PlayerReadyResponse {
+  playerId: number;
+  nickname: string;
+  isReady: boolean;
+  allPlayersReady: boolean;
+  readyCount: number;
+  totalPlayers: number;
+}
+```
+
+### 카운트다운 응답 구조 - 새로 추가됨
+```typescript
+interface CountdownResponse {
+  gameNumber: number;
+  countdownEndTime?: string | null; // ISO 8601
+  durationSeconds: number;
+  canCancel: boolean;
 }
 ```
 
 ---
 
-## 성능 고려사항
-
-### 데이터베이스 쿼리 최적화
-- 게임별 락킹으로 동시성 제어
-- 인덱스 활용: `gameNumber`, `userId`, `gameState`
-- 배치 업데이트로 여러 플레이어 상태 동시 변경
-
-### Redis 캐시 전략
-- 게임 진행 상태는 Redis에 임시 저장
-- 세션 정보 캐싱으로 빠른 인증
-- WebSocket 연결 정보 관리
-
-### WebSocket 최적화
-- 게임별 메시지 그룹핑
-- 불필요한 브로드캐스트 최소화
-- 연결 풀 관리로 메모리 효율성
-
----
-
-## 보안 고려사항
-
-### 인증 및 권한
-- HTTP 세션 기반 인증
-- WebSocket 연결 시 세션 검증
-- API별 권한 체크
-
-### 데이터 검증
-- 모든 입력 데이터 유효성 검증
-- 비속어 필터링
-- SQL 인젝션 방지
-
-### 게임 무결성
-- 턴 순서 서버 측 검증
-- 투표 중복 방지
-- 게임 상태 일관성 보장
-
----
-
-## 모니터링 및 로깅
-
-### 로그 레벨
-- `ERROR`: 시스템 오류, 예외 상황
-- `WARN`: 비정상적이지만 처리 가능한 상황
-- `INFO`: 중요한 비즈니스 이벤트
-- `DEBUG`: 상세한 실행 추적
-
-### 모니터링 포인트
-- 활성 게임 수
-- 동시 접속자 수
-- 평균 게임 진행 시간
-- 오류 발생률
-- 메모리 사용량
-
----
-
-## 배포 및 환경 설정
-
-### 환경별 설정
-```yaml
-# application-dev.yml
-spring:
-  datasource:
-    url: jdbc:h2:mem:testdb
-  jpa:
-    show-sql: true
-
-# application-prod.yml
-spring:
-  datasource:
-    url: jdbc:postgresql://localhost:5432/liargame
-  jpa:
-    show-sql: false
-```
-
-### Docker 컨테이너화
-```dockerfile
-FROM openjdk:17-jdk-slim
-COPY build/libs/kotlin_liargame-0.0.1-SNAPSHOT.jar app.jar
-EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "/app.jar"]
-```
-
-이 문서는 프론트엔드 개발자가 백엔드 API를 완전히 이해하고 활용할 수 있도록 현재 시스템의 모든 필요한 정보를 포함하고 있습니다.
+## 클라이언트 구현 체크리스트(요약)
+- [ ] 준비 토글/조회 API 연동.
+- [ ] 카운트다운 시작/취소/상태 API 연동 및 UI 타이머.
+- [ ] 재연결 시 CONNECT 헤더에 `x-old-session-id` 포함.
+- [ ] 투표 현황 조회 및 `VOTING_PROGRESS` 수신 시 프로그레스 UI 갱신.
+- [ ] 연결 이벤트 메시지(PLAYER_DISCONNECTED/RECONNECTED, GRACE_PERIOD_*) 처리.
+- [ ] 과반 도달 시 즉시 변론 전환 UX 반영.
