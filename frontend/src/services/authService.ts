@@ -1,6 +1,6 @@
 import {apiService} from './api';
-import {LoginRequest, LoginResponse, SessionRefreshResponse} from '../types/auth';
 import {API_ENDPOINTS} from '../constants/apiEndpoints';
+import type {LoginRequest, LoginResponse, SessionRefreshResponse} from '../types/auth';
 
 export class AuthService {
   async login(credentials: LoginRequest): Promise<LoginResponse> {

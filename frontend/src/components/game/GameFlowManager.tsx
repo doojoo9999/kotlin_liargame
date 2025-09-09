@@ -140,7 +140,7 @@ export const GameFlowManager: React.FC<GameFlowManagerProps> = ({
           <HintPhase
             currentTopic={currentTopic}
             currentWord={currentWord}
-            isMyTurn={isMyTurn()}
+            isMyTurn={isMyTurn() ?? false}
             isLiar={isLiar()}
             timeRemaining={timer.timeRemaining}
           />
@@ -161,7 +161,7 @@ export const GameFlowManager: React.FC<GameFlowManagerProps> = ({
       case 'DEFENDING':
         return (
           <DefensePhase
-            suspectedPlayer={suspectedPlayer}
+            suspectedPlayer={suspectedPlayer ?? null}
             currentPlayer={currentPlayer}
             timeRemaining={timer.timeRemaining}
             isDefending={currentLiar === currentPlayer?.id}
@@ -175,7 +175,7 @@ export const GameFlowManager: React.FC<GameFlowManagerProps> = ({
             players={players}
             currentPlayer={currentPlayer}
             votingPhase="SURVIVAL_VOTE"
-            targetPlayerId={currentLiar}
+            targetPlayerId={currentLiar ?? undefined}
             votes={voting.votes}
             timeRemaining={timer.timeRemaining}
             canVote={canVote()}
@@ -186,7 +186,7 @@ export const GameFlowManager: React.FC<GameFlowManagerProps> = ({
         return (
           <GuessPhase
             currentTopic={currentTopic}
-            liarPlayer={liarPlayer}
+            liarPlayer={liarPlayer ?? null}
             currentPlayer={currentPlayer}
             timeRemaining={timer.timeRemaining}
             isLiar={isLiar()}

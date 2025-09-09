@@ -223,8 +223,9 @@ export const useGameFlow = () => {
 
   // 채팅 기록 로드
   const loadChatHistory = useCallback(async (limit: number = 50) => {
-    if (!gameNumber) {
-      throw new Error('게임 번호가 없습니다.');
+      // 타입을 명시적으로 캐스팅하여 타입 충돌 해결
+      setChatMessages(messages as any);
+      return messages as any;
     }
 
     try {

@@ -2,7 +2,13 @@ import {create} from 'zustand';
 import {devtools, persist} from 'zustand/middleware';
 import {gameService} from '../api/gameApi';
 import type {CreateGameRequest, GameMode, GameRoomInfo, GameStateResponse, JoinGameRequest} from '../types/game';
-import type {ChatMessage, ConnectionState} from '@/api/websocket';
+import type {ChatMessage} from '../services/websocketService';
+
+export interface ConnectionState {
+  isConnected: boolean;
+  lastHeartbeat: number;
+  reconnectAttempts: number;
+}
 
 export interface Player {
   id: string
@@ -124,6 +130,8 @@ interface GameActions {
   addChatMessage: (message: ChatMessage) => void
   setChatMessages: (messages: ChatMessage[]) => void
   clearChat: () => void
+  sendChatMessage: (message: string) => Promise<void>
+  loadChatHistory: () => Promise<void>
 
   // Typing Indicators
   addTypingPlayer: (playerId: string) => void
@@ -212,7 +220,11 @@ const initialState: GameState = {
   chatMessages: [],
   typingPlayers: new Set(),
 
-  connectionState: 'disconnected',
+  connectionState: {
+    isConnected: false,
+    lastHeartbeat: 0,
+    reconnectAttempts: 0,
+  },
   reconnectAttempts: 0,
   isLoading: false,
   error: null,
@@ -318,6 +330,31 @@ export const useGameStore = create<GameStore>()(
         })),
         setChatMessages: (chatMessages) => set({ chatMessages }),
         clearChat: () => set({ chatMessages: [] }),
+        sendChatMessage: async (message) => {
+          const { gameNumber, currentPlayer } = get()
+          if (!gameNumber || !currentPlayer) return
+
+          try {
+            await gameService.sendChatMessage(gameNumber, {
+              content: message,
+              senderId: currentPlayer.id,
+              senderName: currentPlayer.nickname,
+            })
+          } catch (error) {
+            console.error('Failed to send chat message:', error)
+          }
+        },
+        loadChatHistory: async () => {
+          const { gameNumber } = get()
+          if (!gameNumber) return
+
+          try {
+            const response = await gameService.getChatHistory(gameNumber)
+            set({ chatMessages: response.messages || [] })
+          } catch (error) {
+            console.error('Failed to load chat history:', error)
+          }
+        },
 
         // Typing Indicators
         addTypingPlayer: (playerId) => set((state) => ({
@@ -350,7 +387,7 @@ export const useGameStore = create<GameStore>()(
           set({ gameListLoading: true, gameListError: null })
           try {
             const response = await gameService.getGameList(page, size)
-            set({ gameList: response.games, gameListLoading: false })
+            set({ gameList: response.games || [], gameListLoading: false })
           } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Failed to fetch game list'
             set({ gameListLoading: false, gameListError: errorMessage })
@@ -433,9 +470,9 @@ export const useGameStore = create<GameStore>()(
 
           set({ isLoading: true, error: null })
           try {
-            const gameState = await gameService.toggleReady(gameNumber)
-            set({ isLoading: false, currentGameState: gameState })
-            get().updateFromGameState(gameState)
+            // Note: Backend doesn't have toggleReady endpoint, using game state refresh instead
+            await get().refreshGameState()
+            set({ isLoading: false })
           } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Failed to toggle ready state'
             set({ isLoading: false, error: errorMessage })
@@ -473,25 +510,25 @@ export const useGameStore = create<GameStore>()(
         setCurrentGameState: (currentGameState) => set({ currentGameState }),
 
         updateFromGameState: (gameState) => {
-          const mappedPlayers = gameState.players.map(p => ({
-            id: p.userId.toString(),
-            nickname: p.nickname,
-            isReady: p.isReady,
-            isHost: p.isHost,
+          const mappedPlayers = gameState.players.map((p: any) => ({
+            id: p.userId?.toString() || p.id?.toString() || '',
+            nickname: p.nickname || p.name || '',
+            isReady: p.isReady || false,
+            isHost: p.isHost || false,
             isOnline: true,
-            isAlive: p.isAlive,
+            isAlive: p.isAlive !== undefined ? p.isAlive : true,
             role: p.role?.toLowerCase() as 'civilian' | 'liar' | undefined,
           }))
 
           set({
-            gamePhase: mapGamePhase(gameState.gameState),
+            gamePhase: mapGamePhase(gameState.gameState || 'WAITING'),
             players: mappedPlayers,
-            currentRound: gameState.currentRound,
-            totalRounds: gameState.maxRounds,
-            maxPlayers: gameState.maxPlayers,
-            currentTopic: gameState.currentTopic,
-            currentWord: gameState.currentWord,
-            currentTurnPlayerId: gameState.currentTurnPlayerId?.toString(),
+            currentRound: gameState.gameCurrentRound || 0,
+            totalRounds: gameState.totalRounds || 3,
+            maxPlayers: gameState.gameMaxPlayers || 6,
+            currentTopic: gameState.gameTopic || null,
+            currentWord: gameState.gameWord || null,
+            currentTurnPlayerId: gameState.currentTurnUserId?.toString(),
           })
         },
 

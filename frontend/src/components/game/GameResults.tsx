@@ -5,8 +5,8 @@ import {Avatar, AvatarFallback} from '@/components/ui/avatar';
 import {Badge} from '@/components/ui/badge';
 import {useGameFlow} from '@/hooks/useGameFlow';
 import {Crown, Target, Trophy, Users} from 'lucide-react';
-import {GameResult} from '@/types/gameFlow';
-import {Player} from '@/store/gameStore';
+import type {GameResult} from '@/types/gameFlow';
+import type {Player} from '@/store/gameStore';
 
 interface GameResultsProps {
   gameResult?: GameResult | null;

@@ -1,5 +1,5 @@
 import SockJS from 'sockjs-client';
-import {Client, IMessage, StompConfig} from '@stomp/stompjs';
+import {Client, type IMessage, type StompConfig} from '@stomp/stompjs';
 import {toast} from 'sonner';
 
 export interface WebSocketMessage {
@@ -26,7 +26,7 @@ export interface ChatMessage {
   playerName: string;
   message: string;
   timestamp: number;
-  type: 'CHAT' | 'SYSTEM';
+  type: 'GENERAL' | 'HINT' | 'DEFENSE' | 'SYSTEM';
 }
 
 type EventCallback = (event: GameEvent) => void;

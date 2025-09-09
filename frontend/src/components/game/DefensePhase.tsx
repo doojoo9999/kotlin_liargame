@@ -5,7 +5,7 @@ import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
 import {Avatar, AvatarFallback} from '@/components/ui/avatar';
 import {useGameFlow} from '@/hooks/useGameFlow';
 import {Clock, Gavel, MessageCircle} from 'lucide-react';
-import {Player} from '@/store/gameStore';
+import type {Player} from '@/store/gameStore';
 
 interface DefensePhaseProps {
   suspectedPlayer: Player | null;
