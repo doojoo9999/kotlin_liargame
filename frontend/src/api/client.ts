@@ -163,18 +163,61 @@ class ApiClient {
       }
     }
 
+    // 요청 상세 정보 로깅
+    console.log('API Request:', {
+      method: config.method || 'GET',
+      url,
+      headers: config.headers,
+      body: config.body,
+      credentials: config.credentials
+    });
+
     try {
       const response = await fetch(url, config)
 
+      // 응답 상세 정보 로깅
+      console.log('API Response:', {
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries()),
+        ok: response.ok
+      });
+
       if (!response.ok) {
-        const error = await response.json().catch(() => ({}))
-        throw new Error(error.message || `HTTP ${response.status}: ${response.statusText}`)
+        let errorData: any = {};
+        const contentType = response.headers.get('content-type');
+        
+        if (contentType && contentType.includes('application/json')) {
+          try {
+            errorData = await response.json();
+          } catch (jsonError) {
+            console.error('Failed to parse error response as JSON:', jsonError);
+          }
+        } else {
+          try {
+            errorData.text = await response.text();
+          } catch (textError) {
+            console.error('Failed to read error response as text:', textError);
+          }
+        }
+
+        console.error('API Error Response:', errorData);
+
+        const errorMessage = errorData.message || 
+                           errorData.error || 
+                           errorData.text || 
+                           `HTTP ${response.status}: ${response.statusText}`;
+        
+        throw new Error(errorMessage);
       }
 
-      return await response.json()
+      const responseData = await response.json();
+      console.log('API Response Data:', responseData);
+      
+      return responseData;
     } catch (error) {
-      console.error('API Request failed:', error)
-      throw error
+      console.error('API Request failed:', error);
+      throw error;
     }
   }
 }
