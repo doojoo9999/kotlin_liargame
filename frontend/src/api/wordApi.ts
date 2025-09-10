@@ -11,12 +11,12 @@ export interface Word {
 
 export interface WordCreateRequest {
   content: string;
-  subjectId: string;
+  subjectId: number;
 }
 
 // 백엔드 형식에 맞는 요청 인터페이스
 interface BackendWordCreateRequest {
-  subject: string;  // 주제명 (String)
+  subject: number;  // 주제명 (String)
   word: string;     // 답안 내용 (String)
 }
 
