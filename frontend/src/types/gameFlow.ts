@@ -79,7 +79,7 @@ export interface RoundEndResponse {
   success: boolean;
 }
 
-// 채팅 메시지
+// 채팅 메시지 - Unified interface for both websocket and gameFlow
 export interface ChatMessage {
   id: string;
   gameNumber: number;
@@ -88,4 +88,9 @@ export interface ChatMessage {
   message: string;
   timestamp: number;
   type: 'GENERAL' | 'SYSTEM' | 'HINT' | 'DEFENSE';
+  // Additional fields for compatibility with websocket
+  gameId?: string;
+  playerId?: string;
+  playerName?: string;
+  content?: string;
 }

@@ -1,14 +1,14 @@
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {Button} from '@/components/ui/button';
-import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
-import {Badge} from '@/components/ui/badge';
-import {Avatar, AvatarFallback} from '@/components/ui/avatar';
-import {MessageCircle, Send, Users} from 'lucide-react';
 import {Input} from '@/components/ui/input';
-import type {ChatMessage} from '../../../services/websocketService';
-import type {Player} from '../../../store/gameStore';
-import {useGameStore} from '@/store/gameStore';
+import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
+import {Avatar, AvatarFallback} from '@/components/ui/avatar';
+import {Badge} from '@/components/ui/badge';
+import {useGameFlow} from '@/hooks/useGameFlow';
 import {websocketService} from '@/services/websocketService';
+import {MessageCircle, Send, Users} from 'lucide-react';
+import type {ChatMessage} from '@/types/gameFlow';
+import type {Player} from '@/store/gameStore';
 
 interface GameChatProps {
   players: Player[];
@@ -26,22 +26,12 @@ export const GameChat: React.FC<GameChatProps> = ({
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isExpanded, setIsExpanded] = useState(false);
-  const messagesEndRef = React.useRef<HTMLDivElement>(null);
-  const { sendChatMessage, loadChatHistory, chatMessages } = useGameStore();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { sendChatMessage, loadChatHistory, chatMessages } = useGameFlow();
 
   // 채팅 메시지 동기화
   useEffect(() => {
-    // Convert websocket ChatMessage format to gameFlow ChatMessage format
-    const convertedMessages = chatMessages.map(msg => ({
-      id: msg.id,
-      gameNumber: parseInt(msg.gameId),
-      userId: parseInt(msg.playerId),
-      nickname: msg.playerName,
-      message: msg.message,
-      timestamp: msg.timestamp,
-      type: msg.type as 'CHAT' | 'SYSTEM'
-    }));
-    setMessages(convertedMessages);
+    setMessages(chatMessages);
   }, [chatMessages]);
 
   // 메시지 목록 끝으로 스크롤
@@ -59,11 +49,11 @@ export const GameChat: React.FC<GameChatProps> = ({
     const unsubscribe = websocketService.onChatMessage((chatMessage) => {
       const formattedMessage: ChatMessage = {
         id: chatMessage.id,
-        gameNumber: parseInt(chatMessage.gameId),
-        userId: parseInt(chatMessage.playerId),
-        nickname: chatMessage.playerName,
-        message: chatMessage.message,
-        timestamp: chatMessage.timestamp,
+        gameNumber: chatMessage.gameId ? parseInt(chatMessage.gameId) : 0,
+        userId: chatMessage.playerId ? parseInt(chatMessage.playerId) : 0,
+        nickname: chatMessage.playerName || 'Unknown',
+        message: chatMessage.message || (chatMessage as any).content || '',
+        timestamp: typeof chatMessage.timestamp === 'string' ? Date.parse(chatMessage.timestamp) : chatMessage.timestamp,
         type: chatMessage.type === 'SYSTEM' ? 'SYSTEM' : 'GENERAL',
       };
 
