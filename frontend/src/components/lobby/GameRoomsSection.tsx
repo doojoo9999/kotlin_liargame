@@ -17,7 +17,7 @@ import {
 import {Lock, Play, Plus, RefreshCw, Unlock, Users} from 'lucide-react'
 import {useToast} from '@/hooks/useToast'
 import {useAuthStore} from '@/stores/authStore'
-import useGameStore from '@/stores/gameStore'
+import {useGameStore} from '@/store/gameStore'
 import type {CreateGameRequest, JoinGameRequest} from '@/types/game'
 
 export function GameRoomsSection() {
@@ -34,7 +34,7 @@ export function GameRoomsSection() {
 
   const navigate = useNavigate()
   const { toast } = useToast()
-  const { nickname } = useAuthStore()
+  useAuthStore() // Access auth store for potential future use
 
   // GameStore에서 상태와 액션들 가져오기
   const {
@@ -116,7 +116,7 @@ export function GameRoomsSection() {
 
       // 비공개 방인 경우 비밀번호 입력 받기
       if (isPrivate) {
-        password = prompt('비밀번호를 입력하세요:')
+        password = prompt('비밀번호를 입력하세요:') || undefined
         if (!password) return // 사용자가 취소한 경우
       }
 
@@ -183,7 +183,7 @@ export function GameRoomsSection() {
         title: "목록이 새로고침되었습니다",
         description: "최신 게임방 목록을 불러왔습니다",
       })
-    } catch (error) {
+    } catch {
       toast({
         title: "새로고침 실패",
         description: "목록을 새로고침하는 중 오류가 발생했습니다",

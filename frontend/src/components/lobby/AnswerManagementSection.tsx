@@ -1,26 +1,20 @@
-import { useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
+import {useState} from 'react'
+import {Button} from '@/components/ui/button'
+import {Card, CardContent} from '@/components/ui/card'
+import {Input} from '@/components/ui/input'
+import {Label} from '@/components/ui/label'
+import {Badge} from '@/components/ui/badge'
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger
 } from '@/components/ui/dialog'
-import { Plus, Trash2, FileText, Search } from 'lucide-react'
-import { useToast } from '@/hooks/useToast'
+import {FileText, Plus, Search, Trash2} from 'lucide-react'
+import {useToast} from '@/hooks/useToast'
 
 interface Answer {
   id: string
@@ -224,7 +218,7 @@ export function AnswerManagementSection() {
             <SelectContent>
               <SelectItem value="all">모든 주제</SelectItem>
               {topics.map(topic => (
-                <SelectItem key={topic.id} value={topic.id}>
+                <SelectItem key={topic.id} value={topic.id.toString()}>
                   {topic.title}
                 </SelectItem>
               ))}

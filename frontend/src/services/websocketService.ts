@@ -1,5 +1,6 @@
 import SockJS from 'sockjs-client';
-import {Client, IMessage, StompConfig} from '@stomp/stompjs';
+import type {IMessage} from '@stomp/stompjs';
+import {Client, StompConfig} from '@stomp/stompjs';
 import {toast} from 'sonner';
 
 export interface WebSocketMessage {

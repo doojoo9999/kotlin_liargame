@@ -1,7 +1,6 @@
-// 로그인 요청
+// 로그인 요청 (닉네임만 사용)
 export interface LoginRequest {
   nickname: string;
-  password: string;
 }
 
 // 로그인 응답
@@ -24,7 +23,7 @@ export interface AuthState {
   isAuthenticated: boolean;
   userId: number | null;
   nickname: string | null;
-  login: (nickname: string, password: string) => Promise<void>;
+  login: (nickname: string) => Promise<void>;
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
 }

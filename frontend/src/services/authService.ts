@@ -1,13 +1,19 @@
 import {apiService} from './api';
-import {LoginRequest, LoginResponse, SessionRefreshResponse} from '../types/auth';
+import type {LoginRequest, LoginResponse, SessionRefreshResponse} from '../types/auth';
 import {API_ENDPOINTS} from '../constants/apiEndpoints';
 
 export class AuthService {
   async login(credentials: LoginRequest): Promise<LoginResponse> {
     try {
+      // 백엔드 LoginRequest 형식에 맞게 수정 (password 필드 추가)
+      const backendCredentials = {
+        nickname: credentials.nickname,
+        password: "" // 닉네임 전용 로그인이므로 빈 문자열
+      };
+
       const response = await apiService.post<LoginResponse>(
         API_ENDPOINTS.AUTH.LOGIN,
-        credentials
+        backendCredentials
       );
 
       if (response.success) {

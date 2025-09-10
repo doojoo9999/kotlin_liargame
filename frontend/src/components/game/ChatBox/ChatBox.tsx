@@ -130,7 +130,7 @@ export const ChatBox: React.FC<ChatBoxProps> = ({
   maxMessages = 100
 }) => {
   const [messageInput, setMessageInput] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
+  const [_isTyping, _setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -163,7 +163,7 @@ export const ChatBox: React.FC<ChatBoxProps> = ({
 
     sendChatMessage(messageInput.trim());
     setMessageInput('');
-    setIsTyping(false);
+    _setIsTyping(false);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -175,7 +175,7 @@ export const ChatBox: React.FC<ChatBoxProps> = ({
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setMessageInput(e.target.value);
-    setIsTyping(e.target.value.length > 0);
+    _setIsTyping(e.target.value.length > 0);
   };
 
   const displayMessages = chatMessages.slice(-maxMessages);
