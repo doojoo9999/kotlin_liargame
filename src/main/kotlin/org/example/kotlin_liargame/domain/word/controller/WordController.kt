@@ -19,6 +19,13 @@ class WordController (
     fun applyWord(
         @RequestBody req : ApplyWordRequest
     ): ResponseEntity<Map<String, String>> {
+        // 디버깅을 위한 요청 데이터 로깅
+        println("=== Word Apply Request ===")
+        println("Request data: $req")
+        println("SubjectId: ${req.subjectId}")
+        println("Word: ${req.word}")
+        println("========================")
+        
         wordService.applyWord(req)
         return ResponseEntity.ok(mapOf("message" to "단어가 성공적으로 추가되었습니다."))
     }
@@ -64,8 +71,15 @@ class WordController (
 
     @ExceptionHandler(Exception::class)
     fun handleGeneralException(e: Exception): ResponseEntity<Map<String, String?>> {
+        // 디버깅을 위한 상세 로깅 추가
+        println("=== Word Controller Exception ===")
+        println("Exception type: ${e.javaClass.simpleName}")
+        println("Exception message: ${e.message}")
+        println("Stack trace: ${e.stackTraceToString()}")
+        println("================================")
+        
         return ResponseEntity
             .badRequest()
-            .body(mapOf("message" to "알 수 없는 오류가 발생했습니다."))
+            .body(mapOf("message" to "알 수 없는 오류가 발생했습니다. 상세: ${e.message}"))
     }
 }

@@ -87,7 +87,7 @@ class LiarGameFullFlowSimulationTest {
         // 4) 주제 + 단어 6개 생성
         val subjectId = createSubject(admin, subjectName)
         listOf("짜장면","김치","비빔밥","불고기","냉면","초밥").forEach {
-            createWord(admin, subjectName, it)
+            createWord(admin, subjectId, it)
         }
 
         // 5) 승인 처리 + 재검증
@@ -179,11 +179,11 @@ class LiarGameFullFlowSimulationTest {
         return objectMapper.readTree(result.response.contentAsString).get("id").asLong()
     }
 
-    private fun createWord(session: MockHttpSession, subject: String, word: String) {
+    private fun createWord(session: MockHttpSession, subjectId: Long, word: String) {
         mockMvc.perform(
             post("/api/v1/words/applyw")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(ApplyWordRequest(subject, word)))
+                .content(objectMapper.writeValueAsString(ApplyWordRequest(subjectId, word)))
                 .session(session)
         ).andExpect(status().isOk())
     }
