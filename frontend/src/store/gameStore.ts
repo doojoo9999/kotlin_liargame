@@ -544,8 +544,8 @@ export const useGameStore = create<GameStore>()(
         connectWebSocket: async () => {
           set({ connectionState: 'connecting', error: null })
           try {
-            // WebSocket connection logic would be implemented here
-            // For now, just simulate connection
+            const { websocketService } = await import('../services/websocketService')
+            await websocketService.connect()
             set({ connectionState: 'connected' })
           } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Connection failed'
@@ -555,6 +555,8 @@ export const useGameStore = create<GameStore>()(
         },
 
         disconnectWebSocket: () => {
+          const { websocketService } = require('../services/websocketService')
+          websocketService.disconnect()
           set({ connectionState: 'disconnected' })
         },
 

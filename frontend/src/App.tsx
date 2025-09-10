@@ -21,9 +21,14 @@ function App() {
       try {
         // 인증 상태 확인
         await checkAuth();
-
-        // WebSocket 연결 시도 (인증된 사용자만)
-        if (localStorage.getItem('isAuthenticated') === 'true') {
+        
+        // 로그인 페이지에서는 WebSocket 연결을 시도하지 않음
+        const currentPath = window.location.pathname;
+        const isAuthenticatedUser = localStorage.getItem('isAuthenticated') === 'true';
+        const isLoginPage = currentPath === '/' || currentPath === '/login';
+        
+        // WebSocket 연결 시도 (인증된 사용자이고 로그인 페이지가 아닌 경우만)
+        if (isAuthenticatedUser && !isLoginPage) {
           try {
             await connect();
           } catch (error) {

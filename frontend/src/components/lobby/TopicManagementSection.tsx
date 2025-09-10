@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/dialog'
 import {BookOpen, Edit, Plus, Trash2} from 'lucide-react'
 import {useToast} from '@/hooks/useToast'
-import {Subject, subjectService} from '@/api/subjectApi'
+import {type Subject, subjectService} from '@/api/subjectApi'
 
 // Subject 타입을 API에서 가져와 사용
 
@@ -221,7 +221,7 @@ export function TopicManagementSection() {
                   답안 {topic.wordCount || 0}개
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  {new Date(topic.createdAt).toLocaleDateString()}
+                  {topic.createdAt ? new Date(topic.createdAt).toLocaleDateString() : 'N/A'}
                 </span>
               </div>
             </CardContent>

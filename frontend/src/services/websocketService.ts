@@ -279,7 +279,7 @@ class WebSocketService {
   }
 
   private setupClient(): void {
-    const socket = new SockJS('/ws');
+    const socket = new SockJS('http://localhost:20021/ws');
 
     const stompConfig: StompConfig = {
       webSocketFactory: () => socket,

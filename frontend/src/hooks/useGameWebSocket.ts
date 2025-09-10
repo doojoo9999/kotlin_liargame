@@ -77,14 +77,8 @@ export const useGameWebSocket = (): UseGameWebSocketReturn => {
     gameStore.startGame();
   }, [gameStore]);
 
-  // Auto-connect on mount
-  useEffect(() => {
-    if (!gameStore.isConnected && !isConnecting && !gameStore.connectionError) {
-      connect().catch(() => {
-        // Error is already handled in connect function
-      });
-    }
-  }, [gameStore.isConnected, gameStore.connectionError, isConnecting, connect]);
+  // Auto-connect is handled by App.tsx based on authentication status
+  // No automatic connection here to prevent connection timeout on login page
 
   // Cleanup on unmount
   useEffect(() => {

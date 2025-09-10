@@ -125,32 +125,9 @@ export interface FinalVoteRequest {
   voteForExecution: boolean
 }
 
-// Subject and Word Management
-export interface Subject {
-  id: number
-  name: string
-  status: 'ACTIVE' | 'PENDING' | 'REJECTED'
-  createdBy: string
-  createdAt: string
-}
-
-export interface Word {
-  id: number
-  word: string
-  subjectId: number
-  status: 'ACTIVE' | 'PENDING' | 'REJECTED'
-  createdBy: string
-  createdAt: string
-}
-
-export interface CreateSubjectRequest {
-  name: string
-}
-
-export interface CreateWordRequest {
-  word: string
-  subjectId: number
-}
+// Subject and Word Management interfaces are now in their respective API files:
+// - Subject interfaces: /api/subjectApi.ts
+// - Word interfaces: /api/wordApi.ts
 
 // Admin API Types
 export interface AdminStats {
