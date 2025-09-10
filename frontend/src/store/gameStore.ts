@@ -2,13 +2,7 @@ import {create} from 'zustand';
 import {devtools, persist} from 'zustand/middleware';
 import {gameService} from '../api/gameApi';
 import type {CreateGameRequest, GameMode, GameRoomInfo, GameStateResponse, JoinGameRequest} from '../types/game';
-import type {ChatMessage} from '../services/websocketService';
-
-export interface ConnectionState {
-  isConnected: boolean;
-  lastHeartbeat: number;
-  reconnectAttempts: number;
-}
+import type {ChatMessage, ConnectionState} from '@/api/websocket';
 
 export interface Player {
   id: string
@@ -130,8 +124,6 @@ interface GameActions {
   addChatMessage: (message: ChatMessage) => void
   setChatMessages: (messages: ChatMessage[]) => void
   clearChat: () => void
-  sendChatMessage: (message: string) => Promise<void>
-  loadChatHistory: () => Promise<void>
 
   // Typing Indicators
   addTypingPlayer: (playerId: string) => void
@@ -180,6 +172,11 @@ interface GameActions {
   handleTimerUpdate: (timeRemaining: number) => void
   handleVoteUpdate: (votes: Record<string, string>) => void
   handleChatMessage: (message: ChatMessage) => void
+
+  // WebSocket Connection Management
+  connectWebSocket: () => Promise<void>
+  disconnectWebSocket: () => void
+  setConnectionError: (error: string | null) => void
 }
 
 type GameStore = GameState & GameActions
@@ -220,11 +217,7 @@ const initialState: GameState = {
   chatMessages: [],
   typingPlayers: new Set(),
 
-  connectionState: {
-    isConnected: false,
-    lastHeartbeat: 0,
-    reconnectAttempts: 0,
-  },
+  connectionState: 'disconnected',
   reconnectAttempts: 0,
   isLoading: false,
   error: null,
@@ -330,31 +323,6 @@ export const useGameStore = create<GameStore>()(
         })),
         setChatMessages: (chatMessages) => set({ chatMessages }),
         clearChat: () => set({ chatMessages: [] }),
-        sendChatMessage: async (message) => {
-          const { gameNumber, currentPlayer } = get()
-          if (!gameNumber || !currentPlayer) return
-
-          try {
-            await gameService.sendChatMessage(gameNumber, {
-              content: message,
-              senderId: currentPlayer.id,
-              senderName: currentPlayer.nickname,
-            })
-          } catch (error) {
-            console.error('Failed to send chat message:', error)
-          }
-        },
-        loadChatHistory: async () => {
-          const { gameNumber } = get()
-          if (!gameNumber) return
-
-          try {
-            const response = await gameService.getChatHistory(gameNumber)
-            set({ chatMessages: response.messages || [] })
-          } catch (error) {
-            console.error('Failed to load chat history:', error)
-          }
-        },
 
         // Typing Indicators
         addTypingPlayer: (playerId) => set((state) => ({
@@ -387,7 +355,9 @@ export const useGameStore = create<GameStore>()(
           set({ gameListLoading: true, gameListError: null })
           try {
             const response = await gameService.getGameList(page, size)
-            set({ gameList: response.games || [], gameListLoading: false })
+            // Handle both possible response formats
+            const gameList = response.games ? response.games : (response.data || [])
+            set({ gameList, gameListLoading: false })
           } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Failed to fetch game list'
             set({ gameListLoading: false, gameListError: errorMessage })
@@ -470,9 +440,9 @@ export const useGameStore = create<GameStore>()(
 
           set({ isLoading: true, error: null })
           try {
-            // Note: Backend doesn't have toggleReady endpoint, using game state refresh instead
-            await get().refreshGameState()
-            set({ isLoading: false })
+            const gameState = await gameService.toggleReady(gameNumber)
+            set({ isLoading: false, currentGameState: gameState })
+            get().updateFromGameState(gameState)
           } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Failed to toggle ready state'
             set({ isLoading: false, error: errorMessage })
@@ -510,33 +480,31 @@ export const useGameStore = create<GameStore>()(
         setCurrentGameState: (currentGameState) => set({ currentGameState }),
 
         updateFromGameState: (gameState) => {
-          const mappedPlayers = gameState.players.map((p: any) => ({
-            id: p.userId?.toString() || p.id?.toString() || '',
-            nickname: p.nickname || p.name || '',
-            isReady: p.isReady || false,
-            isHost: p.isHost || false,
-            isOnline: true,
-            isAlive: p.isAlive !== undefined ? p.isAlive : true,
-            role: p.role?.toLowerCase() as 'civilian' | 'liar' | undefined,
+          const mappedPlayers = gameState.data.players.map(p => ({
+            id: p.id.toString(),
+            nickname: p.nickname,
+            isReady: p.isReady,
+            isHost: p.isHost,
+            isOnline: p.isOnline,
+            isAlive: true, // Default value since not provided by API
+            role: undefined as 'civilian' | 'liar' | undefined, // Default value
           }))
 
           set({
-            gamePhase: mapGamePhase(gameState.gameState || 'WAITING'),
+            gamePhase: mapGamePhase(gameState.data.gameState),
             players: mappedPlayers,
-            currentRound: gameState.gameCurrentRound || 0,
-            totalRounds: gameState.totalRounds || 3,
-            maxPlayers: gameState.gameMaxPlayers || 6,
-            currentTopic: gameState.gameTopic || null,
-            currentWord: gameState.gameWord || null,
-            currentTurnPlayerId: gameState.currentTurnUserId?.toString(),
+            currentRound: gameState.data.currentRound,
+            totalRounds: gameState.data.totalRounds,
+            maxPlayers: gameState.data.players.length, // Derive from current players
+            timeRemaining: gameState.data.timeRemaining,
           })
         },
 
         // WebSocket Event Handlers
-        handleGameStateUpdate: (update: any) => {
+        handleGameStateUpdate: (update: unknown) => {
           console.log('Game state update received:', update)
-          if (update.gameState) {
-            get().updateFromGameState(update.gameState)
+          if (update && typeof update === 'object' && 'gameState' in update) {
+            get().updateFromGameState(update.gameState as GameStateResponse)
           }
         },
 
@@ -570,6 +538,30 @@ export const useGameStore = create<GameStore>()(
 
         handleChatMessage: (message) => {
           get().addChatMessage(message)
+        },
+
+        // WebSocket Connection Management
+        connectWebSocket: async () => {
+          set({ connectionState: 'connecting', error: null })
+          try {
+            const { websocketService } = await import('../services/websocketService')
+            await websocketService.connect()
+            set({ connectionState: 'connected' })
+          } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Connection failed'
+            set({ connectionState: 'disconnected', error: errorMessage })
+            throw error
+          }
+        },
+
+        disconnectWebSocket: () => {
+          const { websocketService } = require('../services/websocketService')
+          websocketService.disconnect()
+          set({ connectionState: 'disconnected' })
+        },
+
+        setConnectionError: (error) => {
+          set({ error })
         },
       }),
       {

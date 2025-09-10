@@ -1,5 +1,7 @@
 // Enhanced WebSocket Client for Real-time Game Communication
 import {API_CONFIG} from './client'
+// Import and re-export unified ChatMessage interface
+import type {ChatMessage} from '@/types/gameFlow'
 
 // WebSocket Event Types
 export interface WebSocketEvents {
@@ -83,7 +85,9 @@ export interface GameStateUpdate {
   votingResults?: any
 }
 
-export interface ChatMessage {
+export type { ChatMessage }
+
+export interface WebSocketChatMessage {
   id: string
   gameNumber: number
   playerId: string
@@ -129,7 +133,7 @@ export class GameWebSocketClient {
   private reconnectAttempts = 0
   private heartbeatTimer: NodeJS.Timeout | null = null
   private connectionTimer: NodeJS.Timeout | null = null
-  private eventHandlers: Map<string, Set<Function>> = new Map()
+  private eventHandlers: Map<string, Set<(data: unknown) => void>> = new Map()
   private gameNumber: number | null = null
   private playerId: string | null = null
   private lastHeartbeat: number = 0
@@ -267,20 +271,20 @@ export class GameWebSocketClient {
   }
 
   // Event System
-  on<T = any>(event: keyof WebSocketEvents, handler: (data: T) => void): () => void {
+  on<T = unknown>(event: keyof WebSocketEvents, handler: (data: T) => void): () => void {
     if (!this.eventHandlers.has(event)) {
       this.eventHandlers.set(event, new Set())
     }
 
-    this.eventHandlers.get(event)!.add(handler)
+    this.eventHandlers.get(event)!.add(handler as (data: unknown) => void)
 
     // Return unsubscribe function
     return () => {
-      this.eventHandlers.get(event)?.delete(handler)
+      this.eventHandlers.get(event)?.delete(handler as (data: unknown) => void)
     }
   }
 
-  off(event: keyof WebSocketEvents, handler?: Function): void {
+  off(event: keyof WebSocketEvents, handler?: (data: unknown) => void): void {
     if (handler) {
       this.eventHandlers.get(event)?.delete(handler)
     } else {

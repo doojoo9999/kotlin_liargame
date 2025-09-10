@@ -1,6 +1,7 @@
 package org.example.kotlin_liargame.domain.auth.controller
 
 import jakarta.servlet.http.HttpSession
+import jakarta.validation.Valid
 import org.example.kotlin_liargame.domain.auth.dto.request.LoginRequest
 import org.example.kotlin_liargame.domain.auth.dto.response.LoginResponse
 import org.example.kotlin_liargame.domain.user.service.UserService
@@ -18,28 +19,43 @@ class AuthController(
 
     @PostMapping("/login")
     fun login(
-        @RequestBody request: LoginRequest,
+        @RequestBody @Valid request: LoginRequest,
         session: HttpSession
     ): ResponseEntity<LoginResponse> {
-        val user = userService.authenticate(request.nickname, request.password)
+        return try {
+            println("[DEBUG] Login request received - nickname: ${request.nickname}, password: ${if (request.password.isNullOrEmpty()) "empty" else "provided"}")
+            
+            val user = userService.authenticate(request.getSanitizedNickname(), request.getEffectivePassword())
 
-        // SessionManagementService에서 동시 세션 제어와 등록을 안전하게 처리
-        val result = sessionManagementService.registerSession(session, user.nickname, user.id)
+            // SessionManagementService에서 동시 세션 제어와 등록을 안전하게 처리
+            val result = sessionManagementService.registerSession(session, user.nickname, user.id)
 
-        if (result != SessionRegistrationResult.SUCCESS) {
-            return ResponseEntity.status(500).body(LoginResponse(
+            if (result != SessionRegistrationResult.SUCCESS) {
+                println("[ERROR] Session registration failed for user: ${user.nickname}")
+                return ResponseEntity.status(500).body(LoginResponse(
+                    success = false,
+                    userId = null,
+                    nickname = null,
+                    message = "세션 등록에 실패했습니다."
+                ))
+            }
+
+            println("[SUCCESS] User authenticated and session created: ${user.nickname}")
+            ResponseEntity.ok(LoginResponse(
+                success = true,
+                userId = user.id,
+                nickname = user.nickname
+            ))
+        } catch (e: Exception) {
+            println("[ERROR] Login failed: ${e.message}")
+            e.printStackTrace()
+            ResponseEntity.status(500).body(LoginResponse(
                 success = false,
                 userId = null,
                 nickname = null,
-                message = "세션 등록에 실패했습니다."
+                message = "로그인 처리 중 오류가 발생했습니다: ${e.message}"
             ))
         }
-
-        return ResponseEntity.ok(LoginResponse(
-            success = true,
-            userId = user.id,
-            nickname = user.nickname
-        ))
     }
 
     @PostMapping("/logout")

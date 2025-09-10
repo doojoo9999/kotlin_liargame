@@ -1,7 +1,6 @@
 import {apiService} from './api';
-import {API_CONFIG} from '../api/client';
-import type {ChatMessage} from './websocketService';
 import type {
+    ChatMessage,
     DefenseResponse,
     FinalVoteResponse,
     GameResult,
@@ -17,7 +16,7 @@ export class GameFlowService {
     try {
       console.log('Submitting hint:', { gameNumber, hint });
       const response = await apiService.post<HintSubmissionResponse>(
-        API_CONFIG.ENDPOINTS.GAME.HINT,
+        `/api/games/${gameNumber}/hint`,
         { gameNumber, hint }
       );
       console.log('Hint submitted successfully');
@@ -33,7 +32,7 @@ export class GameFlowService {
     try {
       console.log('Casting vote for liar:', { gameNumber, targetUserId });
       const response = await apiService.post<VoteResponse>(
-        API_CONFIG.ENDPOINTS.GAME.VOTE,
+        `/api/games/${gameNumber}/vote`,
         { gameNumber, targetUserId }
       );
       console.log('Vote cast successfully:', response);
@@ -49,7 +48,7 @@ export class GameFlowService {
     try {
       console.log('Submitting defense:', { gameNumber, defenseText });
       const response = await apiService.post<DefenseResponse>(
-        API_CONFIG.ENDPOINTS.GAME.SUBMIT_DEFENSE,
+        `/api/games/${gameNumber}/defense`,
         { gameNumber, defenseText }
       );
       console.log('Defense submitted successfully');
@@ -65,7 +64,7 @@ export class GameFlowService {
     try {
       console.log('Ending defense phase:', gameNumber);
       const response = await apiService.post(
-        API_CONFIG.ENDPOINTS.GAME.END_DEFENSE,
+        `/api/games/${gameNumber}/defense/end`,
         { gameNumber }
       );
       console.log('Defense phase ended successfully');
@@ -81,7 +80,7 @@ export class GameFlowService {
     try {
       console.log('Casting final vote:', { gameNumber, voteForExecution });
       const response = await apiService.post<FinalVoteResponse>(
-        API_CONFIG.ENDPOINTS.GAME.FINAL_VOTE,
+        `/api/games/${gameNumber}/final-vote`,
         { gameNumber, voteForExecution }
       );
       console.log('Final vote cast successfully');
@@ -97,7 +96,7 @@ export class GameFlowService {
     try {
       console.log('Guessing word:', { gameNumber, guess });
       const response = await apiService.post<GuessResponse>(
-        API_CONFIG.ENDPOINTS.GAME.GUESS_WORD,
+        `/api/games/${gameNumber}/guess`,
         { gameNumber, guess }
       );
       console.log('Word guess submitted:', response);
@@ -113,7 +112,7 @@ export class GameFlowService {
     try {
       console.log('Ending round:', gameNumber);
       const response = await apiService.post<RoundEndResponse>(
-        API_CONFIG.ENDPOINTS.GAME.END_ROUND,
+        `/api/games/${gameNumber}/round/end`,
         { gameNumber }
       );
       console.log('Round ended successfully');
@@ -129,7 +128,7 @@ export class GameFlowService {
     try {
       console.log('Fetching game result:', gameNumber);
       const response = await apiService.get<GameResult>(
-        `${API_CONFIG.ENDPOINTS.GAME.RESULT}/${gameNumber}`
+        `/api/games/${gameNumber}/result`
       );
       console.log('Game result fetched successfully');
       return response;
@@ -144,7 +143,7 @@ export class GameFlowService {
     try {
       console.log('Sending chat message:', { gameNumber, message, type });
       await apiService.post(
-        API_CONFIG.ENDPOINTS.CHAT.SEND,
+        `/api/games/${gameNumber}/chat`,
         { gameNumber, message, type }
       );
       console.log('Chat message sent successfully');
@@ -159,7 +158,7 @@ export class GameFlowService {
     try {
       console.log('Fetching chat history:', { gameNumber, limit });
       const response = await apiService.get<ChatMessage[]>(
-        `${API_CONFIG.ENDPOINTS.CHAT.HISTORY}?gameNumber=${gameNumber}&limit=${limit}`
+        `/api/games/${gameNumber}/chat?limit=${limit}`
       );
       console.log('Chat history fetched successfully');
       return response;

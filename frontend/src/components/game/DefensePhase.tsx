@@ -17,7 +17,7 @@ interface DefensePhaseProps {
 
 export const DefensePhase: React.FC<DefensePhaseProps> = ({
   suspectedPlayer,
-  currentPlayer,
+  currentPlayer: _currentPlayer,
   timeRemaining,
   isDefending,
   canEndDefense,

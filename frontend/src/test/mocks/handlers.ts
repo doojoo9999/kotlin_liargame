@@ -1,4 +1,4 @@
-import { vi } from 'vitest';
+import {vi} from 'vitest';
 
 // Mock handlers for testing
 export const mockGameRoom = {
@@ -76,7 +76,7 @@ export class MockWebSocket {
   send = vi.fn();
   close = vi.fn();
 
-  constructor(_url: string) {
+  constructor(__url: string) {
     // Don't auto-connect in constructor to allow test control
   }
 

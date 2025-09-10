@@ -1,5 +1,6 @@
 import SockJS from 'sockjs-client';
-import {Client, type IMessage, type StompConfig} from '@stomp/stompjs';
+import type {IMessage} from '@stomp/stompjs';
+import {Client, StompConfig} from '@stomp/stompjs';
 import {toast} from 'sonner';
 
 export interface WebSocketMessage {
@@ -26,7 +27,7 @@ export interface ChatMessage {
   playerName: string;
   message: string;
   timestamp: number;
-  type: 'GENERAL' | 'HINT' | 'DEFENSE' | 'SYSTEM';
+  type: 'CHAT' | 'SYSTEM';
 }
 
 type EventCallback = (event: GameEvent) => void;
@@ -278,7 +279,7 @@ class WebSocketService {
   }
 
   private setupClient(): void {
-    const socket = new SockJS('/ws');
+    const socket = new SockJS('http://localhost:20021/ws');
 
     const stompConfig: StompConfig = {
       webSocketFactory: () => socket,
