@@ -63,6 +63,8 @@ export interface GameResult {
     nickname: string;
     role: 'CITIZEN' | 'LIAR';
     isAlive: boolean;
+  }[];
+}
 
 // 라운드 종료 응답
 export interface RoundEndResponse {

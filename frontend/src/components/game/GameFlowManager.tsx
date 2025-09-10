@@ -1,4 +1,4 @@
-import React, {useEffect} from 'react';
+import React, {useEffect, useState} from 'react';
 import {useGameFlow} from '@/hooks/useGameFlow';
 import {websocketService} from '@/services/websocketService';
 import {HintPhase} from './HintPhase';
@@ -7,6 +7,11 @@ import {DefensePhase} from './DefensePhase';
 import {GuessPhase} from './GuessPhase';
 import {GameResults} from './GameResults';
 import {GameChat} from './GameChat';
+import {ModeratorCommentary} from './ModeratorCommentary';
+import {GamePhaseIndicator} from './GamePhaseIndicator';
+import {PlayerStatusPanel} from './PlayerStatusPanel';
+import {GameActionInterface} from './GameActionInterface';
+import {ActivityFeed} from './ActivityFeed';
 import {Card, CardContent} from '@/components/ui/card';
 import {AlertCircle} from 'lucide-react';
 
@@ -36,7 +41,17 @@ export const GameFlowManager: React.FC<GameFlowManagerProps> = ({
     isLiar,
     canVote,
     getPhaseInfo,
+    submitHint,
+    voteForLiar,
+    castFinalVote,
+    submitDefense,
+    guessWord,
   } = useGameFlow();
+
+  // Activity log state
+  const [activities, setActivities] = useState<any[]>([]);
+  const [currentRound] = useState(1);
+  const [totalRounds] = useState(3);
 
   // WebSocket 연결 및 게임 이벤트 구독
   useEffect(() => {
@@ -219,79 +234,178 @@ export const GameFlowManager: React.FC<GameFlowManagerProps> = ({
     }
   };
 
+  // Action handlers for GameActionInterface
+  const handleSubmitHint = async (hint: string) => {
+    await submitHint(hint);
+    // Add activity log
+    setActivities(prev => [{
+      id: Date.now().toString(),
+      type: 'hint' as const,
+      playerId: currentPlayer?.id,
+      playerName: currentPlayer?.nickname,
+      content: hint,
+      timestamp: Date.now(),
+      phase: gamePhase
+    }, ...prev]);
+  };
+
+  const handleVotePlayer = async (playerId: string) => {
+    await voteForLiar(parseInt(playerId));
+    const targetPlayer = players.find(p => p.id === playerId);
+    setActivities(prev => [{
+      id: Date.now().toString(),
+      type: 'vote' as const,
+      playerId: currentPlayer?.id,
+      playerName: currentPlayer?.nickname,
+      targetId: playerId,
+      targetName: targetPlayer?.nickname,
+      timestamp: Date.now(),
+      phase: gamePhase
+    }, ...prev]);
+  };
+
+  const handleSubmitDefense = async (defense: string) => {
+    await submitDefense(defense);
+    setActivities(prev => [{
+      id: Date.now().toString(),
+      type: 'defense' as const,
+      playerId: currentPlayer?.id,
+      playerName: currentPlayer?.nickname,
+      content: defense,
+      timestamp: Date.now(),
+      phase: gamePhase
+    }, ...prev]);
+  };
+
+  const handleGuessWord = async (guess: string) => {
+    await guessWord(guess);
+    setActivities(prev => [{
+      id: Date.now().toString(),
+      type: 'guess' as const,
+      playerId: currentPlayer?.id,
+      playerName: currentPlayer?.nickname,
+      content: guess,
+      timestamp: Date.now(),
+      phase: gamePhase
+    }, ...prev]);
+  };
+
+  const handleCastFinalVote = async (execute: boolean) => {
+    await castFinalVote(execute);
+    setActivities(prev => [{
+      id: Date.now().toString(),
+      type: 'vote' as const,
+      playerId: currentPlayer?.id,
+      playerName: currentPlayer?.nickname,
+      content: execute ? '처형 투표' : '생존 투표',
+      timestamp: Date.now(),
+      phase: gamePhase
+    }, ...prev]);
+  };
+
+  // Add phase change activity when phase changes
+  useEffect(() => {
+    if (gamePhase) {
+      setActivities(prev => [{
+        id: `phase-${Date.now()}`,
+        type: 'phase_change' as const,
+        timestamp: Date.now(),
+        phase: gamePhase,
+        isHighlight: true
+      }, ...prev]);
+    }
+  }, [gamePhase]);
+
   return (
-    <div className="container mx-auto p-4 max-w-6xl">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* 메인 게임 영역 */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* 게임 단계 헤더 */}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-center">
-                <div className="text-2xl font-bold mb-2">{phaseInfo.title}</div>
-                <div className="text-muted-foreground mb-4">{phaseInfo.description}</div>
+    <div className="container mx-auto p-4 max-w-7xl">
+      <div className="space-y-6">
+        {/* Moderator Commentary - Prominent Position */}
+        <ModeratorCommentary
+          gamePhase={gamePhase}
+          currentTopic={currentTopic}
+          currentWord={currentWord}
+          timeRemaining={timer.timeRemaining}
+          isLiar={isLiar() ?? false}
+          playerCount={players.length}
+          currentTurnPlayer={players.find(p => p.id === currentTurnPlayerId)?.nickname}
+          suspectedPlayer={players.find(p => p.id === currentLiar)?.nickname}
+        />
 
-                {timer.isActive && (
-                  <div className="flex justify-center items-center space-x-2">
-                    <div className="text-lg font-mono">
-                      {Math.floor(timer.timeRemaining / 60)}:
-                      {(timer.timeRemaining % 60).toString().padStart(2, '0')}
-                    </div>
-                    <div className="text-sm text-muted-foreground">남음</div>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+        {/* Game Phase Indicator */}
+        <GamePhaseIndicator
+          gamePhase={gamePhase}
+          timeRemaining={timer.timeRemaining}
+          maxTime={timer.maxTime || 0}
+          currentRound={currentRound}
+          totalRounds={totalRounds}
+          playerCount={players.length}
+          readyCount={players.filter(p => p.isReady).length}
+          votedCount={Object.keys(voting.votes).length}
+        />
 
-          {/* 게임 단계별 컴포넌트 */}
-          {renderGamePhase()}
-        </div>
+        {/* Main Game Layout */}
+        <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+          {/* Left Sidebar - Player Status */}
+          <div className="xl:col-span-1">
+            <PlayerStatusPanel
+              players={players}
+              currentPlayer={currentPlayer}
+              gamePhase={gamePhase}
+              currentTurnPlayerId={currentTurnPlayerId}
+              votes={voting.votes}
+              isLiar={isLiar() ?? false}
+              suspectedPlayer={currentLiar}
+            />
+          </div>
 
-        {/* 사이드바 */}
-        <div className="space-y-6">
-          {/* 플레이어 목록 */}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="space-y-2">
-                <div className="font-medium mb-3">플레이어 목록</div>
-                {players.map((player) => (
-                  <div
-                    key={player.id}
-                    className={`flex items-center justify-between p-2 rounded-lg ${
-                      player.id === currentTurnPlayerId
-                        ? 'bg-primary/10 border border-primary/20'
-                        : 'bg-muted/50'
-                    }`}
-                  >
-                    <div className="flex items-center space-x-2">
-                      <div
-                        className={`w-2 h-2 rounded-full ${
-                          player.isOnline ? 'bg-green-500' : 'bg-gray-400'
-                        }`}
-                      />
-                      <span className="font-medium">{player.nickname}</span>
-                      {player.isHost && (
-                        <span className="text-xs bg-yellow-100 text-yellow-800 px-1 rounded">
-                          방장
-                        </span>
-                      )}
-                    </div>
-                    {player.id === currentTurnPlayerId && (
-                      <div className="text-xs text-primary font-medium">턴</div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          {/* Main Game Area */}
+          <div className="xl:col-span-2 space-y-6">
+            {/* Game Action Interface */}
+            <GameActionInterface
+              gamePhase={gamePhase}
+              currentPlayer={currentPlayer}
+              isMyTurn={isMyTurn() ?? false}
+              isLiar={isLiar() ?? false}
+              canVote={canVote()}
+              timeRemaining={timer.timeRemaining}
+              onSubmitHint={handleSubmitHint}
+              onVotePlayer={handleVotePlayer}
+              onSubmitDefense={handleSubmitDefense}
+              onGuessWord={handleGuessWord}
+              onCastFinalVote={handleCastFinalVote}
+              players={players}
+              suspectedPlayer={players.find(p => p.id === currentLiar)}
+              currentTopic={currentTopic}
+              currentWord={currentWord}
+            />
 
-          {/* 채팅 */}
-          <GameChat
-            players={players}
-            currentPlayer={currentPlayer}
-            gamePhase={gamePhase}
-          />
+            {/* Legacy Game Phase Components (for fallback) */}
+            {gamePhase === 'GAME_OVER' && (
+              <GameResults
+                players={players}
+                currentRound={currentRound}
+                totalRounds={totalRounds}
+                onNextRound={onNextRound}
+                onReturnToLobby={onReturnToLobby}
+              />
+            )}
+          </div>
+
+          {/* Right Sidebar - Activity & Chat */}
+          <div className="xl:col-span-1 space-y-6">
+            <ActivityFeed
+              activities={activities}
+              players={players}
+              currentPlayer={currentPlayer}
+              gamePhase={gamePhase}
+            />
+            
+            <GameChat
+              players={players}
+              currentPlayer={currentPlayer}
+              gamePhase={gamePhase}
+            />
+          </div>
         </div>
       </div>
     </div>

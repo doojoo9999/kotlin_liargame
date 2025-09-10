@@ -16,8 +16,8 @@ export interface WordCreateRequest {
 
 // 백엔드 형식에 맞는 요청 인터페이스
 interface BackendWordCreateRequest {
-  subject: number;  // 주제명 (String)
-  word: string;     // 답안 내용 (String)
+  subjectId: number;  // 주제 ID (Number)
+  word: string;       // 답안 내용 (String)
 }
 
 export interface WordListResponse {
@@ -38,9 +38,15 @@ export class WordService {
   // 답안 목록 조회
   async getWords(): Promise<WordListResponse> {
     try {
-      const response = await apiClient.get<Word[]>('/api/v1/words/wlist');
-      // 백엔드에서 배열을 직접 반환하므로 감싸서 반환
-      const words = Array.isArray(response) ? response : [];
+      const response = await apiClient.get<any[]>('/api/v1/words/wlist');
+      // 백엔드에서 배열을 직접 반환하므로 감싸서 반환하고 필드 매핑
+      const words = Array.isArray(response) ? response.map(item => ({
+        id: item.id,
+        content: item.content,
+        subjectId: item.subjectId,
+        subjectName: item.subjectContent, // 백엔드의 subjectContent를 subjectName으로 매핑
+        status: 'APPROVED' as const // 백엔드에서 승인된 것만 반환하므로
+      })) : [];
       
       return {
         words,
@@ -69,33 +75,22 @@ export class WordService {
   }
 
   // 답안 생성
-  async createWord(wordData: WordCreateRequest, subjectId?: number): Promise<Word> {
+  async createWord(wordData: WordCreateRequest): Promise<Word> {
     try {
-      // subjectName이 제공되지 않은 경우 subjectService에서 가져오기
-      if (!subjectId) {
-        const { subjectService } = await import('./subjectApi');
-        const subjectsResponse = await subjectService.getSubjects();
-        const targetSubject = subjectsResponse.subjects.find(s => s.id === wordData.subjectId);
-        
-        if (!targetSubject) {
-          throw new Error(`주제 ID ${wordData.subjectId}를 찾을 수 없습니다.`);
-        }
-        
-        subjectId = targetSubject.id;
-      }
-
       // 백엔드 형식에 맞는 요청 데이터 구성
       const backendRequest: BackendWordCreateRequest = {
-        subject: subjectId,
+        subjectId: wordData.subjectId, // 이미 numeric ID가 전달됨
         word: wordData.content
       };
 
       // 요청 페이로드 로깅
-      console.log('Creating word with payload:', {
-        originalPayload: wordData,
-        backendPayload: backendRequest,
-        subjectName: subjectId
-      });
+      console.log('=== Word Creation Request ===');
+      console.log('Original payload:', wordData);
+      console.log('Backend payload:', backendRequest);
+      console.log('SubjectId type:', typeof backendRequest.subjectId);
+      console.log('Word type:', typeof backendRequest.word);
+      console.log('Request URL: /api/v1/words/applyw');
+      console.log('=============================');
 
       // 백엔드는 {message: string} 형식으로 응답
       const response = await apiClient.post<{message: string}>('/api/v1/words/applyw', backendRequest);

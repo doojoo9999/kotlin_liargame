@@ -31,7 +31,6 @@ export function AnswerManagementSection() {
   const [loading, setLoading] = useState(false)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [selectedTopicId, setSelectedTopicId] = useState<string>('')
-  const [newTopicName, setNewTopicName] = useState<string>('')
   const [newAnswer, setNewAnswer] = useState('')
   const { toast } = useToast()
 
@@ -84,17 +83,21 @@ export function AnswerManagementSection() {
       return
     }
 
-    // 주제명 결정 (직접 입력 또는 기존 주제 선택)
-    let topicName = newTopicName.trim();
-    if (!topicName && selectedTopicId) {
-      const selectedTopic = topics.find(t => t.id.toString() === selectedTopicId);
-      topicName = selectedTopic?.name || '';
+    // 선택된 주제 확인
+    if (!selectedTopicId) {
+      toast({
+        title: "주제를 선택해주세요",
+        description: "기존 주제 중에서 하나를 선택해주세요",
+        variant: "destructive",
+      })
+      return
     }
 
-    if (!topicName) {
+    const selectedTopic = topics.find(t => t.id.toString() === selectedTopicId);
+    if (!selectedTopic) {
       toast({
-        title: "주제가 필요합니다",
-        description: "주제를 입력하거나 선택해주세요",
+        title: "유효하지 않은 주제",
+        description: "선택한 주제를 찾을 수 없습니다",
         variant: "destructive",
       })
       return
@@ -103,23 +106,23 @@ export function AnswerManagementSection() {
     try {
       console.log('Submitting answer:', {
         content: newAnswer.trim(),
-        topicName: topicName
+        subjectId: selectedTopic.id,
+        subjectName: selectedTopic.name
       });
       
       // API를 통해 답안 생성 (승인 대기 상태로)
       await wordService.createWord({
         content: newAnswer.trim(),
-        subjectId: topicName
+        subjectId: selectedTopic.id
       });
 
       setNewAnswer('')
       setSelectedTopicId('')
-      setNewTopicName('')
       setIsCreateDialogOpen(false)
 
       toast({
         title: "답안이 제출되었습니다",
-        description: `"${newAnswer.trim()}" 답안이 "${topicName}" 주제에 제출되었습니다. 관리자 승인을 기다려주세요.`,
+        description: `"${newAnswer.trim()}" 답안이 "${selectedTopic.name}" 주제에 제출되었습니다. 관리자 승인을 기다려주세요.`,
       })
 
       // 데이터 새로고침 (승인된 답안만 표시되므로 개수는 즉시 변경되지 않음)
@@ -165,29 +168,16 @@ export function AnswerManagementSection() {
             <DialogHeader>
               <DialogTitle>새 답안 추가</DialogTitle>
               <DialogDescription>
-                새 주제를 입력하거나 기존 주제를 선택하여 답안을 추가하세요. 관리자 승인 후 게임에 사용됩니다.
+                기존 주제를 선택하여 답안을 추가하세요. 관리자 승인 후 게임에 사용됩니다.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
-              <div>
-                <Label htmlFor="topic">새 주제명 (직접 입력)</Label>
-                <Input
-                  id="topic"
-                  placeholder="예: 동물, 음식, 영화 등"
-                  value={newTopicName}
-                  onChange={(e) => setNewTopicName(e.target.value)}
-                />
-              </div>
-
-              {topics.length > 0 && (
+              {topics.length > 0 ? (
                 <div>
-                  <Label>또는 기존 주제 선택</Label>
-                  <Select value={selectedTopicId} onValueChange={(value) => {
-                    setSelectedTopicId(value);
-                    if (value) setNewTopicName(''); // 기존 주제 선택시 새 주제명 초기화
-                  }}>
+                  <Label>주제 선택</Label>
+                  <Select value={selectedTopicId} onValueChange={setSelectedTopicId}>
                     <SelectTrigger>
-                      <SelectValue placeholder="기존 주제에서 선택하세요 (선택사항)" />
+                      <SelectValue placeholder="주제를 선택해주세요" />
                     </SelectTrigger>
                     <SelectContent>
                       {topics.map(topic => (
@@ -197,6 +187,12 @@ export function AnswerManagementSection() {
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+              ) : (
+                <div className="p-4 border rounded-md bg-muted">
+                  <p className="text-sm text-muted-foreground">
+                    사용 가능한 주제가 없습니다. 먼저 주제를 생성해주세요.
+                  </p>
                 </div>
               )}
 
@@ -213,7 +209,10 @@ export function AnswerManagementSection() {
                 <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
                   취소
                 </Button>
-                <Button onClick={handleCreateAnswer}>
+                <Button 
+                  onClick={handleCreateAnswer}
+                  disabled={!selectedTopicId || !newAnswer.trim() || topics.length === 0}
+                >
                   제출
                 </Button>
               </div>
