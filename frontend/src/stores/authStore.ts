@@ -1,18 +1,18 @@
 import {create} from 'zustand'
 import {persist} from 'zustand/middleware'
 import {authService} from '../services/authService'
-import {AuthState} from '../types/auth'
+import type {AuthState} from '../types/auth'
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set, get) => ({
+    (set, _get) => ({
       isAuthenticated: false,
       userId: null,
       nickname: null,
 
-      login: async (nickname: string, password: string) => {
+      login: async (nickname: string) => {
         try {
-          const response = await authService.login({ nickname, password });
+          const response = await authService.login({ nickname });
 
           if (response.success) {
             set({

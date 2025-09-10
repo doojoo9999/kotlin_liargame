@@ -55,7 +55,11 @@
       "Bash(/dev/null)",
       "Bash(npm create:*)",
       "Bash(./node_modules/.bin/tailwindcss:*)",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "Bash(grep:*)",
+      "Bash(npx eslint:*)",
+      "Bash(./gradlew:*)",
+      "Bash(netstat:*)"
     ],
     "deny": [],
     "ask": []

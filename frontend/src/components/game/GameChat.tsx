@@ -7,8 +7,8 @@ import {Badge} from '@/components/ui/badge';
 import {useGameFlow} from '@/hooks/useGameFlow';
 import {websocketService} from '@/services/websocketService';
 import {MessageCircle, Send, Users} from 'lucide-react';
-import {ChatMessage} from '@/types/gameFlow';
-import {Player} from '@/store/gameStore';
+import type {ChatMessage} from '@/types/gameFlow';
+import type {Player} from '@/store/gameStore';
 
 interface GameChatProps {
   players: Player[];
@@ -49,11 +49,11 @@ export const GameChat: React.FC<GameChatProps> = ({
     const unsubscribe = websocketService.onChatMessage((chatMessage) => {
       const formattedMessage: ChatMessage = {
         id: chatMessage.id,
-        gameNumber: parseInt(chatMessage.gameId),
-        userId: parseInt(chatMessage.playerId),
-        nickname: chatMessage.playerName,
-        message: chatMessage.message,
-        timestamp: chatMessage.timestamp,
+        gameNumber: chatMessage.gameId ? parseInt(chatMessage.gameId) : 0,
+        userId: chatMessage.playerId ? parseInt(chatMessage.playerId) : 0,
+        nickname: chatMessage.playerName || 'Unknown',
+        message: chatMessage.message || (chatMessage as any).content || '',
+        timestamp: typeof chatMessage.timestamp === 'string' ? Date.parse(chatMessage.timestamp) : chatMessage.timestamp,
         type: chatMessage.type === 'SYSTEM' ? 'SYSTEM' : 'GENERAL',
       };
 

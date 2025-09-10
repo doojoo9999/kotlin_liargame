@@ -24,19 +24,15 @@ export const GameEndPanel: React.FC<GameEndPanelProps> = ({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (gameNumber && !gameResult) {
-      loadGameResult()
-    }
-  }, [gameNumber, gameResult])
-
   const loadGameResult = async () => {
     if (loading) return
     
     setLoading(true)
     try {
       const data = await gameApi.getRoundResults(gameNumber.toString())
-      setResult(data)
+      // Note: getRoundResults returns RoundEndResponse, but we need GameEndResponse
+      // This is a type mismatch that needs to be resolved at the API level
+      setResult(data as any)
       setError(null)
     } catch (err) {
       console.error('Failed to load game result:', err)
@@ -45,6 +41,12 @@ export const GameEndPanel: React.FC<GameEndPanelProps> = ({
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    if (gameNumber && !gameResult) {
+      loadGameResult()
+    }
+  }, [gameNumber, gameResult, loadGameResult])
 
   if (!result) {
     return (

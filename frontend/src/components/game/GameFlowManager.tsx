@@ -30,12 +30,10 @@ export const GameFlowManager: React.FC<GameFlowManagerProps> = ({
     currentTurnPlayerId,
     timer,
     voting,
-    chatMessages,
     isLoading,
     error,
     isMyTurn,
     isLiar,
-    isAlive,
     canVote,
     getPhaseInfo,
   } = useGameFlow();
@@ -115,8 +113,8 @@ export const GameFlowManager: React.FC<GameFlowManagerProps> = ({
   }
 
   const phaseInfo = getPhaseInfo();
-  const suspectedPlayer = players.find(p => p.id === currentLiar);
-  const liarPlayer = players.find(p => p.role === 'liar');
+  const suspectedPlayer = players.find(p => p.id === currentLiar) || null;
+  const liarPlayer = players.find(p => p.role === 'liar') || null;
 
   // 게임 단계별 렌더링
   const renderGamePhase = () => {
@@ -140,8 +138,8 @@ export const GameFlowManager: React.FC<GameFlowManagerProps> = ({
           <HintPhase
             currentTopic={currentTopic}
             currentWord={currentWord}
-            isMyTurn={isMyTurn()}
-            isLiar={isLiar()}
+            isMyTurn={isMyTurn() ?? false}
+            isLiar={isLiar() ?? false}
             timeRemaining={timer.timeRemaining}
           />
         );
@@ -165,7 +163,7 @@ export const GameFlowManager: React.FC<GameFlowManagerProps> = ({
             currentPlayer={currentPlayer}
             timeRemaining={timer.timeRemaining}
             isDefending={currentLiar === currentPlayer?.id}
-            canEndDefense={currentPlayer?.isHost || currentLiar === currentPlayer?.id}
+            canEndDefense={!!currentPlayer?.isHost || currentLiar === currentPlayer?.id}
           />
         );
 
@@ -175,7 +173,7 @@ export const GameFlowManager: React.FC<GameFlowManagerProps> = ({
             players={players}
             currentPlayer={currentPlayer}
             votingPhase="SURVIVAL_VOTE"
-            targetPlayerId={currentLiar}
+            targetPlayerId={currentLiar || undefined}
             votes={voting.votes}
             timeRemaining={timer.timeRemaining}
             canVote={canVote()}

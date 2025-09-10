@@ -20,10 +20,14 @@ export function useCreateGame() {
   
   return useMutation({
     mutationFn: gameApi.createGame,
-    onSuccess: (data) => {
-      setGameId(data.gameId)
-      setSessionCode(data.sessionCode)
-      // Host player will be set separately after login
+    onSuccess: (data: unknown) => {
+      // Type guard for data
+      if (data && typeof data === 'object' && 'gameId' in data && 'sessionCode' in data) {
+        const gameData = data as { gameId: string; sessionCode: string }
+        setGameId(gameData.gameId)
+        setSessionCode(gameData.sessionCode)
+        // Host player will be set separately after login
+      }
     },
   })
 }
@@ -33,9 +37,13 @@ export function useJoinGame() {
   
   return useMutation({
     mutationFn: gameApi.joinGame,
-    onSuccess: (data) => {
-      setGameId(data.gameId)
-      updatePlayers(data.players)
+    onSuccess: (data: unknown) => {
+      // Type guard for data
+      if (data && typeof data === 'object' && 'gameId' in data && 'players' in data) {
+        const gameData = data as { gameId: string; players: any[] }
+        setGameId(gameData.gameId)
+        updatePlayers(gameData.players)
+      }
     },
   })
 }
@@ -45,16 +53,20 @@ export function useLogin() {
   
   return useMutation({
     mutationFn: gameApi.login,
-    onSuccess: (data) => {
-      if (data.success && data.userId && data.nickname) {
-        // 백엔드 응답에 맞춰 세션 기반 인증 사용
-        setCurrentPlayer({
-          id: data.userId.toString(),
-          nickname: data.nickname,
-          isReady: false,
-          isHost: false,
-          isOnline: true,
-        })
+    onSuccess: (data: unknown) => {
+      // Type guard for data
+      if (data && typeof data === 'object' && 'success' in data) {
+        const loginData = data as { success: boolean; userId?: number; nickname?: string }
+        if (loginData.success && loginData.userId && loginData.nickname) {
+          // 백엔드 응답에 맞춰 세션 기반 인증 사용
+          setCurrentPlayer({
+            id: loginData.userId.toString(),
+            nickname: loginData.nickname,
+            isReady: false,
+            isHost: false,
+            isOnline: true,
+          })
+        }
       }
     },
   })
@@ -65,7 +77,7 @@ export function useStartGame() {
   const { gameId } = useGameStore()
   
   return useMutation({
-    mutationFn: (gameId: string) => gameApi.startGame(gameId),
+    mutationFn: (gameId: string) => gameApi.startGame(parseInt(gameId)),
     onSuccess: () => {
       // Invalidate game status to get updated phase
       if (gameId) {
@@ -101,7 +113,7 @@ export function useVote() {
   return useMutation({
     mutationFn: ({ suspectedLiarId }: { suspectedLiarId: string }) => 
       gameApi.vote(gameId!, { suspectedLiarId }),
-    onSuccess: (_, variables) => {
+    onSuccess: (data: unknown, variables) => {
       setUserVote(variables.suspectedLiarId)
       if (gameId) {
         queryClient.invalidateQueries({ 
@@ -119,7 +131,9 @@ export function useSubmitAnswer() {
   return useMutation({
     mutationFn: ({ answer }: { answer: string }) => 
       gameApi.submitAnswer(gameId!, answer),
-    onSuccess: () => {
+    onSuccess: (data: unknown) => {
+      // Add type guard or use data if needed
+      console.log('Answer submitted successfully:', data)
       if (gameId) {
         queryClient.invalidateQueries({ 
           queryKey: QUERY_KEYS.GAME.STATUS(gameId) 

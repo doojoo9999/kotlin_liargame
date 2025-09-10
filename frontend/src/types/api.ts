@@ -48,7 +48,7 @@ export interface GameRoom {
   createdAt: string
 }
 
-export interface GameListResponse extends ApiResponse<GameRoom[]> {}
+export type GameListResponse = ApiResponse<GameRoom[]>
 
 export interface CreateGameRequest {
   gameName: string
@@ -63,7 +63,7 @@ export interface JoinGameRequest {
   password?: string
 }
 
-export interface GameStateResponse extends ApiResponse<{
+export type GameStateResponse = ApiResponse<{
   gameNumber: number
   gameName: string
   gameState: string
@@ -78,7 +78,7 @@ export interface GameStateResponse extends ApiResponse<{
   currentRound: number
   totalRounds: number
   timeRemaining: number
-}> {}
+}>
 
 // Chat API Types
 export interface ChatMessage {
@@ -97,7 +97,7 @@ export interface SendChatRequest {
   type?: 'DISCUSSION' | 'HINT' | 'DEFENSE'
 }
 
-export interface ChatHistoryResponse extends ApiResponse<ChatMessage[]> {}
+export type ChatHistoryResponse = ApiResponse<ChatMessage[]>
 
 // Game Action Types
 export interface VoteRequest {

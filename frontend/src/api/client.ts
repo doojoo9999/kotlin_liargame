@@ -120,14 +120,14 @@ class ApiClient {
     return this.request<T>(endpoint, { method: 'GET' })
   }
 
-  async post<T>(endpoint: string, data?: any): Promise<T> {
+  async post<T>(endpoint: string, data?: unknown): Promise<T> {
     return this.request<T>(endpoint, {
       method: 'POST',
       body: data ? JSON.stringify(data) : undefined,
     })
   }
 
-  async put<T>(endpoint: string, data?: any): Promise<T> {
+  async put<T>(endpoint: string, data?: unknown): Promise<T> {
     return this.request<T>(endpoint, {
       method: 'PUT',
       body: data ? JSON.stringify(data) : undefined,
@@ -150,13 +150,17 @@ class ApiClient {
 
     const config: RequestInit = {
       headers: { ...defaultHeaders, ...options.headers },
+      credentials: 'include', // 쿠키와 세션을 포함하여 요청
       ...options,
     }
 
-    // Add auth token if available
+    // Add auth token if available (Bearer token 방식은 유지하되 세션 기반 우선 사용)
     const token = localStorage.getItem('auth-token')
     if (token) {
-      (config.headers as any)['Authorization'] = `Bearer ${token}`
+      config.headers = {
+        ...config.headers,
+        'Authorization': `Bearer ${token}`
+      }
     }
 
     try {

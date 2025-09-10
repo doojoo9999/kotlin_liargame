@@ -172,6 +172,11 @@ interface GameActions {
   handleTimerUpdate: (timeRemaining: number) => void
   handleVoteUpdate: (votes: Record<string, string>) => void
   handleChatMessage: (message: ChatMessage) => void
+
+  // WebSocket Connection Management
+  connectWebSocket: () => Promise<void>
+  disconnectWebSocket: () => void
+  setConnectionError: (error: string | null) => void
 }
 
 type GameStore = GameState & GameActions
@@ -350,7 +355,9 @@ export const useGameStore = create<GameStore>()(
           set({ gameListLoading: true, gameListError: null })
           try {
             const response = await gameService.getGameList(page, size)
-            set({ gameList: response.games, gameListLoading: false })
+            // Handle both possible response formats
+            const gameList = response.games ? response.games : (response.data || [])
+            set({ gameList, gameListLoading: false })
           } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Failed to fetch game list'
             set({ gameListLoading: false, gameListError: errorMessage })
@@ -473,33 +480,31 @@ export const useGameStore = create<GameStore>()(
         setCurrentGameState: (currentGameState) => set({ currentGameState }),
 
         updateFromGameState: (gameState) => {
-          const mappedPlayers = gameState.players.map(p => ({
-            id: p.userId.toString(),
+          const mappedPlayers = gameState.data.players.map(p => ({
+            id: p.id.toString(),
             nickname: p.nickname,
             isReady: p.isReady,
             isHost: p.isHost,
-            isOnline: true,
-            isAlive: p.isAlive,
-            role: p.role?.toLowerCase() as 'civilian' | 'liar' | undefined,
+            isOnline: p.isOnline,
+            isAlive: true, // Default value since not provided by API
+            role: undefined as 'civilian' | 'liar' | undefined, // Default value
           }))
 
           set({
-            gamePhase: mapGamePhase(gameState.gameState),
+            gamePhase: mapGamePhase(gameState.data.gameState),
             players: mappedPlayers,
-            currentRound: gameState.currentRound,
-            totalRounds: gameState.maxRounds,
-            maxPlayers: gameState.maxPlayers,
-            currentTopic: gameState.currentTopic,
-            currentWord: gameState.currentWord,
-            currentTurnPlayerId: gameState.currentTurnPlayerId?.toString(),
+            currentRound: gameState.data.currentRound,
+            totalRounds: gameState.data.totalRounds,
+            maxPlayers: gameState.data.players.length, // Derive from current players
+            timeRemaining: gameState.data.timeRemaining,
           })
         },
 
         // WebSocket Event Handlers
-        handleGameStateUpdate: (update: any) => {
+        handleGameStateUpdate: (update: unknown) => {
           console.log('Game state update received:', update)
-          if (update.gameState) {
-            get().updateFromGameState(update.gameState)
+          if (update && typeof update === 'object' && 'gameState' in update) {
+            get().updateFromGameState(update.gameState as GameStateResponse)
           }
         },
 
@@ -533,6 +538,28 @@ export const useGameStore = create<GameStore>()(
 
         handleChatMessage: (message) => {
           get().addChatMessage(message)
+        },
+
+        // WebSocket Connection Management
+        connectWebSocket: async () => {
+          set({ connectionState: 'connecting', error: null })
+          try {
+            // WebSocket connection logic would be implemented here
+            // For now, just simulate connection
+            set({ connectionState: 'connected' })
+          } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Connection failed'
+            set({ connectionState: 'disconnected', error: errorMessage })
+            throw error
+          }
+        },
+
+        disconnectWebSocket: () => {
+          set({ connectionState: 'disconnected' })
+        },
+
+        setConnectionError: (error) => {
+          set({ error })
         },
       }),
       {

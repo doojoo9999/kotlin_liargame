@@ -1,7 +1,8 @@
 // WebSocket Connection Hook with Store Integration
 import {useCallback, useEffect, useRef, useState} from 'react'
 import {useGameStore} from '@/store/gameStore'
-import {type ChatMessage, type GameStateUpdate, gameWebSocket, type PlayerAction} from '@/api/websocket'
+import {type GameStateUpdate, gameWebSocket, type PlayerAction} from '@/api/websocket'
+import type {ChatMessage} from '@/types/gameFlow'
 import {useToast} from './useToast'
 
 export function useWebSocketConnection() {
@@ -25,15 +26,15 @@ export function useWebSocketConnection() {
     setError,
     connectWebSocket,
     disconnectWebSocket,
-    isConnected,
-    connectionError,
-    setConnectionError
+    setConnectionError,
+    connectionState
   } = useGameStore()
 
   const [isConnecting, setIsConnecting] = useState(false)
 
   // Connection management
   const connect = useCallback(async () => {
+    const isConnected = connectionState === 'connected'
     if (isConnecting || isConnected) return
 
     setIsConnecting(true)
@@ -50,7 +51,7 @@ export function useWebSocketConnection() {
     } finally {
       setIsConnecting(false)
     }
-  }, [isConnecting, isConnected, connectWebSocket, setConnectionError])
+  }, [isConnecting, connectionState, connectWebSocket, setConnectionError])
 
   const disconnect = useCallback(() => {
     disconnectWebSocket()
@@ -58,13 +59,14 @@ export function useWebSocketConnection() {
   }, [disconnectWebSocket])
 
   const retry = useCallback(async () => {
+    const isConnected = connectionState === 'connected'
     if (isConnected) {
       disconnect()
       // Wait a bit before reconnecting
       await new Promise(resolve => setTimeout(resolve, 1000))
     }
     return connect()
-  }, [isConnected, connect, disconnect])
+  }, [connectionState, connect, disconnect])
 
   // Setup event listeners
   const setupEventListeners = useCallback(() => {

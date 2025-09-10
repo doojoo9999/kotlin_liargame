@@ -14,7 +14,7 @@ function App() {
   useSessionManager();
 
   // WebSocket 연결 초기화
-  const { connect, isConnected, connectionError } = useGameWebSocket();
+  const { connect, isConnected: _isConnected, connectionError: _connectionError } = useGameWebSocket();
 
   useEffect(() => {
     const initializeApp = async () => {
