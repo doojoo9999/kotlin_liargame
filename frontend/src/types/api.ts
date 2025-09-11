@@ -51,11 +51,17 @@ export interface GameRoom {
 export type GameListResponse = ApiResponse<GameRoom[]>
 
 export interface CreateGameRequest {
-  gameName: string
-  gameMode: string
-  maxPlayers: number
-  isPrivate: boolean
-  password?: string
+  nickname?: string;
+  gameName?: string;
+  gamePassword?: string;
+  gameParticipants: number;
+  gameTotalRounds: number;
+  gameLiarCount: number;
+  gameMode: 'LIARS_KNOW' | 'LIARS_DIFFERENT_WORD';
+  subjectIds?: number[];
+  useRandomSubjects?: boolean;
+  randomSubjectCount?: number;
+  targetPoints: number;
 }
 
 export interface JoinGameRequest {
@@ -63,22 +69,54 @@ export interface JoinGameRequest {
   password?: string
 }
 
-export type GameStateResponse = ApiResponse<{
-  gameNumber: number
-  gameName: string
-  gameState: string
-  currentPhase: string
-  players: Array<{
-    id: number
-    nickname: string
-    isReady: boolean
-    isHost: boolean
-    isOnline: boolean
-  }>
-  currentRound: number
-  totalRounds: number
-  timeRemaining: number
-}>
+export interface PlayerResponse {
+  id: number;
+  userId: number;
+  nickname: string;
+  isAlive: boolean;
+  state: string;
+  hint?: string;
+  defense?: string;
+  votesReceived: number;
+  hasVoted: boolean;
+  role?: 'CITIZEN' | 'LIAR';
+}
+
+export interface ScoreboardEntry {
+  userId: number;
+  nickname: string;
+  isAlive: boolean;
+  score: number;
+}
+
+export interface GameStateResponse {
+  gameNumber: number;
+  gameName: string;
+  gameOwner: string;
+  gameParticipants: number;
+  gameCurrentRound: number;
+  gameTotalRounds: number;
+  gameLiarCount: number;
+  gameMode: 'LIARS_KNOW' | 'LIARS_DIFFERENT_WORD';
+  gameState: 'WAITING' | 'IN_PROGRESS' | 'ENDED';
+  players: PlayerResponse[];
+  currentPhase: 'WAITING_FOR_PLAYERS' | 'SPEECH' | 'VOTING_FOR_LIAR' | 'DEFENDING' | 'VOTING_FOR_SURVIVAL' | 'GUESSING_WORD' | 'GAME_OVER';
+  yourRole?: string;
+  yourWord?: string;
+  accusedPlayer?: PlayerResponse;
+  isChatAvailable: boolean;
+  citizenSubject?: string;
+  liarSubject?: string;
+  subjects?: string[];
+  turnOrder?: string[];
+  currentTurnIndex?: number;
+  phaseEndTime?: string;
+  winner?: string;
+  reason?: string;
+  targetPoints: number;
+  scoreboard: ScoreboardEntry[];
+  finalVotingRecord?: any[];
+}
 
 // Chat API Types
 export interface ChatMessage {
@@ -123,6 +161,66 @@ export interface WordGuessRequest {
 export interface FinalVoteRequest {
   gameNumber: number
   voteForExecution: boolean
+}
+
+// Response Types to match backend
+export interface VoteResponse {
+  voterNickname: string;
+  targetNickname: string;
+  success: boolean;
+  message?: string;
+}
+
+export interface DefenseResponse {
+  gameNumber: number;
+  playerId: number;
+  playerNickname: string;
+  defenseText: string;
+  success: boolean;
+}
+
+export interface GuessResponse {
+  gameNumber: number;
+  guess: string;
+  isCorrect: boolean;
+  actualWord: string;
+  success: boolean;
+}
+
+// Additional response types for new endpoints
+export interface PlayerReadyResponse {
+  playerId: number;
+  nickname: string;
+  isReady: boolean;
+  allPlayersReady: boolean;
+  readyCount: number;
+  totalPlayers: number;
+}
+
+export interface CountdownResponse {
+  gameNumber: number;
+  countdownEndTime?: string;
+  durationSeconds: number;
+  canCancel: boolean;
+}
+
+export interface VotingStatusResponse {
+  gameNumber: number;
+  currentVotes: number;
+  requiredVotes: number;
+  totalPlayers: number;
+  votedPlayers: Array<{
+    userId: number;
+    nickname: string;
+    votedAt?: string;
+  }>;
+  pendingPlayers: Array<{
+    userId: number;
+    nickname: string;
+    votedAt?: string;
+  }>;
+  votingDeadline?: string;
+  canChangeVote: boolean;
 }
 
 // Subject and Word Management interfaces are now in their respective API files:

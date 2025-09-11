@@ -17,7 +17,7 @@ import {
 import {Lock, Play, Plus, RefreshCw, Unlock, Users} from 'lucide-react'
 import {useToast} from '@/hooks/useToast'
 import {useAuthStore} from '@/stores/authStore'
-import {useGameStore} from '@/store/gameStore'
+import {useGameStore} from '@/stores'
 import type {CreateGameRequest, JoinGameRequest} from '@/types/game'
 
 export function GameRoomsSection() {

@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import {useGameFlow} from '@/hooks/useGameFlow';
+import {useGameStore} from '@/stores';
 import {websocketService} from '@/services/websocketService';
 import {HintPhase} from './HintPhase';
 import {VotingPhase} from './VotingPhase';
@@ -37,16 +37,11 @@ export const GameFlowManager: React.FC<GameFlowManagerProps> = ({
     voting,
     isLoading,
     error,
-    isMyTurn,
     isLiar,
-    canVote,
-    getPhaseInfo,
-    submitHint,
-    voteForLiar,
-    castFinalVote,
-    submitDefense,
-    guessWord,
-  } = useGameFlow();
+    addHint,
+    castVote,
+    addDefense,
+  } = useGameStore();
 
   // Activity log state
   const [activities, setActivities] = useState<any[]>([]);

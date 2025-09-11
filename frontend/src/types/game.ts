@@ -2,7 +2,7 @@
 export type PlayerID = string
 
 export const GamePhase = {
-  WAITING: 'WAITING',
+  WAITING_FOR_PLAYERS: 'WAITING_FOR_PLAYERS',
   SPEECH: 'SPEECH',
   VOTING_FOR_LIAR: 'VOTING_FOR_LIAR',
   DEFENDING: 'DEFENDING',
@@ -11,6 +11,19 @@ export const GamePhase = {
   GAME_OVER: 'GAME_OVER',
 } as const
 export type GamePhase = typeof GamePhase[keyof typeof GamePhase]
+
+export const GameState = {
+  WAITING: 'WAITING',
+  IN_PROGRESS: 'IN_PROGRESS', 
+  ENDED: 'ENDED',
+} as const
+export type GameState = typeof GameState[keyof typeof GameState]
+
+export const GameMode = {
+  LIARS_KNOW: 'LIARS_KNOW',
+  LIARS_DIFFERENT_WORD: 'LIARS_DIFFERENT_WORD',
+} as const
+export type GameMode = typeof GameMode[keyof typeof GameMode]
 
 export interface Player {
   id: PlayerID

@@ -1,13 +1,19 @@
 import {apiClient} from './client';
 import type {
+    CountdownResponse,
     CreateGameRequest,
+    DefenseResponse,
     GameListResponse,
     GameMode,
     GameRoomInfo,
     GameStateResponse,
-    JoinGameRequest
-} from '../types/game';
-import type {ChatMessage, DefenseResponse, GuessResponse, RoundEndResponse, VoteResponse} from '../types/gameFlow';
+    GuessResponse,
+    JoinGameRequest,
+    PlayerReadyResponse,
+    VoteResponse,
+    VotingStatusResponse
+} from '../types/api';
+import type {RoundEndResponse} from '../types/gameFlow';
 
 export class GameService {
   private static instance: GameService;
@@ -26,8 +32,8 @@ export class GameService {
   }
 
   // 게임방 생성
-  async createGame(gameData: CreateGameRequest): Promise<GameStateResponse> {
-    const response = await apiClient.post<GameStateResponse>('/api/v1/game/create', gameData);
+  async createGame(gameData: CreateGameRequest): Promise<number> {
+    const response = await apiClient.post<number>('/api/v1/game/create', gameData);
     return response;
   }
 
@@ -38,25 +44,26 @@ export class GameService {
   }
 
   // 게임방 나가기
-  async leaveGame(gameNumber: number): Promise<void> {
-    await apiClient.post<void>(`/api/v1/game/${gameNumber}/leave`);
+  async leaveGame(gameNumber: number): Promise<boolean> {
+    const response = await apiClient.post<boolean>(`/api/v1/game/leave`, { gameNumber });
+    return response;
   }
 
   // 게임 상태 조회
   async getGameState(gameNumber: number): Promise<GameStateResponse> {
-    const response = await apiClient.get<GameStateResponse>(`/api/v1/game/${gameNumber}/state`);
+    const response = await apiClient.get<GameStateResponse>(`/api/v1/game/${gameNumber}`);
     return response;
   }
 
   // 게임 시작
-  async startGame(gameNumber: number): Promise<GameStateResponse> {
-    const response = await apiClient.post<GameStateResponse>(`/api/v1/game/${gameNumber}/start`);
+  async startGame(): Promise<GameStateResponse> {
+    const response = await apiClient.post<GameStateResponse>(`/api/v1/game/start`);
     return response;
   }
 
   // 플레이어 준비 상태 변경
-  async toggleReady(gameNumber: number): Promise<GameStateResponse> {
-    const response = await apiClient.post<GameStateResponse>(`/api/v1/game/${gameNumber}/ready`);
+  async toggleReady(gameNumber: number): Promise<PlayerReadyResponse> {
+    const response = await apiClient.post<PlayerReadyResponse>(`/api/v1/game/${gameNumber}/ready`);
     return response;
   }
 
@@ -72,14 +79,14 @@ export class GameService {
   }
 
   // 플레이어 준비 상태 조회
-  async getReadyStatus(gameNumber: number): Promise<any[]> {
-    const response = await apiClient.get<any[]>(`/api/v1/game/${gameNumber}/ready-status`);
+  async getReadyStatus(gameNumber: number): Promise<PlayerReadyResponse[]> {
+    const response = await apiClient.get<PlayerReadyResponse[]>(`/api/v1/game/${gameNumber}/ready-status`);
     return response;
   }
 
   // 카운트다운 상태 조회
-  async getCountdownStatus(gameNumber: number): Promise<any> {
-    const response = await apiClient.get<any>(`/api/v1/game/${gameNumber}/countdown-status`);
+  async getCountdownStatus(gameNumber: number): Promise<CountdownResponse | null> {
+    const response = await apiClient.get<CountdownResponse | null>(`/api/v1/game/${gameNumber}/countdown/status`);
     return response;
   }
 
@@ -90,19 +97,23 @@ export class GameService {
   }
 
   // 투표 상태 조회
-  async getVotingStatus(gameNumber: number): Promise<any> {
-    const response = await apiClient.get<any>(`/api/v1/game/${gameNumber}/voting-status`);
+  async getVotingStatus(gameNumber: number): Promise<VotingStatusResponse> {
+    const response = await apiClient.get<VotingStatusResponse>(`/api/v1/game/${gameNumber}/voting-status`);
     return response;
   }
 
   // 카운트다운 시작
-  async startCountdown(gameNumber: number): Promise<void> {
-    await apiClient.post<void>(`/api/v1/game/${gameNumber}/countdown/start`);
+  async startCountdown(gameNumber: number, durationSeconds: number = 10): Promise<CountdownResponse> {
+    const response = await apiClient.post<CountdownResponse>(`/api/v1/game/${gameNumber}/countdown/start`, {
+      durationSeconds
+    });
+    return response;
   }
 
   // 카운트다운 취소
-  async cancelCountdown(gameNumber: number): Promise<void> {
-    await apiClient.post<void>(`/api/v1/game/${gameNumber}/countdown/cancel`);
+  async cancelCountdown(gameNumber: number): Promise<CountdownResponse> {
+    const response = await apiClient.post<CountdownResponse>(`/api/v1/game/${gameNumber}/countdown/cancel`);
+    return response;
   }
 
 
@@ -119,8 +130,11 @@ export class GameService {
   }
 
   // 투표하기 (useGameQueries.ts에서 필요)
-  async vote(gameId: string, voteData: { suspectedLiarId: string }): Promise<VoteResponse> {
-    const response = await apiClient.post<VoteResponse>(`/api/v1/game/${gameId}/vote`, voteData);
+  async vote(gameNumber: number, voteData: { targetUserId: number }): Promise<VoteResponse> {
+    const response = await apiClient.post<VoteResponse>(`/api/v1/game/cast-vote`, {
+      gameNumber,
+      targetUserId: voteData.targetUserId
+    });
     return response;
   }
 
@@ -156,30 +170,116 @@ export class GameService {
   }
 
   // 채팅 메시지 조회
-  async getChatHistory(gameId: string): Promise<ChatMessage[]> {
-    const response = await apiClient.get<ChatMessage[]>(`/api/v1/game/${gameId}/chat`);
+  async getChatHistory(gameNumber: number, page: number = 0, size: number = 50): Promise<any> {
+    const response = await apiClient.post<any>(`/api/v1/chat/history`, {
+      gameNumber,
+      page,
+      size
+    });
     return response;
   }
 
   // 채팅 메시지 전송
-  async sendChatMessage(gameId: string, message: string, type: 'GENERAL' | 'HINT' | 'DEFENSE' = 'GENERAL'): Promise<void> {
-    await apiClient.post<void>(`/api/v1/game/${gameId}/chat`, { message, type });
-  }
-
-  // 힌트 제출
-  async submitHint(gameId: string, hint: string): Promise<void> {
-    await apiClient.post<void>(`/api/v1/game/${gameId}/hint`, { hint });
-  }
-
-  // 변론 제출
-  async submitDefense(gameId: string, defense: string): Promise<DefenseResponse> {
-    const response = await apiClient.post<DefenseResponse>(`/api/v1/game/${gameId}/defense`, { defense });
+  async sendChatMessage(gameNumber: number, content: string, type: 'DISCUSSION' | 'HINT' | 'DEFENSE' | 'SYSTEM' = 'DISCUSSION'): Promise<any> {
+    const response = await apiClient.post<any>(`/api/v1/chat/send`, { 
+      gameNumber,
+      content, 
+      type 
+    });
     return response;
   }
 
+  // 힌트 제출 (구형 - 호환성용)
+  async submitHintOld(gameId: string, hint: string): Promise<void> {
+    const gameNumber = parseInt(gameId);
+    await this.submitHint(gameNumber, hint);
+  }
+
+  // 변론 제출 (구형 - 호환성용)  
+  async submitDefenseOld(gameId: string, defense: string): Promise<DefenseResponse> {
+    const gameNumber = parseInt(gameId);
+    return this.submitDefense(gameNumber, defense);
+  }
+
   // 단어 추측
-  async guessWord(gameId: string, guess: string): Promise<GuessResponse> {
-    const response = await apiClient.post<GuessResponse>(`/api/v1/game/${gameId}/guess`, { guess });
+  async guessWord(gameNumber: number, guess: string): Promise<GuessResponse> {
+    const response = await apiClient.post<GuessResponse>(`/api/v1/game/guess-word`, { 
+      gameNumber, 
+      guess 
+    });
+    return response;
+  }
+
+  // 힌트 제출 (백엔드 API와 매치)
+  async submitHint(gameNumber: number, hint: string): Promise<GameStateResponse> {
+    const response = await apiClient.post<GameStateResponse>(`/api/v1/game/hint`, {
+      gameNumber,
+      hint
+    });
+    return response;
+  }
+
+  // 투표 제출 (새로운 cast-vote 방식)
+  async castVote(gameNumber: number, targetUserId: number): Promise<VoteResponse> {
+    const response = await apiClient.post<VoteResponse>(`/api/v1/game/cast-vote`, {
+      gameNumber,
+      targetUserId
+    });
+    return response;
+  }
+
+  // 변론 제출
+  async submitDefense(gameNumber: number, defenseText: string): Promise<DefenseResponse> {
+    const response = await apiClient.post<DefenseResponse>(`/api/v1/game/submit-defense`, {
+      gameNumber,
+      defenseText
+    });
+    return response;
+  }
+
+  // 변론 즉시 종료
+  async endDefense(gameNumber: number): Promise<GameStateResponse> {
+    const response = await apiClient.post<GameStateResponse>(`/api/v1/game/defense/end`, {
+      gameNumber
+    });
+    return response;
+  }
+
+  // 최종 투표 (처형/생존)
+  async submitFinalVote(gameNumber: number, voteForExecution: boolean): Promise<GameStateResponse> {
+    const response = await apiClient.post<GameStateResponse>(`/api/v1/game/vote/final`, {
+      gameNumber,
+      voteForExecution
+    });
+    return response;
+  }
+
+  // 라이어 단어 추측 (기존 방식 호환)
+  async submitLiarGuess(gameNumber: number, guess: string): Promise<GuessResponse> {
+    const response = await apiClient.post<GuessResponse>(`/api/v1/game/submit-liar-guess`, {
+      gameNumber,
+      guess
+    });
+    return response;
+  }
+
+  // 라운드 종료
+  async endRound(gameNumber: number): Promise<GameStateResponse> {
+    const response = await apiClient.post<GameStateResponse>(`/api/v1/game/end-of-round`, {
+      gameNumber
+    });
+    return response;
+  }
+
+  // 게임 상태 복구
+  async recoverGameState(gameNumber: number): Promise<any> {
+    const response = await apiClient.get<any>(`/api/v1/game/recover-state/${gameNumber}`);
+    return response;
+  }
+
+  // 게임 결과 조회  
+  async getGameResult(gameNumber: number): Promise<any> {
+    const response = await apiClient.get<any>(`/api/v1/game/result/${gameNumber}`);
     return response;
   }
 }

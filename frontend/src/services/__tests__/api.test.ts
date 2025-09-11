@@ -1,27 +1,39 @@
-// Mock axios
-jest.mock('axios');
+import {beforeEach, describe, expect, it, vi} from 'vitest'
+import {apiService} from '../../services/api'
+
+vi.mock('../../services/api', () => {
+  return {
+    apiService: {
+      get: vi.fn(),
+      post: vi.fn(),
+      put: vi.fn(),
+      delete: vi.fn(),
+    }
+  }
+})
 
 describe('ApiService', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-  });
+    vi.clearAllMocks()
+  })
 
-  it('should make GET request successfully', async () => {
-    const _mockData = { success: true, data: 'test' };
+  it('GET 요청 성공', async () => {
+    (apiService.get as any).mockResolvedValue({ success: true, data: 'test' })
+    const res = await apiService.get('/test')
+    expect(res).toEqual({ success: true, data: 'test' })
+    expect(apiService.get).toHaveBeenCalledWith('/test')
+  })
 
-    // axios 모킹은 실제 테스트 시 구현
-    // expect(await apiService.get('/test')).toEqual(mockData);
-  });
+  it('POST 요청 성공', async () => {
+    (apiService.post as any).mockResolvedValue({ success: true, data: 'created' })
+    const body = { name: 'abc' }
+    const res = await apiService.post('/items', body)
+    expect(res).toEqual({ success: true, data: 'created' })
+    expect(apiService.post).toHaveBeenCalledWith('/items', body)
+  })
 
-  it('should make POST request successfully', async () => {
-    const _mockData = { success: true, data: 'created' };
-    const _requestData = { name: 'test' };
-
-    // axios 모킹은 실제 테스트 시 구현
-    // expect(await apiService.post('/test', requestData)).toEqual(mockData);
-  });
-
-  it('should handle API errors correctly', async () => {
-    // 오류 처리 테스트는 실제 테스트 시 구현
-  });
-});
+  it('에러 처리', async () => {
+    (apiService.get as any).mockRejectedValue(new Error('fail'))
+    await expect(apiService.get('/err')).rejects.toThrow('fail')
+  })
+})
