@@ -1,5 +1,5 @@
 import {describe, expect, it, vi} from 'vitest'
-import {applyServerTimeRemaining, estimateClockOffset} from '../timeSync'
+import {applyServerTimeRemaining, estimateClockOffset} from '../timeSync.ts'
 import {calculateScoreChanges} from '../scoreCalculations'
 
 describe('timeSync', () => {

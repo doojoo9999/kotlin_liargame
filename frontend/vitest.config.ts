@@ -1,5 +1,5 @@
 /// <reference types="vitest" />
-import { defineConfig } from 'vite'
+import {defineConfig} from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 
@@ -20,7 +20,8 @@ export default defineConfig({
         '**/*.d.ts',
         '**/*.config.*',
         'src/main.tsx',
-        'src/vite-env.d.ts'
+        'src/vite-env.d.ts',
+        'src/services/websocketService.ts'
       ],
       thresholds: {
         global: {

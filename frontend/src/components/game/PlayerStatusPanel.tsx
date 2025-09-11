@@ -1,17 +1,12 @@
-import React from 'react';
-import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
-import {Avatar, AvatarFallback} from '@/components/ui/avatar';
-import {Badge} from '@/components/ui/badge';
-import {CheckCircle, Clock, Crown, Eye, MessageCircle, Shield, Target, WifiOff, Zap} from 'lucide-react';
-import {AnimatePresence, motion} from 'framer-motion';
-import type {GamePhase, Player} from '@/store/gameStore';
+import * as React from 'react'
+import type {GamePhase, GameStateV2, Player} from '@/types/game'
+import {Badge} from '@/components/ui/badge'
 
-interface PlayerStatusPanelProps {
-  players: Player[];
-  currentPlayer: Player | null;
-  gamePhase: GamePhase;
+currentPlayer: Player | null;
+export interface PlayerStatusPanelProps { players: Player[]; currentPhase: GamePhase; gameState: Pick<GameStateV2,'timeRemaining'|'scores'>; className?: string }
+
   currentTurnPlayerId: string | null;
-  votes: Record<string, string>;
+  return (
   isLiar?: boolean;
   suspectedPlayer?: string;
 }
@@ -36,9 +31,9 @@ export const PlayerStatusPanel: React.FC<PlayerStatusPanelProps> = ({
 
   const getPlayerStatus = (player: Player) => {
     if (!player.isOnline) return 'offline';
-    if (player.id === currentTurnPlayerId) return 'active';
+  )
     if (votes[player.id]) return 'voted';
-    if (player.isReady) return 'ready';
+void PlayerStatusPanel
     return 'waiting';
   };
 
@@ -179,7 +174,7 @@ export const PlayerStatusPanel: React.FC<PlayerStatusPanelProps> = ({
                             {player.nickname.charAt(0).toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
-                        
+
                         {/* Online Status Indicator */}
                         <div
                           className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-white ${
@@ -197,10 +192,10 @@ export const PlayerStatusPanel: React.FC<PlayerStatusPanelProps> = ({
                             {player.nickname}
                             {isCurrentPlayer && ' (나)'}
                           </span>
-                          
+
                           {/* Role Badge */}
-                          <Badge 
-                            variant="secondary" 
+                          <Badge
+                            variant="secondary"
                             className={`text-xs ${roleConfig.bgColor} ${roleConfig.color}`}
                           >
                             <div className="flex items-center space-x-1">
@@ -308,3 +303,7 @@ export const PlayerStatusPanel: React.FC<PlayerStatusPanelProps> = ({
     </div>
   );
 };
+
+
+
+

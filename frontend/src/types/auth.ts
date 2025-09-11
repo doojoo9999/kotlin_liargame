@@ -3,18 +3,19 @@ export interface LoginRequest {
   nickname: string;
 }
 
-// 로그인 응답
+// 로그인 응답 (백엔드와 매칭)
 export interface LoginResponse {
   success: boolean;
-  userId: number;
-  nickname: string;
+  userId?: number;  // 백엔드는 Long 타입이지만 optional 가능
+  nickname?: string;
+  message?: string;
 }
 
-// 세션 갱신 응답
+// 세션 갱신 응답 (백엔드와 매칭)
 export interface SessionRefreshResponse {
   success: boolean;
-  userId: number;
-  nickname: string;
+  userId?: number;
+  nickname?: string;
   message?: string;
 }
 
