@@ -1,12 +1,17 @@
 const { chromium } = require('playwright');
 
 async function takeLoginScreenshot() {
+  const portArg = process.argv[2];
+  const port = portArg || process.env.PORT || '5173';
+  const url = `http://localhost:${port}/main/login`;
+  const outPath = 'docs/upgrade_5/login-screenshot.png';
+
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage();
   
   try {
-    console.log('Navigating to login page...');
-    
+    console.log('Navigating to login page...', url);
+
     // 콘솔 에러 로그 수집
     page.on('console', msg => {
       if (msg.type() === 'error') {
@@ -19,21 +24,17 @@ async function takeLoginScreenshot() {
       console.log('Page error:', error.message);
     });
     
-    await page.goto('http://localhost:5173/main/login', { 
+    await page.goto(url, {
       waitUntil: 'domcontentloaded',
       timeout: 30000 
     });
     
     // 페이지 제목과 URL 확인
     const title = await page.title();
-    const url = page.url();
+    const currentUrl = page.url();
     console.log(`Page title: ${title}`);
-    console.log(`Page URL: ${url}`);
-    
-    // 페이지 내용 확인
-    const bodyContent = await page.evaluate(() => document.body.textContent);
-    console.log('Page content preview:', bodyContent.substring(0, 200));
-    
+    console.log(`Page URL: ${currentUrl}`);
+
     // 여러 가능한 셀렉터 시도
     const selectors = ['form', 'input[type="text"]', 'button', '[class*="Card"]'];
     let elementFound = false;
@@ -45,7 +46,7 @@ async function takeLoginScreenshot() {
         console.log(`Found element with selector: ${selector}`);
         elementFound = true;
         break;
-      } catch (e) {
+      } catch {
         console.log(`Selector ${selector} not found, trying next...`);
       }
     }
@@ -55,22 +56,25 @@ async function takeLoginScreenshot() {
     }
     
     // 추가 대기 시간
-    await page.waitForTimeout(3000);
-    
+    await page.waitForTimeout(1500);
+
     // 스크린샷 촬영
     await page.screenshot({ 
-      path: 'docs/upgrade_1/improved-login-screenshot.png',
-      fullPage: true 
+      path: outPath,
+      fullPage: true
     });
     
-    console.log('Screenshot saved: docs/upgrade_1/improved-login-screenshot.png');
-    
+    console.log('Screenshot saved:', outPath);
+
   } catch (error) {
     console.error('Error taking screenshot:', error.message);
     console.error('Full error:', error);
+    process.exitCode = 1;
   } finally {
     await browser.close();
   }
 }
 
-takeLoginScreenshot();
+if (require.main === module) {
+  takeLoginScreenshot();
+}
