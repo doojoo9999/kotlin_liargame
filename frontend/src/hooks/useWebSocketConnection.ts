@@ -261,7 +261,7 @@ export function useWebSocketConnection() {
 
     // Chat Events
     const unsubscribeChatMessage = gameWebSocket.on('CHAT_MESSAGE', (data: ChatMessage) => {
-      console.log('[WebSocket Hook] Chat message:', data.playerNickname, data.content)
+      console.log('[WebSocket Hook] Chat message:', data.playerName, data.content)
       handleChatMessage(data)
     })
 

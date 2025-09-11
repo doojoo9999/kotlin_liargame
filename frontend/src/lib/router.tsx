@@ -43,12 +43,16 @@ export const router = createBrowserRouter([
         element: <ProtectedRoute><GamePage /></ProtectedRoute>,
       },
       {
-        path: "results/:gameId", 
+        path: "results/:gameId",
         element: <ProtectedRoute><ResultsPage /></ProtectedRoute>,
       },
       {
         path: "*",
-        element: <NotFoundPage />,
+        path: "dev/game-v2/:gameId",
+        element: <GamePageV2 />,
+      },
+      {
+        path: "results/:gameId",
       },
     ]
   },

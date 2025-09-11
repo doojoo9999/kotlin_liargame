@@ -1,172 +1,85 @@
+// Game Flow v2 Types (erasable syntax compliant)
+export type PlayerID = string
+
+export const GamePhase = {
+  WAITING: 'WAITING',
+  SPEECH: 'SPEECH',
+  VOTING_FOR_LIAR: 'VOTING_FOR_LIAR',
+  DEFENDING: 'DEFENDING',
+  VOTING_FOR_SURVIVAL: 'VOTING_FOR_SURVIVAL',
+  GUESSING_WORD: 'GUESSING_WORD',
+  GAME_OVER: 'GAME_OVER',
+} as const
+export type GamePhase = typeof GamePhase[keyof typeof GamePhase]
+
 export interface Player {
-  id: string
+  id: PlayerID
   nickname: string
-  isReady: boolean
-  isHost: boolean
-  isOnline: boolean
-  avatar?: string
-  score?: number
-  role?: 'civilian' | 'liar'
-  hasVoted?: boolean
-  isTyping?: boolean
+  role?: 'CITIZEN' | 'LIAR'
+  isAlive?: boolean
 }
 
-export interface GameRoom {
-  id: string
-  name: string
-  hostId: string
-  hostName: string
-  playerCount: number
-  maxPlayers: number
-  status: 'waiting' | 'playing' | 'finished'
-  isPrivate: boolean
-  createdAt: string
-  timeLimit: number
-}
-
-export interface ChatMessage {
-  id: string
-  playerId: string
-  playerName: string
-  message: string
+export interface Hint {
+  playerId: PlayerID
+  text: string
   timestamp: number
-  type: 'message' | 'system' | 'join' | 'leave'
 }
 
-export interface GamePhase {
-  phase: 'waiting' | 'topic_reveal' | 'discussion' | 'voting' | 'results' | 'finished'
-  timeRemaining: number
-  maxTime: number
-}
-
-export interface VoteResult {
-  playerId: string
-  playerName: string
-  votes: number
-  voters: string[]
+export interface Vote {
+  voterId: PlayerID
+  targetId: PlayerID
+  timestamp: number
 }
 
 export interface GameResults {
-  liarId: string
-  liarName: string
-  topic: string
-  votes: VoteResult[]
-  liarWon: boolean
-  roundScores: Record<string, number>
+  winners: PlayerID[]
+  reason: string
 }
 
-export interface RoundInfo {
-  current: number
-  total: number
-  phase: GamePhase['phase']
-  topic?: string
+export interface ActivityEvent {
+  id: string
+  type: 'hint' | 'vote' | 'defense' | 'guess' | 'phase_change' | 'system' | 'survival_vote'
+  playerId?: PlayerID
+  targetId?: PlayerID
+  content?: string
+  phase: GamePhase
+  timestamp: number
+  highlight?: boolean
 }
 
-export type GameAction = 
-  | 'join'
-  | 'leave' 
-  | 'ready'
-  | 'start'
-  | 'vote'
-  | 'next_round'
-  | 'end_game'
-
-export type PlayerStatus = 'online' | 'offline' | 'away' | 'ready' | 'waiting'
-
-export type AnimationType = 
-  | 'slideIn'
-  | 'fadeIn' 
-  | 'scaleIn'
-  | 'bounceIn'
-  | 'slideUp'
-  | 'slideDown'
-
-export interface AnimationProps {
-  type?: AnimationType
-  delay?: number
-  duration?: number
-  className?: string
+export interface SurvivalVote {
+  voterId: PlayerID
+  targetId: PlayerID
+  timestamp: number
 }
 
-// 백엔드 API 호환 타입들 추가
-export interface GameStateResponse {
-  gameNumber: number;
-  gameName: string;
-  gameOwner: string;
-  gameState: 'WAITING' | 'IN_PROGRESS' | 'ENDED';
-  currentPhase: GamePhase;
-  players: Player[];
-  gameMode: GameMode;
-  gameParticipants: number;
-  gameLiarCount: number;
-  gameTotalRounds: number;
-  gameCurrentRound: number;
-  gameMaxPlayers: number;
-  gameTopic?: string;
-  gameWord?: string;
-  currentTurnUserId?: number;
-  totalRounds: number;
-  yourRole?: 'CITIZEN' | 'LIAR';
-  yourWord?: string;
-  accusedPlayer?: Player | null;
-  isChatAvailable: boolean;
-  citizenSubject?: string;
-  liarSubject?: string | null;
-  subjects: string[];
-  turnOrder: string[];
-  currentTurnIndex: number;
-  phaseEndTime?: string;
-  winner?: string | null;
-  reason?: string | null;
-  targetPoints: number;
-  scoreboard: ScoreboardEntry[];
+export interface GuessAttempt {
+  playerId: PlayerID
+  word: string
+  timestamp: number
+  correct: boolean
 }
 
-export interface ScoreboardEntry {
-  userId: number;
-  nickname: string;
-  isAlive: boolean;
-  score: number;
-}
-
-export interface GameMode {
-  id: string;
-  name: string;
-  description: string;
-  minPlayers?: number;
-  maxPlayers?: number;
-  roundTimeLimit?: number;
-  liarCount?: number;
-}
-
-export interface CreateGameRequest {
-  gameName: string;
-  gameMode: string;
-  maxPlayers: number;
-  isPrivate: boolean;
-  password?: string;
-}
-
-export interface JoinGameRequest {
-  gameNumber: number;
-  password?: string;
-}
-
-export interface GameListResponse {
-  games: GameRoomInfo[];
-  totalCount: number;
-  currentPage: number;
-  totalPages: number;
-}
-
-export interface GameRoomInfo {
-  gameNumber: number;
-  gameName: string;
-  gameOwner: string;
-  gameState: 'WAITING' | 'IN_PROGRESS' | 'ENDED';
-  gameParticipants: number;
-  gameMaxPlayers: number;
-  gameMode: string;
-  isPrivate: boolean;
-  createdAt: string;
+export interface GameStateV2 {
+  gameId: string
+  phase: GamePhase
+  currentRound: number
+  totalRounds: number
+  timeRemaining: number
+  currentPlayer?: PlayerID
+  players: Player[]
+  gameData: {
+    topic: string
+    secretWord?: string
+    hints: Hint[]
+    votes: Vote[]
+    accusedPlayer?: PlayerID
+    defenseStatement?: string
+    survivalVotes?: SurvivalVote[]
+    guessAttempt?: GuessAttempt
+    eliminatedPlayer?: PlayerID
+    results?: GameResults
+    victoryAchieved?: boolean
+  }
+  scores: Record<PlayerID, number>
 }

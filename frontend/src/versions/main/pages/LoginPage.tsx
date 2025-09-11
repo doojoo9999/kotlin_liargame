@@ -85,11 +85,7 @@ export function MainLoginPage() {
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center"
-      style={{
-        background: 'linear-gradient(to bottom right, #eff6ff, #e0e7ff)',
-        minHeight: '100vh'
-      }}
+      className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100"
     >
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -103,10 +99,7 @@ export function MainLoginPage() {
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-              className="mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4"
-              style={{
-                background: 'linear-gradient(to right, #3b82f6, #8b5cf6)'
-              }}
+              className="mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-gradient-to-r from-blue-500 to-violet-600"
             >
               <User className="w-8 h-8 text-white" />
             </motion.div>
