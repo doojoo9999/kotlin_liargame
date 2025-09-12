@@ -39,13 +39,47 @@ class GameEntity(
     var liarSubject: SubjectEntity? = null,
 
     var currentPlayerId: Long? = null,
+
     var accusedPlayerId: Long? = null,
+
     var turnStartedAt: Instant? = null,
 
     @Column(columnDefinition = "TEXT")
     var turnOrder: String? = null,
     var currentTurnIndex: Int = 0,
-    var phaseEndTime: Instant? = null
+    var phaseEndTime: Instant? = null,
+
+    var gameStartDeadline: Instant? = null,
+
+    var lastActivityAt: Instant? = null,
+
+    @Column(nullable = true)
+    var timeExtensionCount: Int? = null,
+
+    @Column(nullable = false)
+    val targetPoints: Int = 10,
+
+    @Column(name = "countdown_started_at")
+    var countdownStartedAt: Instant? = null,
+
+    @Column(name = "countdown_end_time")
+    var countdownEndTime: Instant? = null,
+
+    @Column(name = "countdown_duration_seconds")
+    var countdownDurationSeconds: Int = 10,
+
+    @Column(name = "required_votes")
+    var requiredVotes: Int? = null,
+
+    @Column(name = "current_votes")
+    var currentVotes: Int = 0,
+
+    @Column(name = "active_players_count")
+    var activePlayersCount: Int = 0,
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "voting_phase")
+    var votingPhase: org.example.kotlin_liargame.domain.game.model.enum.VotingPhase? = null
 ) : BaseEntity() {
 
     @Id
@@ -58,6 +92,7 @@ class GameEntity(
     fun startGame() {
         if (gameState == GameState.WAITING) {
             gameState = GameState.IN_PROGRESS
+            currentPhase = GamePhase.SPEECH  // GIVING_HINTS 대신 SPEECH 사용
             gameCurrentRound = 1
         }
     }

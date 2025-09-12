@@ -7,10 +7,8 @@ import org.springframework.stereotype.Service
 class RateLimitingCleanupService(
     private val rateLimitingService: RateLimitingService
 ) {
-    
-    /**
-     * 5분마다 만료된 Rate Limiting 기록 정리
-     */
+
+
     @Scheduled(fixedRate = 300000) // 5분 = 300,000ms
     fun cleanupExpiredRateLimitRecords() {
         try {
@@ -20,10 +18,7 @@ class RateLimitingCleanupService(
             println("[ERROR] Failed to cleanup rate limiting records: ${e.message}")
         }
     }
-    
-    /**
-     * 1시간마다 메모리 사용량 로깅 (모니터링 목적)
-     */
+
     @Scheduled(fixedRate = 3600000) // 1시간 = 3,600,000ms
     fun logMemoryUsage() {
         try {

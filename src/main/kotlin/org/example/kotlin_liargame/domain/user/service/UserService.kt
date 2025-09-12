@@ -33,17 +33,24 @@ class UserService(
     }
 
     fun authenticate(nickname: String, password: String?): UserEntity {
-        val user = userRepository.findByNickname(nickname)
-            ?: createUser(UserAddRequest(nickname = nickname, password = password ?: ""))
-
-        val isNewUser = userRepository.findByNickname(nickname) == null
-        if (!isNewUser && !passwordEncoder.matches(password ?: "", user.password)) {
-            throw RuntimeException("Invalid password")
-        }
-
-        return user.apply {
-            isAuthenticated = true
-            userRepository.save(this)
+        val existingUser = userRepository.findByNickname(nickname)
+        
+        return if (existingUser == null) {
+            // 새 사용자 생성
+            val newUser = createUser(UserAddRequest(nickname = nickname, password = password ?: ""))
+            newUser.apply {
+                isAuthenticated = true
+                userRepository.save(this)
+            }
+        } else {
+            // 기존 사용자 비밀번호 검증
+            if (!passwordEncoder.matches(password ?: "", existingUser.password)) {
+                throw RuntimeException("Invalid password")
+            }
+            existingUser.apply {
+                isAuthenticated = true
+                userRepository.save(this)
+            }
         }
     }
 

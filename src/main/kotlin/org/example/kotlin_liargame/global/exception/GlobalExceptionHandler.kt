@@ -3,6 +3,7 @@ package org.example.kotlin_liargame.global.exception
 import org.example.kotlin_liargame.global.dto.ErrorResponse
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
+import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.messaging.handler.annotation.MessageExceptionHandler
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.web.bind.MethodArgumentNotValidException
@@ -14,6 +15,27 @@ import org.springframework.web.context.request.WebRequest
 class GlobalExceptionHandler(
     private val messagingTemplate: SimpMessagingTemplate
 ) {
+    
+    @ExceptionHandler(HttpMessageNotReadableException::class)
+    fun handleHttpMessageNotReadableException(
+        ex: HttpMessageNotReadableException,
+        request: WebRequest
+    ): ResponseEntity<ErrorResponse> {
+        val errorResponse = ErrorResponse(
+            errorCode = "JSON_PARSE_ERROR",
+            message = "Invalid JSON format",
+            userFriendlyMessage = "요청 데이터 형식이 올바르지 않습니다.",
+            details = mapOf(
+                "path" to request.getDescription(false),
+                "error" to (ex.mostSpecificCause?.message ?: ex.message ?: "Unknown JSON parsing error")
+            )
+        )
+        
+        println("[ERROR] JSON parsing error: ${ex.mostSpecificCause?.message ?: ex.message}")
+        ex.printStackTrace()
+        
+        return ResponseEntity(errorResponse, HttpStatus.BAD_REQUEST)
+    }
     
     @ExceptionHandler(MethodArgumentNotValidException::class)
     fun handleValidationException(ex: MethodArgumentNotValidException): ResponseEntity<ErrorResponse> {

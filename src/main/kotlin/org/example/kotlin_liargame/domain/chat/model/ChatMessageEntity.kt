@@ -15,8 +15,8 @@ class ChatMessageEntity(
     val game: GameEntity,
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "player_id")
-    val player: PlayerEntity,
+    @JoinColumn(name = "player_id", foreignKey = ForeignKey(ConstraintMode.CONSTRAINT))
+    val player: PlayerEntity?, // 시스템 메시지의 경우 null 가능
 
     @Column(nullable = false)
     val content: String,
@@ -30,5 +30,5 @@ class ChatMessageEntity(
 ) : BaseEntity() {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    val id: Long = 0
+    var id: Long? = null
 }

@@ -29,7 +29,10 @@ data class GameStateResponse(
     val currentTurnIndex: Int? = null,
     val phaseEndTime: String? = null,
     val winner: String? = null,
-    val reason: String? = null
+    val reason: String? = null,
+    val targetPoints: Int = 0,
+    val scoreboard: List<ScoreboardEntry> = emptyList(),
+    val finalVotingRecord: List<Map<String, Any>>? = null
 ) {
     companion object {
         fun from(
@@ -43,7 +46,8 @@ data class GameStateResponse(
             currentTurnIndex: Int? = null,
             phaseEndTime: String? = null,
             winner: String? = null,
-            reason: String? = null
+            reason: String? = null,
+            finalVotingRecord: List<Map<String, Any>>? = null
         ): GameStateResponse {
             val currentPlayer = players.find { it.userId == currentUserId }
             
@@ -59,8 +63,33 @@ data class GameStateResponse(
                 gameState = game.gameState,
                 players = players.map { PlayerResponse.from(it) },
                 currentPhase = currentPhase,
-                                yourRole = currentPlayer?.role?.name,
-                yourWord = currentPlayer?.subject?.content,
+                // 현재 플레이어의 역할과 받은 단어/주제 정보 추가
+                yourRole = currentPlayer?.role?.name,
+                yourWord = currentPlayer?.let { player ->
+                    when {
+                        // 게임 중일 때만 단어 공개
+                        game.gameState == GameState.IN_PROGRESS -> {
+                            when (player.role) {
+                                org.example.kotlin_liargame.domain.game.model.enum.PlayerRole.CITIZEN -> {
+                                    // 시민은 할당받은 단어를 받음
+                                    player.assignedWord ?: "단어를 받지 못했습니다"
+                                }
+                                org.example.kotlin_liargame.domain.game.model.enum.PlayerRole.LIAR -> {
+                                    when (game.gameMode) {
+                                        org.example.kotlin_liargame.domain.game.model.enum.GameMode.LIARS_KNOW -> {
+                                            "🤫 당신은 라이어입니다. 다른 사람들의 힌트를 듣고 주제를 파악하세요!"
+                                        }
+                                        org.example.kotlin_liargame.domain.game.model.enum.GameMode.LIARS_DIFFERENT_WORD -> {
+                                            // 라이어는 다른 주제의 단어를 받음
+                                            player.assignedWord ?: "단어를 받지 못했습니다"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        else -> null
+                    }
+                },
                 accusedPlayer = accusedPlayer?.let { PlayerResponse.from(it) },
                 isChatAvailable = isChatAvailable,
                 citizenSubject = game.citizenSubject?.content,
@@ -70,10 +99,11 @@ data class GameStateResponse(
                 currentTurnIndex = currentTurnIndex,
                 phaseEndTime = phaseEndTime,
                 winner = winner,
-                reason = reason
+                reason = reason,
+                targetPoints = game.targetPoints,
+                scoreboard = players.map { ScoreboardEntry.from(it) },
+                finalVotingRecord = finalVotingRecord
             )
         }
     }
 }
-
-

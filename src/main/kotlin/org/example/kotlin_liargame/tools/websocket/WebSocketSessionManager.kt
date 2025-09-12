@@ -1,7 +1,8 @@
 package org.example.kotlin_liargame.tools.websocket
 
 import jakarta.servlet.http.HttpSession
- import org.springframework.context.annotation.Lazy
+import org.example.kotlin_liargame.global.util.SessionUtil
+import org.springframework.context.annotation.Lazy
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.stereotype.Component
@@ -10,7 +11,8 @@ import java.util.concurrent.ConcurrentHashMap
 
 @Component
 class WebSocketSessionManager(
-    @Lazy private val messagingTemplate: SimpMessagingTemplate
+    @Lazy private val messagingTemplate: SimpMessagingTemplate,
+    private val sessionUtil: SessionUtil
 ) {
     private val sessionMap = ConcurrentHashMap<String, Map<String, Any>>()
     
@@ -18,31 +20,45 @@ class WebSocketSessionManager(
 
 
     fun storeSession(webSocketSessionId: String, httpSession: HttpSession) {
-        val userId = httpSession.getAttribute("userId") as? Long
-        val nickname = httpSession.getAttribute("nickname") as? String
+        // JSON 직렬화 방식으로 세션 데이터 조회 (재시도 메커니즘 포함)
+        var userId = sessionUtil.getUserId(httpSession)
+        var nickname = sessionUtil.getUserNickname(httpSession)
+
+        // 세션 정보가 없는 경우 Redis 동기화를 위해 재시도
+        if (userId == null || nickname == null) {
+            println("[WARN] Initial session data not found for WebSocket: $webSocketSessionId, attempting retry...")
+
+            // 짧은 지연 후 재시도 (Redis 동기화 대기)
+            Thread.sleep(100)
+            userId = sessionUtil.getUserId(httpSession)
+            nickname = sessionUtil.getUserNickname(httpSession)
+
+            if (userId == null || nickname == null) {
+                // 두 번째 시도
+                Thread.sleep(200)
+                userId = sessionUtil.getUserId(httpSession)
+                nickname = sessionUtil.getUserNickname(httpSession)
+            }
+        }
 
         val sessionInfo = mutableMapOf<String, Any>()
         if (userId != null) {
             sessionInfo["userId"] = userId
             println("[DEBUG] Storing WebSocket session mapping: $webSocketSessionId -> userId=$userId")
         } else {
-            println("[WARN] No userId found in HTTP session for WebSocket: $webSocketSessionId")
-            httpSession.attributeNames.asIterator().forEach { attrName ->
-                println("[DEBUG] HTTP Session attribute: $attrName = ${httpSession.getAttribute(attrName)}")
-            }
+            println("[WARN] No userId found in session for WebSocket: $webSocketSessionId after retries")
         }
 
         if (nickname != null) {
             sessionInfo["nickname"] = nickname
+        } else {
+            println("[WARN] No nickname found in session for WebSocket: $webSocketSessionId after retries")
         }
 
-        if (sessionInfo.isNotEmpty()) {
-            sessionMap[webSocketSessionId] = sessionInfo
-            println("[DEBUG] WebSocket session stored: $webSocketSessionId -> $sessionInfo")
-            printSessionInfo()
-        } else {
-            println("[WARN] No session info to store for WebSocket: $webSocketSessionId")
-        }
+        sessionInfo["connectedAt"] = Instant.now()
+        sessionMap[webSocketSessionId] = sessionInfo
+        println("[DEBUG] WebSocket session stored: $webSocketSessionId -> $sessionInfo")
+        printSessionInfo()
     }
 
 
@@ -116,7 +132,7 @@ class WebSocketSessionManager(
                 disconnectMessage
             )
             
-            checkGameContinuity(gameNumber, userId, nickname)
+            checkGameContinuity(gameNumber, nickname)
             
             println("[INFO] Notified game $gameNumber about player $userId ($nickname) disconnection")
             
@@ -124,11 +140,28 @@ class WebSocketSessionManager(
             println("[ERROR] Failed to handle player disconnection: ${e.message}")
         }
     }
-    private fun checkGameContinuity(gameNumber: Int, disconnectedUserId: Long, nickname: String?) {
+    private fun checkGameContinuity(gameNumber: Int, nickname: String?) {
         try {
             val remainingPlayers = playerGameMap.values.count { it == gameNumber }
             
-            if (remainingPlayers < 3) {
+            println("[DEBUG] Game $gameNumber continuity check: $remainingPlayers players remaining after $nickname disconnection")
+
+            if (remainingPlayers == 0) {
+                // 방에 아무도 없으면 게임 종료
+                val gameEndMessage = mapOf(
+                    "type" to "GAME_ENDED",
+                    "reason" to "ALL_PLAYERS_DISCONNECTED",
+                    "message" to "모든 플레이어가 연결 해제되어 게임이 종료됩니다",
+                    "timestamp" to Instant.now()
+                )
+
+                messagingTemplate.convertAndSend(
+                    "/topic/game/$gameNumber/game-status",
+                    gameEndMessage
+                )
+
+                println("[INFO] Game $gameNumber ended - all players disconnected")
+            } else if (remainingPlayers < 3) {
                 val gameEndMessage = mapOf(
                     "type" to "GAME_INTERRUPTED",
                     "reason" to "INSUFFICIENT_PLAYERS",
@@ -154,6 +187,27 @@ class WebSocketSessionManager(
         println("[DEBUG] Current WebSocket sessions (${sessionMap.size})")
         sessionMap.forEach { (sessionId, info) ->
             println("[DEBUG]   - $sessionId: $info")
+        }
+    }
+
+    /**
+     * WebSocket 세션의 사용자 정보를 수동으로 갱신
+     */
+    fun refreshSessionInfo(webSocketSessionId: String, httpSession: HttpSession) {
+        val userId = sessionUtil.getUserId(httpSession)
+        val nickname = sessionUtil.getUserNickname(httpSession)
+
+        if (userId != null && nickname != null) {
+            val existingInfo = sessionMap[webSocketSessionId]?.toMutableMap() ?: mutableMapOf()
+            existingInfo["userId"] = userId
+            existingInfo["nickname"] = nickname
+            existingInfo["lastRefresh"] = Instant.now()
+
+            sessionMap[webSocketSessionId] = existingInfo
+            println("[DEBUG] Refreshed WebSocket session info: $webSocketSessionId -> userId=$userId, nickname=$nickname")
+            printSessionInfo()
+        } else {
+            println("[WARN] Failed to refresh session info for WebSocket: $webSocketSessionId - userId or nickname still null")
         }
     }
 }

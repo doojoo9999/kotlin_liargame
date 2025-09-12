@@ -30,4 +30,12 @@ interface GameRepository : JpaRepository<GameEntity, Long> {
     fun findStaleWaitingGames(time: java.time.Instant): List<GameEntity>
 
     fun findByGameOwnerAndGameStateIn(owner: String, states: List<GameState>): GameEntity?
+
+    // 게임 상태별 개수 조회
+    fun countByGameState(gameState: GameState): Long
+
+    // 시간 기반 오래된 게임 조회
+    fun findByGameStateAndCreatedAtBefore(gameState: GameState, time: java.time.Instant): List<GameEntity>
+
+    fun findByGameStateAndModifiedAtBefore(gameState: GameState, time: java.time.Instant): List<GameEntity>
 }

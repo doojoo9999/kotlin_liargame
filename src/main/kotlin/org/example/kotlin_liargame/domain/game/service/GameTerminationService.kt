@@ -6,6 +6,7 @@ import org.example.kotlin_liargame.domain.game.model.enum.AbnormalCondition
 import org.example.kotlin_liargame.domain.game.model.enum.GameState
 import org.example.kotlin_liargame.domain.game.repository.GameRepository
 import org.example.kotlin_liargame.domain.game.repository.PlayerRepository
+import org.example.kotlin_liargame.global.redis.GameStateService
 import org.springframework.context.annotation.Lazy
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.scheduling.TaskScheduler
@@ -21,11 +22,13 @@ class GameTerminationService(
     private val gameRepository: GameRepository,
     private val playerRepository: PlayerRepository,
     @Lazy private val messagingTemplate: SimpMessagingTemplate,
-    private val taskScheduler: TaskScheduler
+    private val taskScheduler: TaskScheduler,
+    private val gameProperties: org.example.kotlin_liargame.global.config.GameProperties,
+    private val gameStateService: GameStateService
 ) {
     
+    // ScheduledFuture는 직렬화가 어려우므로 로컬에서 관리
     private val gameMonitoringTasks = ConcurrentHashMap<Int, ScheduledFuture<*>>()
-    private val terminationReasons = ConcurrentHashMap<Int, String>()
 
     fun forceTerminateGame(gameNumber: Int, adminReason: String): GameTerminationResponse {
         return try {
@@ -36,9 +39,9 @@ class GameTerminationService(
                 throw IllegalStateException("Game is already ended")
             }
             
-            // Record termination reason
-            terminationReasons[gameNumber] = "Admin termination: $adminReason"
-            
+            // Redis에 종료 사유 저장
+            gameStateService.setTerminationReason(gameNumber, "Admin termination: $adminReason")
+
             // Terminate the game
             terminateGameInternal(gameNumber, "관리자에 의해 게임이 강제 종료되었습니다: $adminReason")
             
@@ -71,7 +74,8 @@ class GameTerminationService(
                 AbnormalCondition.TIMEOUT_EXCEEDED -> "게임 시간 초과"
             }
             
-            terminationReasons[gameNumber] = "Auto termination: $reason"
+            // Redis에 종료 사유 저장
+            gameStateService.setTerminationReason(gameNumber, "Auto termination: $reason")
             terminateGameInternal(gameNumber, reason)
             
             GameTerminationResponse(
@@ -159,7 +163,7 @@ class GameTerminationService(
                 gameNumber = gameNumber,
                 message = message,
                 timestamp = Instant.now(),
-                reason = terminationReasons[gameNumber] ?: "Unknown"
+                reason = gameStateService.getTerminationReason(gameNumber) ?: "Unknown"
             )
         )
         
@@ -173,9 +177,6 @@ class GameTerminationService(
         try {
             // Stop monitoring
             stopGameMonitoring(game.gameNumber)
-            
-            // Remove termination reason
-            terminationReasons.remove(game.gameNumber)
             
             // Additional cleanup can be added here for other services
             // e.g., voting cleanup, defense cleanup, etc.
@@ -193,18 +194,17 @@ class GameTerminationService(
     }
 
     private fun isGameTimeoutExceeded(game: org.example.kotlin_liargame.domain.game.model.GameEntity): Boolean {
-        val maxGameDurationHours = 2L
         val gameStartTime = game.createdAt
         val now = Instant.now()
         val duration = java.time.Duration.between(gameStartTime, now)
         
-        return duration.toHours() > maxGameDurationHours
+        return duration.toHours() > gameProperties.maxGameDurationHours
     }
 
     fun getTerminationStats(): Map<String, Any> {
         return mapOf(
             "activeMonitoringGames" to gameMonitoringTasks.size,
-            "totalTerminations" to terminationReasons.size,
+            "totalTerminations" to gameStateService.getTotalTerminations(),
             "timestamp" to Instant.now()
         )
     }

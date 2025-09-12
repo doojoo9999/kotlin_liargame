@@ -4,6 +4,7 @@ import org.example.kotlin_liargame.domain.subject.dto.request.SubjectRequest
 import org.example.kotlin_liargame.domain.subject.dto.response.SubjectResponse
 import org.example.kotlin_liargame.domain.subject.exception.SubjectAlreadyExistsException
 import org.example.kotlin_liargame.domain.subject.service.SubjectService
+import org.example.kotlin_liargame.domain.word.exception.ForbiddenWordException
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
@@ -35,10 +36,23 @@ class SubjectController (
         return subjectService.findAll()
     }
 
+    @PostMapping("/approve-pending")
+    fun approveAllPendingSubjects(): ResponseEntity<List<SubjectResponse>> {
+        val approvedSubjects = subjectService.approveAllPendingSubjects()
+        return ResponseEntity.ok(approvedSubjects)
+    }
+
     @ExceptionHandler(SubjectAlreadyExistsException::class)
     fun handleSubjectAlreadyExistsException(e: SubjectAlreadyExistsException): ResponseEntity<Map<String, String?>> {
         return ResponseEntity
             .status(HttpStatus.CONFLICT)
+            .body(mapOf("message" to e.message))
+    }
+
+    @ExceptionHandler(ForbiddenWordException::class)
+    fun handleForbiddenWordException(e: ForbiddenWordException): ResponseEntity<Map<String, String?>> {
+        return ResponseEntity
+            .status(HttpStatus.BAD_REQUEST)
             .body(mapOf("message" to e.message))
     }
 
