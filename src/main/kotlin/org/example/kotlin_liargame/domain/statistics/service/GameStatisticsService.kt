@@ -121,7 +121,7 @@ class GameStatisticsService(
         val activeGames = gameRepository.countByGameState(GameState.IN_PROGRESS)
         val completedGames = gameRepository.countByGameState(GameState.ENDED)
         val totalPlayers = playerRepository.count()
-        val onlinePlayers = playerRepository.countByIsOnlineTrue()
+        val onlinePlayers = playerRepository.countByState(org.example.kotlin_liargame.domain.game.model.enum.PlayerState.WAITING_FOR_HINT)
         val totalUsers = userRepository.count()
 
         // Calculate average game duration
@@ -224,10 +224,24 @@ class GameStatisticsService(
         val endDate = LocalDate.now()
         val startDate = endDate.minusDays(days.toLong())
         
-        val dailyStats = gameRepository.getDailyGameStats(startDate, endDate)
+        val dailyStats = gameRepository.getDailyGameStats(startDate, endDate).map { stat ->
+            DailyGameStat(
+                date = stat.date,
+                totalGames = stat.totalGames,
+                uniquePlayers = stat.uniquePlayers,
+                averageDuration = stat.averageDuration
+            )
+        }
         val hourlyDistribution = gameRepository.getHourlyGameDistribution()
         val dayOfWeekDistribution = gameRepository.getDayOfWeekDistribution()
-        val playerGrowth = userRepository.getPlayerGrowthStats(startDate, endDate)
+        val playerGrowth = userRepository.getPlayerGrowthStats(startDate, endDate, Instant.now().minus(days.toLong(), ChronoUnit.DAYS)).map { growth ->
+            PlayerGrowthStat(
+                date = growth.date,
+                newUsers = growth.newUsers,
+                activeUsers = growth.activeUsers,
+                returningUsers = growth.returningUsers
+            )
+        }
         
         val averageSessionLength = gameRepository.getAverageSessionLength()
         val retentionRates = calculateRetentionRates()
@@ -327,16 +341,21 @@ class GameStatisticsService(
     private fun calculateRetentionRates(): RetentionRates {
         val totalNewUsers = userRepository.countNewUsersInLast30Days()
         
+        val now = Instant.now()
+        val day1Ago = now.minus(1, ChronoUnit.DAYS)
+        val day7Ago = now.minus(7, ChronoUnit.DAYS)
+        val day30Ago = now.minus(30, ChronoUnit.DAYS)
+        
         val day1Retention = if (totalNewUsers > 0) {
-            userRepository.countReturnedUsersAfterDays(1).toDouble() / totalNewUsers
+            userRepository.countReturnedUsersAfterDays(day1Ago).toDouble() / totalNewUsers
         } else 0.0
         
         val day7Retention = if (totalNewUsers > 0) {
-            userRepository.countReturnedUsersAfterDays(7).toDouble() / totalNewUsers
+            userRepository.countReturnedUsersAfterDays(day7Ago).toDouble() / totalNewUsers
         } else 0.0
         
         val day30Retention = if (totalNewUsers > 0) {
-            userRepository.countReturnedUsersAfterDays(30).toDouble() / totalNewUsers
+            userRepository.countReturnedUsersAfterDays(day30Ago).toDouble() / totalNewUsers
         } else 0.0
         
         return RetentionRates(

@@ -43,7 +43,7 @@ class StatisticsController(
         logger.debug("Player statistics requested for user: {}", userId)
         
         // Check if user is requesting their own stats or is admin
-        val currentUserId = sessionManagementService.getCurrentUserId(session)
+        val currentUserId = sessionManagementService.getUserId(session)
         val isAdmin = sessionManagementService.isAdmin(session)
         
         if (currentUserId != userId && !isAdmin) {
@@ -81,7 +81,7 @@ class StatisticsController(
     fun getCurrentPlayerStatistics(session: HttpSession): ResponseEntity<Any> {
         logger.debug("Current player statistics requested")
         
-        val currentUserId = sessionManagementService.getCurrentUserId(session)
+        val currentUserId = sessionManagementService.getUserId(session)
         if (currentUserId == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .body(ErrorResponse(
