@@ -2,7 +2,7 @@ import React from 'react'
 import {useGameStoreV2} from '@/stores/gameStoreV2'
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card'
 import {Badge} from '@/components/ui/badge'
-import {GamePhase} from '@/types/game'
+import type {GamePhase} from '@/types/backendTypes'
 
 export function PlayerStatusPanelV2() {
   const { players, gameData, currentPlayer, phase } = useGameStoreV2(s => ({

@@ -6,8 +6,6 @@ import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import java.time.Instant
-import java.time.temporal.ChronoUnit
 
 @Service
 class GameCleanupService(
@@ -21,7 +19,7 @@ class GameCleanupService(
     fun cleanupStaleGames() {
         logger.info("Starting stale game cleanup task.")
         
-        val twentyFourHoursAgo = Instant.now().minus(24, ChronoUnit.HOURS)
+        val twentyFourHoursAgo = java.time.LocalDateTime.now().minusHours(24)
         val staleGames = gameRepository.findStaleWaitingGames(twentyFourHoursAgo)
         
         if (staleGames.isEmpty()) {

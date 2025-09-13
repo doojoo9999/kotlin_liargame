@@ -191,11 +191,11 @@ class AdminService(
         logger.debug("오래된 게임방 정리 시작")
 
         // 24시간 이상 된 WAITING 상태 게임들 정리
-        val oneDayAgo = Instant.now().minusSeconds(24 * 60 * 60)
+        val oneDayAgo = java.time.LocalDateTime.now().minusHours(24)
         val staleWaitingGames = gameRepository.findByGameStateAndCreatedAtBefore(GameState.WAITING, oneDayAgo)
 
         // 3시간 이상 된 IN_PROGRESS 상태 게임들 정리 (비정상 종료된 게임들)
-        val threeHoursAgo = Instant.now().minusSeconds(3 * 60 * 60)
+        val threeHoursAgo = java.time.LocalDateTime.now().minusHours(3)
         val staleInProgressGames = gameRepository.findByGameStateAndModifiedAtBefore(GameState.IN_PROGRESS, threeHoursAgo)
 
         val allStaleGames = staleWaitingGames + staleInProgressGames

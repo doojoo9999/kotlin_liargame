@@ -1,41 +1,51 @@
 import * as React from 'react'
-import type {GamePhase, GameStateV2, Player} from '@/types/game'
+import type {GameStateV2, Player} from '@/types/game'
+import type {GamePhase} from '@/types/backendTypes'
 import {Badge} from '@/components/ui/badge'
+import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card'
+import {Avatar, AvatarFallback} from '@/components/ui/avatar'
+import {AnimatePresence, motion} from 'framer-motion'
+import {CheckCircle, Clock, Crown, Eye, MessageCircle, Shield, Target, Users, WifiOff, Zap} from 'lucide-react'
 
-currentPlayer: Player | null;
-export interface PlayerStatusPanelProps { players: Player[]; currentPhase: GamePhase; gameState: Pick<GameStateV2,'timeRemaining'|'scores'>; className?: string }
-
-  currentTurnPlayerId: string | null;
-  return (
-  isLiar?: boolean;
-  suspectedPlayer?: string;
+export interface PlayerStatusPanelProps {
+  players: Player[]
+  currentPhase: GamePhase
+  gameState: Pick<GameStateV2, 'timeRemaining' | 'scores'>
+  className?: string
+  currentPlayer: Player | null
+  currentTurnPlayerId: string | null
+  isLiar?: boolean
+  suspectedPlayer?: string
+  votes?: Record<string, string>
 }
 
 interface PlayerActivityLog {
-  playerId: string;
-  action: string;
-  timestamp: number;
-  type: 'hint' | 'vote' | 'defense' | 'guess' | 'system';
+  playerId: string
+  action: string
+  timestamp: number
+  type: 'hint' | 'vote' | 'defense' | 'guess' | 'system'
 }
 
 export const PlayerStatusPanel: React.FC<PlayerStatusPanelProps> = ({
   players,
+  currentPhase,
+  gameState,
+  className,
   currentPlayer,
-  gamePhase,
   currentTurnPlayerId,
-  votes,
+  votes = {},
   isLiar = false,
   suspectedPlayer,
 }) => {
-  const [activityLog, setActivityLog] = React.useState<PlayerActivityLog[]>([]);
+  const [activityLog, setActivityLog] = React.useState<PlayerActivityLog[]>([])
 
   const getPlayerStatus = (player: Player) => {
-    if (!player.isOnline) return 'offline';
-  )
-    if (votes[player.id]) return 'voted';
-void PlayerStatusPanel
-    return 'waiting';
-  };
+    if (!player.isOnline) return 'offline'
+    if (player.id === currentTurnPlayerId) return 'active'
+    if (votes[player.id]) return 'voted'
+    if (currentPhase === 'WAITING') return 'ready'
+    return 'waiting'
+  }
 
   const getStatusConfig = (status: string) => {
     switch (status) {
@@ -45,44 +55,44 @@ void PlayerStatusPanel
           bgColor: 'bg-gray-100',
           icon: <WifiOff className="h-3 w-3" />,
           label: '오프라인'
-        };
+        }
       case 'active':
         return {
           color: 'text-green-600',
           bgColor: 'bg-green-100',
           icon: <Zap className="h-3 w-3" />,
           label: '진행 중'
-        };
+        }
       case 'voted':
         return {
           color: 'text-blue-600',
           bgColor: 'bg-blue-100',
           icon: <CheckCircle className="h-3 w-3" />,
           label: '완료'
-        };
+        }
       case 'ready':
         return {
           color: 'text-emerald-600',
           bgColor: 'bg-emerald-100',
           icon: <CheckCircle className="h-3 w-3" />,
           label: '준비됨'
-        };
+        }
       default:
         return {
           color: 'text-yellow-600',
           bgColor: 'bg-yellow-100',
           icon: <Clock className="h-3 w-3" />,
           label: '대기 중'
-        };
+        }
     }
-  };
+  }
 
   const getPlayerRole = (player: Player) => {
-    if (player.id === suspectedPlayer) return 'suspected';
-    if (isLiar && player.id === currentPlayer?.id) return 'liar';
-    if (player.isHost) return 'host';
-    return 'citizen';
-  };
+    if (player.id === suspectedPlayer) return 'suspected'
+    if (isLiar && player.id === currentPlayer?.id) return 'liar'
+    if (player.isHost) return 'host'
+    return 'citizen'
+  }
 
   const getRoleConfig = (role: string) => {
     switch (role) {
@@ -92,46 +102,46 @@ void PlayerStatusPanel
           color: 'text-orange-600',
           bgColor: 'bg-orange-100',
           icon: <Eye className="h-3 w-3" />
-        };
+        }
       case 'suspected':
         return {
           label: '의심받는 중',
           color: 'text-red-600',
           bgColor: 'bg-red-100',
           icon: <Target className="h-3 w-3" />
-        };
+        }
       case 'host':
         return {
           label: '방장',
           color: 'text-purple-600',
           bgColor: 'bg-purple-100',
           icon: <Crown className="h-3 w-3" />
-        };
+        }
       default:
         return {
           label: '시민',
           color: 'text-blue-600',
           bgColor: 'bg-blue-100',
           icon: <Shield className="h-3 w-3" />
-        };
+        }
     }
-  };
+  }
 
   const getVoteCount = (playerId: string) => {
-    return Object.values(votes).filter(vote => vote === playerId).length;
-  };
+    return Object.values(votes).filter(vote => vote === playerId).length
+  }
 
   const formatLastActive = (timestamp?: number) => {
-    if (!timestamp) return '알 수 없음';
-    const diff = Date.now() - timestamp;
-    const minutes = Math.floor(diff / 60000);
-    if (minutes === 0) return '방금 전';
-    if (minutes < 60) return `${minutes}분 전`;
-    return `${Math.floor(minutes / 60)}시간 전`;
-  };
+    if (!timestamp) return '알 수 없음'
+    const diff = Date.now() - timestamp
+    const minutes = Math.floor(diff / 60000)
+    if (minutes === 0) return '방금 전'
+    if (minutes < 60) return `${minutes}분 전`
+    return `${Math.floor(minutes / 60)}시간 전`
+  }
 
   return (
-    <div className="space-y-4">
+    <div className={`space-y-4 ${className || ''}`}>
       {/* Player List */}
       <Card>
         <CardHeader>
@@ -144,12 +154,12 @@ void PlayerStatusPanel
           <div className="space-y-2 max-h-80 overflow-y-auto">
             <AnimatePresence>
               {players.map((player) => {
-                const status = getPlayerStatus(player);
-                const statusConfig = getStatusConfig(status);
-                const role = getPlayerRole(player);
-                const roleConfig = getRoleConfig(role);
-                const voteCount = getVoteCount(player.id);
-                const isCurrentPlayer = player.id === currentPlayer?.id;
+                const status = getPlayerStatus(player)
+                const statusConfig = getStatusConfig(status)
+                const role = getPlayerRole(player)
+                const roleConfig = getRoleConfig(role)
+                const voteCount = getVoteCount(player.id)
+                const isCurrentPlayer = player.id === currentPlayer?.id
 
                 return (
                   <motion.div
@@ -236,14 +246,14 @@ void PlayerStatusPanel
                       )}
 
                       {/* Actions Available */}
-                      {gamePhase === 'SPEECH' && player.id === currentTurnPlayerId && (
+                      {currentPhase === 'SPEECH' && player.id === currentTurnPlayerId && (
                         <Badge variant="outline" className="text-xs text-green-600 border-green-300">
                           <MessageCircle className="mr-1 h-3 w-3" />
                           힌트 제공
                         </Badge>
                       )}
 
-                      {gamePhase === 'DEFENDING' && player.id === suspectedPlayer && (
+                      {currentPhase === 'DEFENDING' && player.id === suspectedPlayer && (
                         <Badge variant="outline" className="text-xs text-purple-600 border-purple-300">
                           <Shield className="mr-1 h-3 w-3" />
                           변론 중
@@ -251,7 +261,7 @@ void PlayerStatusPanel
                       )}
                     </div>
                   </motion.div>
-                );
+                )
               })}
             </AnimatePresence>
           </div>
@@ -279,7 +289,7 @@ void PlayerStatusPanel
       </Card>
 
       {/* Phase-specific Information */}
-      {gamePhase === 'VOTING_FOR_LIAR' && (
+      {currentPhase === 'VOTING_FOR_LIAR' && (
         <Card className="border-red-200 bg-red-50">
           <CardContent className="pt-4">
             <div className="text-sm text-red-800">
@@ -301,9 +311,5 @@ void PlayerStatusPanel
         </Card>
       )}
     </div>
-  );
-};
-
-
-
-
+  )
+}

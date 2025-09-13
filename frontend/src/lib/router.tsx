@@ -7,6 +7,7 @@ import {ProtectedRoute} from '@/components/auth/ProtectedRoute'
 import {MainLoginPage as LoginPage} from '@/versions/main/pages/LoginPage'
 import {MainLobbyPage as LobbyPage} from '@/versions/main/pages/LobbyPage'
 import {MainGamePage as GamePage} from '@/versions/main/pages/GamePage'
+import {MainGamePageV2 as GamePageV2} from '@/versions/main/pages/GamePageV2'
 import {MainResultsPage as ResultsPage} from '@/versions/main/pages/ResultsPage'
 
 // Error Pages
@@ -47,12 +48,12 @@ export const router = createBrowserRouter([
         element: <ProtectedRoute><ResultsPage /></ProtectedRoute>,
       },
       {
-        path: "*",
         path: "dev/game-v2/:gameId",
-        element: <GamePageV2 />,
+        element: <ProtectedRoute><GamePageV2 /></ProtectedRoute>,
       },
       {
-        path: "results/:gameId",
+        path: "*",
+        element: <NotFoundPage />,
       },
     ]
   },

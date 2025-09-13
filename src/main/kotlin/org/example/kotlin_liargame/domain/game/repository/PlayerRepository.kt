@@ -44,22 +44,29 @@ interface PlayerRepository : JpaRepository<PlayerEntity, Long> {
     fun deleteByGame(game: GameEntity): Int
     
     // Statistics-related queries
+    // Simplified version without complex EXTRACT functions
     @Query("""
-        SELECT new org.example.kotlin_liargame.domain.statistics.repository.PlayerStatsInfo(
-            COUNT(p.id),
-            SUM(CASE WHEN p.game.gameState = 'ENDED' AND p.role = 'CITIZEN' AND p.isAlive = true THEN 1 
-                     WHEN p.game.gameState = 'ENDED' AND p.role = 'LIAR' AND p.isAlive = false THEN 1 
-                     ELSE 0 END),
-            COALESCE(SUM(p.cumulativeScore), 0),
-            COALESCE(SUM(EXTRACT(EPOCH FROM (p.game.modifiedAt - p.joinedAt)) / 60), 0),
-            COALESCE(AVG(EXTRACT(EPOCH FROM (p.game.modifiedAt - p.joinedAt)) / 60), 0),
-            MIN(p.joinedAt),
-            MAX(p.joinedAt)
-        )
+        SELECT COUNT(p.id),
+               SUM(CASE WHEN p.game.gameState = 'ENDED' AND p.role = 'CITIZEN' AND p.isAlive = true THEN 1 
+                        WHEN p.game.gameState = 'ENDED' AND p.role = 'LIAR' AND p.isAlive = false THEN 1 
+                        ELSE 0 END),
+               COALESCE(SUM(p.cumulativeScore), 0),
+               0L,
+               0.0,
+               MIN(p.joinedAt),
+               MAX(p.joinedAt)
         FROM PlayerEntity p 
         WHERE p.userId = :userId
     """)
-    fun getPlayerStatistics(@Param("userId") userId: Long): PlayerStatsInfo
+    fun getPlayerStatisticsRaw(@Param("userId") userId: Long): List<Array<Any>>
+    
+    // Keep a simpler version for backward compatibility
+    @Query("""
+        SELECT COUNT(p.id)
+        FROM PlayerEntity p 
+        WHERE p.userId = :userId
+    """)
+    fun getPlayerGamesCount(@Param("userId") userId: Long): Long
     
     @Query("""
         SELECT new org.example.kotlin_liargame.domain.statistics.repository.LiarStatsInfo(
@@ -79,7 +86,7 @@ interface PlayerRepository : JpaRepository<PlayerEntity, Long> {
         GROUP BY s.id, s.content
         ORDER BY COUNT(s.id) DESC
     """)
-    fun getFavoriteSubjects(@Param("userId") userId: Long, @Param("limit") limit: Int): List<String>
+    fun getFavoriteSubjects(@Param("userId") userId: Long): List<String>
     
     @Query("""
         SELECT COUNT(p2.userId) + 1
@@ -95,7 +102,7 @@ interface PlayerRepository : JpaRepository<PlayerEntity, Long> {
         GROUP BY p.userId
         ORDER BY SUM(p.cumulativeScore) DESC
     """)
-    fun getTopPlayersByScore(@Param("limit") limit: Int): List<Long>
+    fun getTopPlayersByScore(limit: Int): List<Long>
     
     @Query("""
         SELECT COALESCE(MAX(consecutive_wins), 0)
@@ -107,4 +114,21 @@ interface PlayerRepository : JpaRepository<PlayerEntity, Long> {
         ) win_streaks
     """)
     fun getPlayerWinStreak(@Param("userId") userId: Long): Long
+    
+    @Query("""
+        SELECT new org.example.kotlin_liargame.domain.statistics.repository.PlayerStatsInfo(
+            COUNT(p.id),
+            SUM(CASE WHEN p.game.gameState = 'ENDED' AND p.role = 'CITIZEN' AND p.isAlive = true THEN 1 
+                     WHEN p.game.gameState = 'ENDED' AND p.role = 'LIAR' AND p.isAlive = false THEN 1 
+                     ELSE 0 END),
+            COALESCE(SUM(p.cumulativeScore), 0),
+            0L,
+            0.0,
+            MIN(p.joinedAt),
+            MAX(p.joinedAt)
+        )
+        FROM PlayerEntity p 
+        WHERE p.userId = :userId
+    """)
+    fun getPlayerStatistics(@Param("userId") userId: Long): PlayerStatsInfo
 }

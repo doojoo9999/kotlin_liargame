@@ -38,8 +38,11 @@ class WebSocketService {
   private client: Client | null = null;
   private isConnected = false;
   private reconnectAttempts = 0;
-  private maxReconnectAttempts = 5;
-  private reconnectDelay = 1000;
+  private maxReconnectAttempts = 10;
+  private baseReconnectDelay = 1000;
+  private maxReconnectDelay = 30000;
+  private connectionTimeout = 15000;
+  private heartbeatInterval: NodeJS.Timeout | null = null;
   private currentGameId: string | null = null;
 
   // Callback handlers
@@ -49,9 +52,13 @@ class WebSocketService {
 
   // Subscription management
   private subscriptions: Map<string, any> = new Map();
-  private messageQueue: { destination: string; body: any }[] = [];
-  private maxQueue = 50;
+  private messageQueue: { id: string; destination: string; body: any; attempts: number; timestamp: number }[] = [];
+  private maxQueue = 100;
+  private maxMessageAttempts = 3;
   private outboundListeners: ((msg: { destination: string; body: any; sentAt: number }) => void)[] = [];
+  private pingInterval: NodeJS.Timeout | null = null;
+  private lastPongReceived = Date.now();
+  private connectionState: 'connecting' | 'connected' | 'disconnected' | 'reconnecting' = 'disconnected';
 
   constructor() {
     this.setupClient();
@@ -59,40 +66,101 @@ class WebSocketService {
 
   public connect(): Promise<void> {
     return new Promise((resolve, reject) => {
-      if (this.isConnected) {
+      if (this.connectionState === 'connected') {
         resolve();
         return;
       }
 
-      const timeout = setTimeout(() => {
-        reject(new Error('Connection timeout'));
-      }, 10000);
+      if (this.connectionState === 'connecting') {
+        // Wait for current connection attempt
+        const checkConnection = () => {
+          if (this.connectionState === 'connected') {
+            resolve();
+          } else if (this.connectionState === 'disconnected') {
+            reject(new Error('Connection failed'));
+          } else {
+            setTimeout(checkConnection, 100);
+          }
+        };
+        checkConnection();
+        return;
+      }
 
-      const onConnect = () => {
+      this.connectionState = 'connecting';
+
+      const timeout = setTimeout(() => {
+        if (this.connectionState === 'connecting') {
+          this.connectionState = 'disconnected';
+          reject(new Error('Connection timeout'));
+        }
+      }, this.connectionTimeout);
+
+      const onConnect = (connected: boolean) => {
         clearTimeout(timeout);
         this.removeConnectionCallback(onConnect);
-        resolve();
+        if (connected) {
+          resolve();
+        } else {
+          reject(new Error('Connection failed'));
+        }
       };
 
       this.addConnectionCallback(onConnect);
 
       if (this.client) {
         this.client.activate();
+      } else {
+        this.setupClient();
+        if (this.client) {
+          this.client.activate();
+        }
       }
     });
   }
 
   public disconnect(): void {
-    if (this.client) {
-      this.client.deactivate();
+    this.connectionState = 'disconnected';
+    
+    // Clear heartbeat intervals
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
     }
+    if (this.pingInterval) {
+      clearInterval(this.pingInterval);
+      this.pingInterval = null;
+    }
+
+    // Clean up subscriptions
+    this.subscriptions.forEach((subscription, key) => {
+      try {
+        subscription.unsubscribe();
+      } catch (error) {
+        console.warn(`Error unsubscribing from ${key}:`, error);
+      }
+    });
+    this.subscriptions.clear();
+
+    // Deactivate client
+    if (this.client) {
+      try {
+        this.client.deactivate();
+      } catch (error) {
+        console.warn('Error deactivating WebSocket client:', error);
+      }
+    }
+    
     this.isConnected = false;
     this.currentGameId = null;
-    this.subscriptions.clear();
+    this.reconnectAttempts = 0;
+    
+    // Clear callbacks and queues
     this.eventCallbacks.clear();
     this.chatCallbacks = [];
     this.connectionCallbacks = [];
     this.messageQueue = [];
+    
+    console.log('WebSocket service disconnected and cleaned up');
   }
 
   public subscribeToGame(gameId: string, userId?: string): void {
@@ -247,29 +315,12 @@ class WebSocketService {
     this.client.publish({ destination: `/app/game/${gameId}/${action}`, body: JSON.stringify(payload) });
   }
 
-  // Send methods
-  private flushQueue() {
-    if (!this.isConnected || !this.client) return;
-    const queued = [...this.messageQueue];
-    this.messageQueue = [];
-    queued.forEach(q => {
-      try {
-        this.client!.publish({ destination: q.destination, body: JSON.stringify(q.body) });
-        this.outboundListeners.forEach(l => l({ destination: q.destination, body: q.body, sentAt: Date.now() }));
-      } catch (e) {
-        console.error('Queued message publish failed, re-queueing once', e);
-        if (this.messageQueue.length < this.maxQueue) this.messageQueue.push(q);
-      }
-    });
+  public sendTopicGuess(gameId: string, guess: string): void {
+    this.sendGameAction(gameId, 'guess-topic', { guess });
   }
 
-  private queueMessage(destination: string, body: any): string {
-    if (this.messageQueue.length >= this.maxQueue) {
-      this.messageQueue.shift();
-    }
-    const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    this.messageQueue.push({ destination, body });
-    return id;
+  public getConnectionState(): string {
+    return this.connectionState;
   }
 
   // 게임 플로우 관련 특화 메서드들
@@ -291,6 +342,10 @@ class WebSocketService {
 
   public sendWordGuess(gameId: string, guess: string): void {
     this.sendGameAction(gameId, 'guess', { guess });
+  }
+
+  public getQueuedMessageCount(): number {
+    return this.messageQueue.length;
   }
 
   public sendEndDefense(gameId: string): void {
@@ -339,12 +394,131 @@ class WebSocketService {
     return this.isConnected;
   }
 
+  public clearMessageQueue(): void {
+    this.messageQueue = [];
+    console.log('Message queue cleared');
+  }
+
   public getCurrentGameId(): string | null {
     return this.currentGameId;
   }
 
   public getReconnectAttempts(): number {
     return this.reconnectAttempts;
+  }
+
+  // Send methods
+  private flushQueue() {
+    if (!this.isConnected || !this.client || this.messageQueue.length === 0) return;
+
+    console.log(`Flushing ${this.messageQueue.length} queued messages`);
+    const toRetry: typeof this.messageQueue = [];
+
+    // Process all queued messages
+    while (this.messageQueue.length > 0) {
+      const message = this.messageQueue.shift()!;
+      message.attempts++;
+
+      try {
+        this.client.publish({
+          destination: message.destination,
+          body: JSON.stringify(message.body)
+        });
+
+        this.outboundListeners.forEach(l => l({
+          destination: message.destination,
+          body: message.body,
+          sentAt: Date.now()
+        }));
+
+        console.log(`Successfully sent queued message ${message.id}`);
+
+      } catch (error) {
+        console.error(`Failed to send queued message ${message.id}, attempt ${message.attempts}:`, error);
+
+        // Retry message if under attempt limit
+        if (message.attempts < this.maxMessageAttempts) {
+          toRetry.push(message);
+        } else {
+          console.error(`Dropping message ${message.id} after ${message.attempts} failed attempts`);
+        }
+      }
+    }
+
+    // Re-queue messages that need retry
+    this.messageQueue = toRetry;
+
+    if (toRetry.length > 0) {
+      console.log(`Re-queued ${toRetry.length} messages for retry`);
+    }
+  }
+
+  private queueMessage(destination: string, body: any): string {
+    // Remove oldest message if queue is full
+    if (this.messageQueue.length >= this.maxQueue) {
+      const removed = this.messageQueue.shift();
+      console.warn('Message queue full, removed oldest message:', removed?.id);
+    }
+
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    this.messageQueue.push({
+      id,
+      destination,
+      body,
+      attempts: 0,
+      timestamp: Date.now()
+    });
+
+    console.log(`Queued message ${id} to ${destination}`);
+    return id;
+  }
+
+  // Heartbeat and connection monitoring
+  private startHeartbeat(): void {
+    this.stopHeartbeat(); // Clear any existing intervals
+    
+    // Send ping every 30 seconds
+    this.pingInterval = setInterval(() => {
+      if (this.isConnected && this.client) {
+        try {
+          this.client.publish({
+            destination: '/app/ping',
+            body: JSON.stringify({ timestamp: Date.now() })
+          });
+        } catch (error) {
+          console.error('Failed to send ping:', error);
+        }
+      }
+    }, 30000);
+    
+    // Check for missed pongs every 45 seconds
+    this.heartbeatInterval = setInterval(() => {
+      const now = Date.now();
+      const timeSinceLastPong = now - this.lastPongReceived;
+      
+      if (timeSinceLastPong > 60000) { // 60 seconds without pong
+        console.warn('No pong received for 60 seconds, connection may be dead');
+        if (this.client) {
+          this.client.forceDisconnect();
+        }
+      }
+    }, 45000);
+  }
+
+  private stopHeartbeat(): void {
+    if (this.pingInterval) {
+      clearInterval(this.pingInterval);
+      this.pingInterval = null;
+    }
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+    }
+  }
+
+  // Handle pong response
+  private handlePong(): void {
+    this.lastPongReceived = Date.now();
   }
 
   private setupClient(): void {
@@ -370,16 +544,18 @@ class WebSocketService {
       onStompError: this.onError.bind(this),
       heartbeatIncoming: 4000,
       heartbeatOutgoing: 4000,
-      reconnectDelay: this.reconnectDelay,
+      reconnectDelay: 0, // We handle reconnection manually
     };
 
     this.client = new Client(stompConfig);
   }
 
   private onConnect(frame: any): void {
-    console.log('WebSocket connected');
+    console.log('WebSocket connected', frame);
     this.isConnected = true;
+    this.connectionState = 'connected';
     this.reconnectAttempts = 0;
+    this.lastPongReceived = Date.now();
 
     // 세션 ID 저장 (재연결에 사용)
     const sessionId = frame.headers?.['session'];
@@ -388,31 +564,75 @@ class WebSocketService {
       console.log('Stored WebSocket session ID:', sessionId);
     }
 
+    // Start heartbeat monitoring
+    this.startHeartbeat();
+
     // Notify connection callbacks
-    this.connectionCallbacks.forEach(callback => callback(true));
+    this.connectionCallbacks.forEach(callback => {
+      try {
+        callback(true);
+      } catch (error) {
+        console.error('Error in connection callback:', error);
+      }
+    });
 
     // Re-subscribe to previous subscriptions if any
     if (this.currentGameId) {
-      this.subscribeToGame(this.currentGameId);
+      console.log('Re-subscribing to game:', this.currentGameId);
+      // Small delay to ensure connection is fully established
+      setTimeout(() => {
+        if (this.currentGameId) {
+          this.subscribeToGame(this.currentGameId);
+        }
+      }, 100);
     }
 
+    // Flush any queued messages
     this.flushQueue();
-    toast.success('실시간 연결이 성공했습니다');
+    
+    if (this.reconnectAttempts > 0) {
+      toast.success('재연결이 성공했습니다!');
+    } else {
+      toast.success('실시간 연결이 성공했습니다');
+    }
   }
 
   private onDisconnect(): void {
     console.log('WebSocket disconnected');
     this.isConnected = false;
+    
+    // Stop heartbeat monitoring
+    this.stopHeartbeat();
+
+    // Only update connection state if not already reconnecting
+    if (this.connectionState !== 'reconnecting') {
+      this.connectionState = 'disconnected';
+    }
 
     // Notify connection callbacks
-    this.connectionCallbacks.forEach(callback => callback(false));
+    this.connectionCallbacks.forEach(callback => {
+      try {
+        callback(false);
+      } catch (error) {
+        console.error('Error in disconnection callback:', error);
+      }
+    });
 
-    // Clear subscriptions
-    this.subscriptions.clear();
+    // Clear subscriptions but keep the map for re-subscription
+    this.subscriptions.forEach((subscription, key) => {
+      try {
+        subscription.unsubscribe();
+      } catch (error) {
+        console.warn(`Error unsubscribing from ${key} on disconnect:`, error);
+      }
+    });
+    // Don't clear the subscriptions map - we'll need it for re-subscription
 
-    // Attempt reconnection
-    this.attemptReconnection();
-    toast.error('실시간 연결이 끊어졌습니다');
+    // Attempt reconnection only if not manually disconnected
+    if (this.connectionState !== 'disconnected') {
+      this.attemptReconnection();
+      toast.error('실시간 연결이 끊어졌습니다. 재연결을 시도합니다.');
+    }
   }
 
   private onError(error: any): void {
@@ -423,18 +643,40 @@ class WebSocketService {
   private attemptReconnection(): void {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
       console.error('Max reconnection attempts reached');
+      this.connectionState = 'disconnected';
       toast.error('재연결에 실패했습니다. 페이지를 새로고침해주세요.');
       return;
     }
 
-    this.reconnectAttempts++;
-    const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
+    if (this.connectionState === 'reconnecting') {
+      return; // Already attempting to reconnect
+    }
 
-    console.log(`Attempting reconnection ${this.reconnectAttempts}/${this.maxReconnectAttempts} in ${delay}ms`);
+    this.connectionState = 'reconnecting';
+    this.reconnectAttempts++;
+    
+    // Exponential backoff with jitter and max delay cap
+    const baseDelay = this.baseReconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
+    const jitter = Math.random() * 1000; // Add randomness to prevent thundering herd
+    const delay = Math.min(baseDelay + jitter, this.maxReconnectDelay);
+
+    console.log(`Attempting reconnection ${this.reconnectAttempts}/${this.maxReconnectAttempts} in ${Math.round(delay)}ms`);
+    toast.info(`재연결 시도 중... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
 
     setTimeout(() => {
-      if (!this.isConnected && this.client) {
-        this.client.activate();
+      if (this.connectionState === 'reconnecting') {
+        try {
+          // Setup fresh client for reconnection
+          this.setupClient();
+          if (this.client) {
+            this.client.activate();
+          }
+        } catch (error) {
+          console.error('Error during reconnection setup:', error);
+          this.connectionState = 'disconnected';
+          // Retry after a short delay
+          setTimeout(() => this.attemptReconnection(), 1000);
+        }
       }
     }, delay);
   }
@@ -492,6 +734,17 @@ class WebSocketService {
 
     } catch (error) {
       console.error('Error parsing personal notification:', error);
+    }
+  }
+
+  private handlePingPong(message: IMessage): void {
+    try {
+      const data = JSON.parse(message.body);
+      if (data.type === 'pong') {
+        this.handlePong();
+      }
+    } catch (error) {
+      console.error('Error parsing ping/pong message:', error);
     }
   }
 }

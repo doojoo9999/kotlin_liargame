@@ -1,4 +1,6 @@
-import {apiClient} from './client';
+import {apiClient} from './client'
+import {apiResponse} from '@/utils/apiResponseHandler'
+import type {APIResponse} from '@/types'
 
 // Admin interfaces
 export interface AdminLoginRequest {
@@ -70,92 +72,135 @@ export interface PendingContent {
 class AdminApiService {
   private readonly baseUrl = '/api/v1/admin';
 
-  async login(credentials: AdminLoginRequest): Promise<AdminLoginResponse> {
-    const response = await apiClient.post(`${this.baseUrl}/login`, credentials);
-    return response.data;
+  async login(credentials: AdminLoginRequest): Promise<APIResponse<AdminLoginResponse>> {
+    return apiResponse.handle(
+      apiClient.post<AdminLoginResponse>(`${this.baseUrl}/login`, credentials),
+      'ADMIN_LOGIN_ERROR'
+    )
   }
 
-  async kickPlayer(gameNumber: number, userId: number): Promise<{ success: boolean }> {
-    const response = await apiClient.post(`${this.baseUrl}/games/${gameNumber}/kick`, {
-      userId
-    });
-    return response.data;
+  async kickPlayer(gameNumber: number, userId: number): Promise<APIResponse<{ success: boolean }>> {
+    return apiResponse.handle(
+      apiClient.post<{ success: boolean }>(`${this.baseUrl}/games/${gameNumber}/kick`, {
+        userId
+      }),
+      'KICK_PLAYER_ERROR'
+    )
   }
 
-  async terminateRoom(gameNumber: number): Promise<{ success: boolean }> {
-    const response = await apiClient.post(`${this.baseUrl}/terminate-room`, {
-      gameNumber
-    });
-    return response.data;
+  async terminateRoom(gameNumber: number): Promise<APIResponse<{ success: boolean }>> {
+    return apiResponse.handle(
+      apiClient.post<{ success: boolean }>(`${this.baseUrl}/terminate-room`, {
+        gameNumber
+      }),
+      'TERMINATE_ROOM_ERROR'
+    )
   }
 
-  async getGameStatistics(): Promise<GameStatistics> {
-    const response = await apiClient.get(`${this.baseUrl}/statistics`);
-    return response.data;
+  async getGameStatistics(): Promise<APIResponse<GameStatistics>> {
+    return apiResponse.handle(
+      apiClient.get<GameStatistics>(`${this.baseUrl}/statistics`),
+      'GET_STATISTICS_ERROR'
+    )
   }
 
-  async getAllActiveGames(): Promise<ActiveGame[]> {
-    const response = await apiClient.get(`${this.baseUrl}/games`);
-    return response.data.games;
+  async getAllActiveGames(): Promise<APIResponse<ActiveGame[]>> {
+    return apiResponse.handle(
+      apiClient.get<ActiveGame[]>(`${this.baseUrl}/games`),
+      'GET_ACTIVE_GAMES_ERROR'
+    )
   }
 
-  async getAllPlayers(): Promise<PlayerInfo[]> {
-    const response = await apiClient.get(`${this.baseUrl}/players`);
-    return response.data;
+  async getAllPlayers(): Promise<APIResponse<PlayerInfo[]>> {
+    return apiResponse.handle(
+      apiClient.get<PlayerInfo[]>(`${this.baseUrl}/players`),
+      'GET_PLAYERS_ERROR'
+    )
   }
 
-  async getPendingProfanityRequests(): Promise<ProfanityRequest[]> {
-    const response = await apiClient.get(`${this.baseUrl}/profanity/requests`);
-    return response.data;
+  async getPendingProfanityRequests(): Promise<APIResponse<ProfanityRequest[]>> {
+    return apiResponse.handle(
+      apiClient.get<ProfanityRequest[]>(`${this.baseUrl}/profanity/requests`),
+      'GET_PROFANITY_REQUESTS_ERROR'
+    )
   }
 
-  async approveProfanityRequest(requestId: number): Promise<void> {
-    await apiClient.post(`${this.baseUrl}/profanity/approve/${requestId}`);
+  async approveProfanityRequest(requestId: number): Promise<APIResponse<void>> {
+    return apiResponse.handle(
+      apiClient.post<void>(`${this.baseUrl}/profanity/approve/${requestId}`),
+      'APPROVE_PROFANITY_ERROR'
+    )
   }
 
-  async rejectProfanityRequest(requestId: number): Promise<void> {
-    await apiClient.post(`${this.baseUrl}/profanity/reject/${requestId}`);
+  async rejectProfanityRequest(requestId: number): Promise<APIResponse<void>> {
+    return apiResponse.handle(
+      apiClient.post<void>(`${this.baseUrl}/profanity/reject/${requestId}`),
+      'REJECT_PROFANITY_ERROR'
+    )
   }
 
-  async grantAdminRole(userId: number): Promise<{ success: boolean }> {
-    const response = await apiClient.post(`${this.baseUrl}/grant-role/${userId}`);
-    return response.data;
+  async grantAdminRole(userId: number): Promise<APIResponse<{ success: boolean }>> {
+    return apiResponse.handle(
+      apiClient.post<{ success: boolean }>(`${this.baseUrl}/grant-role/${userId}`),
+      'GRANT_ADMIN_ROLE_ERROR'
+    )
   }
 
-  async getPendingContents(): Promise<PendingContent[]> {
-    const response = await apiClient.get(`${this.baseUrl}/content/pending`);
-    return response.data;
+  async getPendingContents(): Promise<APIResponse<PendingContent[]>> {
+    return apiResponse.handle(
+      apiClient.get<PendingContent[]>(`${this.baseUrl}/content/pending`),
+      'GET_PENDING_CONTENTS_ERROR'
+    )
   }
 
-  async approveAllPendingContents(): Promise<{ success: boolean }> {
-    const response = await apiClient.post(`${this.baseUrl}/content/approve-all`);
-    return response.data;
+  async approveAllPendingContents(): Promise<APIResponse<{ success: boolean }>> {
+    return apiResponse.handle(
+      apiClient.post<{ success: boolean }>(`${this.baseUrl}/content/approve-all`),
+      'APPROVE_ALL_CONTENTS_ERROR'
+    )
   }
 
-  async cleanupStaleGames(): Promise<{
+  async cleanupStaleGames(): Promise<APIResponse<{
     success: boolean;
     cleanedGames: number;
     message: string;
-  }> {
-    const response = await apiClient.post(`${this.baseUrl}/cleanup/stale-games`);
-    return response.data;
+  }>> {
+    return apiResponse.handle(
+      apiClient.post<{
+        success: boolean;
+        cleanedGames: number;
+        message: string;
+      }>(`${this.baseUrl}/cleanup/stale-games`),
+      'CLEANUP_STALE_GAMES_ERROR'
+    )
   }
 
-  async cleanupDisconnectedPlayers(): Promise<{
+  async cleanupDisconnectedPlayers(): Promise<APIResponse<{
     success: boolean;
     cleanedPlayers: number;
-  }> {
-    const response = await apiClient.post(`${this.baseUrl}/cleanup/disconnected-players`);
-    return response.data;
+  }>> {
+    return apiResponse.handle(
+      apiClient.post<{
+        success: boolean;
+        cleanedPlayers: number;
+      }>(`${this.baseUrl}/cleanup/disconnected-players`),
+      'CLEANUP_DISCONNECTED_PLAYERS_ERROR'
+    )
   }
 
-  async cleanupEmptyGames(): Promise<{
+  async cleanupEmptyGames(): Promise<APIResponse<{
     success: boolean;
     cleanedGames: number;
     message: string;
-  }> {
-    const response = await apiClient.post(`${this.baseUrl}/cleanup/empty-games`);
-    return response.data;
+  }>> {
+    return apiResponse.handle(
+      apiClient.post<{
+        success: boolean;
+        cleanedGames: number;
+        message: string;
+      }>(`${this.baseUrl}/cleanup/empty-games`),
+      'CLEANUP_EMPTY_GAMES_ERROR'
+    )
   }
 }
 

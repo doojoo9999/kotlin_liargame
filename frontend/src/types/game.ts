@@ -1,29 +1,8 @@
-// Game Flow v2 Types (erasable syntax compliant)
+// Frontend Game Types - Re-exported from backend types for consistency
 export type PlayerID = string
 
-export const GamePhase = {
-  WAITING_FOR_PLAYERS: 'WAITING_FOR_PLAYERS',
-  SPEECH: 'SPEECH',
-  VOTING_FOR_LIAR: 'VOTING_FOR_LIAR',
-  DEFENDING: 'DEFENDING',
-  VOTING_FOR_SURVIVAL: 'VOTING_FOR_SURVIVAL',
-  GUESSING_WORD: 'GUESSING_WORD',
-  GAME_OVER: 'GAME_OVER',
-} as const
-export type GamePhase = typeof GamePhase[keyof typeof GamePhase]
-
-export const GameState = {
-  WAITING: 'WAITING',
-  IN_PROGRESS: 'IN_PROGRESS', 
-  ENDED: 'ENDED',
-} as const
-export type GameState = typeof GameState[keyof typeof GameState]
-
-export const GameMode = {
-  LIARS_KNOW: 'LIARS_KNOW',
-  LIARS_DIFFERENT_WORD: 'LIARS_DIFFERENT_WORD',
-} as const
-export type GameMode = typeof GameMode[keyof typeof GameMode]
+// Use backend types as source of truth - avoid duplication
+export type { GamePhase, GameState, GameMode } from './backendTypes'
 
 export interface Player {
   id: PlayerID

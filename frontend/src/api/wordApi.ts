@@ -14,9 +14,9 @@ export interface WordCreateRequest {
   subjectId: number;
 }
 
-// 백엔드 형식에 맞는 요청 인터페이스
+// 백엔드 형식에 맞는 요청 인터페이스 - Long 타입으로 수정
 interface BackendWordCreateRequest {
-  subjectId: number;  // 주제 ID (Number)
+  subjectId: number;  // 주제 ID (Number - 자동으로 Long으로 변환됨)
   word: string;       // 답안 내용 (String)
 }
 

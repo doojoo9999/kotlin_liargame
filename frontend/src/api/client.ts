@@ -154,14 +154,8 @@ class ApiClient {
       ...options,
     }
 
-    // Add auth token if available (Bearer token 방식은 유지하되 세션 기반 우선 사용)
-    const token = localStorage.getItem('auth-token')
-    if (token) {
-      config.headers = {
-        ...config.headers,
-        'Authorization': `Bearer ${token}`
-      }
-    }
+    // Session-based authentication only - no Bearer tokens needed
+    // Backend uses session cookies for authentication
 
     // 요청 상세 정보 로깅
     console.log('API Request:', {

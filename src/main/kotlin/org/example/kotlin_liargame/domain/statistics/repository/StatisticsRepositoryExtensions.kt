@@ -44,3 +44,13 @@ data class PlayerGrowthStatInfo(
     val activeUsers: Long,
     val returningUsers: Long
 )
+
+data class HourlyDistribution(
+    val hour: Int,
+    val count: Long
+)
+
+data class DayOfWeekDistribution(
+    val dayOfWeek: String,
+    val count: Long
+)
