@@ -1,7 +1,7 @@
 // Enhanced WebSocket Client for Real-time Game Communication
 import {API_CONFIG} from './client'
 // Import and re-export unified ChatMessage interface
-import type {ChatMessage} from '@/types/gameFlow'
+import type {WebSocketChatMessage as ChatMessage} from '@/types'
 
 // WebSocket Event Types
 export interface WebSocketEvents {

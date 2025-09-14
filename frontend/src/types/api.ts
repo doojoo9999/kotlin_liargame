@@ -69,6 +69,22 @@ export interface JoinGameRequest {
   password?: string
 }
 
+export interface GameRoomInfo {
+  gameNumber: number
+  gameName: string
+  gameOwner: string
+  gameParticipants: number
+  gameMaxPlayers: number
+  isPrivate: boolean
+  gameState: 'WAITING' | 'IN_PROGRESS' | 'ENDED'
+  gameMode: 'LIARS_KNOW' | 'LIARS_DIFFERENT_WORD'
+}
+
+export interface GameListResponse {
+  games?: GameRoomInfo[]
+  data?: GameRoomInfo[]
+}
+
 export interface PlayerResponse {
   id: number;
   userId: number;

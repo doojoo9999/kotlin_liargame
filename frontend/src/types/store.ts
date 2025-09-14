@@ -1,5 +1,5 @@
 // Central shared store-related types
-import type {ChatMessage} from '@/services/websocketService';
+import type {WebSocketChatMessage as ChatMessage} from '@/types';
 
 export type Screen = 'LOBBY' | 'GAME' | 'RESULTS' | 'LOGIN' | 'HOME' | 'SETTINGS';
 export type ModalType = 'NONE' | 'CONFIRM' | 'ALERT' | 'GAME_SETTINGS' | 'PLAYER_LIST' | 'CHAT';

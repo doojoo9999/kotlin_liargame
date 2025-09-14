@@ -1,9 +1,8 @@
-import React, {useEffect, useRef} from 'react'
+import React, {useCallback, useMemo} from 'react'
 import {useGameStoreV2} from '@/stores/gameStoreV2'
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card'
 import {Badge} from '@/components/ui/badge'
-import {ActivityEvent} from '@/types/game'
-import {ScrollArea} from '@/components/ui/scroll-area'
+import type {ActivityEvent} from '@/types/game'
 import {AlertCircle, Clock, MessageCircle, Search, Shield, Target, Users} from 'lucide-react'
 
 const typeIcon: Record<ActivityEvent['type'], JSX.Element> = {
@@ -27,16 +26,29 @@ const typeColor: Record<ActivityEvent['type'], string> = {
 }
 
 export function ActivityFeedV2() {
-  const { activities } = useGameStoreV2(s => ({ activities: s.activities }))
-  const ref = useRef<HTMLDivElement>(null)
+  // Use shallow equality check for activities to prevent unnecessary re-renders
+  const activities = useGameStoreV2(useCallback(s => s.activities, []))
 
-  useEffect(() => {
-    if (!ref.current) return
-    const viewport = ref.current.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement | null
-    if (viewport) viewport.scrollTop = 0
-  }, [activities])
+  // Memoize formatTime to prevent recreation on every render
+  const formatTime = useCallback((ts: number) =>
+    new Date(ts).toLocaleTimeString('ko-KR', { hour:'2-digit', minute:'2-digit', second:'2-digit' }),
+  [])
 
-  const formatTime = (ts: number) => new Date(ts).toLocaleTimeString('ko-KR', { hour:'2-digit', minute:'2-digit', second:'2-digit' })
+  // Memoize the rendered activities to prevent unnecessary re-renders
+  const renderedActivities = useMemo(() =>
+    activities.map(a => (
+      <div key={a.id} className={`p-2 rounded border bg-white/60 text-[11px] flex gap-2 items-start ${a.type==='phase_change'?'bg-blue-50':''}`}>
+        <span className={`${typeColor[a.type]} mt-0.5`}>{typeIcon[a.type]}</span>
+        <div className="flex-1 min-w-0 leading-tight">
+          <div className="flex justify-between gap-2">
+            <span className="font-medium truncate">{renderTitle(a)}</span>
+            <span className="text-[10px] text-muted-foreground whitespace-nowrap">{formatTime(a.timestamp)}</span>
+          </div>
+          {a.content && <div className="text-[10px] text-gray-600 break-words">{a.content}</div>}
+        </div>
+      </div>
+    )),
+  [activities, formatTime])
 
   return (
     <Card className="h-full flex flex-col" aria-label="활동 피드">
@@ -45,26 +57,22 @@ export function ActivityFeedV2() {
           <Badge variant="secondary" className="text-[10px] font-normal">{activities.length}</Badge>
         </CardTitle>
       </CardHeader>
-      <CardContent className="flex-1 pt-0 pb-2">
-        <ScrollArea ref={ref} className="h-full">
+      <CardContent className="flex-1 pt-0 pb-2 overflow-hidden">
+        {/* Using native scrolling instead of ScrollArea to avoid infinite update loops */}
+        <div
+          className="h-full w-full overflow-y-auto overflow-x-hidden"
+          style={{
+            scrollbarWidth: 'thin',
+            scrollbarColor: '#d1d5db #f3f4f6'
+          }}
+        >
           <div className="space-y-1 pr-2">
-            {activities.map(a => (
-              <div key={a.id} className={`p-2 rounded border bg-white/60 text-[11px] flex gap-2 items-start ${a.type==='phase_change'?'bg-blue-50':''}`}>
-                <span className={`${typeColor[a.type]} mt-0.5`}>{typeIcon[a.type]}</span>
-                <div className="flex-1 min-w-0 leading-tight">
-                  <div className="flex justify-between gap-2">
-                    <span className="font-medium truncate">{renderTitle(a)}</span>
-                    <span className="text-[10px] text-muted-foreground whitespace-nowrap">{formatTime(a.timestamp)}</span>
-                  </div>
-                  {a.content && <div className="text-[10px] text-gray-600 break-words">{a.content}</div>}
-                </div>
-              </div>
-            ))}
+            {renderedActivities}
             {activities.length === 0 && (
               <div className="text-[11px] text-muted-foreground py-6 text-center">아직 활동이 없습니다.</div>
             )}
           </div>
-        </ScrollArea>
+        </div>
       </CardContent>
     </Card>
   )

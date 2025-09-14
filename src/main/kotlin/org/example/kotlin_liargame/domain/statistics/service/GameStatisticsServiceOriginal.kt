@@ -194,7 +194,7 @@ class GameStatisticsService(
             ((timesAsLiar - timesDetectedAsLiar).toDouble() / timesAsLiar) * 100
         } else 0.0
 
-        val favoriteSubjects = playerRepository.getFavoriteSubjects(userId, 5)
+        val favoriteSubjects = playerRepository.getFavoriteSubjects(userId).take(5)
         val rank = playerRepository.getPlayerRank(userId)
         val achievements = getPlayerAchievements(userId)
 

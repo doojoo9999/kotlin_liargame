@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
@@ -18,19 +18,94 @@ import {
   LogOut,
   Settings,
   User,
-  Crown
+  Crown,
+  RefreshCw
 } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { useToast } from '@/hooks/useToast'
 import { TopicManagementSection } from '@/components/lobby/TopicManagementSection'
 import { AnswerManagementSection } from '@/components/lobby/AnswerManagementSection'
 import { GameRoomsSection } from '@/components/lobby/GameRoomsSection'
+import { gameService } from '@/api/gameApi'
+import { subjectService } from '@/api/subjectApi'
+import { wordService } from '@/api/wordApi'
+import { useModal } from '@/contexts/ModalContext'
 
 export function MainLobbyPage() {
   const navigate = useNavigate()
   const { toast } = useToast()
   const { nickname, logout } = useAuthStore()
+  const { isAnyModalOpen, activeModals } = useModal()
   const [activeTab, setActiveTab] = useState('games')
+
+  // Dynamic statistics state
+  const [stats, setStats] = useState({
+    activeGameRooms: 0,
+    registeredTopics: 0,
+    totalAnswers: 0,
+    isLoading: true
+  })
+
+  // Fetch dynamic statistics
+  const fetchStats = async () => {
+    setStats(prev => ({ ...prev, isLoading: true }))
+
+    try {
+      // Fetch all data in parallel
+      const [gameListResponse, subjectsResponse, wordsResponse] = await Promise.all([
+        gameService.getGameList(0, 100), // Get first 100 games
+        subjectService.getSubjects(),
+        wordService.getWords()
+      ])
+
+      // Count active game rooms (WAITING status)
+      const gameList = gameListResponse.games || gameListResponse.data || []
+      const activeGameRooms = gameList.filter(game => game.gameState === 'WAITING').length
+
+      // Count registered topics
+      const topics = subjectsResponse.subjects || []
+      const registeredTopics = topics.length
+
+      // Count total answers across all topics
+      const words = wordsResponse.words || []
+      const totalAnswers = words.length
+
+      setStats({
+        activeGameRooms,
+        registeredTopics,
+        totalAnswers,
+        isLoading: false
+      })
+
+    } catch (error) {
+      console.error('Failed to fetch lobby statistics:', error)
+      toast({
+        title: "통계 로드 실패",
+        description: "로비 통계를 불러오는 중 오류가 발생했습니다",
+        variant: "destructive",
+      })
+      setStats(prev => ({ ...prev, isLoading: false }))
+    }
+  }
+
+  // Load statistics on component mount and when tab changes
+  useEffect(() => {
+    fetchStats()
+  }, [])
+
+  // Auto-refresh statistics every 30 seconds - only when component is focused and no modals are open
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // Only refresh if document is focused and no modals are open to avoid interfering with user interactions
+      if (document.hasFocus() && !isAnyModalOpen) {
+        console.log('[LobbyPage] Auto-refreshing statistics');
+        fetchStats()
+      } else if (isAnyModalOpen) {
+        console.log('[LobbyPage] Skipping auto-refresh - modal open:', Array.from(activeModals));
+      }
+    }, 30000)
+    return () => clearInterval(interval)
+  }, [isAnyModalOpen, activeModals])
 
   const handleLogout = () => {
     logout()
@@ -38,6 +113,14 @@ export function MainLobbyPage() {
     toast({
       title: "로그아웃되었습니다",
       description: "안전하게 로그아웃되었습니다",
+    })
+  }
+
+  const handleRefreshStats = () => {
+    fetchStats()
+    toast({
+      title: "통계 새로고침",
+      description: "최신 통계를 불러왔습니다",
     })
   }
 
@@ -73,24 +156,36 @@ export function MainLobbyPage() {
               </div>
             </Card>
 
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="icon">
-                  <Settings className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem disabled>
-                  <Crown className="mr-2 h-4 w-4" />
-                  관리자 메뉴
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout}>
-                  <LogOut className="mr-2 h-4 w-4" />
-                  로그아웃
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRefreshStats}
+                disabled={stats.isLoading}
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${stats.isLoading ? 'animate-spin' : ''}`} />
+                통계 새로고침
+              </Button>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="icon">
+                    <Settings className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem disabled>
+                    <Crown className="mr-2 h-4 w-4" />
+                    관리자 메뉴
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleLogout}>
+                    <LogOut className="mr-2 h-4 w-4" />
+                    로그아웃
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
         </motion.div>
 
@@ -123,7 +218,7 @@ export function MainLobbyPage() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.3 }}
                 >
-                  <GameRoomsSection />
+                  <GameRoomsSection key={`games-${stats.isLoading}`} />
                 </motion.div>
               </TabsContent>
 
@@ -133,7 +228,7 @@ export function MainLobbyPage() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.3 }}
                 >
-                  <TopicManagementSection />
+                  <TopicManagementSection key={`topics-${stats.isLoading}`} />
                 </motion.div>
               </TabsContent>
 
@@ -143,7 +238,7 @@ export function MainLobbyPage() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.3 }}
                 >
-                  <AnswerManagementSection />
+                  <AnswerManagementSection key={`answers-${stats.isLoading}`} />
                 </motion.div>
               </TabsContent>
             </div>
@@ -163,7 +258,13 @@ export function MainLobbyPage() {
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">2</div>
+              <div className="text-2xl font-bold">
+                {stats.isLoading ? (
+                  <RefreshCw className="h-6 w-6 animate-spin inline-block" />
+                ) : (
+                  stats.activeGameRooms
+                )}
+              </div>
               <p className="text-xs text-muted-foreground">
                 현재 플레이 가능한 방
               </p>
@@ -176,7 +277,13 @@ export function MainLobbyPage() {
               <BookOpen className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">0</div>
+              <div className="text-2xl font-bold">
+                {stats.isLoading ? (
+                  <RefreshCw className="h-6 w-6 animate-spin inline-block" />
+                ) : (
+                  stats.registeredTopics
+                )}
+              </div>
               <p className="text-xs text-muted-foreground">
                 게임에 사용할 수 있는 주제
               </p>
@@ -189,7 +296,13 @@ export function MainLobbyPage() {
               <FileText className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">0</div>
+              <div className="text-2xl font-bold">
+                {stats.isLoading ? (
+                  <RefreshCw className="h-6 w-6 animate-spin inline-block" />
+                ) : (
+                  stats.totalAnswers
+                )}
+              </div>
               <p className="text-xs text-muted-foreground">
                 모든 주제의 답안 합계
               </p>

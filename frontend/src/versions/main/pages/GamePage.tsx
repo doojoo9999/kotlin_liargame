@@ -1,23 +1,70 @@
 import React from 'react'
 import {useNavigate, useParams} from 'react-router-dom'
-import {useGameStore} from '@/store/gameStore'
+import {useGameStore} from '@/stores'
 import {GameFlowManager} from '@/components/game/GameFlowManager'
 import {Card, CardContent} from '@/components/ui/card'
 import {Button} from '@/components/ui/button'
 import {ArrowLeft} from 'lucide-react'
+import {gameService} from '@/api/gameApi'
+import {useToast} from '@/hooks/useToast'
 
 export function MainGamePage() {
-  const { roomId } = useParams<{ roomId: string }>()
+  const { gameId } = useParams<{ gameId: string }>()
   const navigate = useNavigate()
-  const { gameNumber, resetGame } = useGameStore()
+  const { gameNumber, setGameNumber, resetGame, updateFromGameState } = useGameStore()
+  const { toast } = useToast()
+  const [isLoading, setIsLoading] = React.useState(true)
+  const [error, setError] = React.useState<string | null>(null)
 
-  // 게임 번호가 없으면 로비로 이동
+  // 게임 상태 초기화 및 복원
   React.useEffect(() => {
-    if (!gameNumber && roomId) {
-      // roomId를 통해 게임 상태를 복원하거나 로비로 이동
-      navigate('/lobby')
+    const initializeGame = async () => {
+      if (!gameId) {
+        setError('게임 ID가 없습니다')
+        setIsLoading(false)
+        return
+      }
+
+      const gameIdNumber = parseInt(gameId)
+      if (isNaN(gameIdNumber)) {
+        setError('잘못된 게임 ID입니다')
+        setIsLoading(false)
+        return
+      }
+
+      try {
+        setIsLoading(true)
+        setError(null)
+
+        // Store에 게임 번호가 없거나 다른 게임인 경우
+        if (!gameNumber || gameNumber !== gameIdNumber) {
+          // 게임 상태를 서버에서 가져와서 복원
+          const gameState = await gameService.getGameState(gameIdNumber)
+
+          // Store 업데이트
+          setGameNumber(gameIdNumber)
+          updateFromGameState(gameState)
+
+          console.log('Game state restored:', gameState)
+        }
+
+        setIsLoading(false)
+      } catch (error) {
+        console.error('Failed to initialize game:', error)
+        setError(error instanceof Error ? error.message : '게임을 불러올 수 없습니다')
+        setIsLoading(false)
+
+        // 게임을 찾을 수 없는 경우 토스트 메시지 표시
+        toast({
+          title: "게임을 찾을 수 없습니다",
+          description: "게임이 존재하지 않거나 종료되었습니다",
+          variant: "destructive",
+        })
+      }
     }
-  }, [gameNumber, roomId, navigate])
+
+    initializeGame()
+  }, [gameId])
 
   const handleReturnToLobby = () => {
     resetGame()
@@ -29,13 +76,30 @@ export function MainGamePage() {
     console.log('Next round requested')
   }
 
-  if (!gameNumber) {
+  // 로딩 중 표시
+  if (isLoading) {
     return (
       <div className="container mx-auto p-4 max-w-2xl">
         <Card>
           <CardContent className="pt-6">
             <div className="text-center py-8">
-              <div className="text-lg font-medium mb-4">게임을 찾을 수 없습니다</div>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <div className="text-lg font-medium">게임을 불러오는 중...</div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  // 에러 또는 게임을 찾을 수 없는 경우
+  if (error || !gameNumber) {
+    return (
+      <div className="container mx-auto p-4 max-w-2xl">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center py-8">
+              <div className="text-lg font-medium mb-4">{error || '게임을 찾을 수 없습니다'}</div>
               <Button onClick={() => navigate('/lobby')}>
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 로비로 돌아가기

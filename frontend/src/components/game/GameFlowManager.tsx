@@ -247,7 +247,7 @@ export const GameFlowManager: React.FC<GameFlowManagerProps> = ({
             currentTopic={currentTopic}
             currentWord={currentWord}
             isMyTurn={isMyTurn() ?? false}
-            isLiar={isLiar() ?? false}
+            isLiar={isLiar ?? false}
             timeRemaining={timer.timeRemaining}
           />
         );
@@ -295,7 +295,7 @@ export const GameFlowManager: React.FC<GameFlowManagerProps> = ({
             liarPlayer={liarPlayer}
             currentPlayer={currentPlayer}
             timeRemaining={timer.timeRemaining}
-            isLiar={isLiar()}
+            isLiar={isLiar}
             hints={[]} // 힌트 목록은 게임 스토어에서 관리하도록 확장 필요
           />
         );
@@ -418,7 +418,7 @@ export const GameFlowManager: React.FC<GameFlowManagerProps> = ({
           currentTopic={currentTopic}
           currentWord={currentWord}
           timeRemaining={timer.timeRemaining}
-          isLiar={isLiar() ?? false}
+          isLiar={isLiar ?? false}
           playerCount={players.length}
           currentTurnPlayer={players.find(p => p.id === currentTurnPlayerId)?.nickname}
           suspectedPlayer={players.find(p => p.id === currentLiar)?.nickname}
@@ -446,7 +446,7 @@ export const GameFlowManager: React.FC<GameFlowManagerProps> = ({
               gamePhase={gamePhase}
               currentTurnPlayerId={currentTurnPlayerId}
               votes={voting.votes}
-              isLiar={isLiar() ?? false}
+              isLiar={isLiar ?? false}
               suspectedPlayer={currentLiar}
             />
           </div>
@@ -458,7 +458,7 @@ export const GameFlowManager: React.FC<GameFlowManagerProps> = ({
               gamePhase={gamePhase}
               currentPlayer={currentPlayer}
               isMyTurn={isMyTurn() ?? false}
-              isLiar={isLiar() ?? false}
+              isLiar={isLiar ?? false}
               canVote={canVote()}
               timeRemaining={timer.timeRemaining}
               onSubmitHint={handleSubmitHint}
@@ -487,10 +487,7 @@ export const GameFlowManager: React.FC<GameFlowManagerProps> = ({
           {/* Right Sidebar - Activity & Chat */}
           <div className="xl:col-span-1 space-y-6">
             <ActivityFeed
-              activities={activities}
-              players={players}
-              currentPlayer={currentPlayer}
-              gamePhase={gamePhase}
+              events={activities}
             />
             
             <GameChat

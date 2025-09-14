@@ -17,7 +17,7 @@ import {
     Target
 } from 'lucide-react';
 import {AnimatePresence, motion} from 'framer-motion';
-import type {GamePhase, Player} from '@/store/gameStore';
+import type {GamePhase, Player} from '@/stores';
 
 interface GameActionInterfaceProps {
   gamePhase: GamePhase;

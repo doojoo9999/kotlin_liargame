@@ -55,7 +55,46 @@ class GameService(
 
         if (activeGameAsOwner != null) {
             logger.debug("User already owns an active game: gameId = ${activeGameAsOwner.gameNumber}, state = ${activeGameAsOwner.gameState}")
-            throw RuntimeException("이미 참여중인 게임이 있습니다.")
+
+            // Check if this is an orphaned game (WAITING state with only owner for >5 minutes)
+            if (activeGameAsOwner.gameState == GameState.WAITING) {
+                val players = playerRepository.findByGame(activeGameAsOwner)
+                val isOrphaned = players.size == 1 &&
+                                activeGameAsOwner.createdAt.isBefore(java.time.LocalDateTime.now().minusMinutes(5))
+
+                if (isOrphaned) {
+                    logger.info("Found orphaned game during validation: gameNumber=${activeGameAsOwner.gameNumber}, cleaning up...")
+                    try {
+                        // Clean up the orphaned game automatically
+                        chatService.deleteGameChatMessages(activeGameAsOwner)
+
+                        // Delete players
+                        for (player in players) {
+                            chatService.deletePlayerChatMessages(player.userId)
+                        }
+                        playerRepository.deleteAll(players)
+
+                        // Delete game subjects
+                        val gameSubjects = gameSubjectRepository.findByGame(activeGameAsOwner)
+                        if (gameSubjects.isNotEmpty()) {
+                            gameSubjectRepository.deleteAll(gameSubjects)
+                        }
+
+                        // Delete the game
+                        gameRepository.delete(activeGameAsOwner)
+                        logger.info("Successfully cleaned up orphaned game ${activeGameAsOwner.gameNumber} during validation")
+
+                        // Continue with validation - orphaned game is now removed
+                    } catch (e: Exception) {
+                        logger.error("Failed to clean up orphaned game ${activeGameAsOwner.gameNumber}: ${e.message}", e)
+                        throw RuntimeException("이미 참여중인 게임이 있습니다.")
+                    }
+                } else {
+                    throw RuntimeException("이미 참여중인 게임이 있습니다.")
+                }
+            } else {
+                throw RuntimeException("이미 참여중인 게임이 있습니다.")
+            }
         }
 
         val userId = sessionService.getCurrentUserId(session)
@@ -388,12 +427,13 @@ class GameService(
         val playersMap = mutableMapOf<Long, List<PlayerEntity>>()
         val gameSubjectsMap = mutableMapOf<Long, List<String>>()
 
-        activeGames.forEach { game ->
+        // Filter out games that are orphaned (single player older than 5 minutes)
+        val filteredGames = activeGames.filter { game ->
             val players = playerRepository.findByGame(game)
             val gameSubjects = gameSubjectRepository.findByGameWithSubject(game)
             val subjectNames = gameSubjects.map { it.subject.content }
 
-            logger.debug("Game ${game.gameNumber} (ID: ${game.id}): found ${players.size} players")
+            logger.debug("Game ${game.gameNumber} (ID: ${game.id}): found ${players.size} players, state=${game.gameState}")
             players.forEach { player ->
                 logger.debug("  - Player: ${player.nickname} (userId=${player.userId}, pk=${player.id})")
             }
@@ -402,11 +442,24 @@ class GameService(
             playerCounts[game.id] = players.size
             playersMap[game.id] = players
             gameSubjectsMap[game.id] = subjectNames
+
+            // Include the game only if it's not orphaned
+            // Orphaned = WAITING state with only 1 player and older than 5 minutes
+            val isOrphaned = game.gameState == GameState.WAITING &&
+                            players.size == 1 &&
+                            game.createdAt.isBefore(java.time.LocalDateTime.now().minusMinutes(5))
+
+            if (isOrphaned) {
+                logger.warn("Filtering out orphaned game ${game.gameNumber} from lobby display")
+            }
+
+            !isOrphaned
         }
 
+        logger.debug("Active games: ${activeGames.size}, Filtered games: ${filteredGames.size}")
         logger.debug("Player counts: $playerCounts")
 
-        return GameRoomListResponse.from(activeGames, playerCounts, playersMap, gameSubjectsMap)
+        return GameRoomListResponse.from(filteredGames, playerCounts, playersMap, gameSubjectsMap)
     }
 
     @Transactional

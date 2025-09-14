@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -34,50 +34,55 @@ export function MainResultsPage() {
   const navigate = useNavigate()
   const { toast } = useToast()
 
-  // 임시 데이터 - 실제로는 API에서 가져올 데이터
-  const [gameResults] = useState({
-    isComplete: true,
-    totalRounds: 5,
-    winner: 'Player1',
-    players: [
-      {
-        id: '1',
-        nickname: 'Player1',
-        totalScore: 85,
-        roundScores: [20, 15, 20, 15, 15],
-        roundsWon: 3,
-        timesLiar: 2,
-        timesDetected: 1,
-        timesEvaded: 1,
-        rank: 1,
-        isCurrentUser: true
-      },
-      {
-        id: '2',
-        nickname: 'Player2',
-        totalScore: 70,
-        roundScores: [15, 20, 10, 15, 10],
-        roundsWon: 2,
-        timesLiar: 1,
-        timesDetected: 0,
-        timesEvaded: 1,
-        rank: 2,
-        isCurrentUser: false
-      },
-      {
-        id: '3',
-        nickname: 'Player3',
-        totalScore: 55,
-        roundScores: [10, 10, 15, 10, 10],
-        roundsWon: 1,
-        timesLiar: 2,
-        timesDetected: 2,
-        timesEvaded: 0,
-        rank: 3,
-        isCurrentUser: false
+  // Game results state - will be fetched from API
+  const [gameResults, setGameResults] = useState<{
+    isComplete: boolean
+    totalRounds: number
+    winner: string
+    players: PlayerScore[]
+  } | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+
+  // Fetch game results from API
+  useEffect(() => {
+    const fetchGameResults = async () => {
+      if (!gameId) {
+        toast({
+          title: "Invalid game ID",
+          description: "Game ID is required to view results",
+          variant: "destructive",
+        })
+        navigate('/lobby')
+        return
       }
-    ] as PlayerScore[]
-  })
+
+      try {
+        setIsLoading(true)
+        // TODO: Replace with actual API endpoint
+        const response = await fetch(`/api/game/${gameId}/results`)
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch game results')
+        }
+
+        const results = await response.json()
+        setGameResults(results)
+      } catch (error) {
+        console.error('Failed to fetch game results:', error)
+        toast({
+          title: "Failed to load results",
+          description: "Could not load game results. Please try again.",
+          variant: "destructive",
+        })
+        // Fallback: redirect to lobby
+        navigate('/lobby')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchGameResults()
+  }, [gameId, navigate, toast])
 
   const handlePlayAgain = () => {
     // 같은 게임으로 돌아가기 (새 라운드 시작)
@@ -146,6 +151,33 @@ export function MainResultsPage() {
       default:
         return <Badge variant="outline">{rank}위</Badge>
     }
+  }
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="text-muted-foreground">Loading game results...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Show error state if no data
+  if (!gameResults) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <p className="text-muted-foreground">Failed to load game results</p>
+          <Button onClick={() => navigate('/lobby')}>
+            <Home className="mr-2 h-4 w-4" />
+            Return to Lobby
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   return (

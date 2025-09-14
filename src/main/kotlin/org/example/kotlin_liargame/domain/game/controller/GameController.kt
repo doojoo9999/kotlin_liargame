@@ -36,7 +36,8 @@ class GameController(
     private val playerReadinessService: PlayerReadinessService,
     private val gameCountdownService: GameCountdownService,
     private val enhancedVotingService: EnhancedVotingService,
-    private val enhancedConnectionService: org.example.kotlin_liargame.global.connection.service.EnhancedConnectionService
+    private val enhancedConnectionService: org.example.kotlin_liargame.global.connection.service.EnhancedConnectionService,
+    private val gameCleanupService: GameCleanupService
 ) {
     
     @PostMapping("/create")
@@ -151,6 +152,16 @@ class GameController(
         return ResponseEntity.ok(response)
     }
     
+    @GetMapping("/modes")
+    fun getGameModes(): ResponseEntity<Any> {
+        // Return available game modes
+        val gameModes = listOf(
+            mapOf("id" to 1, "name" to "Classic", "description" to "Classic Liar Game"),
+            mapOf("id" to 2, "name" to "Quick", "description" to "Quick Round Liar Game")
+        )
+        return ResponseEntity.ok(gameModes)
+    }
+
     @GetMapping("/{gameNumber}")
     fun getGameState(@PathVariable gameNumber: Int, session: HttpSession): ResponseEntity<GameStateResponse> {
         val response = gameService.getGameState(gameNumber, session)
@@ -173,6 +184,46 @@ class GameController(
     fun getAllGameRooms(session: HttpSession): ResponseEntity<GameRoomListResponse> {
         val response = gameService.getAllGameRooms(session)
         return ResponseEntity.ok(response)
+    }
+
+    @PostMapping("/admin/cleanup/orphaned")
+    fun cleanupOrphanedGames(): ResponseEntity<Map<String, Any>> {
+        return try {
+            val cleanedCount = gameCleanupService.cleanupOrphanedGames()
+            ResponseEntity.ok(mapOf(
+                "success" to true,
+                "cleanedCount" to cleanedCount,
+                "message" to "Cleaned $cleanedCount orphaned games"
+            ))
+        } catch (e: Exception) {
+            ResponseEntity.status(500).body(mapOf(
+                "success" to false,
+                "error" to e.message
+            ))
+        }
+    }
+
+    @DeleteMapping("/admin/cleanup/game/{gameNumber}")
+    fun forceCleanupGame(@PathVariable gameNumber: Int): ResponseEntity<Map<String, Any>> {
+        return try {
+            val success = gameCleanupService.forceCleanupGame(gameNumber)
+            if (success) {
+                ResponseEntity.ok(mapOf(
+                    "success" to true,
+                    "message" to "Game $gameNumber has been forcefully cleaned up"
+                ))
+            } else {
+                ResponseEntity.status(404).body(mapOf(
+                    "success" to false,
+                    "error" to "Game $gameNumber not found"
+                ))
+            }
+        } catch (e: Exception) {
+            ResponseEntity.status(500).body(mapOf(
+                "success" to false,
+                "error" to e.message
+            ))
+        }
     }
     
     @PostMapping("/submit-defense")

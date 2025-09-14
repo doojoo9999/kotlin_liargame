@@ -5,7 +5,7 @@ import {Progress} from '@/components/ui/progress';
 import {Badge} from '@/components/ui/badge';
 import {AlertCircle, CheckCircle, Clock, Wifi, WifiOff} from 'lucide-react';
 import {cn} from '@/lib/utils';
-import {useGameStore} from '@/store/gameStore';
+import {useGameStore} from '@/stores';
 import {useWebSocketActions} from '@/hooks/useWebSocketConnection';
 
 interface GameTimerProps {

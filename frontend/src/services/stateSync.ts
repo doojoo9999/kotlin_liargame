@@ -3,7 +3,7 @@ import {conflictResolver} from './conflictResolver';
 import type {IncomingMessage} from '@/types/websocket';
 import {messageHandlers} from './messageHandlers';
 import {websocketService} from './websocketService';
-import {useGameStore} from '@/store/gameStore';
+import {useGameStore} from '@/stores';
 import {useConnectionStore} from '@/stores/connectionStore';
 
 class StateSync {

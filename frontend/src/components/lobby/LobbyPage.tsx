@@ -65,10 +65,10 @@ export const LobbyPage: React.FC<LobbyPageProps> = ({ onStartGame }) => {
     fetchGameModes();
   }, []);
 
-  // Auto-refresh game list every 30 seconds
+  // Auto-refresh game list every 30 seconds - only when focused and on browse tab
   useEffect(() => {
     const interval = setInterval(() => {
-      if (selectedTab === 'browse') {
+      if (selectedTab === 'browse' && document.hasFocus()) {
         fetchGameList();
       }
     }, 30000);

@@ -1,6 +1,6 @@
 // Message routing & handler registry (stub implementation)
 import type {IncomingMessage, MessagePayloadMap, MessageType} from '@/types/websocket';
-import {useGameStore} from '@/store/gameStore';
+import {useGameStore} from '@/stores';
 import {useConnectionStore} from '@/stores/connectionStore';
 
 export type Handler<T = any> = (payload: T, raw: IncomingMessage<T>) => void;

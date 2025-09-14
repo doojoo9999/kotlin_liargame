@@ -1,5 +1,5 @@
 import React, {Component, ErrorInfo, ReactNode} from 'react';
-import {AlertTriangle, Home, RefreshCw} from 'lucide-react';
+import {AlertTriangle, Home, RefreshCw, X} from 'lucide-react';
 import {Button} from '@/components/ui/button';
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
 
@@ -7,29 +7,33 @@ interface Props {
   children: ReactNode;
   fallback?: ReactNode;
   onError?: (error: Error, errorInfo: ErrorInfo) => void;
+  preventNavigation?: boolean;
+  allowRetry?: boolean;
 }
 
 interface State {
   hasError: boolean;
   error: Error | null;
   errorInfo: ErrorInfo | null;
+  showErrorDetails: boolean;
 }
 
 export class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
-    this.state = { 
-      hasError: false, 
-      error: null, 
-      errorInfo: null 
+    this.state = {
+      hasError: false,
+      error: null,
+      errorInfo: null,
+      showErrorDetails: false
     };
   }
 
-  static getDerivedStateFromError(error: Error): State {
-    return { 
-      hasError: true, 
-      error, 
-      errorInfo: null 
+  static getDerivedStateFromError(error: Error): Partial<State> {
+    return {
+      hasError: true,
+      error,
+      errorInfo: null
     };
   }
 
@@ -54,15 +58,30 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   handleRetry = () => {
-    this.setState({ 
-      hasError: false, 
-      error: null, 
-      errorInfo: null 
+    console.log('[ErrorBoundary] User initiated retry');
+    this.setState({
+      hasError: false,
+      error: null,
+      errorInfo: null,
+      showErrorDetails: false
     });
   };
 
-  handleGoHome = () => {
-    window.location.href = '/';
+  handleDismiss = () => {
+    // Instead of hard navigation, just hide error and try to continue
+    console.log('[ErrorBoundary] User dismissed error - attempting to continue');
+    this.setState({
+      hasError: false,
+      error: null,
+      errorInfo: null,
+      showErrorDetails: false
+    });
+  };
+
+  toggleErrorDetails = () => {
+    this.setState(prev => ({
+      showErrorDetails: !prev.showErrorDetails
+    }));
   };
 
   render() {
@@ -71,62 +90,84 @@ export class ErrorBoundary extends Component<Props, State> {
         return this.props.fallback;
       }
 
+      const { allowRetry = true, preventNavigation = false } = this.props;
+
       return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <Card className="w-full max-w-md">
-            <CardHeader className="text-center">
+            <CardHeader className="text-center relative">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="absolute right-2 top-2"
+                onClick={this.handleDismiss}
+              >
+                <X className="h-4 w-4" />
+              </Button>
               <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
                 <AlertTriangle className="h-6 w-6 text-red-600" />
               </div>
               <CardTitle className="mt-4 text-lg font-medium text-gray-900">
-                Something went wrong
+                오류가 발생했습니다
               </CardTitle>
             </CardHeader>
             <CardContent className="text-center space-y-4">
               <p className="text-sm text-gray-600">
-                We apologize for the inconvenience. An unexpected error occurred while loading this page.
+                {preventNavigation
+                  ? '작업 중 오류가 발생했지만 계속 진행할 수 있습니다.'
+                  : '페이지를 로드하는 중 예상치 못한 오류가 발생했습니다.'
+                }
               </p>
 
-              {process.env.NODE_ENV === 'development' && this.state.error && (
-                <details className="text-left text-xs bg-gray-100 p-3 rounded border">
-                  <summary className="cursor-pointer font-medium text-gray-700 mb-2">
-                    Error Details (Development Only)
-                  </summary>
+              {process.env.NODE_ENV === 'development' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={this.toggleErrorDetails}
+                  className="w-full"
+                >
+                  {this.state.showErrorDetails ? '오류 정보 숨기기' : '오류 정보 보기'}
+                </Button>
+              )}
+
+              {process.env.NODE_ENV === 'development' && this.state.showErrorDetails && this.state.error && (
+                <div className="text-left text-xs bg-gray-100 p-3 rounded border max-h-48 overflow-auto">
                   <div className="space-y-2">
                     <div>
-                      <strong>Error:</strong>
+                      <strong>오류:</strong>
                       <pre className="mt-1 text-red-600 whitespace-pre-wrap">
                         {this.state.error.toString()}
                       </pre>
                     </div>
                     {this.state.errorInfo && (
                       <div>
-                        <strong>Component Stack:</strong>
+                        <strong>컴포넌트 스택:</strong>
                         <pre className="mt-1 text-gray-600 whitespace-pre-wrap text-xs">
                           {this.state.errorInfo.componentStack}
                         </pre>
                       </div>
                     )}
                   </div>
-                </details>
+                </div>
               )}
 
-              <div className="flex flex-col sm:flex-row gap-3 pt-4">
-                <Button 
-                  onClick={this.handleRetry} 
-                  className="flex-1"
-                  variant="default"
-                >
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Try Again
-                </Button>
-                <Button 
-                  onClick={this.handleGoHome} 
-                  className="flex-1"
+              <div className="flex flex-col gap-3 pt-4">
+                {allowRetry && (
+                  <Button
+                    onClick={this.handleRetry}
+                    className="w-full"
+                    variant="default"
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    다시 시도
+                  </Button>
+                )}
+                <Button
+                  onClick={this.handleDismiss}
+                  className="w-full"
                   variant="outline"
                 >
-                  <Home className="h-4 w-4 mr-2" />
-                  Go Home
+                  계속하기
                 </Button>
               </div>
             </CardContent>

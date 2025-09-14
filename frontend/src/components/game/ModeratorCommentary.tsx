@@ -3,7 +3,7 @@ import {Card, CardContent} from '@/components/ui/card';
 import {Badge} from '@/components/ui/badge';
 import {Clock, Megaphone, Search, Shield, Target, Trophy, Users} from 'lucide-react';
 import {AnimatePresence, motion} from 'framer-motion';
-import type {GamePhase} from '@/store/gameStore';
+import type {GamePhase} from '@/stores';
 
 interface ModeratorCommentaryProps {
   gamePhase: GamePhase;

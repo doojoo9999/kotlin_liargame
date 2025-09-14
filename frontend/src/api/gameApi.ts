@@ -1,7 +1,6 @@
 import {apiClient} from './client';
 import type {
     CountdownResponse,
-    CreateGameRequest,
     DefenseResponse,
     GameListResponse,
     GameMode,
@@ -13,6 +12,7 @@ import type {
     VoteResponse,
     VotingStatusResponse
 } from '../types/api';
+import type {CreateGameRequest} from '../types/backendTypes';
 import type {RoundEndResponse} from '../types/gameFlow';
 
 export class GameService {

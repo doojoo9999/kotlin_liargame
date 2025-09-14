@@ -1,6 +1,6 @@
 // WebSocket Connection Hook with Store Integration
 import {useCallback, useEffect, useRef, useState} from 'react'
-import {useGameStore} from '@/store/gameStore'
+import {useGameStore} from '@/stores'
 import {type GameStateUpdate, gameWebSocket, type PlayerAction} from '@/api/websocket'
 import type {ChatMessage} from '@/types/gameFlow'
 import {useToast} from './useToast'

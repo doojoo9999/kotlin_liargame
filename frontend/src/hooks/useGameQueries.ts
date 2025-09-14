@@ -1,7 +1,7 @@
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query'
 import {gameApi} from '@/api/gameApi'
 import {QUERY_KEYS} from '@/lib/queryClient'
-import {useGameStore} from '@/store/gameStore'
+import {useGameStore} from '@/stores'
 
 // Game Status Query
 export function useGameStatus(gameId: string | null) {

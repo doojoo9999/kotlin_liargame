@@ -5,12 +5,11 @@ import {Badge} from '@/components/ui/badge'
 import type {GamePhase} from '@/types/backendTypes'
 
 export function PlayerStatusPanelV2() {
-  const { players, gameData, currentPlayer, phase } = useGameStoreV2(s => ({
-    players: s.players,
-    gameData: s.gameData,
-    currentPlayer: s.currentPlayer,
-    phase: s.phase
-  }))
+  // Use individual selectors with useCallback to prevent infinite loops
+  const players = useGameStoreV2(React.useCallback(s => s.players, []))
+  const gameData = useGameStoreV2(React.useCallback(s => s.gameData, []))
+  const currentPlayer = useGameStoreV2(React.useCallback(s => s.currentPlayer, []))
+  const phase = useGameStoreV2(React.useCallback(s => s.phase, []))
 
   const voteCount = React.useCallback((playerId: string) => {
     return gameData.votes.filter(v => v.targetId === playerId).length
@@ -46,10 +45,10 @@ export function PlayerStatusPanelV2() {
                     {isEliminated && <span className="text-amber-600">제거</span>}
                   </div>
                 </div>
-                {phase === GamePhase.VOTING_FOR_LIAR && vc > 0 && (
+                {phase === 'VOTING_FOR_LIAR' && vc > 0 && (
                   <Badge variant="secondary" className="text-[10px]">{vc}표</Badge>
                 )}
-                {phase === GamePhase.VOTING_FOR_SURVIVAL && sc > 0 && (
+                {phase === 'VOTING_FOR_SURVIVAL' && sc > 0 && (
                   <Badge variant="outline" className="text-[10px]">생존 {sc}</Badge>
                 )}
               </div>
@@ -61,7 +60,7 @@ export function PlayerStatusPanelV2() {
         <CardContent className="py-3 text-[11px] space-y-1">
           <div className="flex justify-between"><span>힌트 수</span><span>{gameData.hints.length}</span></div>
           <div className="flex justify-between"><span>투표 수</span><span>{gameData.votes.length}</span></div>
-          {phase === GamePhase.VOTING_FOR_SURVIVAL && (
+          {phase === 'VOTING_FOR_SURVIVAL' && (
             <div className="flex justify-between"><span>생존표</span><span>{(gameData.survivalVotes||[]).length}</span></div>
           )}
         </CardContent>

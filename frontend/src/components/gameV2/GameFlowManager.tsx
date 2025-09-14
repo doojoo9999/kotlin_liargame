@@ -1,6 +1,5 @@
 import React from 'react'
 import {useGameStoreV2} from '@/stores/gameStoreV2'
-import {GamePhase} from '@/types/game'
 import {GamePhaseIndicator} from './GamePhaseIndicator'
 import {ModeratorCommentary} from './ModeratorCommentary'
 import {Card, CardContent} from '@/components/ui/card'
@@ -18,15 +17,24 @@ import {ScoreBoardV2} from './ScoreBoardV2'
 export function GameFlowManagerV2() {
   const s = useGameStoreV2()
 
+  // Memoize score board entries to prevent unnecessary recalculations
+  const scoreBoardEntries = React.useMemo(() =>
+    s.players.map(player => ({
+      id: player.id,
+      nickname: player.nickname,
+      score: s.scores[player.id] || 0,
+      isCurrentPlayer: player.id === s.currentPlayer
+    })), [s.players, s.scores, s.currentPlayer])
+
   const mainContent = () => {
     switch (s.phase) {
-      case GamePhase.WAITING: return <WaitingPhase onStart={s.startGame} />
-      case GamePhase.SPEECH: return <HintPhase onSubmit={s.submitHint} />
-      case GamePhase.VOTING_FOR_LIAR: return <VotingPhase players={s.players} onVote={s.castVote} />
-      case GamePhase.DEFENDING: return <DefensePhase accusedNickname={s.players.find(p => p.id === s.gameData.accusedPlayer)?.nickname} />
-      case GamePhase.VOTING_FOR_SURVIVAL: return <SurvivalVotePhase />
-      case GamePhase.GUESSING_WORD: return <GuessPhase />
-      case GamePhase.GAME_OVER: return <ResultsPhase />
+      case 'WAITING_FOR_PLAYERS': return <WaitingPhase onStart={s.startGame} />
+      case 'SPEECH': return <HintPhase onSubmit={s.submitHint} />
+      case 'VOTING_FOR_LIAR': return <VotingPhase players={s.players} onVote={s.castVote} />
+      case 'DEFENDING': return <DefensePhase accusedNickname={s.players.find(p => p.id === s.gameData.accusedPlayer)?.nickname} />
+      case 'VOTING_FOR_SURVIVAL': return <SurvivalVotePhase />
+      case 'GUESSING_WORD': return <GuessPhase />
+      case 'GAME_OVER': return <ResultsPhase />
       default: return null
     }
   }
@@ -47,7 +55,7 @@ export function GameFlowManagerV2() {
               {mainContent()}
             </CardContent>
           </Card>
-          <ScoreBoardV2 />
+          <ScoreBoardV2 entries={scoreBoardEntries} />
         </div>
         {/* Right Column */}
         <div aria-label="활동 및 로그" className="flex flex-col gap-4">
@@ -64,7 +72,7 @@ export function GameFlowManagerV2() {
             {mainContent()}
           </CardContent>
         </Card>
-        <ScoreBoardV2 />
+        <ScoreBoardV2 entries={scoreBoardEntries} />
         <PlayerStatusPanelV2 />
         <ActivityFeedV2 />
       </div>

@@ -2,7 +2,7 @@ import {useEffect} from 'react';
 import {useConnectionStore} from '@/stores/connectionStore';
 import {websocketService} from '@/services/websocketService';
 import {stateSync} from '@/services/stateSync';
-import {useGameStore} from '@/store/gameStore';
+import {useGameStore} from '@/stores';
 
 /**
  * WebSocket 연결 및 구독 관리 기본 훅

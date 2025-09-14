@@ -12,7 +12,7 @@ import type {
     SyncIssue,
 } from '@/types/store';
 import {websocketService} from '@/services/websocketService';
-import {useGameStore} from '@/store/gameStore';
+import {useGameStore} from '@/stores';
 
 const MAX_LATENCY_SAMPLES = 20;
 const genId = () => (globalThis.crypto?.randomUUID?.() || Math.random().toString(36).slice(2));

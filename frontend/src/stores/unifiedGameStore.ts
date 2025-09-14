@@ -1,7 +1,9 @@
 import {create} from 'zustand';
 import {devtools, persist} from 'zustand/middleware';
 import {gameService} from '../api/gameApi';
-import type {CreateGameRequest, GameMode, GameRoomInfo, GameStateResponse, JoinGameRequest} from '../types/game';
+import type {GameMode} from '../types/game';
+import type {CreateGameRequest, GameStateResponse} from '../types/backendTypes';
+import type {JoinGameRequest, GameRoomInfo} from '../types/api';
 import type {ChatMessage} from '../types/realtime';
 
 // Unified Player interface
@@ -540,7 +542,9 @@ export const useGameStore = create<UnifiedGameStore>()(
         createGame: async (gameData) => {
           set({ isLoading: true, error: null });
           try {
-            const gameState = await gameService.createGame(gameData);
+            const gameNumber = await gameService.createGame(gameData);
+            // After creating, get the game state
+            const gameState = await gameService.getGameState(gameNumber);
             set({
               isLoading: false,
               currentGameState: gameState,
@@ -597,7 +601,7 @@ export const useGameStore = create<UnifiedGameStore>()(
 
           set({ isLoading: true, error: null });
           try {
-            const gameState = await gameService.startGame(gameNumber);
+            const gameState = await gameService.startGame();
             set({ isLoading: false, currentGameState: gameState });
             get().updateFromGameState(gameState);
           } catch (error) {
@@ -639,9 +643,9 @@ export const useGameStore = create<UnifiedGameStore>()(
         // State Synchronization
         setCurrentGameState: (currentGameState) => set({ currentGameState }),
         updateFromGameState: (gameState) => {
-          if (!gameState.data) return;
+          if (!gameState) return;
 
-          const mappedPlayers = gameState.data.players.map(p => ({
+          const mappedPlayers = gameState.players.map(p => ({
             id: p.id.toString(),
             nickname: p.nickname,
             isHost: p.isHost,
@@ -653,19 +657,26 @@ export const useGameStore = create<UnifiedGameStore>()(
           }));
 
           set({
-            gamePhase: mapGamePhase(gameState.data.gameState),
+            gamePhase: mapGamePhase(gameState.gameState),
             players: mappedPlayers,
-            currentRound: gameState.data.currentRound,
-            totalRounds: gameState.data.totalRounds,
-            maxPlayers: gameState.data.maxPlayers || mappedPlayers.length,
+            currentRound: gameState.gameCurrentRound,
+            totalRounds: gameState.gameTotalRounds,
+            maxPlayers: gameState.gameParticipants,
+            gameNumber: gameState.gameNumber,
+            gameId: gameState.gameNumber.toString(),
           });
 
           // Update timer if available
-          if (gameState.data.timeRemaining !== undefined) {
+          if (gameState.phaseEndTime) {
+            // Calculate time remaining from phaseEndTime
+            const endTime = new Date(gameState.phaseEndTime).getTime();
+            const now = Date.now();
+            const timeRemaining = Math.max(0, Math.floor((endTime - now) / 1000));
+
             set((state) => ({
               timer: {
                 ...state.timer,
-                timeRemaining: gameState.data.timeRemaining
+                timeRemaining
               }
             }));
           }
@@ -754,10 +765,14 @@ export const useGameStore = create<UnifiedGameStore>()(
               break;
 
             case 'GAME_STATE_UPDATED':
-              set({
-                gamePhase: mapGamePhase(event.payload.state)
-              });
-              
+              if (event.payload.gameState) {
+                get().updateFromGameState(event.payload.gameState);
+              } else if (event.payload.state) {
+                set({
+                  gamePhase: mapGamePhase(event.payload.state)
+                });
+              }
+
               if (event.payload.timeRemaining !== undefined) {
                 set((state) => ({
                   timer: {

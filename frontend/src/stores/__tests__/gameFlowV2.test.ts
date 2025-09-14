@@ -1,6 +1,5 @@
 import {beforeEach, describe, expect, it} from 'vitest'
 import {useGameStoreV2} from '../../stores/gameStoreV2'
-import {GamePhase} from '@/types/game'
 
 /**
  * Helper: reset store state completely for isolation.
@@ -25,7 +24,7 @@ describe('gameStoreV2 scoring & phase logic', () => {
     useGameStoreV2.setState(st => ({ gameData: { ...st.gameData, votes: [
       { voterId: 'C1', targetId: 'L1', timestamp: Date.now() },
       { voterId: 'C2', targetId: 'L1', timestamp: Date.now() }
-    ], accusedPlayer: 'L1' }, phase: GamePhase.GAME_OVER }))
+    ], accusedPlayer: 'L1' }, phase: 'GAME_OVER' }))
     s.finalizeRound()
     const scores = useGameStoreV2.getState().scores
     expect(scores['C1']).toBe(3)
@@ -39,7 +38,7 @@ describe('gameStoreV2 scoring & phase logic', () => {
     useGameStoreV2.setState(st => ({ gameData: { ...st.gameData, votes: [
       { voterId: 'L1', targetId: 'C1', timestamp: Date.now() },
       { voterId: 'C2', targetId: 'C1', timestamp: Date.now() }
-    ], accusedPlayer: 'C1' }, phase: GamePhase.GAME_OVER }))
+    ], accusedPlayer: 'C1' }, phase: 'GAME_OVER' }))
     s.finalizeRound()
     const scores = useGameStoreV2.getState().scores
     // Liar survived +6
@@ -53,7 +52,7 @@ describe('gameStoreV2 scoring & phase logic', () => {
   it('LIAR_GUESSED_TOPIC bonus +3', () => {
     const s = useGameStoreV2.getState()
     // Liar survives & guesses correctly
-    useGameStoreV2.setState(st => ({ gameData: { ...st.gameData, secretWord: '사과', accusedPlayer: 'C1', guessAttempt: { playerId: 'L1', word: '사과', correct: true, timestamp: Date.now() }, votes: [] }, phase: GamePhase.GAME_OVER }))
+    useGameStoreV2.setState(st => ({ gameData: { ...st.gameData, secretWord: '사과', accusedPlayer: 'C1', guessAttempt: { playerId: 'L1', word: '사과', correct: true, timestamp: Date.now() }, votes: [] }, phase: 'GAME_OVER' }))
     s.finalizeRound()
     const scores = useGameStoreV2.getState().scores
     // Liar survives (accused is C1) +6 plus guess bonus +3 => 9
@@ -64,7 +63,7 @@ describe('gameStoreV2 scoring & phase logic', () => {
   it('guess auto-fail when not submitted by GUESSING_WORD timeout', () => {
     const s = useGameStoreV2.getState()
     // move to guessing word phase and simulate timeout
-    useGameStoreV2.setState(st => ({ phase: GamePhase.GUESSING_WORD, gameData: { ...st.gameData, accusedPlayer: 'L1' }, timeRemaining: 1 }))
+    useGameStoreV2.setState(st => ({ phase: 'GUESSING_WORD', gameData: { ...st.gameData, accusedPlayer: 'L1' }, timeRemaining: 1 }))
     s.tick() // timeRemaining -> 0 and auto guess attempt inserted
     // Should transition to GAME_OVER and finalizeRound soon after
     expect(useGameStoreV2.getState().gameData.guessAttempt).toBeTruthy()

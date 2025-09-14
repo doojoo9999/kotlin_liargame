@@ -1,4 +1,4 @@
-import {useEffect, useState} from 'react'
+import {useEffect, useRef, useState} from 'react'
 import {Button} from '@/components/ui/button'
 import {Card, CardContent} from '@/components/ui/card'
 import {Input} from '@/components/ui/input'
@@ -33,6 +33,7 @@ export function AnswerManagementSection() {
   const [selectedTopicId, setSelectedTopicId] = useState<string>('')
   const [newAnswer, setNewAnswer] = useState('')
   const { toast } = useToast()
+  const answerInputRef = useRef<HTMLInputElement>(null)
 
   // 데이터 로드
   useEffect(() => {
@@ -80,6 +81,7 @@ export function AnswerManagementSection() {
         description: "답안을 입력해주세요",
         variant: "destructive",
       })
+      answerInputRef.current?.focus();
       return
     }
 
@@ -116,13 +118,16 @@ export function AnswerManagementSection() {
         subjectId: selectedTopic.id
       });
 
+      const submittedAnswer = newAnswer.trim();
       setNewAnswer('')
-      setSelectedTopicId('')
-      setIsCreateDialogOpen(false)
+      // 주제 선택은 유지하여 연속 입력을 편하게 함
+
+      // 연속 추가를 위해 모달을 닫지 않고 포커스 유지
+      answerInputRef.current?.focus();
 
       toast({
         title: "답안이 제출되었습니다",
-        description: `"${newAnswer.trim()}" 답안이 "${selectedTopic.name}" 주제에 제출되었습니다. 관리자 승인을 기다려주세요.`,
+        description: `"${submittedAnswer}" 답안이 "${selectedTopic.name}" 주제에 제출되었습니다. 관리자 승인을 기다려주세요.`,
       })
 
       // 데이터 새로고침 (승인된 답안만 표시되므로 개수는 즉시 변경되지 않음)
@@ -146,6 +151,22 @@ export function AnswerManagementSection() {
     return answers.filter(answer => answer.topicId === topicId).length
   }
 
+  // Enter 키 핸들러
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleCreateAnswer();
+    }
+  }
+
+  // 모달 열릴 때 입력 필드에 포커스
+  const handleDialogOpen = (open: boolean) => {
+    setIsCreateDialogOpen(open);
+    if (open) {
+      setTimeout(() => answerInputRef.current?.focus(), 100);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -157,7 +178,7 @@ export function AnswerManagementSection() {
           <p className="text-muted-foreground">각 주제별 답안 현황을 확인하고 새로운 답안을 제출하세요</p>
         </div>
 
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <Dialog open={isCreateDialogOpen} onOpenChange={handleDialogOpen}>
           <DialogTrigger asChild>
             <Button>
               <Plus className="h-4 w-4 mr-2" />
@@ -168,7 +189,7 @@ export function AnswerManagementSection() {
             <DialogHeader>
               <DialogTitle>새 답안 추가</DialogTitle>
               <DialogDescription>
-                기존 주제를 선택하여 답안을 추가하세요. 관리자 승인 후 게임에 사용됩니다.
+                기존 주제를 선택하여 답안을 추가하세요 (Enter로 빠른 추가). 관리자 승인 후 게임에 사용됩니다.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
@@ -199,22 +220,30 @@ export function AnswerManagementSection() {
               <div>
                 <Label htmlFor="answer">답안</Label>
                 <Input
+                  ref={answerInputRef}
                   id="answer"
                   placeholder="예: 사자, 피자, 타이타닉 등"
                   value={newAnswer}
                   onChange={(e) => setNewAnswer(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  autoFocus
                 />
               </div>
-              <div className="flex gap-2 justify-end">
-                <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-                  취소
-                </Button>
-                <Button 
-                  onClick={handleCreateAnswer}
-                  disabled={!selectedTopicId || !newAnswer.trim() || topics.length === 0}
-                >
-                  제출
-                </Button>
+              <div className="flex gap-2 justify-between">
+                <div className="text-sm text-muted-foreground">
+                  💡 Enter 키로 빠르게 답안을 제출하세요
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+                    완료
+                  </Button>
+                  <Button
+                    onClick={handleCreateAnswer}
+                    disabled={!selectedTopicId || !newAnswer.trim() || topics.length === 0}
+                  >
+                    제출
+                  </Button>
+                </div>
               </div>
             </div>
           </DialogContent>

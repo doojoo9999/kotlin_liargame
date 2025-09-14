@@ -3,26 +3,29 @@ import type {GamePhase} from '@/types/backendTypes'
 import {useGameStoreV2} from '@/stores/gameStoreV2'
 
 export function ModeratorCommentary() {
-  const { phase, timeRemaining, gameData } = useGameStoreV2(s => ({ phase: s.phase, timeRemaining: s.timeRemaining, gameData: s.gameData }))
+  // Use individual selectors with useCallback to prevent infinite loops
+  const phase = useGameStoreV2(React.useCallback(s => s.phase, []))
+  const timeRemaining = useGameStoreV2(React.useCallback(s => s.timeRemaining, []))
+  const gameData = useGameStoreV2(React.useCallback(s => s.gameData, []))
 
   const { msg, tone } = React.useMemo(() => {
     const accused = gameData.accusedPlayer
     const guess = gameData.guessAttempt
     if (gameData.victoryAchieved) return { msg: '게임이 종료되었습니다. 최종 승자를 확인하세요.', tone: 'critical' }
     switch (phase) {
-      case GamePhase.WAITING:
+      case 'WAITING_FOR_PLAYERS':
         return { msg: '플레이어가 모이면 게임을 시작할 수 있습니다.', tone: 'info' }
-      case GamePhase.SPEECH:
+      case 'SPEECH':
         return { msg: '순서대로 힌트를 주세요. 정답 노출은 피하세요.', tone: timeRemaining <= 10 ? 'warning' : 'info' }
-      case GamePhase.VOTING_FOR_LIAR:
+      case 'VOTING_FOR_LIAR':
         return { msg: accused ? `지목된 플레이어를 확신하나요? (${accused})` : '가장 의심되는 플레이어에게 투표하세요.', tone: timeRemaining <= 10 ? 'warning' : 'info' }
-      case GamePhase.DEFENDING:
+      case 'DEFENDING':
         return { msg: accused ? '변론을 주의 깊게 듣고 판단하세요.' : '지목 결과를 대기 중...', tone: 'info' }
-      case GamePhase.VOTING_FOR_SURVIVAL:
+      case 'VOTING_FOR_SURVIVAL':
         return { msg: '생존 투표로 최종 제거 대상을 결정합니다.', tone: timeRemaining <= 10 ? 'warning' : 'info' }
-      case GamePhase.GUESSING_WORD:
+      case 'GUESSING_WORD':
         return { msg: guess ? '추측이 제출되었습니다. 결과를 기다리세요.' : '라이어는 제한 시간 내 단어를 추측하세요.', tone: timeRemaining <= 10 ? 'warning' : 'info' }
-      case GamePhase.GAME_OVER:
+      case 'GAME_OVER':
         return { msg: '라운드 결과를 확인하고 다음 라운드를 준비하세요.', tone: 'success' }
       default:
         return { msg: '진행 정보를 수집 중...', tone: 'info' }
@@ -39,7 +42,7 @@ export function ModeratorCommentary() {
   return (
     <div className={`p-4 rounded-lg bg-gradient-to-r border text-sm ${toneStyle[tone]||toneStyle.info}`} aria-live="polite">
       {msg}
-      {timeRemaining > 0 && [GamePhase.SPEECH, GamePhase.VOTING_FOR_LIAR, GamePhase.DEFENDING, GamePhase.VOTING_FOR_SURVIVAL, GamePhase.GUESSING_WORD].includes(phase) && (
+      {timeRemaining > 0 && ['SPEECH', 'VOTING_FOR_LIAR', 'DEFENDING', 'VOTING_FOR_SURVIVAL', 'GUESSING_WORD'].includes(phase) && (
         <span className="ml-2 text-xs text-muted-foreground">(남은 시간 {timeRemaining}s)</span>
       )}
     </div>

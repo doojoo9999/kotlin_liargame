@@ -5,7 +5,7 @@ export interface ActivityFeedProps { events: ActivityEvent[]; maxEvents?: number
 
 export const ActivityFeed: React.FC<ActivityFeedProps> = ({events,maxEvents=50,showTimestamps=true,autoScroll=true,className}) => {
   const ref = React.useRef<HTMLUListElement>(null)
-  const trimmed = events.slice(-maxEvents)
+  const trimmed = (events || []).slice(-maxEvents)
   React.useEffect(()=>{ if(autoScroll && ref.current){ ref.current.scrollTop = ref.current.scrollHeight } },[trimmed,autoScroll])
   return (
     <div className={className} aria-label='이벤트 피드'>

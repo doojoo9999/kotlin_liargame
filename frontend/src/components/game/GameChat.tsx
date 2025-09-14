@@ -8,7 +8,7 @@ import {useGameFlow} from '@/hooks/useGameFlow';
 import {websocketService} from '@/services/websocketService';
 import {MessageCircle, Send, Users} from 'lucide-react';
 import type {ChatMessage} from '@/types/gameFlow';
-import type {Player} from '@/store/gameStore';
+import type {Player} from '@/stores';
 
 interface GameChatProps {
   players: Player[];

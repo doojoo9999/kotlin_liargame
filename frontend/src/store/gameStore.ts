@@ -1,7 +1,9 @@
 import {create} from 'zustand';
 import {devtools, persist} from 'zustand/middleware';
 import {gameService} from '../api/gameApi';
-import type {CreateGameRequest, GameMode, GameRoomInfo, GameStateResponse, JoinGameRequest} from '../types/game';
+import type {GameMode} from '../types/game';
+import type {CreateGameRequest, GameStateResponse} from '../types/backendTypes';
+import type {JoinGameRequest, GameRoomInfo} from '../types/api';
 import type {ChatMessage, ConnectionState} from '@/api/websocket';
 
 export interface Player {

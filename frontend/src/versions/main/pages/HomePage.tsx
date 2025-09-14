@@ -45,53 +45,36 @@ export function MainHomePage() {
   const createGameMutation = useCreateGame()
   const joinGameMutation = useJoinGame()
 
-  // Mock room data for now - will be replaced with real API
-  const mockRooms: GameRoom[] = [
-    {
-      id: '1',
-      name: 'Friday Night Fun',
-      sessionCode: 'ABC123',
-      hostName: 'Alice',
-      currentPlayers: 3,
-      maxPlayers: 6,
-      timeLimit: 120,
-      totalRounds: 3,
-      status: 'waiting',
-      isPrivate: false
-    },
-    {
-      id: '2', 
-      name: 'Quick Game',
-      sessionCode: 'XYZ789',
-      hostName: 'Bob',
-      currentPlayers: 6,
-      maxPlayers: 6,
-      timeLimit: 90,
-      totalRounds: 2,
-      status: 'playing',
-      isPrivate: false
-    },
-    {
-      id: '3',
-      name: 'Family Game Night',
-      sessionCode: 'FAM456',
-      hostName: 'Charlie',
-      currentPlayers: 2,
-      maxPlayers: 8,
-      timeLimit: 180,
-      totalRounds: 5,
-      status: 'waiting',
-      isPrivate: true
-    }
-  ]
 
-  // Load rooms (mock implementation)
+  // Load rooms from API
   const loadRooms = async () => {
     setIsLoadingRooms(true)
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    setGameRooms(mockRooms)
-    setIsLoadingRooms(false)
+    try {
+      // TODO: Replace with actual API call
+      const response = await fetch('/api/game/rooms')
+      if (response.ok) {
+        const rooms = await response.json()
+        setGameRooms(rooms)
+      } else {
+        // Fallback to empty array if API fails
+        setGameRooms([])
+        toast({
+          title: "Failed to load games",
+          description: "Could not load game rooms. Please try again.",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error('Failed to load game rooms:', error)
+      setGameRooms([])
+      toast({
+        title: "Connection error",
+        description: "Could not connect to server. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoadingRooms(false)
+    }
   }
 
   useEffect(() => {

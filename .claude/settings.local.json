@@ -66,9 +66,21 @@
       "Bash(.gradlew compileKotlin:*)",
       "Bash(gradle:*)",
       "Bash(dir)",
-      "Bash(output 7a61b1)"
+      "Bash(output 7a61b1)",
+      "Bash(jobs:*)",
+      "Bash(rg:*)",
+      "Bash(git add:*)",
+      "Bash(git config:*)",
+      "Bash(dir:*)"
     ],
     "deny": [],
     "ask": []
-  }
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "playwright",
+    "github",
+    "browsermcp",
+    "shadcn"
+  ]
 }

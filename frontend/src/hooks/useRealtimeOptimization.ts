@@ -1,6 +1,6 @@
 // Performance optimization hooks for real-time features
 import {useCallback, useLayoutEffect, useMemo, useRef} from 'react'
-import {useGameStore} from '@/store/gameStore'
+import {useGameStore} from '@/stores'
 
 // Debounce hook for chat and other user inputs
 export function useDebounce<T extends (...args: any[]) => any>(

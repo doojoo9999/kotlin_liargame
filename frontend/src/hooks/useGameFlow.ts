@@ -1,5 +1,5 @@
 import {useCallback} from 'react';
-import {useGameStore} from '../store/gameStore';
+import {useGameStore} from '../stores';
 import {gameFlowService} from '../services/gameFlowService';
 
 export const useGameFlow = () => {
@@ -17,6 +17,7 @@ export const useGameFlow = () => {
     chatMessages,
     isLoading,
     error,
+    isLiar,
     setLoading,
     setError,
     setGamePhase,
@@ -243,10 +244,7 @@ export const useGameFlow = () => {
     return currentPlayer && currentTurnPlayerId === currentPlayer.id;
   }, [currentPlayer, currentTurnPlayerId]);
 
-  // 현재 플레이어가 라이어인지 확인
-  const isLiar = useCallback(() => {
-    return currentPlayer?.role === 'liar';
-  }, [currentPlayer]);
+  // isLiar is now imported from the store as a boolean property
 
   // 현재 플레이어가 살아있는지 확인
   const isAlive = useCallback(() => {
@@ -271,7 +269,7 @@ export const useGameFlow = () => {
         return {
           title: '힌트 제공 단계',
           description: isMyTurn() ? '힌트를 제공해주세요.' : '다른 플레이어의 힌트를 기다리고 있습니다.',
-          canAct: isMyTurn() && !isLiar(),
+          canAct: isMyTurn() && !isLiar,
         };
       case 'VOTING_FOR_LIAR':
         return {
@@ -294,8 +292,8 @@ export const useGameFlow = () => {
       case 'GUESSING_WORD':
         return {
           title: '단어 추측',
-          description: isLiar() ? '단어를 추측해주세요.' : '라이어의 추측을 기다리고 있습니다.',
-          canAct: isLiar(),
+          description: isLiar ? '단어를 추측해주세요.' : '라이어의 추측을 기다리고 있습니다.',
+          canAct: isLiar,
         };
       case 'GAME_OVER':
         return {

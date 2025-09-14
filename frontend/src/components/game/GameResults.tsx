@@ -6,7 +6,7 @@ import {Badge} from '@/components/ui/badge';
 import {useGameFlow} from '@/hooks/useGameFlow';
 import {Crown, Target, Trophy, Users} from 'lucide-react';
 import type {GameResult} from '@/types/gameFlow';
-import type {Player} from '@/store/gameStore';
+import type {Player} from '@/stores';
 
 interface GameResultsProps {
   gameResult?: GameResult | null;
