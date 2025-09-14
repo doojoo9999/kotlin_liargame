@@ -122,9 +122,107 @@ export const GameFlowManager: React.FC<GameFlowManagerProps> = ({
     );
   }
 
-  const phaseInfo = getPhaseInfo();
+  // Phase info helper function
+  const getPhaseInfo = (phase: string) => {
+    switch (phase) {
+      case 'WAITING_FOR_PLAYERS':
+        return { icon: '⏳', text: '플레이어 대기 중', color: 'text-gray-500' };
+      case 'SPEECH':
+        return { icon: '💭', text: '힌트 제공', color: 'text-green-500' };
+      case 'VOTING_FOR_LIAR':
+        return { icon: '🗳️', text: '라이어 투표', color: 'text-orange-500' };
+      case 'DEFENDING':
+        return { icon: '🛡️', text: '변론 시간', color: 'text-purple-500' };
+      case 'VOTING_FOR_SURVIVAL':
+        return { icon: '⚖️', text: '생존 투표', color: 'text-red-500' };
+      case 'GUESSING_WORD':
+        return { icon: '🔍', text: '단어 맞추기', color: 'text-blue-500' };
+      case 'GAME_OVER':
+        return { icon: '🏆', text: '게임 종료', color: 'text-yellow-500' };
+      default:
+        return { icon: '❓', text: phase, color: 'text-gray-500' };
+    }
+  };
+
+  const phaseInfo = getPhaseInfo(gamePhase || '');
   const suspectedPlayer = players.find(p => p.id === currentLiar) || null;
   const liarPlayer = players.find(p => p.role === 'liar') || null;
+
+  // Utility functions
+  const isMyTurn = () => {
+    return currentTurnPlayerId === currentPlayer?.id;
+  };
+
+  const canVote = () => {
+    return currentPlayer && !voting.votes[currentPlayer.id];
+  };
+
+  const submitHint = async (hint: string) => {
+    if (currentPlayer && gameNumber) {
+      try {
+        // Add hint via store function
+        addHint(currentPlayer.id, currentPlayer.nickname, hint);
+
+        // Send to server via websocket if available
+        if (websocketService) {
+          await websocketService.sendGameAction(gameNumber.toString(), 'hint', { hint });
+        }
+      } catch (error) {
+        console.error('Failed to submit hint:', error);
+      }
+    }
+  };
+
+  const voteForLiar = async (playerId: number) => {
+    if (currentPlayer && gameNumber) {
+      try {
+        const targetPlayer = players.find(p => p.id === playerId.toString());
+        if (targetPlayer) {
+          castVote(playerId.toString());
+        }
+      } catch (error) {
+        console.error('Failed to vote:', error);
+      }
+    }
+  };
+
+  const submitDefense = async (defense: string) => {
+    if (currentPlayer && gameNumber) {
+      try {
+        addDefense(currentPlayer.id, currentPlayer.nickname, defense);
+
+        if (websocketService) {
+          await websocketService.sendGameAction(gameNumber.toString(), 'defense', { defense });
+        }
+      } catch (error) {
+        console.error('Failed to submit defense:', error);
+      }
+    }
+  };
+
+  const guessWord = async (guess: string) => {
+    if (currentPlayer && gameNumber) {
+      try {
+        if (websocketService) {
+          await websocketService.sendGameAction(gameNumber.toString(), 'guess', { guess });
+        }
+      } catch (error) {
+        console.error('Failed to guess word:', error);
+      }
+    }
+  };
+
+  const castFinalVote = async (execute: boolean) => {
+    if (currentPlayer && gameNumber) {
+      try {
+        if (websocketService) {
+          await websocketService.sendGameAction(gameNumber.toString(), 'final_vote', { execute });
+        }
+      } catch (error) {
+        console.error('Failed to cast final vote:', error);
+      }
+    }
+  };
 
   // 게임 단계별 렌더링
   const renderGamePhase = () => {
