@@ -24,6 +24,7 @@ export interface AuthState {
   isAuthenticated: boolean;
   userId: number | null;
   nickname: string | null;
+  isRefreshing?: boolean;
   login: (nickname: string) => Promise<void>;
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;

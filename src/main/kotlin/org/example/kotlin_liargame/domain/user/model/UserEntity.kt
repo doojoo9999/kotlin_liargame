@@ -2,6 +2,7 @@ package org.example.kotlin_liargame.domain.user.model
 
 import jakarta.persistence.*
 import org.example.kotlin_liargame.global.base.BaseEntity
+import java.time.LocalDateTime
 
 @Entity
 @Table(name = "users")
@@ -46,7 +47,10 @@ class UserEntity (
     var highestRankingPoints: Int = 1000,
     
     @Column(name = "total_playtime_seconds", nullable = false)
-    var totalPlaytimeSeconds: Long = 0
+    var totalPlaytimeSeconds: Long = 0,
+
+    @Column(name = "last_login_at", nullable = true)
+    var lastLoginAt: LocalDateTime? = null
 
 ) : BaseEntity() {
     @Id

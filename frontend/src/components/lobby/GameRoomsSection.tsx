@@ -14,14 +14,13 @@ import {
     DialogTitle,
     DialogTrigger
 } from '@/components/ui/dialog'
-import {Lock, Play, Plus, RefreshCw, Unlock, Users, Settings, Check, X} from 'lucide-react'
+import {Check, Lock, Play, Plus, RefreshCw, Settings, Unlock, Users, X} from 'lucide-react'
 import {useToast} from '@/hooks/useToast'
 import {useAuthStore} from '@/stores/authStore'
 import {useGameStore} from '@/stores'
 import {useModalRegistration} from '@/contexts/ModalContext'
-import {subjectApi, type Subject} from '@/api/subjectApi'
-import type {CreateGameRequest as BackendCreateGameRequest, GameMode} from '@/types/backendTypes'
-import type {JoinGameRequest} from '@/types/game'
+import {type Subject, subjectApi} from '@/api/subjectApi'
+import type {GameMode} from '@/types/backendTypes'
 
 export function GameRoomsSection() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
@@ -167,7 +166,9 @@ export function GameRoomsSection() {
       const { gameInitializationService } = await import('@/services/gameInitializationService')
 
       const gameNumber = await gameInitializationService.createGameRoom(gameData)
-
+      
+      console.log('Game created successfully, gameNumber:', gameNumber)
+      
       // 폼 초기화
       setNewRoom({
         gameName: nickname ? `${nickname} 님의 방` : '', // Reset with default name
@@ -187,6 +188,8 @@ export function GameRoomsSection() {
       handleCreateDialogOpen(false)
 
       // 생성한 게임방으로 이동
+      console.log('Navigating to game page:', `/game/${gameNumber}`)
+      // Use setTimeout to ensure navigation happens after dialog closes
       navigate(`/game/${gameNumber}`)
 
     } catch (error) {

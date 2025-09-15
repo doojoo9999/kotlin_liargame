@@ -38,6 +38,9 @@ export const API_CONFIG = {
       // 방장 관리
       KICK_OWNER: '/api/v1/game',            // /{gameNumber}/kick-owner
       EXTEND_TIME: '/api/v1/game',           // /{gameNumber}/extend-time
+      
+      // 데이터 정리
+      CLEANUP_USER_DATA: '/api/v1/game/cleanup/user-data'
     },
     // Chat System (완전한 ChatController API)
     CHAT: {
@@ -110,6 +113,8 @@ export const API_CONFIG = {
 // HTTP Client wrapper
 class ApiClient {
   private baseURL: string
+  private isRefreshing: boolean = false
+  private refreshPromise: Promise<void> | null = null
   
   constructor(baseURL: string = API_CONFIG.BASE_URL) {
     this.baseURL = baseURL
@@ -140,7 +145,8 @@ class ApiClient {
 
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    retryOnAuthFailure: boolean = true
   ): Promise<T> {
     const url = `${this.baseURL}${endpoint}`
 
@@ -177,8 +183,23 @@ class ApiClient {
         ok: response.ok
       });
 
+      // Handle 401/403 unauthorized responses 
+      if ((response.status === 401 || response.status === 403) && retryOnAuthFailure && !endpoint.includes('/auth/')) {
+        console.log('Unauthorized response, attempting session refresh...');
+        
+        // Wait for any ongoing refresh to complete
+        if (this.refreshPromise) {
+          await this.refreshPromise;
+        } else if (!this.isRefreshing) {
+          await this.refreshSession();
+        }
+        
+        // Retry the original request once
+        return this.request<T>(endpoint, options, false);
+      }
+
       if (!response.ok) {
-        let errorData: any = {};
+        let errorData: Record<string, unknown> = {};
         const contentType = response.headers.get('content-type');
         
         if (contentType && contentType.includes('application/json')) {
@@ -213,6 +234,59 @@ class ApiClient {
       console.error('API Request failed:', error);
       throw error;
     }
+  }
+
+  // Session refresh method
+  private async refreshSession(): Promise<void> {
+    if (this.isRefreshing) {
+      // If already refreshing, wait for the existing promise
+      if (this.refreshPromise) {
+        return this.refreshPromise;
+      }
+    }
+
+    this.isRefreshing = true;
+    
+    this.refreshPromise = (async () => {
+      try {
+        console.log('Attempting to refresh session...');
+        const response = await fetch(`${this.baseURL}${API_CONFIG.ENDPOINTS.AUTH.REFRESH}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          console.log('Session refresh successful:', data);
+        } else {
+          console.error('Session refresh failed:', response.status, response.statusText);
+          // Clear auth state on refresh failure
+          this.clearAuthState();
+          throw new Error('Session refresh failed');
+        }
+      } catch (error) {
+        console.error('Session refresh error:', error);
+        this.clearAuthState();
+        throw error;
+      } finally {
+        this.isRefreshing = false;
+        this.refreshPromise = null;
+      }
+    })();
+
+    return this.refreshPromise;
+  }
+
+  // Clear authentication state
+  private clearAuthState(): void {
+    localStorage.removeItem('auth-token');
+    localStorage.removeItem('auth-storage');
+    
+    // Dispatch custom event to notify auth store
+    window.dispatchEvent(new CustomEvent('auth-session-expired'));
   }
 }
 

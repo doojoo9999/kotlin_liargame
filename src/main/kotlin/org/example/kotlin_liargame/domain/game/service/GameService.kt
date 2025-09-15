@@ -46,8 +46,37 @@ class GameService(
 ) {
     private val logger = LoggerFactory.getLogger(this::class.java)
 
-    private fun validateExistingOwner(session: HttpSession) {
+    private fun validateExistingOwner(session: HttpSession, performCleanup: Boolean = true) {
         val nickname = sessionService.getCurrentUserNickname(session)
+        val userId = sessionService.getCurrentUserId(session)
+        
+        logger.debug("validateExistingOwner started for user: $nickname (ID: $userId)")
+
+        // Optionally perform cleanup of stale data first
+        if (performCleanup) {
+            try {
+                cleanupStaleGameData(userId, nickname)
+                logger.debug("Stale data cleanup completed for user: $nickname")
+            } catch (e: Exception) {
+                logger.warn("Stale data cleanup failed for user $nickname: ${e.message}")
+                // Continue with validation even if cleanup fails
+            }
+        }
+
+        // First check if user is already a player in any active game (including WAITING)
+        val activeGameAsPlayer = playerRepository.findByUserIdAndGameActive(userId)
+        if (activeGameAsPlayer != null) {
+            val gameState = activeGameAsPlayer.game.gameState
+            logger.debug("User already in a game as player: gameId = ${activeGameAsPlayer.game.gameNumber}, state = $gameState")
+            
+            if (gameState == GameState.IN_PROGRESS) {
+                throw RuntimeException("이미 진행중인 게임에 참여하고 있습니다.")
+            } else {
+                throw RuntimeException("이미 다른 게임방에 참여하고 있습니다. 기존 게임을 나간 후 다시 시도해주세요.")
+            }
+        }
+
+        // Check if user owns any active games
         val activeGameAsOwner = gameRepository.findByGameOwnerAndGameStateIn(
             nickname,
             listOf(GameState.WAITING, GameState.IN_PROGRESS)
@@ -56,53 +85,49 @@ class GameService(
         if (activeGameAsOwner != null) {
             logger.debug("User already owns an active game: gameId = ${activeGameAsOwner.gameNumber}, state = ${activeGameAsOwner.gameState}")
 
-            // Check if this is an orphaned game (WAITING state with only owner for >5 minutes)
+            // Only check for orphaned games in WAITING state
             if (activeGameAsOwner.gameState == GameState.WAITING) {
                 val players = playerRepository.findByGame(activeGameAsOwner)
-                val isOrphaned = players.size == 1 &&
-                                activeGameAsOwner.createdAt.isBefore(java.time.LocalDateTime.now().minusMinutes(5))
+                
+                // More lenient orphaned game criteria:
+                // - Only owner exists (1 player)
+                // - Game is older than 10 minutes (instead of 5)
+                // - Or game has been inactive for more than 5 minutes
+                val gameAge = java.time.Duration.between(activeGameAsOwner.createdAt, java.time.LocalDateTime.now())
+                val lastActivity = activeGameAsOwner.lastActivityAt ?: activeGameAsOwner.createdAt.atZone(java.time.ZoneId.systemDefault()).toInstant()
+                val inactiveTime = java.time.Duration.between(lastActivity, java.time.Instant.now())
+                
+                val isOrphaned = players.size == 1 && 
+                               (gameAge.toMinutes() > 10 || inactiveTime.toMinutes() > 5)
 
                 if (isOrphaned) {
-                    logger.info("Found orphaned game during validation: gameNumber=${activeGameAsOwner.gameNumber}, cleaning up...")
+                    logger.info("Found orphaned game during validation: gameNumber=${activeGameAsOwner.gameNumber}, " +
+                              "age=${gameAge.toMinutes()}min, inactive=${inactiveTime.toMinutes()}min, cleaning up...")
+                    
                     try {
-                        // Clean up the orphaned game automatically
-                        chatService.deleteGameChatMessages(activeGameAsOwner)
-
-                        // Delete players
-                        for (player in players) {
-                            chatService.deletePlayerChatMessages(player.userId)
-                        }
-                        playerRepository.deleteAll(players)
-
-                        // Delete game subjects
-                        val gameSubjects = gameSubjectRepository.findByGame(activeGameAsOwner)
-                        if (gameSubjects.isNotEmpty()) {
-                            gameSubjectRepository.deleteAll(gameSubjects)
-                        }
-
-                        // Delete the game
-                        gameRepository.delete(activeGameAsOwner)
+                        // Use the existing cleanup method instead of manual cleanup
+                        leaveGameAsSystem(activeGameAsOwner.gameNumber, userId)
                         logger.info("Successfully cleaned up orphaned game ${activeGameAsOwner.gameNumber} during validation")
-
-                        // Continue with validation - orphaned game is now removed
+                        
+                        // Validation now passes - orphaned game has been cleaned up
+                        logger.debug("validateExistingOwner passed for user: $nickname after orphaned game cleanup")
+                        return
+                        
                     } catch (e: Exception) {
                         logger.error("Failed to clean up orphaned game ${activeGameAsOwner.gameNumber}: ${e.message}", e)
-                        throw RuntimeException("이미 참여중인 게임이 있습니다.")
+                        // Don't throw exception if cleanup fails - just warn and continue validation
+                        logger.warn("Continuing with validation despite cleanup failure for game ${activeGameAsOwner.gameNumber}")
                     }
-                } else {
-                    throw RuntimeException("이미 참여중인 게임이 있습니다.")
                 }
+
+                // If not orphaned or cleanup failed, prevent creating new game
+                throw RuntimeException("이미 참여중인 게임이 있습니다. 기존 게임을 나간 후 다시 시도해주세요.")
             } else {
-                throw RuntimeException("이미 참여중인 게임이 있습니다.")
+                // Game is IN_PROGRESS
+                throw RuntimeException("이미 진행중인 게임을 소유하고 있습니다.")
             }
         }
 
-        val userId = sessionService.getCurrentUserId(session)
-        val activeGameAsPlayer = playerRepository.findByUserIdAndGameInProgress(userId)
-        if (activeGameAsPlayer != null) {
-            logger.debug("User already in a game: gameId = ${activeGameAsPlayer.game.gameNumber}, state = ${activeGameAsPlayer.game.gameState}")
-            throw RuntimeException("이미 진행중인 게임에 참여하고 있습니다.")
-        }
         logger.debug("validateExistingOwner passed for user: $nickname")
     }
 
@@ -119,49 +144,85 @@ class GameService(
 
     @Transactional
     fun createGameRoom(req: CreateGameRoomRequest, session: HttpSession): Int {
-        val nickname = sessionService.getCurrentUserNickname(session)
-        val userId = sessionService.getCurrentUserId(session)
-        validateExistingOwner(session)
+        logger.info("=== CREATE GAME ROOM STARTED ===")
+        
+        try {
+            val nickname = sessionService.getCurrentUserNickname(session)
+            val userId = sessionService.getCurrentUserId(session)
+            logger.info("Creating game room for user: $nickname (ID: $userId)")
+            
+            // Enhanced validation with better error messages
+            try {
+                validateExistingOwner(session)
+                logger.debug("Validation passed for user: $nickname")
+            } catch (e: RuntimeException) {
+                logger.warn("Validation failed for user $nickname: ${e.message}")
+                throw e
+            }
 
-        val nextRoomNumber = findNextAvailableRoomNumber()
-        val newGame = req.to(nextRoomNumber, nickname)
+            val nextRoomNumber = findNextAvailableRoomNumber()
+            logger.debug("Next available room number: $nextRoomNumber")
+            
+            val newGame = req.to(nextRoomNumber, nickname)
+            logger.debug("Created game entity: ${newGame.gameNumber}")
 
-        val selectedSubjects = selectSubjectsForGameRoom(req)
-        if (selectedSubjects.isNotEmpty()) {
-            val citizenSubject = selectedSubjects.first()
-            newGame.citizenSubject = citizenSubject
+            val selectedSubjects = selectSubjectsForGameRoom(req)
+            logger.debug("Selected ${selectedSubjects.size} subjects for game")
+            
+            if (selectedSubjects.isNotEmpty()) {
+                val citizenSubject = selectedSubjects.first()
+                newGame.citizenSubject = citizenSubject
 
-            val liarSubject = if (selectedSubjects.size > 1) selectedSubjects[1] else citizenSubject
-            newGame.liarSubject = liarSubject
-        }
+                val liarSubject = if (selectedSubjects.size > 1) selectedSubjects[1] else citizenSubject
+                newGame.liarSubject = liarSubject
+                
+                logger.debug("Assigned subjects - Citizen: ${citizenSubject.content}, Liar: ${liarSubject.content}")
+            } else {
+                logger.error("No subjects were selected for the game!")
+                throw IllegalStateException("게임 주제를 선택할 수 없습니다.")
+            }
 
-        val savedGame = gameRepository.save(newGame)
+            val savedGame = gameRepository.save(newGame)
+            logger.debug("Game saved with ID: ${savedGame.id}")
 
-        selectedSubjects.forEach { subject ->
-            val gameSubject = GameSubjectEntity(
+            selectedSubjects.forEach { subject ->
+                val gameSubject = GameSubjectEntity(
+                    game = savedGame,
+                    subject = subject
+                )
+                gameSubjectRepository.save(gameSubject)
+            }
+            logger.debug("Game subjects saved: ${selectedSubjects.size} records")
+
+            // 방장을 자동으로 플레이어로 등록
+            val ownerPlayer = PlayerEntity(
                 game = savedGame,
-                subject = subject
+                userId = userId,
+                nickname = nickname,
+                isAlive = true,
+                role = PlayerRole.CITIZEN,
+                subject = savedGame.citizenSubject ?: throw IllegalStateException("게임에 시민 주제가 설정되지 않았습니다."),
+                state = PlayerState.WAITING_FOR_HINT
             )
-            gameSubjectRepository.save(gameSubject)
+            val savedPlayer = playerRepository.save(ownerPlayer)
+            logger.debug("Owner player saved with ID: ${savedPlayer.id}")
+
+            // WebSocket 세션에 방장의 게임 번호 등록
+            try {
+                webSocketSessionManager.registerPlayerInGame(userId, savedGame.gameNumber)
+                logger.debug("WebSocket session registered for player {} in game {}", userId, savedGame.gameNumber)
+            } catch (e: Exception) {
+                logger.warn("Failed to register WebSocket session for player $userId: ${e.message}")
+                // Don't fail game creation if WebSocket registration fails
+            }
+
+            logger.info("=== GAME ROOM CREATED SUCCESSFULLY: ${savedGame.gameNumber} ===")
+            return savedGame.gameNumber
+            
+        } catch (e: Exception) {
+            logger.error("=== GAME ROOM CREATION FAILED ===", e)
+            throw e
         }
-
-        // 방장을 자동으로 플레이어로 등록
-        val ownerPlayer = PlayerEntity(
-            game = savedGame,
-            userId = userId,
-            nickname = nickname,
-            isAlive = true,
-            role = PlayerRole.CITIZEN,
-            subject = savedGame.citizenSubject ?: throw IllegalStateException("게임에 시민 주제가 설정되지 않았습니다."),
-            state = PlayerState.WAITING_FOR_HINT
-        )
-        playerRepository.save(ownerPlayer)
-
-        // WebSocket 세션에 방장의 게임 번호 등록
-        webSocketSessionManager.registerPlayerInGame(userId, savedGame.gameNumber)
-        logger.debug("Game owner registered as player in game {}", savedGame.gameNumber)
-
-        return savedGame.gameNumber
     }
 
     private fun selectSubjectsForGameRoom(req: CreateGameRoomRequest): List<SubjectEntity> {
@@ -427,7 +488,7 @@ class GameService(
         val playersMap = mutableMapOf<Long, List<PlayerEntity>>()
         val gameSubjectsMap = mutableMapOf<Long, List<String>>()
 
-        // Filter out games that are orphaned (single player older than 5 minutes)
+        // Process all active games and apply more lenient filtering
         val filteredGames = activeGames.filter { game ->
             val players = playerRepository.findByGame(game)
             val gameSubjects = gameSubjectRepository.findByGameWithSubject(game)
@@ -443,21 +504,48 @@ class GameService(
             playersMap[game.id] = players
             gameSubjectsMap[game.id] = subjectNames
 
-            // Include the game only if it's not orphaned
-            // Orphaned = WAITING state with only 1 player and older than 5 minutes
-            val isOrphaned = game.gameState == GameState.WAITING &&
-                            players.size == 1 &&
-                            game.createdAt.isBefore(java.time.LocalDateTime.now().minusMinutes(5))
-
-            if (isOrphaned) {
-                logger.warn("Filtering out orphaned game ${game.gameNumber} from lobby display")
+            // More lenient filtering criteria:
+            // 1. Always show IN_PROGRESS games
+            // 2. For WAITING games, only filter if:
+            //    - Single player AND game is older than 15 minutes (increased from 5)
+            //    - OR game has been inactive for more than 10 minutes
+            if (game.gameState == GameState.IN_PROGRESS) {
+                logger.debug("Including IN_PROGRESS game ${game.gameNumber}")
+                return@filter true
             }
 
-            !isOrphaned
+            if (game.gameState == GameState.WAITING) {
+                // Check if game should be considered truly orphaned
+                val gameAge = java.time.Duration.between(game.createdAt, java.time.LocalDateTime.now())
+                val lastActivity = game.lastActivityAt ?: game.createdAt.atZone(java.time.ZoneId.systemDefault()).toInstant()
+                val inactiveTime = java.time.Duration.between(lastActivity, java.time.Instant.now())
+                
+                val isTrulyOrphaned = players.size == 1 && 
+                                     gameAge.toMinutes() > 15 && 
+                                     inactiveTime.toMinutes() > 10
+
+                if (isTrulyOrphaned) {
+                    logger.warn("Filtering out truly orphaned game ${game.gameNumber} " +
+                              "(age: ${gameAge.toMinutes()}min, inactive: ${inactiveTime.toMinutes()}min)")
+                    return@filter false
+                }
+
+                // Show all other WAITING games
+                logger.debug("Including WAITING game ${game.gameNumber} " +
+                           "(players: ${players.size}, age: ${gameAge.toMinutes()}min)")
+                return@filter true
+            }
+
+            // Show all other games (shouldn't reach here, but safe default)
+            return@filter true
         }
 
-        logger.debug("Active games: ${activeGames.size}, Filtered games: ${filteredGames.size}")
-        logger.debug("Player counts: $playerCounts")
+        logger.info("Game room listing: Active games: ${activeGames.size}, Visible games: ${filteredGames.size}")
+        
+        if (filteredGames.isEmpty() && activeGames.isNotEmpty()) {
+            logger.warn("All games were filtered out! This might indicate an issue with filtering logic.")
+            logger.debug("Original active games: ${activeGames.map { "${it.gameNumber}(${it.gameState})" }}")
+        }
 
         return GameRoomListResponse.from(filteredGames, playerCounts, playersMap, gameSubjectsMap)
     }
@@ -843,6 +931,57 @@ class GameService(
      * 게임 시작 시간 연장
      * 방장이 게임 시작 시간을 5분 연장합니다.
      */
+    @Transactional
+    fun cleanupStaleGameData(userId: Long, nickname: String): Boolean {
+        logger.info("Starting stale game data cleanup for user: $nickname (ID: $userId)")
+        
+        try {
+            // Find any stale games owned by this user
+            val staleOwnedGames = gameRepository.findByGameOwnerAndGameStateIn(
+                nickname,
+                listOf(GameState.WAITING, GameState.IN_PROGRESS)
+            )
+            
+            if (staleOwnedGames != null) {
+                val gameAge = java.time.Duration.between(staleOwnedGames.createdAt, java.time.LocalDateTime.now())
+                val lastActivity = staleOwnedGames.lastActivityAt ?: staleOwnedGames.createdAt.atZone(java.time.ZoneId.systemDefault()).toInstant()
+                val inactiveTime = java.time.Duration.between(lastActivity, java.time.Instant.now())
+                
+                logger.info("Found owned game ${staleOwnedGames.gameNumber} - age: ${gameAge.toMinutes()}min, inactive: ${inactiveTime.toMinutes()}min")
+                
+                // Clean up if game is old or inactive
+                if (gameAge.toMinutes() > 5 || inactiveTime.toMinutes() > 3) {
+                    logger.info("Cleaning up stale owned game ${staleOwnedGames.gameNumber}")
+                    leaveGameAsSystem(staleOwnedGames.gameNumber, userId)
+                }
+            }
+            
+            // Find any games where user is a player
+            val stalePlayerGame = playerRepository.findByUserIdAndGameActive(userId)
+            if (stalePlayerGame != null) {
+                val game = stalePlayerGame.game
+                val gameAge = java.time.Duration.between(game.createdAt, java.time.LocalDateTime.now())
+                val lastActivity = game.lastActivityAt ?: game.createdAt.atZone(java.time.ZoneId.systemDefault()).toInstant()
+                val inactiveTime = java.time.Duration.between(lastActivity, java.time.Instant.now())
+                
+                logger.info("Found player game ${game.gameNumber} - age: ${gameAge.toMinutes()}min, inactive: ${inactiveTime.toMinutes()}min")
+                
+                // Clean up if game is old or inactive
+                if (gameAge.toMinutes() > 5 || inactiveTime.toMinutes() > 3) {
+                    logger.info("Cleaning up stale player participation in game ${game.gameNumber}")
+                    leaveGameAsSystem(game.gameNumber, userId)
+                }
+            }
+            
+            logger.info("Stale game data cleanup completed for user: $nickname")
+            return true
+            
+        } catch (e: Exception) {
+            logger.error("Error during stale game data cleanup for user $nickname: ${e.message}", e)
+            return false
+        }
+    }
+
     @Transactional
     fun extendGameStartTime(gameNumber: Int, userId: Long?): TimeExtensionResponse {
         val game = gameRepository.findByGameNumber(gameNumber)

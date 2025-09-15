@@ -197,8 +197,32 @@ class GameController(
             ))
         } catch (e: Exception) {
             ResponseEntity.status(500).body(mapOf(
-                "success" to false,
-                "error" to e.message
+                "success" to false as Any,
+                "error" to (e.message ?: "Unknown error") as Any
+            ))
+        }
+    }
+
+    @PostMapping("/cleanup/user-data")
+    fun cleanupUserGameData(session: HttpSession): ResponseEntity<Map<String, Any>> {
+        return try {
+            val userId = sessionUtil.getUserId(session)
+                ?: return ResponseEntity.status(401).body(mapOf(
+                    "success" to false as Any,
+                    "error" to "Not authenticated" as Any
+                ))
+            
+            val nickname = sessionUtil.getUserNickname(session) ?: "Unknown"
+            val success = gameService.cleanupStaleGameData(userId, nickname)
+            
+            ResponseEntity.ok(mapOf(
+                "success" to success,
+                "message" to if (success) "User game data cleaned up successfully" else "Cleanup failed"
+            ))
+        } catch (e: Exception) {
+            ResponseEntity.status(500).body(mapOf(
+                "success" to false as Any,
+                "error" to (e.message ?: "Unknown error") as Any
             ))
         }
     }
@@ -220,8 +244,8 @@ class GameController(
             }
         } catch (e: Exception) {
             ResponseEntity.status(500).body(mapOf(
-                "success" to false,
-                "error" to e.message
+                "success" to false as Any,
+                "error" to (e.message ?: "Unknown error") as Any
             ))
         }
     }

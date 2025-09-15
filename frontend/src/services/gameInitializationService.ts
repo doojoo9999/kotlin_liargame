@@ -4,10 +4,10 @@
  * Replaces all dummy data with real backend integration
  */
 
-import { gameService } from '@/api/gameApi'
-import { useGameStore } from '@/stores/unifiedGameStore'
-import { useGameStoreV2 } from '@/stores/gameStoreV2'
-import { toast } from 'sonner'
+import {gameService} from '@/api/gameApi'
+import {useGameStore} from '@/stores/unifiedGameStore'
+import {useGameStoreV2} from '@/stores/gameStoreV2'
+import {toast} from 'sonner'
 
 export class GameInitializationService {
   private static instance: GameInitializationService
@@ -255,8 +255,9 @@ export class GameInitializationService {
 
       const gameState = await gameService.joinGame(joinData)
 
-      // Initialize game with joined state
-      await this.initializeGameFromBackend(gameNumber)
+      // Don't initialize here - let the game page handle initialization
+      // This prevents double initialization and navigation issues
+      console.log('Joined game room successfully, gameNumber:', gameNumber)
 
       toast.success('게임방에 참가했습니다!')
 
@@ -283,8 +284,9 @@ export class GameInitializationService {
     try {
       const gameNumber = await gameService.createGame(gameData)
 
-      // Initialize the created game
-      await this.initializeGameFromBackend(gameNumber)
+      // Don't initialize here - let the game page handle initialization
+      // This prevents double initialization and navigation issues
+      console.log('Game room created successfully with number:', gameNumber)
 
       toast.success('게임방을 생성했습니다!')
       return gameNumber

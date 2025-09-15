@@ -6,6 +6,34 @@ spring:
       show-sql: true
       hibernate:
           ddl-auto: update
+          # Set to 'validate' after fixing the schema
+          # ddl-auto: validate
+      properties:
+        hibernate:
+          # Performance optimizations
+          jdbc:
+            batch_size: 25
+            batch_versioned_data: true
+            fetch_size: 100
+          order_inserts: true
+          order_updates: true
+          
+          # Connection optimization - removed provider_disables_autocommit due to PostgreSQL conflict
+          
+          # Query cache settings
+          cache:
+            use_second_level_cache: false
+            use_query_cache: false
+          
+          # Statistics (disable in production)
+          generate_statistics: false
+          
+          # Default fetch settings
+          default_batch_fetch_size: 16
+          
+          # Query timeout
+          query:
+            timeout: 30
 
   h2:
       console:
@@ -17,6 +45,15 @@ spring:
     username: ${SPRING_LOCAL_DATABASE_USERNAME}
     password: ${SPRING_LOCAL_DATABASE_PASSWORD}
     driver-class-name: ${SPRING_LOCAL_DATABASE_DRIVERCLASS}
+    hikari:
+      # auto-commit should be true for proper transaction management with Spring
+      auto-commit: true
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      maximum-pool-size: 20
+      minimum-idle: 5
+      pool-name: LiarGameHikariCP
 
   mvc:
       pathmatch:

@@ -9,6 +9,9 @@ export interface Player {
   nickname: string
   role?: 'CITIZEN' | 'LIAR'
   isAlive?: boolean
+  isOnline?: boolean
+  isHost?: boolean
+  lastActive?: number
 }
 
 export interface Hint {

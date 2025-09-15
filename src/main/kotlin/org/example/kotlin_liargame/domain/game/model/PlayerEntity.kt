@@ -62,11 +62,37 @@ class PlayerEntity (
 
     // 누적 점수 (점수 기반 승리 시스템)
     @Column(nullable = false)
-    var cumulativeScore: Int = 0
+    var cumulativeScore: Int = 0,
+
+    // Statistics fields
+    @Column(nullable = false)
+    var isOnline: Boolean = true,
+
+    @Column(nullable = false)
+    var isWinner: Boolean = false,
+
+    @Column(nullable = false) 
+    var isLiar: Boolean = false,
+
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    var wasDetected: Boolean = false,
+
+    @Column(nullable = false)
+    var playTimeMinutes: Long = 0,
+
+    @Column(nullable = false)
+    val createdAt: Instant = Instant.now(),
+
+    @Column(nullable = true)
+    var lastActiveAt: Instant? = null
 ){
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long = 0
+
+    // Convenience property for queries
+    val gameId: Long
+        get() = game.id
 
     val hasVoted: Boolean
         get() = votedFor != null

@@ -71,7 +71,9 @@
       "Bash(rg:*)",
       "Bash(git add:*)",
       "Bash(git config:*)",
-      "Bash(dir:*)"
+      "Bash(dir:*)",
+      "Bash(echo:*)",
+      "Bash(git apply:*)"
     ],
     "deny": [],
     "ask": []

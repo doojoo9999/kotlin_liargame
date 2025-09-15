@@ -156,6 +156,10 @@ class SessionManagementService(
         return sessionDataManager.getUserSession(session)?.userId
     }
 
+    fun getCurrentUserId(session: HttpSession): Long? {
+        return getUserId(session)
+    }
+
     fun getNickname(session: HttpSession): String? {
         return sessionDataManager.getUserSession(session)?.nickname
     }

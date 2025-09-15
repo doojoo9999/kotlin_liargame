@@ -39,28 +39,35 @@ export class AuthService {
 
   async refreshSession(): Promise<SessionRefreshResponse> {
     try {
+      console.log('Attempting session refresh...');
       const response = await apiService.post<SessionRefreshResponse>(
         API_ENDPOINTS.AUTH.REFRESH
       );
 
       if (response.success) {
         console.log('Session refresh successful:', response.nickname);
+      } else {
+        console.warn('Session refresh returned unsuccessful response:', response);
+        // Return the response as-is, let the caller decide how to handle
       }
 
       return response;
     } catch (error) {
       console.error('Session refresh failed:', error);
-      throw error;
+      
+      // Create a failed response instead of throwing for better error handling
+      const failedResponse: SessionRefreshResponse = {
+        success: false,
+        message: error instanceof Error ? error.message : 'Session refresh failed'
+      };
+      
+      return failedResponse;
     }
   }
 
   async checkAuthStatus(): Promise<boolean> {
-    try {
-      const response = await this.refreshSession();
-      return response.success;
-    } catch {
-      return false;
-    }
+    const response = await this.refreshSession();
+    return response.success;
   }
 }
 

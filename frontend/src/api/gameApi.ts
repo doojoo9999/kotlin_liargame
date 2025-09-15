@@ -27,7 +27,24 @@ export class GameService {
 
   // 게임방 목록 조회
   async getGameList(page: number = 0, size: number = 10): Promise<GameListResponse> {
-    const response = await apiClient.get<GameListResponse>(`/api/v1/game/rooms?page=${page}&size=${size}`);
+    const response = await apiClient.get<any>(`/api/v1/game/rooms?page=${page}&size=${size}`);
+    // Backend returns {gameRooms: [...]}, but frontend expects {games: [...]}
+    // Transform the response to match frontend expectations
+    if (response.gameRooms && Array.isArray(response.gameRooms)) {
+      const transformedGames = response.gameRooms.map((room: any) => ({
+        gameNumber: room.gameNumber,
+        gameName: room.title || room.gameName || 'Unnamed Game',
+        gameOwner: room.host || room.gameOwner || 'Unknown',
+        gameParticipants: room.currentPlayers || room.gameParticipants || 0,
+        gameMaxPlayers: room.maxPlayers || room.gameMaxPlayers || 6,
+        isPrivate: room.hasPassword || room.isPrivate || false,
+        gameState: room.state || room.gameState || 'WAITING',
+        gameMode: room.gameMode || 'LIARS_KNOW'
+      }));
+      
+      console.log('Transformed game list:', transformedGames);
+      return { games: transformedGames };
+    }
     return response;
   }
 
@@ -280,6 +297,12 @@ export class GameService {
   // 게임 결과 조회  
   async getGameResult(gameNumber: number): Promise<any> {
     const response = await apiClient.get<any>(`/api/v1/game/result/${gameNumber}`);
+    return response;
+  }
+
+  // 사용자 게임 데이터 정리
+  async cleanupUserGameData(): Promise<{ success: boolean; message: string }> {
+    const response = await apiClient.post<{ success: boolean; message: string }>('/api/v1/game/cleanup/user-data');
     return response;
   }
 }

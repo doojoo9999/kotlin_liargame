@@ -1,14 +1,45 @@
 import {create} from 'zustand'
 import {persist} from 'zustand/middleware'
-import {authService} from '../services/authService'
+import {authService} from '@/services'
 import type {AuthState} from '../types/auth'
+
+// Listen for session expiration events from API client
+let storeInstance: any = null;
+
+const handleSessionExpired = () => {
+  if (storeInstance) {
+    console.log('Session expired event received, clearing auth state');
+    storeInstance.logout();
+  }
+};
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('auth-session-expired', handleSessionExpired);
+}
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set, _get) => ({
-      isAuthenticated: false,
-      userId: null,
-      nickname: null,
+    (set, get) => {
+      // Store reference for event handler
+      storeInstance = { set, get, logout: async () => {
+        try {
+          await authService.logout();
+        } catch (error) {
+          console.error('Logout error:', error);
+        } finally {
+          set({
+            isAuthenticated: false,
+            userId: null,
+            nickname: null,
+          });
+          localStorage.removeItem('auth-token');
+        }
+      }};
+      
+      return {
+        isAuthenticated: false,
+        userId: null,
+        nickname: null,
 
       login: async (nickname: string) => {
         try {
@@ -46,10 +77,22 @@ export const useAuthStore = create<AuthState>()(
             userId: null,
             nickname: null,
           });
+          // Clear all auth-related localStorage
+          localStorage.removeItem('auth-token');
         }
       },
 
       checkAuth: async () => {
+        const currentState = get();
+        
+        // Prevent multiple simultaneous auth checks
+        if ((currentState as any).isRefreshing) {
+          return;
+        }
+        
+        // Mark as refreshing to prevent concurrent calls
+        set({ ...currentState, isRefreshing: true } as any);
+        
         try {
           const response = await authService.refreshSession();
 
@@ -58,24 +101,31 @@ export const useAuthStore = create<AuthState>()(
               isAuthenticated: true,
               userId: response.userId,
               nickname: response.nickname,
-            });
+              isRefreshing: false,
+            } as any);
+            console.log('Auth state updated after refresh:', response.nickname);
           } else {
+            console.log('Auth refresh unsuccessful:', response.message);
             set({
               isAuthenticated: false,
               userId: null,
               nickname: null,
-            });
+              isRefreshing: false,
+            } as any);
           }
         } catch (error) {
-          console.error('Auth check failed:', error);
+          // This shouldn't happen now since refreshSession doesn't throw
+          console.error('Unexpected auth check error:', error);
           set({
             isAuthenticated: false,
             userId: null,
             nickname: null,
-          });
+            isRefreshing: false,
+          } as any);
         }
       },
-    }),
+      };
+    },
     {
       name: 'auth-storage',
       partialize: (state) => ({

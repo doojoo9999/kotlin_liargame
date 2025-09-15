@@ -13,7 +13,15 @@ interface PlayerRepository : JpaRepository<PlayerEntity, Long> {
     
     fun findByGame(game: GameEntity): List<PlayerEntity>
     
+    // Optimized query with JOIN FETCH to avoid N+1 problem
+    @Query("SELECT p FROM PlayerEntity p LEFT JOIN FETCH p.subject WHERE p.game = :game")
+    fun findByGameWithSubject(@Param("game") game: GameEntity): List<PlayerEntity>
+    
     fun findByGameAndUserId(game: GameEntity, userId: Long): PlayerEntity?
+    
+    // Optimized query with JOIN FETCH for single player
+    @Query("SELECT p FROM PlayerEntity p LEFT JOIN FETCH p.subject WHERE p.game = :game AND p.userId = :userId")
+    fun findByGameAndUserIdWithSubject(@Param("game") game: GameEntity, @Param("userId") userId: Long): PlayerEntity?
     
     fun findByNickname(nickname: String): PlayerEntity?
 
@@ -30,6 +38,12 @@ interface PlayerRepository : JpaRepository<PlayerEntity, Long> {
 
     @Query("SELECT p FROM PlayerEntity p WHERE p.userId = :userId AND p.game.gameState = 'IN_PROGRESS'")
     fun findByUserIdAndGameInProgress(userId: Long): PlayerEntity?
+
+    @Query("SELECT p FROM PlayerEntity p WHERE p.userId = :userId AND p.game.gameState IN ('WAITING', 'IN_PROGRESS')")
+    fun findByUserIdAndGameActive(userId: Long): PlayerEntity?
+
+    @Query("SELECT COUNT(p) FROM PlayerEntity p WHERE p.userId = :userId AND p.game.gameState IN ('WAITING', 'IN_PROGRESS')")
+    fun countByUserIdAndGameActive(userId: Long): Long
 
     // 플레이어 상태별 조회 및 개수
     fun findByState(state: org.example.kotlin_liargame.domain.game.model.enum.PlayerState): List<PlayerEntity>
