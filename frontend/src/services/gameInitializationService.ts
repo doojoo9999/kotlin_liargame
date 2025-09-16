@@ -8,6 +8,7 @@ import {gameService} from '@/api/gameApi'
 import {useGameStore} from '@/stores/unifiedGameStore'
 import {useGameStoreV2} from '@/stores/gameStoreV2'
 import {toast} from 'sonner'
+import type {CreateGameRequest, GameMode} from '@/types/backendTypes'
 
 export class GameInitializationService {
   private static instance: GameInitializationService
@@ -249,8 +250,8 @@ export class GameInitializationService {
     try {
       const joinData = {
         gameNumber,
-        playerNickname,
-        password
+        nickname: playerNickname,
+        gamePassword: password
       }
 
       const gameState = await gameService.joinGame(joinData)
@@ -274,15 +275,33 @@ export class GameInitializationService {
   async createGameRoom(gameData: {
     hostNickname: string
     gameName: string
-    gameMode: string
-    maxPlayers: number
-    timeLimit: number
-    totalRounds: number
+    gameMode: GameMode | string
+    gameParticipants: number
+    gameLiarCount: number
+    gameTotalRounds: number
+    targetPoints: number
     isPrivate: boolean
     password?: string
+    useRandomSubjects: boolean
+    selectedSubjectIds: number[]
+    randomSubjectCount?: number
   }): Promise<number> {
     try {
-      const gameNumber = await gameService.createGame(gameData)
+      const payload: CreateGameRequest = {
+        nickname: gameData.hostNickname,
+        gameName: gameData.gameName,
+        gamePassword: gameData.isPrivate ? gameData.password ?? undefined : undefined,
+        gameParticipants: gameData.gameParticipants,
+        gameLiarCount: gameData.gameLiarCount,
+        gameTotalRounds: gameData.gameTotalRounds,
+        gameMode: gameData.gameMode as GameMode,
+        subjectIds: !gameData.useRandomSubjects ? gameData.selectedSubjectIds : undefined,
+        useRandomSubjects: gameData.useRandomSubjects,
+        randomSubjectCount: gameData.useRandomSubjects ? (gameData.randomSubjectCount ?? Math.min(gameData.selectedSubjectIds.length, 5)) : undefined,
+        targetPoints: gameData.targetPoints
+      }
+
+      const gameNumber = await gameService.createGame(payload)
 
       // Don't initialize here - let the game page handle initialization
       // This prevents double initialization and navigation issues

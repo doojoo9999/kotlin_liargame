@@ -35,18 +35,23 @@ export type ConnectionStability = 'STABLE' | 'UNSTABLE' | 'POOR';
 
 // Backend API Request/Response Types
 export interface CreateGameRequest {
+  nickname?: string;
+  gameName?: string;
+  gamePassword?: string | null;
   gameParticipants: number;
   gameLiarCount: number;
   gameTotalRounds: number;
   gameMode: GameMode;
-  subjectIds: number[];
-  useRandomSubjects: boolean;
+  subjectIds?: number[];
+  useRandomSubjects?: boolean;
   randomSubjectCount?: number;
   targetPoints: number;
 }
 
 export interface JoinGameRequest {
   gameNumber: number;
+  gamePassword?: string;
+  nickname?: string;
 }
 
 export interface GameStateResponse {

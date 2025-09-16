@@ -48,8 +48,6 @@ export interface GameRoom {
   createdAt: string
 }
 
-export type GameListResponse = ApiResponse<GameRoom[]>
-
 export interface CreateGameRequest {
   nickname?: string;
   gameName?: string;
@@ -71,16 +69,27 @@ export interface JoinGameRequest {
 
 export interface GameRoomInfo {
   gameNumber: number
-  gameName: string
-  gameOwner: string
-  gameParticipants: number
-  gameMaxPlayers: number
-  isPrivate: boolean
-  gameState: 'WAITING' | 'IN_PROGRESS' | 'ENDED'
-  gameMode: 'LIARS_KNOW' | 'LIARS_DIFFERENT_WORD'
+  title: string
+  host: string
+  currentPlayers: number
+  maxPlayers: number
+  hasPassword: boolean
+  state: 'WAITING' | 'IN_PROGRESS' | 'ENDED'
+  subjects: string[]
+  subject?: string | null
+  players?: unknown[]
+  // Legacy aliases for backward compatibility
+  gameName?: string
+  gameOwner?: string
+  gameParticipants?: number
+  gameMaxPlayers?: number
+  isPrivate?: boolean
+  gameState?: 'WAITING' | 'IN_PROGRESS' | 'ENDED'
+  gameMode?: 'LIARS_KNOW' | 'LIARS_DIFFERENT_WORD' | string
 }
 
 export interface GameListResponse {
+  gameRooms?: GameRoomInfo[]
   games?: GameRoomInfo[]
   data?: GameRoomInfo[]
 }

@@ -28,35 +28,67 @@ export class GameService {
   // 게임방 목록 조회
   async getGameList(page: number = 0, size: number = 10): Promise<GameListResponse> {
     const response = await apiClient.get<any>(`/api/v1/game/rooms?page=${page}&size=${size}`);
-    // Backend returns {gameRooms: [...]}, but frontend expects {games: [...]}
-    // Transform the response to match frontend expectations
+
     if (response.gameRooms && Array.isArray(response.gameRooms)) {
-      const transformedGames = response.gameRooms.map((room: any) => ({
-        gameNumber: room.gameNumber,
-        gameName: room.title || room.gameName || 'Unnamed Game',
-        gameOwner: room.host || room.gameOwner || 'Unknown',
-        gameParticipants: room.currentPlayers || room.gameParticipants || 0,
-        gameMaxPlayers: room.maxPlayers || room.gameMaxPlayers || 6,
-        isPrivate: room.hasPassword || room.isPrivate || false,
-        gameState: room.state || room.gameState || 'WAITING',
-        gameMode: room.gameMode || 'LIARS_KNOW'
-      }));
-      
-      console.log('Transformed game list:', transformedGames);
-      return { games: transformedGames };
+      const normalized = response.gameRooms.map((room: any) => {
+        const title = room.title || room.gameName || `Game #${room.gameNumber}`;
+        const host = room.host || room.gameOwner || 'Unknown';
+        const currentPlayers = room.currentPlayers ?? room.gameParticipants ?? 0;
+        const maxPlayers = room.maxPlayers ?? room.gameMaxPlayers ?? 0;
+        const hasPassword = room.hasPassword ?? room.isPrivate ?? false;
+        const state = room.state || room.gameState || 'WAITING';
+        const subjects = Array.isArray(room.subjects) ? room.subjects : [];
+
+        return {
+          gameNumber: room.gameNumber,
+          title,
+          host,
+          currentPlayers,
+          maxPlayers,
+          hasPassword,
+          state,
+          subjects,
+          subject: room.subject ?? room.citizenSubject ?? null,
+          players: room.players ?? [],
+          // legacy aliases for downstream compatibility
+          gameName: title,
+          gameOwner: host,
+          gameParticipants: currentPlayers,
+          gameMaxPlayers: maxPlayers,
+          isPrivate: hasPassword,
+          gameState: state,
+          gameMode: room.gameMode || 'LIARS_KNOW'
+        };
+      });
+
+      console.log('Normalized game list:', normalized);
+      return { gameRooms: normalized, games: normalized };
     }
+
     return response;
   }
 
   // 게임방 생성
   async createGame(gameData: CreateGameRequest): Promise<number> {
-    const response = await apiClient.post<number>('/api/v1/game/create', gameData);
+    const payload = {
+      ...gameData,
+      gamePassword: gameData.gamePassword ?? null,
+      subjectIds: gameData.subjectIds && gameData.subjectIds.length > 0 ? gameData.subjectIds : undefined,
+      useRandomSubjects: gameData.useRandomSubjects ?? (gameData.subjectIds == null),
+      randomSubjectCount: gameData.randomSubjectCount ?? (gameData.useRandomSubjects ? 1 : undefined)
+    };
+    const response = await apiClient.post<number>('/api/v1/game/create', payload);
     return response;
   }
 
   // 게임방 참여
   async joinGame(joinData: JoinGameRequest): Promise<GameStateResponse> {
-    const response = await apiClient.post<GameStateResponse>('/api/v1/game/join', joinData);
+    const payload = {
+      gameNumber: joinData.gameNumber,
+      gamePassword: joinData.gamePassword ?? (joinData as any).password ?? null,
+      nickname: joinData.nickname
+    };
+    const response = await apiClient.post<GameStateResponse>('/api/v1/game/join', payload);
     return response;
   }
 
@@ -188,11 +220,14 @@ export class GameService {
 
   // 채팅 메시지 조회
   async getChatHistory(gameNumber: number, page: number = 0, size: number = 50): Promise<any> {
-    const response = await apiClient.post<any>(`/api/v1/chat/history`, {
-      gameNumber,
-      page,
-      size
+    const params = new URLSearchParams({
+      gameNumber: String(gameNumber),
+      limit: String(size)
     });
+    if (page > 0) {
+      params.append('page', String(page));
+    }
+    const response = await apiClient.get<any>(`/api/v1/chat/history?${params.toString()}`);
     return response;
   }
 
