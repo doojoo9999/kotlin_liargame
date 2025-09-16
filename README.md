@@ -295,3 +295,6 @@ This project is licensed under the MIT License.
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
+
+Refer to [AGENTS.md](AGENTS.md) for contributor practices and [PROJECT_OVERVIEW.md](docs/PROJECT_OVERVIEW.md) for the up-to-date technical summary.
+
