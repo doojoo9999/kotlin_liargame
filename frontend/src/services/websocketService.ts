@@ -23,10 +23,10 @@ export interface GameEvent {
 export interface ChatMessage {
   id: string;
   gameNumber: number;
-  playerNickname: string | null;
+  playerNickname: string;
   content: string;
   timestamp: number;
-  type: 'DISCUSSION' | 'HINT' | 'DEFENSE' | 'SYSTEM';
+  type: 'DISCUSSION' | 'HINT' | 'DEFENSE' | 'SYSTEM' | 'POST_ROUND';
 }
 
 type EventCallback = (event: GameEvent) => void;
@@ -310,13 +310,20 @@ class WebSocketService {
     }
   }
 
-  public sendChatMessage(gameId: string, message: string): void {
+  public sendChatMessage(gameId: string, message: string, playerNickname?: string): void {
+    const payload = {
+      gameNumber: Number(gameId),
+      content: message,
+      playerNickname: playerNickname ?? undefined
+    };
+
     if (!this.isConnected || !this.client) {
       toast.error('실시간 연결이 필요합니다');
-      this.safePublish(`/app/game/${gameId}/chat`, { message });
+      this.safePublish('/app/chat.send', payload);
       return;
     }
-    this.client.publish({ destination: `/app/game/${gameId}/chat`, body: JSON.stringify({ message }) });
+
+    this.client.publish({ destination: '/app/chat.send', body: JSON.stringify(payload) });
   }
 
   public sendGameAction(gameId: string, action: string, payload: any = {}): void {
@@ -714,7 +721,15 @@ class WebSocketService {
 
   private handleChatMessage(message: IMessage): void {
     try {
-      const chatMessage: ChatMessage = JSON.parse(message.body);
+      const raw = JSON.parse(message.body);
+      const chatMessage: ChatMessage = {
+        id: String(raw.id ?? `${raw.gameNumber}-${raw.timestamp}`),
+        gameNumber: raw.gameNumber ?? (raw.gameId ? Number(raw.gameId) : 0),
+        playerNickname: raw.playerNickname ?? raw.playerName ?? 'SYSTEM',
+        content: raw.content ?? raw.message ?? '',
+        timestamp: typeof raw.timestamp === 'string' ? Date.parse(raw.timestamp) : Number(raw.timestamp ?? Date.now()),
+        type: (raw.type || 'DISCUSSION') as ChatMessage['type']
+      };
       console.log('Received chat message:', chatMessage);
 
       this.chatCallbacks.forEach(callback => callback(chatMessage));

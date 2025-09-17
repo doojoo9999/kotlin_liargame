@@ -1,6 +1,7 @@
 import {create} from 'zustand';
 import {devtools, persist} from 'zustand/middleware';
 import {gameService} from '../api/gameApi';
+import {useAuthStore} from './authStore';
 import type {GameMode} from '../types/game';
 import type {CreateGameRequest, GameStateResponse} from '../types/backendTypes';
 import type {GameRoomInfo, JoinGameRequest} from '../types/api';
@@ -458,9 +459,9 @@ export const useGameStore = create<UnifiedGameStore>()(
           if (!gameNumber || !isConnected) return;
 
           try {
-            // Import websocket service dynamically to avoid circular deps
+            const { nickname } = useAuthStore.getState();
             const { websocketService } = await import('../services/websocketService');
-            websocketService.sendChatMessage(gameNumber.toString(), message);
+            websocketService.sendChatMessage(gameNumber.toString(), message, nickname ?? undefined);
           } catch (error) {
             console.error('Failed to send chat message:', error);
           }
@@ -563,7 +564,12 @@ export const useGameStore = create<UnifiedGameStore>()(
         joinGame: async (joinData) => {
           set({ isLoading: true, error: null });
           try {
-            const gameState = await gameService.joinGame(joinData);
+            const payload = {
+              gameNumber: joinData.gameNumber,
+              gamePassword: joinData.gamePassword ?? (joinData as any).password ?? undefined,
+              nickname: joinData.nickname
+            };
+            const gameState = await gameService.joinGame(payload);
             set({
               isLoading: false,
               currentGameState: gameState,

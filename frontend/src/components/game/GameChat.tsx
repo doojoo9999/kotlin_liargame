@@ -96,6 +96,8 @@ export const GameChat: React.FC<GameChatProps> = ({
         return 'text-green-600';
       case 'DEFENSE':
         return 'text-orange-600';
+      case 'POST_ROUND':
+        return 'text-purple-600';
       default:
         return 'text-foreground';
     }

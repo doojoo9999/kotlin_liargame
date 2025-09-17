@@ -88,5 +88,5 @@ export interface ChatMessage {
   nickname: string;
   message: string;
   timestamp: number;
-  type: 'DISCUSSION' | 'HINT' | 'DEFENSE' | 'SYSTEM';
+  type: 'DISCUSSION' | 'HINT' | 'DEFENSE' | 'SYSTEM' | 'POST_ROUND';
 }

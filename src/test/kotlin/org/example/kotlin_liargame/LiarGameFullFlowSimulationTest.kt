@@ -93,7 +93,8 @@ class LiarGameFullFlowSimulationTest {
         // 5) 승인 처리 + 재검증
         approveSubjectAndWords(subjectId)
         val approved = subjectRepository.findById(subjectId).orElseThrow()
-        val approvedWordCount = approved.word.count { it.status == ContentStatus.APPROVED }
+        val approvedWordCount = wordRepository.findAll()
+            .count { it.subject?.id == subjectId && it.status == ContentStatus.APPROVED }
         require(approved.status == ContentStatus.APPROVED && approvedWordCount >= 5) {
             "승인 데이터 준비 실패: status=${approved.status}, approvedWordCount=$approvedWordCount"
         }
@@ -192,10 +193,14 @@ class LiarGameFullFlowSimulationTest {
         val subject = subjectRepository.findById(subjectId).orElseThrow()
         subject.status = ContentStatus.APPROVED
         subjectRepository.save(subject)
-        subject.word.forEach { w ->
-            w.status = ContentStatus.APPROVED
-            wordRepository.save(w)
-        }
+
+        wordRepository.findAll()
+            .filter { it.subject?.id == subjectId }
+            .forEach { word ->
+                word.status = ContentStatus.APPROVED
+                wordRepository.save(word)
+            }
+
         wordRepository.flush()
         subjectRepository.flush()
     }

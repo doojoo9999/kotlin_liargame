@@ -9,6 +9,7 @@ import org.example.kotlin_liargame.domain.subject.model.enum.ContentStatus
 import org.example.kotlin_liargame.domain.subject.repository.SubjectRepository
 import org.example.kotlin_liargame.domain.word.repository.WordRepository
 import org.example.kotlin_liargame.domain.word.service.ForbiddenWordService
+import org.springframework.data.repository.findByIdOrNull
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -51,8 +52,8 @@ class SubjectService (
 
 
     @Transactional
-    fun deleteSubject(subjectRequest: SubjectRequest) {
-        val subject = subjectRepository.findByContent(subjectRequest.name)
+    fun deleteSubject(subjectId: Long) {
+        val subject = subjectRepository.findByIdOrNull(subjectId)
             ?: throw RuntimeException("주제를 찾을 수 없습니다")
 
         val words = subject.word
@@ -63,12 +64,13 @@ class SubjectService (
 
         subjectRepository.delete(subject)
         subjectRepository.flush()
-        
+
         messagingTemplate.convertAndSend("/topic/subjects", mapOf(
             "type" to "SUBJECT_DELETED",
-            "subjectId" to subjectRequest.name
+            "subjectId" to subjectId
         ))
     }
+
 
     @Transactional(readOnly = true)
     fun findAll() : List<SubjectResponse>{

@@ -1,35 +1,26 @@
-import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {useEffect, useState} from 'react'
+import {useNavigate} from 'react-router-dom'
+import {motion} from 'framer-motion'
+import {Button} from '@/components/ui/button'
+import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card'
+import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs'
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import {
-  Users,
-  BookOpen,
-  FileText,
-  LogOut,
-  Settings,
-  User,
-  Crown,
-  RefreshCw
-} from 'lucide-react'
-import { useAuthStore } from '@/stores/authStore'
-import { useToast } from '@/hooks/useToast'
-import { TopicManagementSection } from '@/components/lobby/TopicManagementSection'
-import { AnswerManagementSection } from '@/components/lobby/AnswerManagementSection'
-import { GameRoomsSection } from '@/components/lobby/GameRoomsSection'
-import { gameService } from '@/api/gameApi'
-import { subjectService } from '@/api/subjectApi'
-import { wordService } from '@/api/wordApi'
-import { useModal } from '@/contexts/ModalContext'
+import {BookOpen, Crown, FileText, LogOut, RefreshCw, Settings, User, Users} from 'lucide-react'
+import {useAuthStore} from '@/stores/authStore'
+import {useToast} from '@/hooks/useToast'
+import {TopicManagementSection} from '@/components/lobby/TopicManagementSection'
+import {AnswerManagementSection} from '@/components/lobby/AnswerManagementSection'
+import {GameRoomsSection} from '@/components/lobby/GameRoomsSection'
+import {gameService} from '@/api/gameApi'
+import {subjectService} from '@/api/subjectApi'
+import {wordService} from '@/api/wordApi'
+import {useModal} from '@/contexts/ModalContext'
 
 export function MainLobbyPage() {
   const navigate = useNavigate()
@@ -59,7 +50,7 @@ export function MainLobbyPage() {
       ])
 
       // Count active game rooms (WAITING status)
-      const gameList = gameListResponse.games || gameListResponse.data || []
+      const gameList = gameListResponse.gameRooms || gameListResponse.games || gameListResponse.data || []
       const activeGameRooms = gameList.filter(game => game.gameState === 'WAITING').length
 
       // Count registered topics

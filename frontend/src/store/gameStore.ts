@@ -3,7 +3,7 @@ import {devtools, persist} from 'zustand/middleware';
 import {gameService} from '../api/gameApi';
 import type {GameMode} from '../types/game';
 import type {CreateGameRequest, GameStateResponse} from '../types/backendTypes';
-import type {JoinGameRequest, GameRoomInfo} from '../types/api';
+import type {GameRoomInfo, JoinGameRequest} from '../types/api';
 import type {ChatMessage, ConnectionState} from '@/api/websocket';
 
 export interface Player {
@@ -388,7 +388,12 @@ export const useGameStore = create<GameStore>()(
         joinGame: async (joinData) => {
           set({ isLoading: true, error: null })
           try {
-            const gameState = await gameService.joinGame(joinData)
+            const payload = {
+              gameNumber: joinData.gameNumber,
+              gamePassword: joinData.gamePassword ?? (joinData as any).password ?? undefined,
+              nickname: (joinData as any).nickname
+            }
+            const gameState = await gameService.joinGame(payload)
             set({
               isLoading: false,
               currentGameState: gameState,

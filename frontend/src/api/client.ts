@@ -103,7 +103,7 @@ export const API_CONFIG = {
     // 구독할 때 사용 (서버 → 클라이언트)
     SUBSCRIBE: {
       GAME_EVENTS: '/topic/game/{gameNumber}',   // 게임 이벤트 브로드캐스트
-      CHAT_MESSAGES: '/topic/chat/{gameNumber}', // 채팅 메시지
+      CHAT_MESSAGES: '/topic/chat.{gameNumber}', // 채팅 메시지
       GAME_STATE: '/topic/game/{gameNumber}/state', // 게임 상태 변경
       USER_EVENTS: '/topic/user/{userId}',       // 개인 알림
     }

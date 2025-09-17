@@ -26,9 +26,12 @@ class SubjectController (
     }
 
     @DeleteMapping("/delsubj/{id}")
-    fun deleteSubject(@RequestBody request: SubjectRequest) {
-        subjectService.deleteSubject(request)
+    fun deleteSubject(@PathVariable id: Long): ResponseEntity<Void> {
+        subjectService.deleteSubject(id)
+
+        return ResponseEntity.noContent().build()
     }
+
 
 
     @GetMapping("/listsubj")

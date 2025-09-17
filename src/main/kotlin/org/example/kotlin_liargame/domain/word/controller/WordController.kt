@@ -32,9 +32,10 @@ class WordController (
 
     @DeleteMapping("/delw/{id}")
     fun deleteWord(
-        @RequestParam wordId: Long
-    ) {
-        wordService.removeWord(wordId)
+        @PathVariable id: Long
+    ): ResponseEntity<Void> {
+        wordService.removeWord(id)
+        return ResponseEntity.noContent().build()
     }
 
     @GetMapping("/wlist")

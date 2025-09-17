@@ -178,7 +178,8 @@ const useGameStore = create<GameState>()(
         sendChatMessage: (message: string) => {
           const { currentRoom } = get();
           if (currentRoom && get().isConnected) {
-            websocketService.sendChatMessage(currentRoom.id, message);
+            const { nickname } = useAuthStore.getState();
+            websocketService.sendChatMessage(currentRoom.id, message, nickname ?? undefined);
           }
         },
 

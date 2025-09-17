@@ -65,6 +65,8 @@ export interface CreateGameRequest {
 export interface JoinGameRequest {
   gameNumber: number
   password?: string
+  gamePassword?: string
+  nickname?: string
 }
 
 export interface GameRoomInfo {

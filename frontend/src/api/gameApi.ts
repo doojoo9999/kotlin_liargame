@@ -13,7 +13,7 @@ import type {
     VotingStatusResponse
 } from '../types/api';
 import type {CreateGameRequest} from '../types/backendTypes';
-import type {RoundEndResponse} from '../types/gameFlow';
+import type {ChatMessage, RoundEndResponse} from '../types/gameFlow';
 
 export class GameService {
   private static instance: GameService;
@@ -219,7 +219,7 @@ export class GameService {
   }
 
   // 채팅 메시지 조회
-  async getChatHistory(gameNumber: number, page: number = 0, size: number = 50): Promise<any> {
+  async getChatHistory(gameNumber: number, page: number = 0, size: number = 50): Promise<ChatMessage[]> {
     const params = new URLSearchParams({
       gameNumber: String(gameNumber),
       limit: String(size)
@@ -227,8 +227,15 @@ export class GameService {
     if (page > 0) {
       params.append('page', String(page));
     }
-    const response = await apiClient.get<any>(`/api/v1/chat/history?${params.toString()}`);
-    return response;
+    const rawMessages = await apiClient.get<any[]>(`/api/v1/chat/history?${params.toString()}`);
+    return rawMessages.map((message) => ({
+      id: String(message.id ?? `${message.gameNumber}-${message.timestamp}`),
+      gameNumber: message.gameNumber,
+      nickname: message.playerNickname ?? 'SYSTEM',
+      message: message.content ?? '',
+      timestamp: typeof message.timestamp === 'string' ? Date.parse(message.timestamp) : Number(message.timestamp ?? Date.now()),
+      type: (message.type || 'DISCUSSION') as ChatMessage['type'],
+    }));
   }
 
   // 채팅 메시지 전송

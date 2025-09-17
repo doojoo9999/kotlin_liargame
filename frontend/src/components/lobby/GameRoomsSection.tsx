@@ -727,7 +727,7 @@ export function GameRoomsSection() {
                       {room.title}
                     </CardTitle>
                     <CardDescription>
-                      호스트: {room.gameOwner}
+                      호스트: {room.host}
                     </CardDescription>
                   </div>
                   {getStatusBadge(room.state || room.gameState || 'WAITING')}
