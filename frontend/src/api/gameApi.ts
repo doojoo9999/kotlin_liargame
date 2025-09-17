@@ -28,21 +28,27 @@ export class GameService {
   }
 
   // 게임방 목록 조회
+
   async getGameList(page: number = 0, size: number = 10): Promise<GameListResponse> {
     const response = await apiClient.get<any>(`/api/v1/game/rooms?page=${page}&size=${size}`);
+    const rooms = response?.gameRooms ?? response?.games ?? response?.data;
 
-    if (response.gameRooms && Array.isArray(response.gameRooms)) {
-      const normalized = response.gameRooms.map((room: any) => {
-        const title = room.title || room.gameName || `Game #${room.gameNumber}`;
-        const host = room.host || room.gameOwner || 'Unknown';
-        const currentPlayers = room.currentPlayers ?? room.gameParticipants ?? 0;
-        const maxPlayers = room.maxPlayers ?? room.gameMaxPlayers ?? 0;
-        const hasPassword = room.hasPassword ?? room.isPrivate ?? false;
-        const state = room.state || room.gameState || 'WAITING';
-        const subjects = Array.isArray(room.subjects) ? room.subjects : [];
+    if (Array.isArray(rooms)) {
+      const normalized: GameRoomInfo[] = rooms.map((room: any) => {
+        const rawNumber = room.gameNumber ?? room.gameId ?? room.id;
+        const gameNumber = typeof rawNumber === 'number' ? rawNumber : Number.parseInt(String(rawNumber ?? 0), 10) || 0;
+        const title = room.title ?? room.gameName ?? (gameNumber > 0 ? `Game #${gameNumber}` : 'Game');
+        const host = room.host ?? room.gameOwner ?? 'Unknown';
+        const currentPlayers = Number(room.currentPlayers ?? room.gameParticipants ?? room.participants ?? 0);
+        const maxPlayers = Number(room.maxPlayers ?? room.gameMaxPlayers ?? room.capacity ?? 0);
+        const hasPassword = Boolean(room.hasPassword ?? room.isPrivate ?? false);
+        const state = (room.state ?? room.gameState ?? 'WAITING') as GameRoomInfo['state'];
+        const subjects = Array.isArray(room.subjects) ? room.subjects.map((subject: unknown) => String(subject)) : [];
+        const players = Array.isArray(room.players) ? (room.players as GameRoomInfo['players']) : undefined;
+        const mode = room.gameMode ?? room.mode ?? 'LIARS_KNOW';
 
         return {
-          gameNumber: room.gameNumber,
+          gameNumber,
           title,
           host,
           currentPlayers,
@@ -51,23 +57,43 @@ export class GameService {
           state,
           subjects,
           subject: room.subject ?? room.citizenSubject ?? null,
-          players: room.players ?? [],
-          // legacy aliases for downstream compatibility
-          gameName: title,
-          gameOwner: host,
-          gameParticipants: currentPlayers,
-          gameMaxPlayers: maxPlayers,
-          isPrivate: hasPassword,
-          gameState: state,
-          gameMode: room.gameMode || 'LIARS_KNOW'
-        };
+          players,
+          gameName: room.gameName ?? title,
+          gameOwner: room.gameOwner ?? host,
+          gameParticipants: room.gameParticipants ?? currentPlayers,
+          gameMaxPlayers: room.gameMaxPlayers ?? maxPlayers,
+          isPrivate: room.isPrivate ?? hasPassword,
+          gameState: (room.gameState ?? state) as GameRoomInfo['state'],
+          gameMode: mode as GameRoomInfo['gameMode']
+        } satisfies GameRoomInfo;
       });
 
-      console.log('Normalized game list:', normalized);
-      return { gameRooms: normalized, games: normalized };
+      const result: GameListResponse = {
+        success: true,
+        data: normalized,
+        gameRooms: normalized,
+        games: normalized,
+        timestamp: Date.now()
+      };
+
+      if (response?.pagination) {
+        result.pagination = response.pagination;
+      }
+
+      return result;
     }
 
-    return response;
+    if (response && typeof response === 'object' && 'success' in response) {
+      return response as GameListResponse;
+    }
+
+    return {
+      success: true,
+      data: [],
+      gameRooms: [],
+      games: [],
+      timestamp: Date.now()
+    };
   }
 
   // 게임방 생성

@@ -19,7 +19,9 @@ import {Separator} from '@/components/ui/separator'
 import {Filter, Play, Plus, RefreshCw, Search, Users} from 'lucide-react'
 import {useCreateGame, useJoinGame} from '@/hooks/useGameQueries'
 import {useToast} from '@/hooks/useToast'
+import {gameService} from '@/api/gameApi'
 import type {LegacyGameRoom} from '../types'
+import {mapGameRoomInfoToLegacy} from '../types'
 import {GameCard, GameCardSkeleton} from '../components'
 
 export function MainHomePage() {
@@ -50,32 +52,22 @@ export function MainHomePage() {
   const loadRooms = useCallback(async () => {
     setIsLoadingRooms(true)
     try {
-      // TODO: Replace with actual API call
-      const response = await fetch('/api/game/rooms')
-      if (response.ok) {
-        const rooms = await response.json()
-        setGameRooms(rooms)
-      } else {
-        // Fallback to empty array if API fails
-        setGameRooms([])
-        toast({
-          title: "Failed to load games",
-          description: "Could not load game rooms. Please try again.",
-          variant: "destructive",
-        })
-      }
+      const response = await gameService.getGameList()
+      const rooms = (response.gameRooms ?? response.games ?? response.data ?? []).map(mapGameRoomInfoToLegacy)
+      setGameRooms(rooms)
     } catch (error) {
       console.error('Failed to load game rooms:', error)
       setGameRooms([])
       toast({
-        title: "Connection error",
-        description: "Could not connect to server. Please try again.",
+        title: "Failed to load games",
+        description: "Could not load game rooms. Please try again.",
         variant: "destructive",
       })
     } finally {
       setIsLoadingRooms(false)
     }
   }, [toast])
+
 
   useEffect(() => {
     loadRooms()
@@ -130,8 +122,8 @@ export function MainHomePage() {
     navigate(`/main/login?action=join&sessionCode=${sessionCode.trim()}`)
   }
 
-  const handleJoinRoom = (roomId: string, roomSessionCode: string) => {
-    navigate(`/main/login?action=join&gameId=${roomId}&sessionCode=${roomSessionCode}`)
+  const handleJoinRoom = (room: LegacyGameRoom) => {
+    navigate(`/main/login?action=join&gameId=${room.id}&sessionCode=${room.sessionCode}`)
   }
 
   return (

@@ -19,7 +19,7 @@ export class ApiResponseHandler {
   /**
    * Creates error response from various error types
    */
-  static error(error: unknown, code = 'UNKNOWN_ERROR'): APIResponse<null> {
+  static error<T>(error: unknown, code = 'UNKNOWN_ERROR'): APIResponse<T> {
     let gameError: GameError
 
     if (error instanceof Error) {
@@ -36,7 +36,7 @@ export class ApiResponseHandler {
     } else if (error && typeof error === 'object' && 'message' in error) {
       gameError = {
         code,
-        message: (error as any).message || 'Unknown error occurred',
+        message: (error as { message?: string }).message ?? 'Unknown error occurred',
         details: error
       }
     } else {
@@ -47,11 +47,13 @@ export class ApiResponseHandler {
       }
     }
 
-    return {
+    const response: APIResponse<T> = {
       success: false,
       error: gameError,
       timestamp: Date.now()
     }
+
+    return response
   }
 
   /**
@@ -66,7 +68,7 @@ export class ApiResponseHandler {
       return this.success(data)
     } catch (error) {
       console.error('API Response Error:', error)
-      return this.error(error, errorCode)
+      return this.error<T>(error, errorCode)
     }
   }
 
@@ -85,12 +87,12 @@ export class ApiResponseHandler {
 
       // Handle raw backend responses
       if (validator && !validator(response)) {
-        return this.error('Invalid response format', 'VALIDATION_ERROR')
+        return this.error<T>('Invalid response format', 'VALIDATION_ERROR')
       }
 
       return this.success(response)
     } catch (error) {
-      return this.error(error, 'VALIDATION_ERROR')
+      return this.error<T>(error, 'VALIDATION_ERROR')
     }
   }
 
@@ -133,7 +135,7 @@ export class ApiResponseHandler {
       const transformedData = transformer(response.data!)
       return this.success(transformedData)
     } catch (error) {
-      return this.error(error, 'TRANSFORMATION_ERROR')
+      return this.error<U>(error, 'TRANSFORMATION_ERROR')
     }
   }
 
@@ -157,6 +159,8 @@ export class ApiResponseHandler {
   static all<T extends readonly APIResponse<any>[]>(
     responses: T
   ): APIResponse<{ [K in keyof T]: T[K] extends APIResponse<infer U> ? U : never }> {
+    type CombinedResponse = { [K in keyof T]: T[K] extends APIResponse<infer U> ? U : never }
+
     const errors: GameError[] = []
     const data: any[] = []
 
@@ -171,7 +175,7 @@ export class ApiResponseHandler {
     }
 
     if (errors.length > 0) {
-      return this.error(
+      return this.error<CombinedResponse>(
         {
           message: `${errors.length} API requests failed`,
           details: errors
@@ -180,8 +184,9 @@ export class ApiResponseHandler {
       )
     }
 
-    return this.success(data as any)
+    return this.success(data as CombinedResponse)
   }
+
 
   /**
    * Creates a timeout wrapper for API calls
@@ -227,7 +232,7 @@ export class ApiResponseHandler {
         }
         
       } catch (error) {
-        lastError = this.error(error, 'RETRY_ERROR')
+        lastError = this.error<T>(error, 'RETRY_ERROR')
       }
 
       // Wait before next retry (exponential backoff)
@@ -257,3 +262,4 @@ export const apiResponse = {
 }
 
 export default ApiResponseHandler
+

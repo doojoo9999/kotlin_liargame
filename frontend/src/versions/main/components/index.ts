@@ -1,28 +1,27 @@
 // Game UI Components
 export { GameCard, GameCardSkeleton } from './GameCard'
-export { 
-  PlayerCard, 
-  LobbyPlayerCard, 
-  GamePlayerCard, 
-  VotingPlayerCard, 
+export {
+  PlayerCard,
+  LobbyPlayerCard,
+  GamePlayerCard,
+  VotingPlayerCard,
   ResultsPlayerCard,
-  PlayerCardSkeleton 
+  PlayerCardSkeleton
 } from './PlayerCard'
 export { VotingPanel } from './VotingPanel'
-export { 
-  GameTimer, 
-  DiscussionTimer, 
-  VotingTimer, 
-  DefenseTimer, 
-  CompactTimer 
+export {
+  GameTimer,
+  DiscussionTimer,
+  VotingTimer,
+  DefenseTimer,
+  CompactTimer
 } from './GameTimer'
-export { 
-  ScoreBoard, 
-  CompactScoreBoard, 
-  FinalScoreBoard 
+export {
+  ScoreBoard,
+  CompactScoreBoard,
+  FinalScoreBoard
 } from './ScoreBoard'
 
 // Component Types
-export type { GameRoom } from './GameCard'
+export type { LegacyGameRoom } from '../types'
 export type { Player } from './PlayerCard'
-
