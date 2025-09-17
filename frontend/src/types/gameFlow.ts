@@ -85,14 +85,8 @@ export interface RoundEndResponse {
 export interface ChatMessage {
   id: string;
   gameNumber: number;
-  userId: number;
   nickname: string;
   message: string;
   timestamp: number;
-  type: 'GENERAL' | 'SYSTEM' | 'HINT' | 'DEFENSE';
-  // Additional fields for compatibility with websocket
-  gameId?: string;
-  playerId?: string;
-  playerName?: string;
-  content?: string;
+  type: 'DISCUSSION' | 'HINT' | 'DEFENSE' | 'SYSTEM';
 }

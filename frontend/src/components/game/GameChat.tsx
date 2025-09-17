@@ -48,13 +48,12 @@ export const GameChat: React.FC<GameChatProps> = ({
   useEffect(() => {
     const unsubscribe = websocketService.onChatMessage((chatMessage) => {
       const formattedMessage: ChatMessage = {
-        id: chatMessage.id,
-        gameNumber: chatMessage.gameId ? parseInt(chatMessage.gameId) : 0,
-        userId: chatMessage.playerId ? parseInt(chatMessage.playerId) : 0,
-        nickname: chatMessage.playerName || 'Unknown',
-        message: chatMessage.message || (chatMessage as any).content || '',
-        timestamp: typeof chatMessage.timestamp === 'string' ? Date.parse(chatMessage.timestamp) : chatMessage.timestamp,
-        type: chatMessage.type === 'SYSTEM' ? 'SYSTEM' : 'GENERAL',
+        id: String(chatMessage.id ?? `${chatMessage.gameNumber}-${chatMessage.timestamp}`),
+        gameNumber: chatMessage.gameNumber ?? (chatMessage.gameId ? parseInt(chatMessage.gameId) : 0),
+        nickname: chatMessage.playerNickname || chatMessage.playerName || 'SYSTEM',
+        message: chatMessage.content || chatMessage.message || '',
+        timestamp: typeof chatMessage.timestamp === 'string' ? Date.parse(chatMessage.timestamp) : Number(chatMessage.timestamp ?? Date.now()),
+        type: (chatMessage.type || 'DISCUSSION') as ChatMessage['type'],
       };
 
       setMessages(prev => [...prev, formattedMessage]);
@@ -79,10 +78,6 @@ export const GameChat: React.FC<GameChatProps> = ({
       e.preventDefault();
       handleSendMessage();
     }
-  };
-
-  const getPlayerByUserId = (userId: number) => {
-    return players.find(p => parseInt(p.id) === userId);
   };
 
   const formatTimestamp = (timestamp: number) => {

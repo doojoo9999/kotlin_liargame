@@ -3,7 +3,7 @@ import {devtools, persist} from 'zustand/middleware';
 import {gameService} from '../api/gameApi';
 import type {GameMode} from '../types/game';
 import type {CreateGameRequest, GameStateResponse} from '../types/backendTypes';
-import type {JoinGameRequest, GameRoomInfo} from '../types/api';
+import type {GameRoomInfo, JoinGameRequest} from '../types/api';
 import type {ChatMessage} from '../types/realtime';
 
 // Unified Player interface
@@ -516,7 +516,7 @@ export const useGameStore = create<UnifiedGameStore>()(
           set({ gameListLoading: true, gameListError: null });
           try {
             const response = await gameService.getGameList(page, size);
-            const gameList = response.games || response.data || [];
+            const gameList = response.gameRooms || response.games || response.data || [];
             set({ gameList, gameListLoading: false });
           } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Failed to fetch game list';

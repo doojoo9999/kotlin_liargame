@@ -22,12 +22,11 @@ export interface GameEvent {
 
 export interface ChatMessage {
   id: string;
-  gameId: string;
-  playerId: string;
-  playerName: string;
-  message: string;
+  gameNumber: number;
+  playerNickname: string | null;
+  content: string;
   timestamp: number;
-  type: 'CHAT' | 'SYSTEM';
+  type: 'DISCUSSION' | 'HINT' | 'DEFENSE' | 'SYSTEM';
 }
 
 type EventCallback = (event: GameEvent) => void;
@@ -186,11 +185,20 @@ class WebSocketService {
     this.subscriptions.set(`game-events-${gameId}`, gameEventSub);
 
     // Subscribe to chat messages
+    const chatTopic = `/topic/chat.${gameId}`;
     const chatSub = this.client.subscribe(
-      `/topic/game/${gameId}/chat`,
+      chatTopic,
       this.handleChatMessage.bind(this)
     );
     this.subscriptions.set(`chat-${gameId}`, chatSub);
+
+    // Legacy fallback subscription for older broker routes
+    const legacyChatTopic = `/topic/game/${gameId}/chat`;
+    const legacyChatSub = this.client.subscribe(
+      legacyChatTopic,
+      this.handleChatMessage.bind(this)
+    );
+    this.subscriptions.set(`chat-legacy-${gameId}`, legacyChatSub);
 
     // Subscribe to personal notifications if userId provided
     if (userId) {
@@ -224,6 +232,11 @@ class WebSocketService {
     if (chatSub) {
       chatSub.unsubscribe();
       this.subscriptions.delete(`chat-${gameId}`);
+    }
+    const legacyChatSub = this.subscriptions.get(`chat-legacy-${gameId}`);
+    if (legacyChatSub) {
+      legacyChatSub.unsubscribe();
+      this.subscriptions.delete(`chat-legacy-${gameId}`);
     }
 
     // Unsubscribe from personal notifications

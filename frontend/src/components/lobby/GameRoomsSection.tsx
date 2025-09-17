@@ -154,12 +154,16 @@ export function GameRoomsSection() {
       const gameData = {
         hostNickname: nickname,
         gameName: newRoom.gameName,
-        gameMode: newRoom.gameMode as any,
-        maxPlayers: newRoom.gameParticipants,
-        timeLimit: 300, // Default 5 minutes
-        totalRounds: newRoom.gameTotalRounds,
+        gameMode: newRoom.gameMode,
+        gameParticipants: newRoom.gameParticipants,
+        gameLiarCount: newRoom.gameLiarCount,
+        gameTotalRounds: newRoom.gameTotalRounds,
+        targetPoints: newRoom.targetPoints,
         isPrivate: newRoom.isPrivate,
-        password: newRoom.isPrivate ? newRoom.password : undefined
+        password: newRoom.isPrivate ? newRoom.password : undefined,
+        useRandomSubjects: newRoom.useRandomSubjects,
+        selectedSubjectIds: newRoom.selectedSubjectIds,
+        randomSubjectCount: newRoom.useRandomSubjects ? newRoom.randomSubjectCount : undefined
       }
 
       // Use the new initialization service for proper backend integration
@@ -719,21 +723,21 @@ export function GameRoomsSection() {
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <CardTitle className="text-lg flex items-center gap-2">
-                      {room.isPrivate ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
-                      {room.gameName}
+                      {room.hasPassword ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
+                      {room.title}
                     </CardTitle>
                     <CardDescription>
                       호스트: {room.gameOwner}
                     </CardDescription>
                   </div>
-                  {getStatusBadge(room.gameState)}
+                  {getStatusBadge(room.state || room.gameState || 'WAITING')}
                 </div>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">플레이어</span>
-                    <span className="font-medium">{room.gameParticipants}/{room.gameMaxPlayers}</span>
+                    <span className="font-medium">{room.currentPlayers}/{room.maxPlayers}</span>
                   </div>
 
                   <div className="flex items-center justify-between text-sm">
@@ -750,15 +754,15 @@ export function GameRoomsSection() {
 
                   <Button
                     className="w-full"
-                    onClick={() => handleJoinRoom(room.gameNumber, room.isPrivate)}
-                    disabled={room.gameState === 'IN_PROGRESS' || room.gameParticipants >= room.gameMaxPlayers || isLoading}
+                    onClick={() => handleJoinRoom(room.gameNumber, room.hasPassword)}
+                    disabled={(room.state || room.gameState) === 'IN_PROGRESS' || room.currentPlayers >= room.maxPlayers || isLoading}
                   >
-                    {room.gameState === 'IN_PROGRESS' ? (
+                    {(room.state || room.gameState) === 'IN_PROGRESS' ? (
                       <>
                         <Play className="h-4 w-4 mr-2" />
                         게임 중
                       </>
-                    ) : room.gameParticipants >= room.gameMaxPlayers ? (
+                   ) : room.currentPlayers >= room.maxPlayers ? (
                       '방이 가득참'
                     ) : (
                       '참여하기'

@@ -10,162 +10,92 @@ import type {
     VoteResponse,
 } from '../types/gameFlow';
 
+const GAME_BASE = '/api/v1/game';
+const CHAT_BASE = '/api/v1/chat';
+
+type ChatSendType = 'GENERAL' | 'HINT' | 'DEFENSE' | 'SYSTEM';
+
+type BackendChatType = 'DISCUSSION' | 'HINT' | 'DEFENSE' | 'SYSTEM';
+
+const mapChatType = (type: ChatSendType): BackendChatType => {
+  switch (type) {
+    case 'HINT':
+      return 'HINT';
+    case 'DEFENSE':
+      return 'DEFENSE';
+    case 'SYSTEM':
+      return 'SYSTEM';
+    default:
+      return 'DISCUSSION';
+  }
+};
+
 export class GameFlowService {
-  // 힌트 제출
   async submitHint(gameNumber: number, hint: string): Promise<HintSubmissionResponse> {
-    try {
-      console.log('Submitting hint:', { gameNumber, hint });
-      const response = await apiService.post<HintSubmissionResponse>(
-        `/api/games/${gameNumber}/hint`,
-        { gameNumber, hint }
-      );
-      console.log('Hint submitted successfully');
-      return response;
-    } catch (error) {
-      console.error('Failed to submit hint:', error);
-      throw error;
-    }
+    return apiService.post<HintSubmissionResponse>(`${GAME_BASE}/hint`, { gameNumber, hint });
   }
 
-  // 라이어 투표
   async castVoteForLiar(gameNumber: number, targetUserId: number): Promise<VoteResponse> {
-    try {
-      console.log('Casting vote for liar:', { gameNumber, targetUserId });
-      const response = await apiService.post<VoteResponse>(
-        `/api/games/${gameNumber}/vote`,
-        { gameNumber, targetUserId }
-      );
-      console.log('Vote cast successfully:', response);
-      return response;
-    } catch (error) {
-      console.error('Failed to cast vote:', error);
-      throw error;
-    }
+    return apiService.post<VoteResponse>(`${GAME_BASE}/cast-vote`, { gameNumber, targetUserId });
   }
 
-  // 변론 제출
   async submitDefense(gameNumber: number, defenseText: string): Promise<DefenseResponse> {
-    try {
-      console.log('Submitting defense:', { gameNumber, defenseText });
-      const response = await apiService.post<DefenseResponse>(
-        `/api/games/${gameNumber}/defense`,
-        { gameNumber, defenseText }
-      );
-      console.log('Defense submitted successfully');
-      return response;
-    } catch (error) {
-      console.error('Failed to submit defense:', error);
-      throw error;
-    }
+    return apiService.post<DefenseResponse>(`${GAME_BASE}/submit-defense`, { gameNumber, defenseText });
   }
 
-  // 변론 즉시 종료
   async endDefensePhase(gameNumber: number): Promise<any> {
-    try {
-      console.log('Ending defense phase:', gameNumber);
-      const response = await apiService.post(
-        `/api/games/${gameNumber}/defense/end`,
-        { gameNumber }
-      );
-      console.log('Defense phase ended successfully');
-      return response;
-    } catch (error) {
-      console.error('Failed to end defense phase:', error);
-      throw error;
-    }
+    return apiService.post(`${GAME_BASE}/defense/end`, { gameNumber });
   }
 
-  // 최종 투표 (처형/생존)
   async castFinalVote(gameNumber: number, voteForExecution: boolean): Promise<FinalVoteResponse> {
-    try {
-      console.log('Casting final vote:', { gameNumber, voteForExecution });
-      const response = await apiService.post<FinalVoteResponse>(
-        `/api/games/${gameNumber}/final-vote`,
-        { gameNumber, voteForExecution }
-      );
-      console.log('Final vote cast successfully');
-      return response;
-    } catch (error) {
-      console.error('Failed to cast final vote:', error);
-      throw error;
-    }
+    return apiService.post<FinalVoteResponse>(`${GAME_BASE}/vote/final`, { gameNumber, voteForExecution });
   }
 
-  // 라이어의 단어 추측
   async guessWord(gameNumber: number, guess: string): Promise<GuessResponse> {
-    try {
-      console.log('Guessing word:', { gameNumber, guess });
-      const response = await apiService.post<GuessResponse>(
-        `/api/games/${gameNumber}/guess`,
-        { gameNumber, guess }
-      );
-      console.log('Word guess submitted:', response);
-      return response;
-    } catch (error) {
-      console.error('Failed to guess word:', error);
-      throw error;
-    }
+    return apiService.post<GuessResponse>(`${GAME_BASE}/guess-word`, { gameNumber, guess });
   }
 
-  // 라운드 종료 처리
   async endRound(gameNumber: number): Promise<RoundEndResponse> {
-    try {
-      console.log('Ending round:', gameNumber);
-      const response = await apiService.post<RoundEndResponse>(
-        `/api/games/${gameNumber}/round/end`,
-        { gameNumber }
-      );
-      console.log('Round ended successfully');
-      return response;
-    } catch (error) {
-      console.error('Failed to end round:', error);
-      throw error;
-    }
+    return apiService.post<RoundEndResponse>(`${GAME_BASE}/end-of-round`, { gameNumber });
   }
 
-  // 게임 결과 조회
   async getGameResult(gameNumber: number): Promise<GameResult> {
-    try {
-      console.log('Fetching game result:', gameNumber);
-      const response = await apiService.get<GameResult>(
-        `/api/games/${gameNumber}/result`
-      );
-      console.log('Game result fetched successfully');
-      return response;
-    } catch (error) {
-      console.error('Failed to fetch game result:', error);
-      throw error;
-    }
+    return apiService.get<GameResult>(`${GAME_BASE}/result/${gameNumber}`);
   }
 
-  // 채팅 메시지 전송
-  async sendChatMessage(gameNumber: number, message: string, type: 'GENERAL' | 'HINT' | 'DEFENSE' = 'GENERAL'): Promise<void> {
-    try {
-      console.log('Sending chat message:', { gameNumber, message, type });
-      await apiService.post(
-        `/api/games/${gameNumber}/chat`,
-        { gameNumber, message, type }
-      );
-      console.log('Chat message sent successfully');
-    } catch (error) {
-      console.error('Failed to send chat message:', error);
-      throw error;
-    }
+  async sendChatMessage(gameNumber: number, message: string, type: ChatSendType = 'GENERAL'): Promise<void> {
+    await apiService.post(`${CHAT_BASE}/send`, {
+      gameNumber,
+      content: message,
+      type: mapChatType(type)
+    });
   }
 
-  // 채팅 기록 조회
-  async getChatHistory(gameNumber: number, limit: number = 50): Promise<ChatMessage[]> {
-    try {
-      console.log('Fetching chat history:', { gameNumber, limit });
-      const response = await apiService.get<ChatMessage[]>(
-        `/api/games/${gameNumber}/chat?limit=${limit}`
-      );
-      console.log('Chat history fetched successfully');
-      return response;
-    } catch (error) {
-      console.error('Failed to fetch chat history:', error);
-      throw error;
+  async getChatHistory(
+    gameNumber: number,
+    limit: number = 50,
+    type?: ChatSendType
+  ): Promise<ChatMessage[]> {
+    const params = new URLSearchParams({
+      gameNumber: String(gameNumber),
+      limit: String(limit)
+    });
+
+    const mappedType = type && type !== 'GENERAL' ? mapChatType(type) : undefined;
+    if (mappedType) {
+      params.append('type', mappedType);
     }
+
+    const rawMessages = await apiService.get<any[]>(`${CHAT_BASE}/history?${params.toString()}`);
+
+    return rawMessages.map((message) => ({
+      id: String(message.id ?? `${message.gameNumber}-${message.timestamp}`),
+      gameNumber: message.gameNumber,
+      nickname: message.playerNickname ?? 'SYSTEM',
+      message: message.content ?? '',
+      timestamp: typeof message.timestamp === 'string' ? Date.parse(message.timestamp) : Number(message.timestamp ?? Date.now()),
+      type: (message.type || 'DISCUSSION') as ChatMessage['type']
+    }));
   }
 }
 
