@@ -28,7 +28,7 @@ export const useUIStore = create<UIStoreState & UIStoreActions>()(
     withLogger(
       withPersistence(
         'ui-store',
-        (set, get) => ({
+        (set) => ({
           ...initialState,
           navigate: (screen) => set(state => ({ previousScreen: state.currentScreen, currentScreen: screen })),
           showModal: (modal) => {

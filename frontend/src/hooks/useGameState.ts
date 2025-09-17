@@ -1,5 +1,5 @@
 import {useGameStoreV2} from '@/stores/gameStoreV2'
-import {GamePhase, type PlayerID} from '@/types/game'
+import type {GamePhase, PlayerID} from '@/types/game'
 
 export function useGameState() {
   const state = useGameStoreV2(s => s)
@@ -11,5 +11,5 @@ export function useIsMyTurn(myId: PlayerID | undefined) {
   return !!myId && current === myId
 }
 
-export { GamePhase }
+export type { GamePhase }
 

@@ -1,4 +1,4 @@
-import {useEffect, useState} from 'react'
+import {useCallback, useEffect, useState} from 'react'
 import {useNavigate} from 'react-router-dom'
 import {motion} from 'framer-motion'
 import {Button} from '@/components/ui/button'
@@ -38,7 +38,7 @@ export function MainLobbyPage() {
   })
 
   // Fetch dynamic statistics
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     setStats(prev => ({ ...prev, isLoading: true }))
 
     try {
@@ -77,12 +77,12 @@ export function MainLobbyPage() {
       })
       setStats(prev => ({ ...prev, isLoading: false }))
     }
-  }
+  }, [toast])
 
   // Load statistics on component mount and when tab changes
   useEffect(() => {
     fetchStats()
-  }, [])
+  }, [fetchStats])
 
   // Auto-refresh statistics every 30 seconds - only when component is focused and no modals are open
   useEffect(() => {
@@ -96,7 +96,7 @@ export function MainLobbyPage() {
       }
     }, 30000)
     return () => clearInterval(interval)
-  }, [isAnyModalOpen, activeModals])
+  }, [fetchStats, isAnyModalOpen, activeModals])
 
   const handleLogout = () => {
     logout()

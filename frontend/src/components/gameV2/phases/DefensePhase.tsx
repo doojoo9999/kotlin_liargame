@@ -4,7 +4,7 @@ import {Button} from '@/components/ui/button'
 import {useGameStoreV2} from '@/stores/gameStoreV2'
 
 export function DefensePhase({ accusedNickname }: { accusedNickname?: string }) {
-  const { gameData, submitDefense, phase } = useGameStoreV2(s => ({ gameData: s.gameData, submitDefense: s.submitDefense, phase: s.phase }))
+  const { gameData, submitDefense } = useGameStoreV2(s => ({ gameData: s.gameData, submitDefense: s.submitDefense }))
   const [text, setText] = React.useState('')
   const disabled = !gameData.accusedPlayer || !!gameData.defenseStatement
 

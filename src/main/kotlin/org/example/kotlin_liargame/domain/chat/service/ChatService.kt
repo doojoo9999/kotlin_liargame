@@ -109,7 +109,7 @@ class ChatService(
         }
 
         if (userId == null) {
-            // 인증 실패 시 더 ��세한 오류 정보
+            // 인증 실패 시 더 상세한 오류 정보
             println("[ERROR] WebSocket authentication failed. Session attributes available: ${sessionAttributes?.keys}")
             println("[ERROR] WebSocketSessionId: $webSocketSessionId")
             println("[ERROR] HTTP Session userId (JSON): ${httpSession?.let { sessionUtil.getUserId(it) }}")
@@ -411,7 +411,7 @@ class ChatService(
                 }
                 GamePhase.VOTING_FOR_LIAR -> {
                     println("[ChatService] In VOTING_FOR_LIAR phase, returning null to enable voting UI")
-                    // 투표 단계에서는 채��이 아닌 투표 UI가 표시되어야 하므로 null 반환
+                    // 투표 단계에서는 채팅이 아닌 투표 UI가 표시되어야 하므로 null 반환
                     null
                 }
                 GamePhase.DEFENDING -> {
@@ -513,7 +513,7 @@ class ChatService(
 
     private fun determineGamePhase(game: GameEntity, @Suppress("UNUSED_PARAMETER") players: List<PlayerEntity>): GamePhase {
         // 게임의 실제 currentPhase 값을 우선적으로 사용
-        // 플레이어 상태 기반 추측��� fallback으로만 사용
+        // 플레이어 상태 기반 추측 fallback으로만 사용
         return when (game.gameState) {
             GameState.WAITING -> GamePhase.WAITING_FOR_PLAYERS
             GameState.ENDED -> GamePhase.GAME_OVER

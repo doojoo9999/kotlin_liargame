@@ -129,3 +129,49 @@ export interface GameEndResponse {
 }
 
 export type GameEndCondition = 'LIAR_VICTORY' | 'CITIZEN_VICTORY' | 'NEXT_ROUND'
+
+export type ChatMessageType = 'DISCUSSION' | 'HINT' | 'DEFENSE' | 'SYSTEM' | 'POST_ROUND' | 'GENERAL'
+
+export interface ChatMessage {
+  id: string
+  gameNumber: number
+  playerId?: string
+  userId?: number
+  playerNickname: string
+  nickname?: string
+  playerName?: string
+  content: string
+  message?: string
+  gameId?: string
+  roomId?: string
+  timestamp: number
+  type: ChatMessageType
+}
+
+export type ChatCallback = (message: ChatMessage) => void
+
+export type GameEventType =
+  | 'PLAYER_JOINED'
+  | 'PLAYER_LEFT'
+  | 'GAME_STARTED'
+  | 'ROUND_STARTED'
+  | 'HINT_PROVIDED'
+  | 'VOTE_CAST'
+  | 'DEFENSE_SUBMITTED'
+  | 'ROUND_ENDED'
+  | 'GAME_ENDED'
+  | 'CHAT_MESSAGE'
+  | 'GAME_STATE_UPDATED'
+  | 'PERSONAL_NOTIFICATION'
+
+export interface GameEvent {
+  type: GameEventType
+  gameId: string
+  payload: unknown
+  timestamp: number
+}
+
+export type EventCallback = (event: GameEvent) => void
+
+export type ConnectionCallback = (connected: boolean) => void
+

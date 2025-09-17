@@ -38,13 +38,11 @@ export const LobbyPage: React.FC<LobbyPageProps> = ({ onStartGame }) => {
     fetchGameList,
     fetchGameModes,
     createGame,
-    joinGame,
-    setError
+    joinGame
   } = useGameStore();
 
   // Local state
   const [selectedTab, setSelectedTab] = useState('browse');
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isJoinDialogOpen, setIsJoinDialogOpen] = useState(false);
   const [joinGameNumber, setJoinGameNumber] = useState('');
   
@@ -63,7 +61,7 @@ export const LobbyPage: React.FC<LobbyPageProps> = ({ onStartGame }) => {
   useEffect(() => {
     fetchGameList();
     fetchGameModes();
-  }, []);
+  }, [fetchGameList, fetchGameModes]);
 
   // Auto-refresh game list every 30 seconds - only when focused and on browse tab
   useEffect(() => {
@@ -74,7 +72,7 @@ export const LobbyPage: React.FC<LobbyPageProps> = ({ onStartGame }) => {
     }, 30000);
 
     return () => clearInterval(interval);
-  }, [selectedTab]);
+  }, [selectedTab, fetchGameList]);
 
   const handleCreateGame = async () => {
     if (!createGameForm.gameName.trim()) {
@@ -101,7 +99,6 @@ export const LobbyPage: React.FC<LobbyPageProps> = ({ onStartGame }) => {
 
       const result = await createGame(gameData);
       
-      setIsCreateDialogOpen(false);
       toast.success('Game created successfully!');
       onStartGame?.(result.gameNumber);
       
@@ -117,6 +114,7 @@ export const LobbyPage: React.FC<LobbyPageProps> = ({ onStartGame }) => {
       });
       
     } catch (error) {
+      console.error('Failed to create game', error);
       toast.error('Failed to create game');
     }
   };
@@ -149,6 +147,7 @@ export const LobbyPage: React.FC<LobbyPageProps> = ({ onStartGame }) => {
       onStartGame?.(result.gameNumber);
       
     } catch (error) {
+      console.error('Failed to join game', error);
       toast.error('Failed to join game');
     }
   };
@@ -371,9 +370,11 @@ export const LobbyPage: React.FC<LobbyPageProps> = ({ onStartGame }) => {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="CLASSIC">Classic</SelectItem>
-                        <SelectItem value="QUICK">Quick Game</SelectItem>
-                        <SelectItem value="HARDCORE">Hardcore</SelectItem>
+                        {(availableGameModes?.length ? availableGameModes : ['CLASSIC', 'QUICK', 'HARDCORE']).map((mode) => (
+                          <SelectItem key={mode} value={mode}>
+                            {mode.replace(/_/g, ' ')}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>

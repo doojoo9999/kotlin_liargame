@@ -2,7 +2,6 @@ import React from 'react'
 import {useGameStoreV2} from '@/stores/gameStoreV2'
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card'
 import {Badge} from '@/components/ui/badge'
-import type {GamePhase} from '@/types/backendTypes'
 
 export function PlayerStatusPanelV2() {
   // Use individual selectors with useCallback to prevent infinite loops

@@ -45,8 +45,9 @@ export const VotingPhase: React.FC<VotingPhaseProps> = ({
     switch (votingPhase) {
       case 'LIAR_VOTE':
         return '라이어 투표';
-      case 'SURVIVAL_VOTE':
+      case 'SURVIVAL_VOTE': {
         return '생존 투표';
+      }
       default:
         return '투표';
     }
@@ -56,9 +57,10 @@ export const VotingPhase: React.FC<VotingPhaseProps> = ({
     switch (votingPhase) {
       case 'LIAR_VOTE':
         return '라이어라고 생각하는 플레이어에게 투표하세요.';
-      case 'SURVIVAL_VOTE':
+      case 'SURVIVAL_VOTE': {
         const suspectedPlayer = players.find(p => p.id === targetPlayerId);
         return `${suspectedPlayer?.nickname || '의심받는 플레이어'}를 처형할지 결정하세요.`;
+      }
       default:
         return '';
     }

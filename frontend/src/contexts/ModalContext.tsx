@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react'
+import type {ReactNode} from 'react'
+import {createContext, useCallback, useContext, useEffect, useState} from 'react'
 
 interface ModalContextType {
   activeModals: Set<string>
@@ -96,7 +97,7 @@ export function useModal() {
 export function useModalRegistration(modalId: string, isOpen: boolean) {
   const { registerModal, unregisterModal } = useModal()
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (isOpen) {
       registerModal(modalId)
       return () => unregisterModal(modalId)

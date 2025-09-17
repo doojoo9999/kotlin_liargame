@@ -103,6 +103,15 @@ export const GameChat: React.FC<GameChatProps> = ({
     }
   };
 
+  const getPlayerByUserId = (userId?: number) => {
+    if (userId == null) {
+      return undefined;
+    }
+    return players.find(player => {
+      return player.id === String(userId) || Number(player.id) === userId;
+    });
+  };
+
   const canSendMessage = () => {
     // 게임 단계별로 채팅 제한 설정
     const restrictedPhases = ['VOTING_FOR_LIAR', 'VOTING_FOR_SURVIVAL'];
@@ -125,7 +134,7 @@ export const GameChat: React.FC<GameChatProps> = ({
           <div className="flex items-center space-x-2">
             <div className="flex items-center text-sm text-muted-foreground">
               <Users className="mr-1 h-4 w-4" />
-              {players.filter(p => p.isOnline).length}
+              {players.filter(p => (p.isOnline ?? p.isConnected)).length}
             </div>
             <Button
               variant="ghost"

@@ -1,3 +1,5 @@
+import type {ChatMessage as RealtimeChatMessage} from './realtime'
+
 // 힌트 제출 응답
 export interface HintSubmissionResponse {
   gameNumber: number;
@@ -82,11 +84,7 @@ export interface RoundEndResponse {
 }
 
 // 채팅 메시지 - Unified interface for both websocket and gameFlow
-export interface ChatMessage {
-  id: string;
-  gameNumber: number;
+export interface ChatMessage extends RealtimeChatMessage {
   nickname: string;
   message: string;
-  timestamp: number;
-  type: 'DISCUSSION' | 'HINT' | 'DEFENSE' | 'SYSTEM' | 'POST_ROUND';
 }

@@ -2,8 +2,8 @@ import * as React from 'react'
 import {AnimatePresence, motion} from 'framer-motion'
 import {scoreUpdate} from '@/animations/variants'
 
-export interface ScoreAnimationProps { value: number; playerId: string }
-export const ScoreAnimation: React.FC<ScoreAnimationProps> = ({value,playerId}) => {
+export interface ScoreAnimationProps { value: number }
+export const ScoreAnimation: React.FC<ScoreAnimationProps> = ({value}) => {
   const [display,setDisplay] = React.useState(value)
   React.useEffect(()=>{ setDisplay(value) },[value])
   return (

@@ -142,7 +142,8 @@ export const TopicManagementPanel: React.FC<TopicManagementPanelProps> = ({
       
       // 목록 새로고침
       await loadTopics()
-    } catch (err) {
+    } catch (error) {
+      console.error('Failed to submit topic:', error);
       setError('주제를 추가할 수 없습니다.')
     } finally {
       setLoading(false)

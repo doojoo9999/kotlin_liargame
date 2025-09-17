@@ -1,4 +1,4 @@
-import {useEffect, useRef, useState} from 'react'
+import {useCallback, useEffect, useRef, useState} from 'react'
 import {Button} from '@/components/ui/button'
 import {Card, CardContent} from '@/components/ui/card'
 import {Input} from '@/components/ui/input'
@@ -35,12 +35,7 @@ export function AnswerManagementSection() {
   const { toast } = useToast()
   const answerInputRef = useRef<HTMLInputElement>(null)
 
-  // 데이터 로드
-  useEffect(() => {
-    loadData();
-  }, [])
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       
@@ -72,7 +67,11 @@ export function AnswerManagementSection() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [toast])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
 
   const handleCreateAnswer = async () => {
     if (!newAnswer.trim()) {

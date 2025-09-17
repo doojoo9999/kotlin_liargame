@@ -2,23 +2,20 @@ import {create} from 'zustand';
 import {devtools, persist} from 'zustand/middleware';
 import {gameService} from '../api/gameApi';
 import {useAuthStore} from './authStore';
-import type {GameMode} from '../types/game';
-import type {CreateGameRequest, GameStateResponse} from '../types/backendTypes';
+import type {
+    CreateGameRequest,
+    GameMode,
+    GamePhase as BackendGamePhase,
+    GameState as BackendGameState,
+    GameStateResponse,
+} from '../types/backendTypes';
+import type {FrontendPlayer} from '../types';
 import type {GameRoomInfo, JoinGameRequest} from '../types/api';
 import type {ChatMessage} from '../types/realtime';
 
 // Unified Player interface
-export interface Player {
-  id: string;
-  nickname: string;
-  isHost: boolean;
-  isReady: boolean;
-  isConnected: boolean;
-  isAlive: boolean;
-  role?: 'civilian' | 'liar';
+export interface Player extends FrontendPlayer {
   score: number;
-  votedFor?: string;
-  hasVoted?: boolean;
 }
 
 // Game Timer interface
@@ -244,25 +241,39 @@ interface GameActions {
 type UnifiedGameStore = GameState & GameActions;
 
 // Helper function to map backend game state
-const mapGamePhase = (gameState: string): GameState['gamePhase'] => {
-  switch (gameState) {
+const mapGamePhase = (
+  phase: BackendGamePhase | BackendGameState | string | undefined,
+): GameState['gamePhase'] => {
+  const defaultPhase: GameState['gamePhase'] = 'WAITING_FOR_PLAYERS';
+
+  if (!phase) {
+    return defaultPhase;
+  }
+
+  switch (phase) {
     case 'WAITING':
       return 'WAITING_FOR_PLAYERS';
-    case 'SPEECH':
+    case 'IN_PROGRESS':
       return 'SPEECH';
-    case 'VOTING_FOR_LIAR':
-      return 'VOTING_FOR_LIAR';
-    case 'DEFENDING':
-      return 'DEFENDING';
-    case 'VOTING_FOR_SURVIVAL':
-      return 'VOTING_FOR_SURVIVAL';
-    case 'GUESSING_WORD':
-      return 'GUESSING_WORD';
     case 'ENDED':
       return 'GAME_OVER';
     default:
-      return 'WAITING_FOR_PLAYERS';
+      break;
   }
+
+  const allowedPhases: GameState['gamePhase'][] = [
+    'WAITING_FOR_PLAYERS',
+    'SPEECH',
+    'VOTING_FOR_LIAR',
+    'DEFENDING',
+    'VOTING_FOR_SURVIVAL',
+    'GUESSING_WORD',
+    'GAME_OVER',
+  ];
+
+  return allowedPhases.includes(phase as GameState['gamePhase'])
+    ? (phase as GameState['gamePhase'])
+    : defaultPhase;
 };
 
 // Initial state
@@ -651,26 +662,135 @@ export const useGameStore = create<UnifiedGameStore>()(
         updateFromGameState: (gameState) => {
           if (!gameState) return;
 
-          const mappedPlayers = gameState.players.map(p => ({
-            id: p.id.toString(),
-            nickname: p.nickname,
-            isHost: p.isHost,
-            isReady: p.isReady,
-            isConnected: p.isOnline,
-            isAlive: true,
-            role: undefined as 'civilian' | 'liar' | undefined,
-            score: 0, // Will be updated from scores if available
-          }));
+          const scoreboard = new Map<number, number>(
+
+            (gameState.scoreboard ?? []).map((entry) => [entry.userId, entry.score])
+
+          );
+
+
+
+          const mappedPlayers = gameState.players.map<Player>((player) => {
+
+            const score = scoreboard.get(player.userId) ?? scoreboard.get(player.id) ?? 0;
+
+            const isDisconnected = player.state === 'DISCONNECTED';
+
+            const normalizedId = player.id.toString();
+
+
+
+            return {
+
+              id: normalizedId,
+
+              userId: player.userId,
+
+              nickname: player.nickname,
+
+              isAlive: player.isAlive,
+
+              state: player.state,
+
+              hint: player.hint,
+
+              defense: player.defense,
+
+              votesReceived: player.votesReceived,
+
+              hasVoted: player.hasVoted,
+
+              score,
+
+              isHost: player.nickname === gameState.gameOwner,
+
+              isReady: !isDisconnected && player.state !== 'WAITING_FOR_HINT',
+
+              isConnected: !isDisconnected,
+
+              isOnline: !isDisconnected,
+
+              role: undefined,
+
+              votedFor: undefined,
+
+              lastActive: Date.now(),
+
+            };
+
+          });
+
+
+
+          const scores = mappedPlayers.reduce<Record<string, number>>((acc, player) => {
+
+            acc[player.id] = player.score;
+
+            return acc;
+
+          }, {});
+
+
+
+          const turnOrder = (gameState.turnOrder ?? []).map((value) => value.toString());
+
+          const currentTurnPlayerId = turnOrder[gameState.currentTurnIndex] ?? undefined;
+
+          const currentPlayer =
+
+            currentTurnPlayerId != null
+
+              ? mappedPlayers.find(
+
+                  (player) =>
+
+                    player.id === currentTurnPlayerId ||
+
+                    player.userId.toString() === currentTurnPlayerId ||
+
+                    player.nickname === currentTurnPlayerId,
+
+                ) ?? null
+
+              : null;
+
+
 
           set({
-            gamePhase: mapGamePhase(gameState.gameState),
+
+            gamePhase: mapGamePhase(gameState.currentPhase),
+
             players: mappedPlayers,
+
+            currentPlayer,
+
+            currentTurnPlayerId,
+
+            turnOrder,
+
             currentRound: gameState.gameCurrentRound,
+
             totalRounds: gameState.gameTotalRounds,
+
             maxPlayers: gameState.gameParticipants,
+
             gameNumber: gameState.gameNumber,
+
             gameId: gameState.gameNumber.toString(),
+
+            scores,
+
+            currentTopic: gameState.citizenSubject ?? null,
+
+            currentWord: gameState.yourWord ?? null,
+
+            currentLiar: gameState.accusedPlayer != null ? gameState.accusedPlayer.toString() : null,
+
+            isLiar: gameState.yourRole === 'LIAR',
+
           });
+
+
 
           // Update timer if available
           if (gameState.phaseEndTime) {
@@ -693,17 +813,35 @@ export const useGameStore = create<UnifiedGameStore>()(
           const state = get();
           
           switch (event.type) {
-            case 'PLAYER_JOINED':
-              get().addPlayer({
-                id: event.payload.playerId,
+            case 'PLAYER_JOINED': {
+              const rawPlayerId = event.payload.playerId ?? '';
+              const normalizedId = String(rawPlayerId);
+              const parsedUserId =
+                typeof event.payload.userId === 'number'
+                  ? event.payload.userId
+                  : Number.parseInt(String(event.payload.userId ?? rawPlayerId ?? 0), 10) || 0;
+
+              const newPlayer: Player = {
+                id: normalizedId,
+                userId: parsedUserId,
                 nickname: event.payload.playerName,
-                isHost: event.payload.isHost || false,
-                isReady: false,
-                isConnected: true,
                 isAlive: true,
-                score: 0
-              });
+                state: 'WAITING_FOR_HINT',
+                votesReceived: 0,
+                hasVoted: false,
+                score: 0,
+                isHost: Boolean(event.payload.isHost),
+                isReady: Boolean(event.payload.isReady),
+                isConnected: true,
+                isOnline: true,
+                role: event.payload.role ?? undefined,
+                votedFor: undefined,
+                lastActive: Date.now(),
+              };
+
+              get().addPlayer(newPlayer);
               break;
+            }
 
             case 'PLAYER_LEFT':
               get().removePlayer(event.payload.playerId);

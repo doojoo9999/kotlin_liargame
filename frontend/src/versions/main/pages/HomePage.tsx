@@ -1,4 +1,4 @@
-import {useEffect, useState} from 'react'
+import {useCallback, useEffect, useState} from 'react'
 import {useNavigate} from 'react-router-dom'
 import {AnimatePresence, motion} from 'framer-motion'
 import {Button} from '@/components/ui/button'
@@ -19,7 +19,7 @@ import {Separator} from '@/components/ui/separator'
 import {Filter, Play, Plus, RefreshCw, Search, Users} from 'lucide-react'
 import {useCreateGame, useJoinGame} from '@/hooks/useGameQueries'
 import {useToast} from '@/hooks/useToast'
-import type {GameRoom} from '../components'
+import type {LegacyGameRoom} from '../types'
 import {GameCard, GameCardSkeleton} from '../components'
 
 export function MainHomePage() {
@@ -27,7 +27,7 @@ export function MainHomePage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
-  const [gameRooms, setGameRooms] = useState<GameRoom[]>([])
+  const [gameRooms, setGameRooms] = useState<LegacyGameRoom[]>([])
   const [isLoadingRooms, setIsLoadingRooms] = useState(false)
   
   // Create game form state
@@ -47,7 +47,7 @@ export function MainHomePage() {
 
 
   // Load rooms from API
-  const loadRooms = async () => {
+  const loadRooms = useCallback(async () => {
     setIsLoadingRooms(true)
     try {
       // TODO: Replace with actual API call
@@ -75,11 +75,11 @@ export function MainHomePage() {
     } finally {
       setIsLoadingRooms(false)
     }
-  }
+  }, [toast])
 
   useEffect(() => {
     loadRooms()
-  }, [])
+  }, [loadRooms])
 
   // Filter rooms based on search and status
   const filteredRooms = gameRooms.filter(room => {
@@ -467,3 +467,6 @@ export function MainHomePage() {
     </div>
   )
 }
+
+
+

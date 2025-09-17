@@ -124,49 +124,28 @@ export class GameInitializationService {
   }
 
   /**
-   * Handle game events for V2 store synchronization
+   * Handle game room join from lobby
    */
-  private handleGameEventForV2Store(event: any): void {
-    const gameStoreV2 = useGameStoreV2.getState()
+  async joinGameRoom(gameNumber: number, playerNickname: string, password?: string): Promise<void> {
+    try {
+      const joinData = {
+        gameNumber,
+        nickname: playerNickname,
+        gamePassword: password
+      }
 
-    switch (event.type) {
-      case 'PLAYER_JOINED':
-        // Add new player to V2 store
-        gameStoreV2.initialize(
-          gameStoreV2.gameId,
-          [...gameStoreV2.players, {
-            id: event.payload.playerId,
-            nickname: event.payload.playerName
-          }],
-          gameStoreV2.gameData.topic,
-          gameStoreV2.totalRounds
-        )
-        break
+      await gameService.joinGame(joinData)
 
-      case 'GAME_STARTED':
-        gameStoreV2.startGame()
-        break
+      // Don't initialize here - let the game page handle initialization
+      // This prevents double initialization and navigation issues
+      console.log('Joined game room successfully, gameNumber:', gameNumber)
 
-      case 'PHASE_CHANGED':
-        const mappedPhase = this.mapBackendPhaseToV2Phase(event.payload.phase)
-        gameStoreV2.startPhase(mappedPhase)
-        break
+      toast.success('게임방에 참가했습니다!')
 
-      case 'HINT_SUBMITTED':
-        gameStoreV2.submitHint(event.payload.playerId, event.payload.hint)
-        break
-
-      case 'VOTE_CAST':
-        gameStoreV2.castVote(event.payload.voterId, event.payload.targetId)
-        break
-
-      case 'DEFENSE_SUBMITTED':
-        gameStoreV2.submitDefense(event.payload.playerId, event.payload.defense)
-        break
-
-      case 'ROUND_ENDED':
-        gameStoreV2.finalizeRound()
-        break
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : '게임방 참가에 실패했습니다'
+      toast.error(errorMessage)
+      throw error
     }
   }
 
@@ -244,28 +223,50 @@ export class GameInitializationService {
   }
 
   /**
-   * Handle game room join from lobby
+   * Handle game events for V2 store synchronization
    */
-  async joinGameRoom(gameNumber: number, playerNickname: string, password?: string): Promise<void> {
-    try {
-      const joinData = {
-        gameNumber,
-        nickname: playerNickname,
-        gamePassword: password
+  private handleGameEventForV2Store(event: any): void {
+    const gameStoreV2 = useGameStoreV2.getState()
+
+    switch (event.type) {
+      case 'PLAYER_JOINED':
+        // Add new player to V2 store
+        gameStoreV2.initialize(
+          gameStoreV2.gameId,
+          [...gameStoreV2.players, {
+            id: event.payload.playerId,
+            nickname: event.payload.playerName
+          }],
+          gameStoreV2.gameData.topic,
+          gameStoreV2.totalRounds
+        )
+        break
+
+      case 'GAME_STARTED':
+        gameStoreV2.startGame()
+        break
+
+      case 'PHASE_CHANGED': {
+        const mappedPhase = this.mapBackendPhaseToV2Phase(event.payload.phase)
+        gameStoreV2.startPhase(mappedPhase)
+        break
       }
 
-      const gameState = await gameService.joinGame(joinData)
+      case 'HINT_SUBMITTED':
+        gameStoreV2.submitHint(event.payload.playerId, event.payload.hint)
+        break
 
-      // Don't initialize here - let the game page handle initialization
-      // This prevents double initialization and navigation issues
-      console.log('Joined game room successfully, gameNumber:', gameNumber)
+      case 'VOTE_CAST':
+        gameStoreV2.castVote(event.payload.voterId, event.payload.targetId)
+        break
 
-      toast.success('게임방에 참가했습니다!')
+      case 'DEFENSE_SUBMITTED':
+        gameStoreV2.submitDefense(event.payload.playerId, event.payload.defense)
+        break
 
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : '게임방 참가에 실패했습니다'
-      toast.error(errorMessage)
-      throw error
+      case 'ROUND_ENDED':
+        gameStoreV2.finalizeRound()
+        break
     }
   }
 

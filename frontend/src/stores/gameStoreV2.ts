@@ -1,5 +1,15 @@
 import {create} from 'zustand'
-import type { GamePhase, Player, PlayerID, ActivityEvent, Hint, Vote, SurvivalVote, GuessAttempt, GameResults } from '@/types/game'
+import type {
+    ActivityEvent,
+    GamePhase,
+    GameResults,
+    GuessAttempt,
+    Hint,
+    Player,
+    PlayerID,
+    SurvivalVote,
+    Vote
+} from '@/types/game'
 
 /**
  * GameStoreV2 - Comprehensive game state management for V2 components
@@ -213,7 +223,7 @@ export const useGameStoreV2 = create<GameStateV2>((set, get) => ({
       case 'GUESSING_WORD':
         get().startPhase('GAME_OVER')
         break
-      case 'GAME_OVER':
+      case 'GAME_OVER': {
         get().finalizeRound()
         // Start next round or end game
         const { currentRound, totalRounds } = get()
@@ -225,6 +235,7 @@ export const useGameStoreV2 = create<GameStateV2>((set, get) => ({
           get().startGame()
         }
         break
+      }
     }
   },
 

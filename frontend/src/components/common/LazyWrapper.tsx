@@ -61,11 +61,14 @@ export function withLazyLoading<P extends object>(
   Component: React.ComponentType<P>,
   options: Omit<LazyWrapperProps, 'children'> = {}
 ) {
-  return React.forwardRef<any, P>((props, ref) => (
+  const WrappedComponent: React.FC<P> = (props) => (
     <LazyWrapper {...options}>
-      <Component {...props} ref={ref} />
+      <Component {...props} />
     </LazyWrapper>
-  ));
+  );
+
+  WrappedComponent.displayName = `WithLazyLoading(${Component.displayName ?? Component.name ?? 'Component'})`;
+  return WrappedComponent;
 }
 
 // Optimized list component with virtual scrolling
@@ -136,7 +139,6 @@ interface OptimizedImageProps extends React.ImgHTMLAttributes<HTMLImageElement> 
   alt: string;
   fallbackSrc?: string;
   lazy?: boolean;
-  quality?: number;
   onLoad?: () => void;
   onError?: () => void;
 }
@@ -146,7 +148,6 @@ export const OptimizedImage: React.FC<OptimizedImageProps> = ({
   alt,
   fallbackSrc,
   lazy = true,
-  quality = 80,
   className = '',
   onLoad,
   onError,
@@ -162,7 +163,9 @@ export const OptimizedImage: React.FC<OptimizedImageProps> = ({
 
     let observer: IntersectionObserver | undefined;
 
-    if (imgRef.current && !imageSrc) {
+    const currentImg = imgRef.current;
+
+    if (currentImg && !imageSrc) {
       if ('IntersectionObserver' in window) {
         observer = new IntersectionObserver(
           (entries) => {
@@ -176,15 +179,15 @@ export const OptimizedImage: React.FC<OptimizedImageProps> = ({
           { threshold: 0.1 }
         );
 
-        observer.observe(imgRef.current);
+        observer.observe(currentImg);
       } else {
         setImageSrc(src);
       }
     }
 
     return () => {
-      if (observer && imgRef.current) {
-        observer.unobserve(imgRef.current);
+      if (observer && currentImg) {
+        observer.unobserve(currentImg);
       }
     };
   }, [src, imageSrc, lazy]);

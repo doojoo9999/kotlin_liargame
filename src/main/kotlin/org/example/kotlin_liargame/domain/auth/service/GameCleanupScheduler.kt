@@ -66,7 +66,7 @@ class GameCleanupScheduler(
         try {
             val stats = adminService.getGameStatistics()
             logger.info("=== 게임 통계 ===")
-            logger.info("총 게임: {}, 대기 ��: {}, 진행 중: {}, 종료: {}",
+            logger.info("총 게임: {}, 대기 중: {}, 진행 중: {}, 종료: {}",
                 stats["totalGames"], stats["waitingGames"],
                 stats["inProgressGames"], stats["endedGames"])
             logger.info("총 플레이어: {}, 활성: {}, 연결 해제: {}",

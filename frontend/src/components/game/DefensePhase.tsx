@@ -9,7 +9,6 @@ import type {Player} from '@/stores';
 
 interface DefensePhaseProps {
   suspectedPlayer: Player | null;
-  currentPlayer: Player | null;
   timeRemaining: number;
   isDefending: boolean;
   canEndDefense: boolean;
@@ -17,7 +16,6 @@ interface DefensePhaseProps {
 
 export const DefensePhase: React.FC<DefensePhaseProps> = ({
   suspectedPlayer,
-  currentPlayer: _currentPlayer,
   timeRemaining,
   isDefending,
   canEndDefense,

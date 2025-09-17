@@ -1,3 +1,4 @@
+import type {GamePhase as BackendGamePhase} from './backendTypes'
 // Frontend Game Types - Re-exported from backend types for consistency
 export type PlayerID = string
 
@@ -37,7 +38,7 @@ export interface ActivityEvent {
   playerId?: PlayerID
   targetId?: PlayerID
   content?: string
-  phase: GamePhase
+  phase: BackendGamePhase
   timestamp: number
   highlight?: boolean
 }
@@ -57,7 +58,7 @@ export interface GuessAttempt {
 
 export interface GameStateV2 {
   gameId: string
-  phase: GamePhase
+  phase: BackendGamePhase
   currentRound: number
   totalRounds: number
   timeRemaining: number
@@ -77,4 +78,15 @@ export interface GameStateV2 {
     victoryAchieved?: boolean
   }
   scores: Record<PlayerID, number>
+}
+
+export type RoundPhase = 'waiting' | 'topic_reveal' | 'discussion' | 'voting' | 'results' | 'finished'
+
+export interface RoundInfo {
+  current: number
+  total: number
+  phase: RoundPhase
+  topic?: string | null
+  progress?: number
+  timeRemaining?: number
 }

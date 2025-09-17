@@ -218,11 +218,12 @@ class ApiClient {
 
         console.error('API Error Response:', errorData);
 
-        const errorMessage = errorData.message || 
-                           errorData.error || 
-                           errorData.text || 
-                           `HTTP ${response.status}: ${response.statusText}`;
-        
+        const errorMessage =
+          typeof errorData.message === 'string' ? errorData.message :
+          typeof errorData.error === 'string' ? errorData.error :
+          typeof errorData.text === 'string' ? errorData.text :
+          `HTTP ${response.status}: ${response.statusText}`;
+
         throw new Error(errorMessage);
       }
 

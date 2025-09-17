@@ -1,5 +1,5 @@
 import * as React from 'react'
-import type {GameStateV2, Player} from '@/types/game'
+import type {Player} from '@/types/game'
 import type {GamePhase} from '@/types/backendTypes'
 import {Badge} from '@/components/ui/badge'
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card'
@@ -10,7 +10,6 @@ import {CheckCircle, Clock, Crown, Eye, MessageCircle, Shield, Target, Users, Wi
 export interface PlayerStatusPanelProps {
   players: Player[]
   currentPhase: GamePhase
-  gameState: Pick<GameStateV2, 'timeRemaining' | 'scores'>
   className?: string
   currentPlayer: Player | null
   currentTurnPlayerId: string | null
@@ -18,18 +17,10 @@ export interface PlayerStatusPanelProps {
   suspectedPlayer?: string
   votes?: Record<string, string>
 }
-
-interface PlayerActivityLog {
-  playerId: string
-  action: string
-  timestamp: number
-  type: 'hint' | 'vote' | 'defense' | 'guess' | 'system'
-}
-
 export const PlayerStatusPanel: React.FC<PlayerStatusPanelProps> = ({
   players,
   currentPhase,
-  gameState,
+
   className,
   currentPlayer,
   currentTurnPlayerId,
@@ -37,8 +28,6 @@ export const PlayerStatusPanel: React.FC<PlayerStatusPanelProps> = ({
   isLiar = false,
   suspectedPlayer,
 }) => {
-  const [activityLog, setActivityLog] = React.useState<PlayerActivityLog[]>([])
-
   const getPlayerStatus = (player: Player) => {
     if (!player.isOnline) return 'offline'
     if (player.id === currentTurnPlayerId) return 'active'

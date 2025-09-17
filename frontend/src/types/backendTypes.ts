@@ -80,7 +80,7 @@ export interface GameStateResponse {
   reason?: string;
   targetPoints: number;
   scoreboard: ScoreboardEntry[];
-  finalVotingRecord?: any;
+  finalVotingRecord?: FinalVoteRecord[] | null;
 }
 
 export interface BackendPlayer {
@@ -100,6 +100,15 @@ export interface ScoreboardEntry {
   nickname: string;
   isAlive: boolean;
   score: number;
+}
+
+export interface FinalVoteRecord {
+  gameNumber: number;
+  voterPlayerId: number;
+  voterNickname: string;
+  voteForExecution: boolean;
+  success: boolean;
+  message?: string | null;
 }
 
 // Ready System Types
@@ -200,7 +209,7 @@ export interface RealtimeEvent {
   type: RealtimeEventType;
   gameNumber: number;
   timestamp: string;
-  [key: string]: any; // Additional event-specific data
+  [key: string]: unknown; // Additional event-specific data
 }
 
 // Chat System Types

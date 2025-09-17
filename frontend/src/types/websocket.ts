@@ -1,3 +1,5 @@
+import type {WebSocketChatMessage} from './index';
+
 // Shared WebSocket & real-time types
 export type MessageType =
   | 'GAME_STATE_UPDATE'
@@ -13,7 +15,7 @@ export type MessageType =
   | 'ERROR'
   | 'CHAT_MESSAGE';
 
-export interface IncomingMessage<T = any> {
+export interface IncomingMessage<T = unknown> {
   type: MessageType;
   gameId: string;
   userId?: string;
@@ -21,7 +23,7 @@ export interface IncomingMessage<T = any> {
   payload: T;
 }
 
-export interface OutgoingClientMessage<T = any> {
+export interface OutgoingClientMessage<T = unknown> {
   destination: string;
   body: T;
   optimisticUpdateId?: string;
@@ -29,19 +31,19 @@ export interface OutgoingClientMessage<T = any> {
 
 export interface GameStateUpdatePayload {
   // shape kept flexible; align later with backend contract
-  gameState: any;
+  gameState: unknown;
 }
 
 export interface PhaseChangePayload { phase: string; previousPhase: string; }
-export interface PlayerJoinedPayload { player: any; }
+export interface PlayerJoinedPayload { player: unknown; }
 export interface PlayerLeftPayload { playerId: string; }
 export interface HintSubmittedPayload { playerId: string; hint: string; order: number; }
 export interface VoteCastPayload { playerId: string; targetId: string; voteType?: string; }
 export interface DefenseSubmittedPayload { playerId: string; defense: string; }
 export interface WordGuessedPayload { playerId: string; guess: string; success?: boolean; }
-export interface RoundEndedPayload { round: number; results: any; }
+export interface RoundEndedPayload { round: number; results: Record<string, unknown>; }
 export interface GameEndedPayload { winners: string[]; scores: Record<string, number>; }
-export interface ErrorMessagePayload { code: string; message: string; details?: any; }
+export interface ErrorMessagePayload { code: string; message: string; details?: unknown; }
 
 export type MessagePayloadMap = {
   GAME_STATE_UPDATE: GameStateUpdatePayload;
@@ -55,5 +57,5 @@ export type MessagePayloadMap = {
   ROUND_ENDED: RoundEndedPayload;
   GAME_ENDED: GameEndedPayload;
   ERROR: ErrorMessagePayload;
-  CHAT_MESSAGE: any; // already handled separately
+  CHAT_MESSAGE: WebSocketChatMessage; // already handled separately
 };

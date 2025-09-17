@@ -73,7 +73,7 @@ describe('gameStoreV2 scoring & phase logic', () => {
     const s = useGameStoreV2.getState()
     s.startGame() // enters SPEECH first player L1
     // Force timeRemaining 1 to trigger auto submission
-    useGameStoreV2.setState(st => ({ timeRemaining: 1 }))
+    useGameStoreV2.setState(() => ({ timeRemaining: 1 }))
     s.tick()
     const hints = useGameStoreV2.getState().gameData.hints
     expect(hints.length).toBe(1)

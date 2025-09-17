@@ -187,7 +187,7 @@ class AdminController(
         }
 
         return try {
-            // 실제 연결이 끊어진 플레이��들을 정리
+            // 실제 연결이 끊어진 플레이어들을 정리
             val cleanedCount = adminService.cleanupDisconnectedPlayers()
             logger.debug("연결 해제된 플레이어 정리 완료: {}명", cleanedCount)
             ResponseEntity.ok(mapOf(

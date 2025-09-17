@@ -51,12 +51,12 @@ export function useWebSocketConnection() {
     } finally {
       setIsConnecting(false)
     }
-  }, [isConnecting, connectionState, connectWebSocket, setConnectionError])
+  }, [connectionState, connectWebSocket, isConnecting, setConnectionError, toast])
 
   const disconnect = useCallback(() => {
     disconnectWebSocket()
     toast.info('실시간 연결이 종료되었습니다')
-  }, [disconnectWebSocket])
+  }, [disconnectWebSocket, toast])
 
   const retry = useCallback(async () => {
     const isConnected = connectionState === 'connected'
@@ -370,6 +370,7 @@ export function useWebSocketConnection() {
     // Connection management
     connect,
     disconnect,
+    retry,
     isConnected: gameWebSocket.isConnected(),
     connectionState: gameWebSocket.getConnectionState(),
     reconnectAttempts: gameWebSocket.getReconnectAttempts(),

@@ -2,6 +2,7 @@ import SockJS from 'sockjs-client';
 import type {IMessage} from '@stomp/stompjs';
 import {Client, StompConfig} from '@stomp/stompjs';
 import {toast} from 'sonner';
+import type {ChatCallback, ChatMessage, ConnectionCallback, EventCallback, GameEvent} from '@/types/realtime';
 
 export interface WebSocketMessage {
   type: string;
@@ -10,28 +11,6 @@ export interface WebSocketMessage {
   gameId?: string;
   userId?: string;
 }
-
-export interface GameEvent {
-  type: 'PLAYER_JOINED' | 'PLAYER_LEFT' | 'GAME_STARTED' | 'ROUND_STARTED' |
-        'HINT_PROVIDED' | 'VOTE_CAST' | 'DEFENSE_SUBMITTED' | 'ROUND_ENDED' |
-        'GAME_ENDED' | 'CHAT_MESSAGE' | 'GAME_STATE_UPDATED';
-  gameId: string;
-  payload: any;
-  timestamp: number;
-}
-
-export interface ChatMessage {
-  id: string;
-  gameNumber: number;
-  playerNickname: string;
-  content: string;
-  timestamp: number;
-  type: 'DISCUSSION' | 'HINT' | 'DEFENSE' | 'SYSTEM' | 'POST_ROUND';
-}
-
-type EventCallback = (event: GameEvent) => void;
-type ChatCallback = (message: ChatMessage) => void;
-type ConnectionCallback = (connected: boolean) => void;
 
 class WebSocketService {
   private client: Client | null = null;
@@ -305,7 +284,8 @@ class WebSocketService {
       this.client.publish({ destination, body: JSON.stringify(body) });
       this.outboundListeners.forEach(l => l({ destination, body, sentAt: Date.now() }));
       return undefined;
-    } catch (e) {
+    } catch (error) {
+      console.warn('Failed to publish immediately, queueing message', { destination, error });
       return this.queueMessage(destination, body);
     }
   }
@@ -725,8 +705,12 @@ class WebSocketService {
       const chatMessage: ChatMessage = {
         id: String(raw.id ?? `${raw.gameNumber}-${raw.timestamp}`),
         gameNumber: raw.gameNumber ?? (raw.gameId ? Number(raw.gameId) : 0),
+        playerId: raw.playerId ? String(raw.playerId) : undefined,
+        userId: typeof raw.userId === 'number' ? raw.userId : undefined,
         playerNickname: raw.playerNickname ?? raw.playerName ?? 'SYSTEM',
+        playerName: raw.playerName ?? raw.playerNickname ?? undefined,
         content: raw.content ?? raw.message ?? '',
+        message: raw.message ?? raw.content ?? undefined,
         timestamp: typeof raw.timestamp === 'string' ? Date.parse(raw.timestamp) : Number(raw.timestamp ?? Date.now()),
         type: (raw.type || 'DISCUSSION') as ChatMessage['type']
       };

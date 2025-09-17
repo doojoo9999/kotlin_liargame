@@ -6,11 +6,9 @@ import {Badge} from '@/components/ui/badge';
 import {useGameFlow} from '@/hooks/useGameFlow';
 import {Crown, Target, Trophy, Users} from 'lucide-react';
 import type {GameResult} from '@/types/gameFlow';
-import type {Player} from '@/stores';
 
 interface GameResultsProps {
   gameResult?: GameResult | null;
-  players: Player[];
   currentRound: number;
   totalRounds: number;
   onNextRound?: () => void;
@@ -19,7 +17,7 @@ interface GameResultsProps {
 
 export const GameResults: React.FC<GameResultsProps> = ({
   gameResult,
-  players,
+
   currentRound,
   totalRounds,
   onNextRound,

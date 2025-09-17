@@ -1,4 +1,4 @@
-import {useEffect, useRef, useState} from 'react'
+import {useCallback, useEffect, useRef, useState} from 'react'
 import {Button} from '@/components/ui/button'
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card'
 import {Input} from '@/components/ui/input'
@@ -20,7 +20,6 @@ import {type Subject, subjectService} from '@/api/subjectApi'
 
 export function TopicManagementSection() {
   const [topics, setTopics] = useState<Subject[]>([])
-  const [loading, setLoading] = useState(false)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [newTopic, setNewTopic] = useState({
     title: '',
@@ -29,14 +28,8 @@ export function TopicManagementSection() {
   const { toast } = useToast()
   const titleInputRef = useRef<HTMLInputElement>(null)
 
-  // 주제 목록 로드
-  useEffect(() => {
-    loadTopics();
-  }, [])
-
-  const loadTopics = async () => {
+  const loadTopics = useCallback(async () => {
     try {
-      setLoading(true);
       const response = await subjectService.getSubjects();
       setTopics(response.subjects || []);
     } catch (error) {
@@ -46,10 +39,12 @@ export function TopicManagementSection() {
         description: "주제 목록을 불러오는 중 오류가 발생했습니다",
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
     }
-  }
+  }, [toast]);
+
+  useEffect(() => {
+    loadTopics();
+  }, [loadTopics]);
 
   const handleCreateTopic = async () => {
     if (!newTopic.title.trim()) {

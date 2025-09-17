@@ -30,8 +30,24 @@ export class ConflictResolver {
     return states.reduce((acc, s) => ({ ...acc, ...s }), {});
   }
 
-  validateTransition(_from: GameStateResponse | null, _to: GameStateResponse | null): boolean {
-    return true; // placeholder
+  validateTransition(from: GameStateResponse | null, to: GameStateResponse | null): boolean {
+    if (!from || !to) {
+      return true;
+    }
+
+    if (from.gameNumber !== to.gameNumber) {
+      return false;
+    }
+
+    if (to.gameCurrentRound < from.gameCurrentRound) {
+      return false;
+    }
+
+    if (to.gameCurrentRound === from.gameCurrentRound) {
+      return to.currentTurnIndex >= from.currentTurnIndex;
+    }
+
+    return true;
   }
 }
 

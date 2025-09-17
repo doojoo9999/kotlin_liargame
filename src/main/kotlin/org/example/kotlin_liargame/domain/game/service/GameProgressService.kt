@@ -343,7 +343,7 @@ class GameProgressService(
     
     /**
      * 플레이어에게 점수를 부여하고 목표 점수 달성 여부를 확인합니다.
-     * @param playerId 점수를 받��� 플레이어 ID
+     * @param playerId 점수를 받은 플레이어 ID
      * @param points 부여할 점수
      * @param game 게임 엔티티
      * @return 목표 점수 달성 여부

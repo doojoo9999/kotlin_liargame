@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { cn, formatTime, capitalizeFirst, generateId, sleep } from './utils';
+import {describe, expect, it} from 'vitest';
+import {capitalizeFirst, cn, formatTime, generateId, sleep} from './utils';
 
 describe('Utils', () => {
   describe('cn (className utility)', () => {
@@ -9,7 +9,9 @@ describe('Utils', () => {
     });
 
     it('handles conditional classes', () => {
-      const result = cn('base', true && 'conditional', false && 'not-included');
+      const includeConditional = true;
+      const includeSkipped = false;
+      const result = cn('base', includeConditional && 'conditional', includeSkipped && 'not-included');
       expect(result).toBe('base conditional');
     });
 

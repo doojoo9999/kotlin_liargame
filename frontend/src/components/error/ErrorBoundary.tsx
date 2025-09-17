@@ -1,5 +1,6 @@
-import React, {Component, ErrorInfo, ReactNode} from 'react';
-import {AlertTriangle, Home, RefreshCw, X} from 'lucide-react';
+import type {ComponentType, ErrorInfo, ReactNode} from 'react';
+import {Component, useCallback} from 'react';
+import {AlertTriangle, RefreshCw, X} from 'lucide-react';
 import {Button} from '@/components/ui/button';
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
 
@@ -182,7 +183,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
 // Higher-order component for easier usage
 export function withErrorBoundary<P extends object>(
-  Component: React.ComponentType<P>,
+  Component: ComponentType<P>,
   fallback?: ReactNode,
   onError?: (error: Error, errorInfo: ErrorInfo) => void
 ) {
@@ -197,7 +198,7 @@ export function withErrorBoundary<P extends object>(
 
 // Hook for error reporting
 export function useErrorHandler() {
-  return React.useCallback((error: Error, context?: string) => {
+  return useCallback((error: Error, context?: string) => {
     console.error(`Error${context ? ` in ${context}` : ''}:`, error);
     
     // In production, send to error reporting service

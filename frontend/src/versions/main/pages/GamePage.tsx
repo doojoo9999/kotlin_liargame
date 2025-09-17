@@ -64,7 +64,7 @@ export function MainGamePage() {
     }
 
     initializeGame()
-  }, [gameId])
+  }, [gameId, gameNumber, setGameNumber, updateFromGameState, toast])
 
   const handleReturnToLobby = () => {
     resetGame()

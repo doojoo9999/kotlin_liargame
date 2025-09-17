@@ -10,7 +10,6 @@ import type {Player} from '@/stores';
 interface GuessPhaseProps {
   currentTopic: string | null;
   liarPlayer: Player | null;
-  currentPlayer: Player | null;
   timeRemaining: number;
   isLiar: boolean;
   hints: string[];
@@ -19,7 +18,7 @@ interface GuessPhaseProps {
 export const GuessPhase: React.FC<GuessPhaseProps> = ({
   currentTopic,
   liarPlayer,
-  currentPlayer,
+
   timeRemaining,
   isLiar,
   hints = [],

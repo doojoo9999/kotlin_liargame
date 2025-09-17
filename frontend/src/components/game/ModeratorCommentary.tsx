@@ -12,7 +12,6 @@ interface ModeratorCommentaryProps {
   timeRemaining: number;
   isLiar: boolean;
   playerCount: number;
-  currentTurnPlayer?: string;
   suspectedPlayer?: string;
 }
 
@@ -32,13 +31,13 @@ export const ModeratorCommentary: React.FC<ModeratorCommentaryProps> = ({
   timeRemaining,
   isLiar,
   playerCount,
-  currentTurnPlayer,
+
   suspectedPlayer,
 }) => {
   const [currentComment, setCurrentComment] = useState<CommentaryContent | null>(null);
   const [isUrgent, setIsUrgent] = useState(false);
 
-  const getCommentaryContent = (): CommentaryContent => {
+  const getCommentaryContent = React.useCallback((): CommentaryContent => {
     switch (gamePhase) {
       case 'WAITING_FOR_PLAYERS':
         return {
@@ -154,13 +153,13 @@ export const ModeratorCommentary: React.FC<ModeratorCommentaryProps> = ({
           color: 'blue'
         };
     }
-  };
+  }, [gamePhase, playerCount, isLiar, timeRemaining, currentTopic, currentWord, suspectedPlayer]);
 
   useEffect(() => {
     const content = getCommentaryContent();
     setCurrentComment(content);
     setIsUrgent(!!content.urgentMessage || timeRemaining <= 10);
-  }, [gamePhase, currentTopic, currentWord, timeRemaining, isLiar, suspectedPlayer]);
+  }, [getCommentaryContent, timeRemaining]);
 
   const colorClasses = {
     blue: 'border-blue-500 bg-blue-50 text-blue-900',

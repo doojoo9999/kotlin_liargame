@@ -69,6 +69,7 @@ export class MockWebSocket {
   static CLOSED = 3;
 
   readyState = MockWebSocket.CONNECTING;
+  readonly url: string;
   onopen: ((event: Event) => void) | null = null;
   onmessage: ((event: MessageEvent) => void) | null = null;
   onclose: ((event: CloseEvent) => void) | null = null;
@@ -76,7 +77,8 @@ export class MockWebSocket {
   send = vi.fn();
   close = vi.fn();
 
-  constructor(__url: string) {
+  constructor(url: string) {
+    this.url = url;
     // Don't auto-connect in constructor to allow test control
   }
 

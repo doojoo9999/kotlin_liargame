@@ -1,18 +1,20 @@
 import {apiClient} from './client';
 import type {
-    CountdownResponse,
     DefenseResponse,
     GameListResponse,
-    GameMode,
     GameRoomInfo,
-    GameStateResponse,
     GuessResponse,
     JoinGameRequest,
-    PlayerReadyResponse,
-    VoteResponse,
-    VotingStatusResponse
+    VoteResponse
 } from '../types/api';
-import type {CreateGameRequest} from '../types/backendTypes';
+import type {
+    CountdownResponse,
+    CreateGameRequest,
+    GameMode,
+    GameStateResponse,
+    PlayerReadyResponse,
+    VotingStatusResponse
+} from '../types/backendTypes';
 import type {ChatMessage, RoundEndResponse} from '../types/gameFlow';
 
 export class GameService {

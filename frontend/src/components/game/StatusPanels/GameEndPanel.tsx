@@ -24,9 +24,9 @@ export const GameEndPanel: React.FC<GameEndPanelProps> = ({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const loadGameResult = async () => {
+  const loadGameResult = React.useCallback(async () => {
     if (loading) return
-    
+
     setLoading(true)
     try {
       const data = await gameApi.getRoundResults(gameNumber.toString())
@@ -34,19 +34,19 @@ export const GameEndPanel: React.FC<GameEndPanelProps> = ({
       // This is a type mismatch that needs to be resolved at the API level
       setResult(data as any)
       setError(null)
-    } catch (err) {
-      console.error('Failed to load game result:', err)
+    } catch (error) {
+      console.error('Failed to load game result:', error)
       setError('게임 결과를 불러올 수 없습니다.')
     } finally {
       setLoading(false)
     }
-  }
+  }, [gameNumber, loading])
 
   useEffect(() => {
-    if (gameNumber && !gameResult) {
+    if (gameNumber && !gameResult && !result) {
       loadGameResult()
     }
-  }, [gameNumber, gameResult, loadGameResult])
+  }, [gameNumber, gameResult, result, loadGameResult])
 
   if (!result) {
     return (

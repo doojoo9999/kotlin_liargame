@@ -5,7 +5,7 @@ import {CheckCircle2, Eye, MessageSquare, Target, Trophy, Users, Vote} from "luc
 import {cn} from "@/lib/utils"
 import {Card, CardContent} from "@/components/ui/card"
 import {Progress} from "@/components/ui/progress"
-import type {GamePhase, RoundInfo} from "@/types/game"
+import type {RoundInfo, RoundPhase} from "@/types/game"
 
 export interface RoundIndicatorProps {
   roundInfo: RoundInfo
@@ -73,10 +73,10 @@ const phaseConfig = {
   }
 }
 
-const gamePhases: GamePhase['phase'][] = ['waiting', 'topic_reveal', 'discussion', 'voting', 'results', 'finished']
+const gamePhases: RoundPhase[] = ['waiting', 'topic_reveal', 'discussion', 'voting', 'results', 'finished']
 
 const PhaseStep: React.FC<{
-  phase: GamePhase['phase']
+  phase: RoundPhase
   isActive: boolean
   isCompleted: boolean
   isFirst?: boolean
@@ -361,7 +361,7 @@ export const RoundIndicator: React.FC<RoundIndicatorProps> = ({
   )
 }
 
-function getPhaseInstructions(phase: GamePhase['phase']): string {
+function getPhaseInstructions(phase: RoundPhase): string {
   switch (phase) {
     case 'waiting':
       return "Waiting for all players to join and ready up. The game will start once everyone is ready."

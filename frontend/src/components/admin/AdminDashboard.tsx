@@ -8,7 +8,7 @@ import {
     AlertTriangle,
     CheckCircle,
     Clock,
-    GameController2,
+    Gamepad2,
     LogOut,
     RefreshCw,
     Trash2,
@@ -43,7 +43,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
     fetchProfanityRequests,
     fetchPendingContent,
     terminateGame,
-    kickPlayer,
     grantAdminRole,
     approveProfanityRequest,
     rejectProfanityRequest,
@@ -64,7 +63,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
     fetchPlayers();
     fetchProfanityRequests();
     fetchPendingContent();
-  }, []);
+  }, [
+    fetchStatistics,
+    fetchActiveGames,
+    fetchPlayers,
+    fetchProfanityRequests,
+    fetchPendingContent
+  ]);
 
   useEffect(() => {
     if (error) {
@@ -83,6 +88,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
       const result = await action();
       toast.success(result.message || successMessage);
     } catch (error) {
+      console.error('Cleanup operation failed', error);
       toast.error('Cleanup operation failed');
     }
   };
@@ -141,7 +147,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">Total Games</CardTitle>
-                    <GameController2 className="h-4 w-4 text-muted-foreground" />
+                    <Gamepad2 className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold">{statistics.totalGames}</div>

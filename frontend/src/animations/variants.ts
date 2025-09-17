@@ -1,6 +1,99 @@
 // Framer Motion animation variants for consistent animations across the application
-import {Variants} from 'framer-motion'
+import type {Variants} from 'framer-motion'
 
+
+const baseAnimationVariants = {
+  slideIn: {
+    initial: { opacity: 0, x: -50 },
+    animate: {
+      opacity: 1,
+      x: 0,
+      transition: { type: 'spring', stiffness: 300, damping: 30 }
+    },
+    exit: { opacity: 0, x: 50 }
+  },
+  fadeIn: {
+    initial: { opacity: 0 },
+    animate: {
+      opacity: 1,
+      transition: { duration: 0.5 }
+    },
+    exit: { opacity: 0 }
+  },
+  scaleIn: {
+    initial: { opacity: 0, scale: 0.8 },
+    animate: {
+      opacity: 1,
+      scale: 1,
+      transition: { type: 'spring', stiffness: 400, damping: 25 }
+    },
+    exit: { opacity: 0, scale: 0.8 }
+  },
+  bounceIn: {
+    initial: { opacity: 0, y: -100 },
+    animate: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        type: 'spring',
+        stiffness: 600,
+        damping: 20,
+        bounce: 0.6
+      }
+    },
+    exit: { opacity: 0, y: 100 }
+  },
+  slideUp: {
+    initial: { opacity: 0, y: 50 },
+    animate: {
+      opacity: 1,
+      y: 0,
+      transition: { type: 'spring', stiffness: 400, damping: 30 }
+    },
+    exit: { opacity: 0, y: -50 }
+  },
+  slideDown: {
+    initial: { opacity: 0, y: -50 },
+    animate: {
+      opacity: 1,
+      y: 0,
+      transition: { type: 'spring', stiffness: 400, damping: 30 }
+    },
+    exit: { opacity: 0, y: 50 }
+  }
+} satisfies Record<string, Variants>
+
+export type AnimationType = keyof typeof baseAnimationVariants
+
+export const animationVariants: Record<AnimationType, Variants> = baseAnimationVariants
+
+export const pageSlide: Variants = {
+  initial: { opacity: 0, x: 40 },
+  animate: {
+    opacity: 1,
+    x: 0,
+    transition: { duration: 0.4, ease: 'easeOut' }
+  },
+  exit: {
+    opacity: 0,
+    x: -40,
+    transition: { duration: 0.3, ease: 'easeIn' }
+  }
+}
+
+export const scoreUpdate: Variants = {
+  initial: { opacity: 0, scale: 0.85 },
+  animate: {
+    opacity: 1,
+    scale: 1,
+    transition: { type: 'spring', stiffness: 500, damping: 25 }
+  },
+  exit: {
+    opacity: 0,
+    scale: 1.05,
+    transition: { duration: 0.2, ease: 'easeIn' }
+  }
+}
 // Phase transition animations
 export const phaseTransition: Variants = {
   initial: {

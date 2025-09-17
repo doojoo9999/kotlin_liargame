@@ -1,4 +1,4 @@
-import {useEffect, useState} from 'react'
+import {useCallback, useEffect, useState} from 'react'
 import {useNavigate} from 'react-router-dom'
 import {Button} from '@/components/ui/button'
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card'
@@ -58,11 +58,8 @@ export function GameRoomsSection() {
     gameList,
     gameListLoading,
     gameListError,
-    availableGameModes,
     isLoading,
     fetchGameList,
-    createGame,
-    joinGame,
     fetchGameModes
   } = useGameStore()
 
@@ -71,7 +68,7 @@ export function GameRoomsSection() {
     fetchGameList()
     fetchGameModes()
     fetchSubjects()
-  }, [fetchGameList, fetchGameModes])
+  }, [fetchGameList, fetchGameModes, fetchSubjects])
 
   // 닉네임이 변경되거나 처음 설정될 때 기본 방 이름 설정
   useEffect(() => {
@@ -81,7 +78,7 @@ export function GameRoomsSection() {
   }, [nickname, roomNameClicked])
 
   // 주제 목록 불러오기
-  const fetchSubjects = async () => {
+  const fetchSubjects = useCallback(async () => {
     setSubjectsLoading(true)
     try {
       const response = await subjectApi.getSubjects()
@@ -92,6 +89,7 @@ export function GameRoomsSection() {
         selectedSubjectIds: response.subjects.map(subject => subject.id)
       }))
     } catch (error) {
+      console.error('Failed to fetch subjects:', error);
       toast({
         title: "주제 목록 불러오기 실패",
         description: "주제 목록을 불러오는 중 오류가 발생했습니다",
@@ -100,7 +98,7 @@ export function GameRoomsSection() {
     } finally {
       setSubjectsLoading(false)
     }
-  }
+  }, [toast])
 
   const handleCreateRoom = async () => {
     if (!newRoom.gameName.trim()) {

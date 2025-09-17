@@ -1,4 +1,4 @@
-import {useEffect, useRef} from 'react';
+import {useCallback, useEffect, useRef} from 'react';
 import {useAuthStore} from '../stores/authStore';
 import {useModal} from '@/contexts/ModalContext';
 
@@ -20,7 +20,7 @@ export function useSessionManager() {
   };
 
   // 세션 갱신 함수
-  const refreshSession = async () => {
+  const refreshSession = useCallback(async () => {
     if (!isAuthenticated) return;
 
     // 모달이 열려있는 경우 세션 갱신을 연기
@@ -44,7 +44,7 @@ export function useSessionManager() {
       // 세션 갱신 실패 시 로그아웃 처리
       await logout();
     }
-  };
+  }, [activeModals, checkAuth, isAnyModalOpen, isAuthenticated, logout]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -84,7 +84,7 @@ export function useSessionManager() {
         intervalRef.current = null;
       }
     };
-  }, [isAuthenticated, checkAuth, logout, isAnyModalOpen, activeModals]);
+  }, [activeModals, checkAuth, isAuthenticated, isAnyModalOpen, logout, refreshSession]);
 
   return {
     refreshSession,

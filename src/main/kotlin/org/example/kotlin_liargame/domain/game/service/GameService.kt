@@ -706,83 +706,6 @@ class GameService(
         return players.find { it.state == PlayerState.ACCUSED || it.state == PlayerState.DEFENDED }
     }
 
-    // 테스트 도우미(미사용)
-    private fun createTestSubjects(): List<SubjectEntity> {
-        logger.debug("Creating test subjects for testing")
-
-        val animalSubject = SubjectEntity(
-            content = "동물",
-            word = emptyList()
-        )
-
-        val fruitSubject = SubjectEntity(
-            content = "과일",
-            word = emptyList()
-        )
-
-        val foodSubject = SubjectEntity(
-            content = "음식",
-            word = emptyList()
-        )
-
-        val jobSubject = SubjectEntity(
-            content = "직업",
-            word = emptyList()
-        )
-
-        val savedAnimalSubject = subjectRepository.save(animalSubject)
-        val savedFruitSubject = subjectRepository.save(fruitSubject)
-        val savedFoodSubject = subjectRepository.save(foodSubject)
-        val savedJobSubject = subjectRepository.save(jobSubject)
-
-        val animalWords = listOf("호랑이", "사자", "코끼리", "기린", "원숭이", "곰", "늑대")
-        animalWords.forEach { wordContent ->
-            val word = org.example.kotlin_liargame.domain.word.model.WordEntity(
-                content = wordContent,
-                subject = savedAnimalSubject
-            )
-            wordRepository.save(word)
-        }
-
-        val fruitWords = listOf("사과", "바나나", "오렌지", "포도", "딸기", "수박", "복숭아")
-        fruitWords.forEach { wordContent ->
-            val word = org.example.kotlin_liargame.domain.word.model.WordEntity(
-                content = wordContent,
-                subject = savedFruitSubject
-            )
-            wordRepository.save(word)
-        }
-
-        val foodWords = listOf("김치", "불고기", "비빔밥", "냉면", "떡볶이", "치킨", "피자")
-        foodWords.forEach { wordContent ->
-            val word = org.example.kotlin_liargame.domain.word.model.WordEntity(
-                content = wordContent,
-                subject = savedFoodSubject
-            )
-            wordRepository.save(word)
-        }
-
-        val jobWords = listOf("의사", "교사", "개���자", "간호사", "요리사", "경찰관", "소방관")
-        jobWords.forEach { wordContent ->
-            val word = org.example.kotlin_liargame.domain.word.model.WordEntity(
-                content = wordContent,
-                subject = savedJobSubject
-            )
-            wordRepository.save(word)
-        }
-
-        wordRepository.flush()
-        subjectRepository.flush()
-
-        val subjects = subjectRepository.findAll().toList()
-        logger.debug("Created test subjects: ${subjects.size}")
-        subjects.forEach { subject ->
-            logger.debug("Test subject '${subject.content}' (ID: ${subject.id}) has ${subject.word.size} words")
-        }
-
-        return subjects
-    }
-
     fun findPlayerInActiveGame(userId: Long): PlayerEntity? {
         return playerRepository.findByUserIdAndGameInProgress(userId)
     }
@@ -850,7 +773,7 @@ class GameService(
             logger.debug("플레이어 연결 해제 처리: userId={}, gameNumber={}, nickname={}",
                 userId, it.game.gameNumber, it.nickname)
 
-            // 연결 해제된 플레이어는 게임��서 즉시 제거
+            // 연결 해제된 플레이어는 게임에서 즉시 제거
             leaveGameAsSystem(it.game.gameNumber, userId)
         }
     }
@@ -861,7 +784,7 @@ class GameService(
         player?.let {
             // DISCONNECTED 상태 체크 제거 - 연결 해제된 플레이어는 이미 게임에서 제거됨
             // 재연결 시에는 새로 게임에 참여해야 함
-            logger.debug("플레이어 재연결 시도: userId={}, 하지만 연결 해제된 플레이어는 이미 게임에서 제거되었습니���", userId)
+            logger.debug("플레이어 재연결 시도: userId={}, 하지만 연결 해제된 플레이어는 이미 게임에서 제거되었습니다", userId)
         }
     }
 

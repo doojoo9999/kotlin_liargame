@@ -18,8 +18,12 @@ class MessageHandlerRegistry {
 
   dispatch(message: IncomingMessage) {
     const list = this.handlers[message.type] || [];
-    list.forEach(h => {
-      try { (h as any)(message.payload, message); } catch (e) { /* eslint-disable no-console */ console.error('handler error', e); }
+    list.forEach(handler => {
+      try {
+        (handler as any)(message.payload, message);
+      } catch (error) {
+        console.error('handler error', error);
+      }
     });
   }
 }

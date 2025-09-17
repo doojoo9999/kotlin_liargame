@@ -11,7 +11,6 @@ export function useWebSocket(gameId?: string) {
   const {
     status,
     connect,
-    disconnect,
     processQueue,
   } = useConnectionStore();
   const { gameNumber } = useGameStore();
@@ -46,4 +45,3 @@ export function useWebSocket(gameId?: string) {
     reconnecting: status === 'reconnecting' || status === 'connecting',
   };
 }
-

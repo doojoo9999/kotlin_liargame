@@ -7,7 +7,7 @@ export type ModalType = 'NONE' | 'CONFIRM' | 'ALERT' | 'GAME_SETTINGS' | 'PLAYER
 export interface ModalState {
   id: string;
   type: ModalType;
-  props?: Record<string, any>;
+  props?: Record<string, unknown>;
 }
 
 export interface NotificationItem {
@@ -22,7 +22,7 @@ export interface NotificationItem {
 export interface OutgoingMessage {
   id: string;
   destination: string;
-  body: any;
+  body: unknown;
   timestamp: number;
   attempts: number;
   optimisticUpdateId?: string;
@@ -42,7 +42,7 @@ export interface LatencySample {
   rtt: number;
 }
 
-export interface OptimisticUpdate<StateShape = any> {
+export interface OptimisticUpdate<StateShape = unknown> {
   id: string;
   action: string;
   optimisticState: Partial<StateShape>;
@@ -57,7 +57,7 @@ export interface SyncIssue {
   type: 'CONFLICT' | 'OUT_OF_ORDER' | 'VALIDATION_ERROR';
   description: string;
   timestamp: number;
-  data?: any;
+  data?: unknown;
 }
 
 export interface UIStoreState {
@@ -71,7 +71,7 @@ export interface UIStoreState {
   sidebarOpen: boolean;
   chatOpen: boolean;
   settingsOpen: boolean;
-  formData: Record<string, any>;
+  formData: Record<string, unknown>;
   formErrors: Record<string, string>;
   unreadChat: number;
   lastChatMessage?: ChatMessage;
@@ -89,8 +89,8 @@ export interface UIStoreActions {
   toggleSidebar: (open?: boolean) => void;
   toggleChat: (open?: boolean) => void;
   toggleSettings: (open?: boolean) => void;
-  setFormData: (data: Record<string, any>) => void;
-  updateFormField: (field: string, value: any) => void;
+  setFormData: (data: Record<string, unknown>) => void;
+  updateFormField: (field: string, value: unknown) => void;
   setFormErrors: (errs: Record<string, string>) => void;
   clearForm: () => void;
   registerChatMessage: (msg: ChatMessage) => void;
@@ -118,14 +118,14 @@ export interface ConnectionStoreState {
 export interface ConnectionStoreActions {
   connect: (gameId?: string, userId?: string) => Promise<void>;
   disconnect: () => void;
-  sendMessage: (destination: string, body: any, opts?: { optimisticState?: any }) => void;
+  sendMessage: (destination: string, body: unknown, opts?: { optimisticState?: unknown }) => void;
   queueMessage: (msg: Omit<OutgoingMessage, 'id' | 'timestamp' | 'attempts'> & { id?: string }) => string;
   processQueue: () => Promise<void>;
   setStatus: (status: ConnectionStatus, error?: string) => void;
   recordLatency: (sample: LatencySample) => void;
   clearLatency: () => void;
   addOptimisticUpdate: (update: Omit<OptimisticUpdate, 'id' | 'timestamp' | 'confirmed' | 'rolledBack'>) => string;
-  confirmOptimistic: (id: string, serverState?: any) => void;
+  confirmOptimistic: (id: string, serverState?: unknown) => void;
   rollbackOptimistic: (id: string) => void;
   addSyncIssue: (issue: Omit<SyncIssue, 'id' | 'timestamp'>) => void;
   clearSyncIssues: () => void;

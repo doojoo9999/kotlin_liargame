@@ -80,7 +80,7 @@ export const useConnectionStore = create<ConnectionStoreState & ConnectionStoreA
           const gameStore = useGameStore.getState();
             const original: any = {};
           for (const k of Object.keys(opts.optimisticState)) {
-            // @ts-ignore
+            // @ts-expect-error: copying dynamic state slice
             original[k] = (gameStore as any)[k];
           }
           optimisticId = get().addOptimisticUpdate({

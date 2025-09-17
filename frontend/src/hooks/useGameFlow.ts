@@ -20,13 +20,7 @@ export const useGameFlow = () => {
     isLiar,
     setLoading,
     setError,
-    setGamePhase,
-    updateTimer,
-    startVoting,
-    stopVoting,
     addVote,
-    setVotingResults,
-    addChatMessage,
     setChatMessages,
   } = useGameStore();
 

@@ -8,3 +8,5 @@ export { useAdminStore } from './adminStore';
 // Legacy stores - deprecated, use unified store instead
 export { default as useGameStoreLegacy } from './gameStore';
 export { useGameStoreV2 } from './gameStoreV2';
+export type { Player } from './unifiedGameStore'
+export type { GamePhase } from '@/types/backendTypes'

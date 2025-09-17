@@ -1,14 +1,22 @@
+import type {
+    BackendPlayer,
+    CastVoteResponse,
+    CountdownResponse as BackendCountdownResponse,
+    CreateGameRequest as BackendCreateGameRequest,
+    DefenseSubmissionResponse,
+    GameMode,
+    GameState as BackendGameState,
+    GameStateResponse as BackendGameStateResponse,
+    JoinGameRequest as BackendJoinGameRequest,
+    PlayerReadyResponse as BackendPlayerReadyResponse,
+    ScoreboardEntry as BackendScoreboardEntry,
+    VotingStatusResponse as BackendVotingStatusResponse,
+    WordGuessResponse,
+} from './backendTypes'
+import type {APIResponse} from './index'
 
-// API Response Types
-export interface ApiResponse<T = unknown> {
-  success: boolean
-  data: T
-  message?: string
-  error?: string
-  timestamp?: string
-}
+export type ApiResponse<T = unknown> = APIResponse<T>
 
-// Error Response
 export interface ApiError {
   success: false
   error: string
@@ -17,14 +25,13 @@ export interface ApiError {
   timestamp: string
 }
 
-// Pagination
 export interface PaginationParams {
   page?: number
   size?: number
   sort?: string
 }
 
-export interface PaginatedResponse<T> extends ApiResponse<T[]> {
+export type PaginatedResponse<T> = ApiResponse<T[]> & {
   pagination: {
     page: number
     size: number
@@ -35,38 +42,22 @@ export interface PaginatedResponse<T> extends ApiResponse<T[]> {
   }
 }
 
-// Game API Types
 export interface GameRoom {
   gameNumber: number
   gameName: string
   gameOwner: string
-  gameState: 'WAITING' | 'IN_PROGRESS' | 'ENDED'
-  gameMode: string
+  gameState: BackendGameState
+  gameMode: GameMode
   gameParticipants: number
   gameMaxPlayers: number
   isPrivate: boolean
   createdAt: string
 }
 
-export interface CreateGameRequest {
-  nickname?: string;
-  gameName?: string;
-  gamePassword?: string;
-  gameParticipants: number;
-  gameTotalRounds: number;
-  gameLiarCount: number;
-  gameMode: 'LIARS_KNOW' | 'LIARS_DIFFERENT_WORD';
-  subjectIds?: number[];
-  useRandomSubjects?: boolean;
-  randomSubjectCount?: number;
-  targetPoints: number;
-}
+export type CreateGameRequest = BackendCreateGameRequest
 
-export interface JoinGameRequest {
-  gameNumber: number
+export type JoinGameRequest = BackendJoinGameRequest & {
   password?: string
-  gamePassword?: string
-  nickname?: string
 }
 
 export interface GameRoomInfo {
@@ -76,76 +67,36 @@ export interface GameRoomInfo {
   currentPlayers: number
   maxPlayers: number
   hasPassword: boolean
-  state: 'WAITING' | 'IN_PROGRESS' | 'ENDED'
+  state: BackendGameState
   subjects: string[]
   subject?: string | null
-  players?: unknown[]
-  // Legacy aliases for backward compatibility
+  players?: BackendPlayer[]
   gameName?: string
   gameOwner?: string
   gameParticipants?: number
   gameMaxPlayers?: number
   isPrivate?: boolean
-  gameState?: 'WAITING' | 'IN_PROGRESS' | 'ENDED'
-  gameMode?: 'LIARS_KNOW' | 'LIARS_DIFFERENT_WORD' | string
+  gameState?: BackendGameState
+  gameMode?: GameMode | string
 }
 
-export interface GameListResponse {
+export type GameListResponse = ApiResponse<GameRoomInfo[]> & {
   gameRooms?: GameRoomInfo[]
   games?: GameRoomInfo[]
   data?: GameRoomInfo[]
 }
 
-export interface PlayerResponse {
-  id: number;
-  userId: number;
-  nickname: string;
-  isAlive: boolean;
-  state: string;
-  hint?: string;
-  defense?: string;
-  votesReceived: number;
-  hasVoted: boolean;
-  role?: 'CITIZEN' | 'LIAR';
+export type PlayerResponse = BackendPlayer & {
+  role?: 'CITIZEN' | 'LIAR'
 }
 
-export interface ScoreboardEntry {
-  userId: number;
-  nickname: string;
-  isAlive: boolean;
-  score: number;
+export type ScoreboardEntry = BackendScoreboardEntry
+
+export type GameStateResponse = BackendGameStateResponse & {
+  state?: BackendGameState
+  phase?: BackendGameStateResponse['currentPhase']
 }
 
-export interface GameStateResponse {
-  gameNumber: number;
-  gameName: string;
-  gameOwner: string;
-  gameParticipants: number;
-  gameCurrentRound: number;
-  gameTotalRounds: number;
-  gameLiarCount: number;
-  gameMode: 'LIARS_KNOW' | 'LIARS_DIFFERENT_WORD';
-  gameState: 'WAITING' | 'IN_PROGRESS' | 'ENDED';
-  players: PlayerResponse[];
-  currentPhase: 'WAITING_FOR_PLAYERS' | 'SPEECH' | 'VOTING_FOR_LIAR' | 'DEFENDING' | 'VOTING_FOR_SURVIVAL' | 'GUESSING_WORD' | 'GAME_OVER';
-  yourRole?: string;
-  yourWord?: string;
-  accusedPlayer?: PlayerResponse;
-  isChatAvailable: boolean;
-  citizenSubject?: string;
-  liarSubject?: string;
-  subjects?: string[];
-  turnOrder?: string[];
-  currentTurnIndex?: number;
-  phaseEndTime?: string;
-  winner?: string;
-  reason?: string;
-  targetPoints: number;
-  scoreboard: ScoreboardEntry[];
-  finalVotingRecord?: any[];
-}
-
-// Chat API Types
 export interface ChatMessage {
   id: string
   gameNumber: number
@@ -164,7 +115,6 @@ export interface SendChatRequest {
 
 export type ChatHistoryResponse = ApiResponse<ChatMessage[]>
 
-// Game Action Types
 export interface VoteRequest {
   gameNumber: number
   targetUserId: number
@@ -190,71 +140,18 @@ export interface FinalVoteRequest {
   voteForExecution: boolean
 }
 
-// Response Types to match backend
-export interface VoteResponse {
-  voterNickname: string;
-  targetNickname: string;
-  success: boolean;
-  message?: string;
-}
+export type VoteResponse = CastVoteResponse
 
-export interface DefenseResponse {
-  gameNumber: number;
-  playerId: number;
-  playerNickname: string;
-  defenseText: string;
-  success: boolean;
-}
+export type DefenseResponse = DefenseSubmissionResponse
 
-export interface GuessResponse {
-  gameNumber: number;
-  guess: string;
-  isCorrect: boolean;
-  actualWord: string;
-  success: boolean;
-}
+export type GuessResponse = WordGuessResponse
 
-// Additional response types for new endpoints
-export interface PlayerReadyResponse {
-  playerId: number;
-  nickname: string;
-  isReady: boolean;
-  allPlayersReady: boolean;
-  readyCount: number;
-  totalPlayers: number;
-}
+export type PlayerReadyResponse = BackendPlayerReadyResponse
 
-export interface CountdownResponse {
-  gameNumber: number;
-  countdownEndTime?: string;
-  durationSeconds: number;
-  canCancel: boolean;
-}
+export type CountdownResponse = BackendCountdownResponse
 
-export interface VotingStatusResponse {
-  gameNumber: number;
-  currentVotes: number;
-  requiredVotes: number;
-  totalPlayers: number;
-  votedPlayers: Array<{
-    userId: number;
-    nickname: string;
-    votedAt?: string;
-  }>;
-  pendingPlayers: Array<{
-    userId: number;
-    nickname: string;
-    votedAt?: string;
-  }>;
-  votingDeadline?: string;
-  canChangeVote: boolean;
-}
+export type VotingStatusResponse = BackendVotingStatusResponse
 
-// Subject and Word Management interfaces are now in their respective API files:
-// - Subject interfaces: /api/subjectApi.ts
-// - Word interfaces: /api/wordApi.ts
-
-// Admin API Types
 export interface AdminStats {
   totalGames: number
   activeGames: number
@@ -270,5 +167,4 @@ export interface PlayerInfo {
   joinedAt: string
 }
 
-// Generic API Client Response
 export type ApiClientResponse<T> = Promise<ApiResponse<T>>

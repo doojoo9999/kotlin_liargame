@@ -5,7 +5,7 @@ export interface ScoreChange { playerId: string; delta: number }
 interface BaseOptions { liars: string[]; citizens: string[] }
 interface LiarEliminated extends BaseOptions { correctVoters: string[]; incorrectVoters?: string[] }
 interface InnocentEliminated extends BaseOptions { correctVoters?: string[]; incorrectVoters: string[] }
-interface LiarSurvived extends BaseOptions {}
+type LiarSurvived = BaseOptions
 interface LiarGuessedTopic extends BaseOptions { guesser: string }
 
 type OptionMap = {

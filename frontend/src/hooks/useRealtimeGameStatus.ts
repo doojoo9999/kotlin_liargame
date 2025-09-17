@@ -234,9 +234,10 @@ export function useRealtimeGameStatus(gameNumber: number | null, playerId?: numb
       try {
         await gameApi.toggleReady(gameNumber)
         return true
-      } catch (err) {
-        setError('준비 상태를 변경할 수 없습니다.')
-        return false
+      } catch (error) {
+        console.error('Failed to toggle ready state', error);
+        setError('준비 상태를 변경할 수 없습니다.');
+        return false;
       }
     },
 
@@ -245,9 +246,10 @@ export function useRealtimeGameStatus(gameNumber: number | null, playerId?: numb
       try {
         await gameApi.startCountdown(gameNumber)
         return true
-      } catch (err) {
-        setError('카운트다운을 시작할 수 없습니다.')
-        return false
+      } catch (error) {
+        console.error('Failed to start countdown', error);
+        setError('카운트다운을 시작할 수 없습니다.');
+        return false;
       }
     },
 
@@ -256,9 +258,10 @@ export function useRealtimeGameStatus(gameNumber: number | null, playerId?: numb
       try {
         await gameApi.cancelCountdown(gameNumber)
         return true
-      } catch (err) {
-        setError('카운트다운을 취소할 수 없습니다.')
-        return false
+      } catch (error) {
+        console.error('Failed to cancel countdown', error);
+        setError('카운트다운을 취소할 수 없습니다.');
+        return false;
       }
     },
 

@@ -51,7 +51,7 @@ describe('UnifiedWebSocketService', () => {
         }, 10);
       });
 
-      const connectPromise = service.connect(123);
+      service.connect(123);
       
       // Manually trigger connection success
       mockStompClient.connected = true;
@@ -346,7 +346,6 @@ describe('UnifiedWebSocketService', () => {
       service.onError(errorHandler);
 
       // Simulate connection error
-      const error = new Error('Connection failed');
       // This would be called by the STOMP client in real scenarios
       
       expect(errorHandler).not.toHaveBeenCalled(); // No error yet

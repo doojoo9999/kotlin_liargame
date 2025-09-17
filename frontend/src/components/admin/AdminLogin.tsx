@@ -43,6 +43,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onSuccess }) => {
       toast.success('Login successful');
       onSuccess?.();
     } catch (error) {
+      console.error('Admin login failed', error);
       // Error is handled by the store and displayed via the error state
     }
   };

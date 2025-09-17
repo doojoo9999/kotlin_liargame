@@ -148,7 +148,7 @@ export function useOptimizedTimer() {
       // Round to nearest second to prevent sub-second re-renders
       timeRemaining: Math.ceil(timer.timeRemaining)
     }
-  }, [timer.timeRemaining, timer.isActive, timer.phase])
+  }, [timer])
   
   return throttledTimer
 }
@@ -212,20 +212,20 @@ export function useOptimizedPlayers() {
 }
 
 // Memory cleanup for WebSocket events
-export function useWebSocketCleanup(dependencies: any[] = []) {
+export function useWebSocketCleanup() {
   const cleanupFunctions = useRef<(() => void)[]>([])
-  
+
   const addCleanup = useCallback((cleanup: () => void) => {
     cleanupFunctions.current.push(cleanup)
   }, [])
-  
+
   useLayoutEffect(() => {
     return () => {
       // Execute all cleanup functions
       cleanupFunctions.current.forEach(cleanup => cleanup())
       cleanupFunctions.current = []
     }
-  }, dependencies)
-  
+  }, [])
+
   return { addCleanup }
 }

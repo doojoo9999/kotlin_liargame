@@ -11,9 +11,15 @@ export interface FrontendPlayer extends Omit<import('./backendTypes').BackendPla
   userId: number // Original backend ID
   isOnline?: boolean
   isHost?: boolean
+  isReady?: boolean
+  isConnected?: boolean
   lastActive?: number
   connectionStability?: import('./backendTypes').ConnectionStability
+  role?: 'CITIZEN' | 'LIAR'
+  score?: number
+  votedFor?: string
 }
+
 
 export interface FrontendGameState {
   gameId: string
@@ -65,7 +71,7 @@ export interface WebSocketGameEvent {
   type: import('./backendTypes').RealtimeEventType | 'GAME_STATE_UPDATED' | 'PHASE_CHANGED' | 'TIMER_UPDATE'
   gameId: string
   gameNumber?: number
-  payload: any
+  payload: unknown
   timestamp: number
 }
 
@@ -84,10 +90,10 @@ export interface WebSocketChatMessage {
 export interface GameError {
   code: string
   message: string
-  details?: any
+  details?: unknown
 }
 
-export interface APIResponse<T = any> {
+export interface APIResponse<T = unknown> {
   success: boolean
   data?: T
   error?: GameError

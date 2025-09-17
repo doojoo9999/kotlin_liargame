@@ -220,7 +220,7 @@ export const VotingPanel: React.FC<VotingPanelProps> = ({
               player={player}
               variant={variant === 'compact' ? 'voting' : 'game'}
               selected={localSelectedId === player.id}
-              onVote={(_playerId) => handlePlayerSelect(player)}
+              onVote={() => handlePlayerSelect(player)}
               className={cn(
                 !player.isOnline && "opacity-50 cursor-not-allowed",
                 player.id === currentUserId && "opacity-50 cursor-not-allowed"

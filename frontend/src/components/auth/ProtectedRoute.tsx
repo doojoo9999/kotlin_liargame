@@ -15,8 +15,8 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     const verifyAuth = async () => {
       try {
         await checkAuth();
-      } catch (_error) {
-        console.log('Auth verification failed');
+      } catch (error) {
+        console.log('Auth verification failed', error);
       } finally {
         setIsChecking(false);
       }

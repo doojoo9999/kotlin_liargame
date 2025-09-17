@@ -1,7 +1,7 @@
-import { useEffect, useRef } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
-import { useModal } from '@/contexts/ModalContext'
-import { useToast } from '@/hooks/useToast'
+import {useEffect, useRef} from 'react'
+import {useLocation, useNavigate} from 'react-router-dom'
+import {useModal} from '@/contexts/ModalContext'
+import {useToast} from '@/hooks/useToast'
 
 interface UseModalAwareNavigationOptions {
   enableWarning?: boolean
@@ -115,7 +115,7 @@ export function useModalAwareNavigation(options: UseModalAwareNavigationOptions 
       window.removeEventListener('beforeunload', handleBeforeUnload)
       window.removeEventListener('popstate', handlePopState)
     }
-  }, [isAnyModalOpen, location, enableWarning, warningMessage, toast])
+  }, [activeModals, enableWarning, isAnyModalOpen, location, toast, warningMessage])
 
   return {
     navigate: modalAwareNavigate.current,

@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import {useEffect, useState} from 'react';
 import {RouterProvider} from 'react-router-dom';
 import {Toaster} from 'sonner';
 import {router} from './lib/router';

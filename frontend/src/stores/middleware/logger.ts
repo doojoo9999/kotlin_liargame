@@ -8,7 +8,6 @@ export const withLogger = <T extends object>(
     const prev = get();
     const partialValue = typeof partial === 'function' ? (partial as any)(prev) : partial;
     if (import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
       console.log('%c[Zustand][Action]', 'color:#4ade80', {
         partial: partialValue,
         replace: !!replace,
@@ -17,7 +16,6 @@ export const withLogger = <T extends object>(
     }
     set(partial as any, replace);
     if (import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
       console.log('%c[Zustand][State]', 'color:#60a5fa', get());
     }
   };
