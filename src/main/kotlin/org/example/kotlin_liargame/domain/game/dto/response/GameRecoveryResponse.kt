@@ -1,5 +1,6 @@
 package org.example.kotlin_liargame.domain.game.dto.response
 
+import org.example.kotlin_liargame.domain.game.dto.GameFlowPayload
 import org.example.kotlin_liargame.domain.game.model.enum.GamePhase
 
 data class GameRecoveryResponse(
@@ -21,7 +22,7 @@ data class GameRecoveryResponse(
     val defense: DefenseRecoveryResponse,
     val player: PlayerInfo,
     val timestamp: String
-) {
+) : GameFlowPayload {
     data class PlayerInfo(
         val id: Long,
         val nickname: String,

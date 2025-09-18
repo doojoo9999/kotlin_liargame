@@ -1,5 +1,6 @@
 package org.example.kotlin_liargame.domain.game.dto.response
 
+import org.example.kotlin_liargame.domain.game.dto.GameFlowPayload
 import org.example.kotlin_liargame.domain.game.model.PlayerEntity
 
 data class GameProgressResponse(
@@ -7,4 +8,4 @@ data class GameProgressResponse(
     val currentSpeaker: PlayerEntity,
     val playerOrder: List<PlayerEntity>,
     val phase: String
-)
+) : GameFlowPayload

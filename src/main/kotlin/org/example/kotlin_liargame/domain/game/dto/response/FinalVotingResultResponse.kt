@@ -1,5 +1,7 @@
 package org.example.kotlin_liargame.domain.game.dto.response
 
+import org.example.kotlin_liargame.domain.game.dto.GameFlowPayload
+
 data class FinalVotingResultResponse(
     val gameNumber: Int,
     val accusedPlayerId: Long,
@@ -12,4 +14,4 @@ data class FinalVotingResultResponse(
     val finalVotingRecord: List<Map<String, Any>> = emptyList(),
     val scoreboard: List<ScoreboardEntry> = emptyList(),
     val targetPoints: Int = 0
-)
+) : GameFlowPayload

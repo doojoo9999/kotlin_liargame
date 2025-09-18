@@ -1,17 +1,37 @@
 package org.example.kotlin_liargame.global.redis
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import org.example.kotlin_liargame.global.config.GameStateStorageProperties
+import org.slf4j.LoggerFactory
+import org.springframework.context.annotation.Profile
 import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.stereotype.Service
 import java.time.Duration
 import java.time.Instant
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicLong
 
-@org.springframework.context.annotation.Profile("!test")
+@Profile("!test")
 @Service
 class GameStateService(
     private val redisTemplate: RedisTemplate<String, String>,
-    private val objectMapper: ObjectMapper
+    private val objectMapper: ObjectMapper,
+    private val storageProperties: GameStateStorageProperties
 ) {
+
+    private val logger = LoggerFactory.getLogger(this::class.java)
+    private val useRedis = storageProperties.useRedis()
+    private val useMemory = storageProperties.useInMemory()
+
+    private val defenseStatusCache = ConcurrentHashMap<Int, DefenseStatus>()
+    private val finalVotingStatusCache = ConcurrentHashMap<Int, MutableMap<Long, Boolean?>>()
+    private val defenseTimerCache = ConcurrentHashMap<Int, Boolean>()
+    private val finalVotingTimerCache = ConcurrentHashMap<Int, Boolean>()
+    private val liarGuessStatusCache = ConcurrentHashMap<Int, EnhancedLiarGuessStatus>()
+    private val terminationReasonCache = ConcurrentHashMap<Int, String>()
+    private val postRoundChatCache = ConcurrentHashMap<Int, Instant>()
+    private val finalVotingLockCache = ConcurrentHashMap<Int, Instant>()
+    private val terminationCount = AtomicLong(0)
 
     private fun defenseStatusKey(gameNumber: Int) = "game:$gameNumber:defense:status"
     private fun finalVotingKey(gameNumber: Int) = "game:$gameNumber:voting:final"
@@ -23,164 +43,346 @@ class GameStateService(
     private fun terminationCountKey() = "game:termination:count"
     private fun finalVotingProcessLockKey(gameNumber: Int) = "game:$gameNumber:voting:final:lock"
 
+    private fun writeToRedis(description: String, action: () -> Unit) {
+        if (!useRedis) return
+        runCatching(action).onFailure { ex ->
+            logger.warn("Redis write failed for $description: ${ex.message}")
+        }
+    }
+
+    private fun <T> readFromRedis(description: String, action: () -> T?): T? {
+        if (!useRedis) return null
+        return runCatching(action).onFailure { ex ->
+            logger.warn("Redis read failed for $description: ${ex.message}")
+        }.getOrNull()
+    }
+
     fun setDefenseStatus(gameNumber: Int, status: DefenseStatus) {
-        val json = objectMapper.writeValueAsString(status)
-        redisTemplate.opsForValue().set(defenseStatusKey(gameNumber), json, Duration.ofHours(2))
+        if (useMemory) {
+            defenseStatusCache[gameNumber] = status
+        }
+        writeToRedis("defenseStatus") {
+            val json = objectMapper.writeValueAsString(status)
+            redisTemplate.opsForValue().set(defenseStatusKey(gameNumber), json, Duration.ofHours(2))
+        }
     }
 
     fun getDefenseStatus(gameNumber: Int): DefenseStatus? {
-        val json = redisTemplate.opsForValue().get(defenseStatusKey(gameNumber))
-        return json?.let { objectMapper.readValue(it, DefenseStatus::class.java) }
+        val redisValue = readFromRedis("defenseStatus") {
+            redisTemplate.opsForValue().get(defenseStatusKey(gameNumber))
+        }?.let { objectMapper.readValue(it, DefenseStatus::class.java) }
+        if (redisValue != null) {
+            if (useMemory) defenseStatusCache[gameNumber] = redisValue
+            return redisValue
+        }
+        return if (useMemory) defenseStatusCache[gameNumber] else null
     }
 
     fun removeDefenseStatus(gameNumber: Int) {
-        redisTemplate.delete(defenseStatusKey(gameNumber))
+        if (useMemory) {
+            defenseStatusCache.remove(gameNumber)
+        }
+        writeToRedis("defenseStatus.remove") {
+            redisTemplate.delete(defenseStatusKey(gameNumber))
+        }
     }
 
     fun setFinalVotingStatus(gameNumber: Int, status: Map<Long, Boolean?>) {
-        val json = objectMapper.writeValueAsString(status)
-        redisTemplate.opsForValue().set(finalVotingKey(gameNumber), json, Duration.ofHours(2))
+        if (useMemory) {
+            finalVotingStatusCache[gameNumber] = status.toMutableMap()
+        }
+        writeToRedis("finalVotingStatus") {
+            val json = objectMapper.writeValueAsString(status)
+            redisTemplate.opsForValue().set(finalVotingKey(gameNumber), json, Duration.ofHours(2))
+        }
     }
 
     fun getFinalVotingStatus(gameNumber: Int): MutableMap<Long, Boolean?> {
-        val json = redisTemplate.opsForValue().get(finalVotingKey(gameNumber))
-        return json?.let {
+        val redisValue = readFromRedis("finalVotingStatus") {
+            redisTemplate.opsForValue().get(finalVotingKey(gameNumber))
+        }?.let {
             val typeRef = objectMapper.typeFactory.constructMapType(
                 MutableMap::class.java,
                 Long::class.java,
                 Boolean::class.java
             )
             objectMapper.readValue<MutableMap<Long, Boolean?>>(it, typeRef)
-        } ?: mutableMapOf()
+        }
+        if (redisValue != null) {
+            if (useMemory) finalVotingStatusCache[gameNumber] = redisValue.toMutableMap()
+            return redisValue
+        }
+        return if (useMemory) {
+            finalVotingStatusCache[gameNumber]?.toMutableMap() ?: mutableMapOf()
+        } else {
+            mutableMapOf()
+        }
     }
 
     fun removeFinalVotingStatus(gameNumber: Int) {
-        redisTemplate.delete(finalVotingKey(gameNumber))
+        if (useMemory) {
+            finalVotingStatusCache.remove(gameNumber)
+        }
+        writeToRedis("finalVotingStatus.remove") {
+            redisTemplate.delete(finalVotingKey(gameNumber))
+        }
     }
 
     fun setDefenseTimer(gameNumber: Int, active: Boolean) {
-        redisTemplate.opsForValue().set(
-            defenseTimerKey(gameNumber),
-            active.toString(),
-            Duration.ofHours(2)
-        )
+        if (useMemory) {
+            defenseTimerCache[gameNumber] = active
+        }
+        writeToRedis("defenseTimer") {
+            redisTemplate.opsForValue().set(
+                defenseTimerKey(gameNumber),
+                active.toString(),
+                Duration.ofHours(2)
+            )
+        }
     }
 
     fun getDefenseTimer(gameNumber: Int): Boolean {
-        return redisTemplate.opsForValue().get(defenseTimerKey(gameNumber))?.toBoolean() ?: false
+        val redisValue = readFromRedis("defenseTimer") {
+            redisTemplate.opsForValue().get(defenseTimerKey(gameNumber))
+        }?.toBoolean()
+        if (redisValue != null) {
+            if (useMemory) defenseTimerCache[gameNumber] = redisValue
+            return redisValue
+        }
+        return if (useMemory) defenseTimerCache[gameNumber] ?: false else false
     }
 
     fun removeDefenseTimer(gameNumber: Int) {
-        redisTemplate.delete(defenseTimerKey(gameNumber))
+        if (useMemory) {
+            defenseTimerCache.remove(gameNumber)
+        }
+        writeToRedis("defenseTimer.remove") {
+            redisTemplate.delete(defenseTimerKey(gameNumber))
+        }
     }
 
     fun setFinalVotingTimer(gameNumber: Int, active: Boolean) {
-        redisTemplate.opsForValue().set(
-            finalVotingTimerKey(gameNumber),
-            active.toString(),
-            Duration.ofHours(2)
-        )
+        if (useMemory) {
+            finalVotingTimerCache[gameNumber] = active
+        }
+        writeToRedis("finalVotingTimer") {
+            redisTemplate.opsForValue().set(
+                finalVotingTimerKey(gameNumber),
+                active.toString(),
+                Duration.ofHours(2)
+            )
+        }
     }
 
     fun getFinalVotingTimer(gameNumber: Int): Boolean {
-        return redisTemplate.opsForValue().get(finalVotingTimerKey(gameNumber))?.toBoolean() ?: false
+        val redisValue = readFromRedis("finalVotingTimer") {
+            redisTemplate.opsForValue().get(finalVotingTimerKey(gameNumber))
+        }?.toBoolean()
+        if (redisValue != null) {
+            if (useMemory) finalVotingTimerCache[gameNumber] = redisValue
+            return redisValue
+        }
+        return if (useMemory) finalVotingTimerCache[gameNumber] ?: false else false
     }
 
     fun removeFinalVotingTimer(gameNumber: Int) {
-        redisTemplate.delete(finalVotingTimerKey(gameNumber))
+        if (useMemory) {
+            finalVotingTimerCache.remove(gameNumber)
+        }
+        writeToRedis("finalVotingTimer.remove") {
+            redisTemplate.delete(finalVotingTimerKey(gameNumber))
+        }
     }
 
     fun setLiarGuessStatus(gameNumber: Int, status: EnhancedLiarGuessStatus) {
-        val json = objectMapper.writeValueAsString(status)
-        redisTemplate.opsForValue().set(liarGuessStatusKey(gameNumber), json, Duration.ofHours(2))
+        if (useMemory) {
+            liarGuessStatusCache[gameNumber] = status
+        }
+        writeToRedis("liarGuessStatus") {
+            val json = objectMapper.writeValueAsString(status)
+            redisTemplate.opsForValue().set(liarGuessStatusKey(gameNumber), json, Duration.ofHours(2))
+        }
     }
 
     fun getLiarGuessStatus(gameNumber: Int): EnhancedLiarGuessStatus? {
-        val json = redisTemplate.opsForValue().get(liarGuessStatusKey(gameNumber))
-        return json?.let { objectMapper.readValue(it, EnhancedLiarGuessStatus::class.java) }
+        val redisValue = readFromRedis("liarGuessStatus") {
+            redisTemplate.opsForValue().get(liarGuessStatusKey(gameNumber))
+        }?.let { objectMapper.readValue(it, EnhancedLiarGuessStatus::class.java) }
+        if (redisValue != null) {
+            if (useMemory) liarGuessStatusCache[gameNumber] = redisValue
+            return redisValue
+        }
+        return if (useMemory) liarGuessStatusCache[gameNumber] else null
     }
 
     fun removeLiarGuessStatus(gameNumber: Int) {
-        redisTemplate.delete(liarGuessStatusKey(gameNumber))
+        if (useMemory) {
+            liarGuessStatusCache.remove(gameNumber)
+        }
+        writeToRedis("liarGuessStatus.remove") {
+            redisTemplate.delete(liarGuessStatusKey(gameNumber))
+        }
     }
 
     fun setTerminationReason(gameNumber: Int, reason: String) {
-        redisTemplate.opsForValue().set(
-            terminationReasonKey(gameNumber),
-            reason,
-            Duration.ofHours(24)
-        )
-        // 종료 카운트 증가
-        redisTemplate.opsForValue().increment(terminationCountKey())
+        if (useMemory) {
+            terminationReasonCache[gameNumber] = reason
+            terminationCount.incrementAndGet()
+        }
+        writeToRedis("terminationReason") {
+            redisTemplate.opsForValue().set(
+                terminationReasonKey(gameNumber),
+                reason,
+                Duration.ofHours(24)
+            )
+            redisTemplate.opsForValue().increment(terminationCountKey())
+        }
     }
 
     fun getTerminationReason(gameNumber: Int): String? {
-        return redisTemplate.opsForValue().get(terminationReasonKey(gameNumber))
+        val redisValue = readFromRedis("terminationReason") {
+            redisTemplate.opsForValue().get(terminationReasonKey(gameNumber))
+        }
+        if (redisValue != null) {
+            if (useMemory) terminationReasonCache[gameNumber] = redisValue
+            return redisValue
+        }
+        return if (useMemory) terminationReasonCache[gameNumber] else null
     }
 
     fun getTotalTerminations(): Long {
-        return redisTemplate.opsForValue().get(terminationCountKey())?.toLong() ?: 0L
+        val redisValue = readFromRedis("terminationCount") {
+            redisTemplate.opsForValue().get(terminationCountKey())
+        }?.toLongOrNull()
+        if (redisValue != null) {
+            if (useMemory) terminationCount.set(redisValue)
+            return redisValue
+        }
+        return if (useMemory) terminationCount.get() else 0L
     }
 
     fun setPostRoundChatWindow(gameNumber: Int, endTime: Instant) {
-        redisTemplate.opsForValue().set(
-            postRoundChatKey(gameNumber),
-            endTime.toString(),
-            Duration.between(Instant.now(), endTime.plusSeconds(60))
-        )
+        if (useMemory) {
+            postRoundChatCache[gameNumber] = endTime
+        }
+        writeToRedis("postRoundChat") {
+            redisTemplate.opsForValue().set(
+                postRoundChatKey(gameNumber),
+                endTime.toString(),
+                Duration.between(Instant.now(), endTime.plusSeconds(60))
+            )
+        }
     }
 
     fun getPostRoundChatWindow(gameNumber: Int): Instant? {
-        val timeStr = redisTemplate.opsForValue().get(postRoundChatKey(gameNumber))
-        return timeStr?.let { Instant.parse(it) }
+        val redisValue = readFromRedis("postRoundChat") {
+            redisTemplate.opsForValue().get(postRoundChatKey(gameNumber))
+        }?.let { Instant.parse(it) }
+        if (redisValue != null) {
+            if (useMemory) postRoundChatCache[gameNumber] = redisValue
+            return redisValue
+        }
+        return if (useMemory) postRoundChatCache[gameNumber] else null
     }
 
     fun removePostRoundChatWindow(gameNumber: Int) {
-        redisTemplate.delete(postRoundChatKey(gameNumber))
+        if (useMemory) {
+            postRoundChatCache.remove(gameNumber)
+        }
+        writeToRedis("postRoundChat.remove") {
+            redisTemplate.delete(postRoundChatKey(gameNumber))
+        }
     }
 
-    /**
-     * 최종 투표 처리 락을 획득합니다.
-     * @param gameNumber 게임 번호
-     * @param lockTimeoutSeconds 락 타임아웃 (초)
-     * @return 락 획득 성공 여부
-     */
     fun acquireFinalVotingProcessLock(gameNumber: Int, lockTimeoutSeconds: Long = 30): Boolean {
-        return redisTemplate.opsForValue().setIfAbsent(
-            finalVotingProcessLockKey(gameNumber),
-            "locked",
-            Duration.ofSeconds(lockTimeoutSeconds)
-        ) ?: false
+        val now = Instant.now()
+        var acquired = false
+
+        if (useRedis) {
+            val redisResult = readFromRedis("finalVotingLock.acquire") {
+                redisTemplate.opsForValue().setIfAbsent(
+                    finalVotingProcessLockKey(gameNumber),
+                    "locked",
+                    Duration.ofSeconds(lockTimeoutSeconds)
+                )
+            }
+            if (redisResult == true) {
+                acquired = true
+            }
+        }
+
+        if (useMemory) {
+            val expiration = now.plusSeconds(lockTimeoutSeconds)
+            var memoryAcquired = false
+            finalVotingLockCache.compute(gameNumber) { _, existing ->
+                if (existing == null || now.isAfter(existing)) {
+                    memoryAcquired = true
+                    expiration
+                } else {
+                    existing
+                }
+            }
+            if (memoryAcquired) {
+                acquired = true
+            }
+        }
+
+        return acquired
     }
 
-    /**
-     * 최종 투표 처리 락을 해제합니다.
-     * @param gameNumber 게임 번호
-     */
     fun releaseFinalVotingProcessLock(gameNumber: Int) {
-        redisTemplate.delete(finalVotingProcessLockKey(gameNumber))
+        if (useMemory) {
+            finalVotingLockCache.remove(gameNumber)
+        }
+        writeToRedis("finalVotingLock.release") {
+            redisTemplate.delete(finalVotingProcessLockKey(gameNumber))
+        }
     }
 
-    /**
-     * 최종 투표 처리 락 상태를 확인합니다.
-     * @param gameNumber 게임 번호
-     * @return 락이 존재하는지 여부
-     */
     fun hasFinalVotingProcessLock(gameNumber: Int): Boolean {
-        return redisTemplate.hasKey(finalVotingProcessLockKey(gameNumber))
+        if (useRedis) {
+            val hasRedisLock = readFromRedis("finalVotingLock.check") {
+                redisTemplate.hasKey(finalVotingProcessLockKey(gameNumber))
+            }
+            if (hasRedisLock == true) {
+                return true
+            }
+        }
+
+        if (useMemory) {
+            finalVotingLockCache.computeIfPresent(gameNumber) { _, expiration ->
+                if (Instant.now().isAfter(expiration)) null else expiration
+            }
+            return finalVotingLockCache.containsKey(gameNumber)
+        }
+
+        return false
     }
 
     fun cleanupGameState(gameNumber: Int) {
-        val keys = listOf(
-            defenseStatusKey(gameNumber),
-            finalVotingKey(gameNumber),
-            defenseTimerKey(gameNumber),
-            finalVotingTimerKey(gameNumber),
-            liarGuessStatusKey(gameNumber),
-            terminationReasonKey(gameNumber),
-            postRoundChatKey(gameNumber)
-        )
-        redisTemplate.delete(keys)
+        if (useMemory) {
+            defenseStatusCache.remove(gameNumber)
+            finalVotingStatusCache.remove(gameNumber)
+            defenseTimerCache.remove(gameNumber)
+            finalVotingTimerCache.remove(gameNumber)
+            liarGuessStatusCache.remove(gameNumber)
+            terminationReasonCache.remove(gameNumber)
+            postRoundChatCache.remove(gameNumber)
+            finalVotingLockCache.remove(gameNumber)
+        }
+
+        writeToRedis("cleanupGameState") {
+            val keys = listOf(
+                defenseStatusKey(gameNumber),
+                finalVotingKey(gameNumber),
+                defenseTimerKey(gameNumber),
+                finalVotingTimerKey(gameNumber),
+                liarGuessStatusKey(gameNumber),
+                terminationReasonKey(gameNumber),
+                postRoundChatKey(gameNumber)
+            )
+            redisTemplate.delete(keys)
+        }
     }
 }
 
@@ -198,5 +400,11 @@ data class EnhancedLiarGuessStatus(
     var guessSubmitted: Boolean = false,
     var guessText: String? = null,
     var isCorrect: Boolean? = null,
-    var timedOut: Boolean = false
-)
+    var timedOut: Boolean = false,
+    var resolvedAt: Instant? = null
+) {
+    fun markResolved(isCorrectGuess: Boolean) {
+        this.isCorrect = isCorrectGuess
+        this.resolvedAt = Instant.now()
+    }
+}

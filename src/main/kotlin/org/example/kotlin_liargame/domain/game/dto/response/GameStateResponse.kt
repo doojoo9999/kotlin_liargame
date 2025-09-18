@@ -1,5 +1,6 @@
 package org.example.kotlin_liargame.domain.game.dto.response
 
+import org.example.kotlin_liargame.domain.game.dto.GameFlowPayload
 import org.example.kotlin_liargame.domain.game.model.GameEntity
 import org.example.kotlin_liargame.domain.game.model.PlayerEntity
 import org.example.kotlin_liargame.domain.game.model.enum.GameMode
@@ -33,7 +34,7 @@ data class GameStateResponse(
     val targetPoints: Int = 0,
     val scoreboard: List<ScoreboardEntry> = emptyList(),
     val finalVotingRecord: List<Map<String, Any>>? = null
-) {
+) : GameFlowPayload {
     companion object {
         fun from(
             game: GameEntity,

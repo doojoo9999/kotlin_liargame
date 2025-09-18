@@ -1,5 +1,6 @@
 package org.example.kotlin_liargame.domain.game.dto.response
 
+import org.example.kotlin_liargame.domain.game.dto.GameFlowPayload
 import java.time.Instant
 
 data class VotingStatusResponse(
@@ -11,7 +12,7 @@ data class VotingStatusResponse(
     val pendingPlayers: List<PlayerVoteInfo>,
     val votingDeadline: String?,
     val canChangeVote: Boolean
-) {
+) : GameFlowPayload {
     companion object {
         fun empty(gameNumber: Int) = VotingStatusResponse(
             gameNumber = gameNumber,

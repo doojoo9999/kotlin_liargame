@@ -1,5 +1,7 @@
 package org.example.kotlin_liargame.domain.game.dto.response
 
+import org.example.kotlin_liargame.domain.game.dto.GameFlowPayload
+
 data class DefenseSubmissionResponse(
     val gameNumber: Int,
     val userId: Long,
@@ -7,4 +9,4 @@ data class DefenseSubmissionResponse(
     val defenseText: String,
     val success: Boolean,
     val message: String? = null
-)
+) : GameFlowPayload

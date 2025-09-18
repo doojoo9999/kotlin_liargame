@@ -2,6 +2,9 @@
  * Backend API Types - Aligned with Backend API Documentation
  */
 
+export const GAME_FLOW_SCHEMA_VERSION = 'game-flow/2024-09-18';
+export const REALTIME_SCHEMA_VERSION = 'game-realtime/2024-09-18';
+
 // Game Phase Types from Backend
 export type GamePhase = 
   | 'WAITING_FOR_PLAYERS'
@@ -55,6 +58,7 @@ export interface JoinGameRequest {
 }
 
 export interface GameStateResponse {
+  schemaVersion?: typeof GAME_FLOW_SCHEMA_VERSION;
   gameNumber: number;
   gameName: string;
   gameOwner: string;
@@ -113,6 +117,7 @@ export interface FinalVoteRecord {
 
 // Ready System Types
 export interface PlayerReadyResponse {
+  schemaVersion?: typeof GAME_FLOW_SCHEMA_VERSION;
   playerId: number;
   nickname: string;
   isReady: boolean;
@@ -123,6 +128,7 @@ export interface PlayerReadyResponse {
 
 // Countdown System Types
 export interface CountdownResponse {
+  schemaVersion?: typeof GAME_FLOW_SCHEMA_VERSION;
   gameNumber: number;
   countdownEndTime?: string;
   durationSeconds: number;
@@ -140,12 +146,14 @@ export interface PlayerConnectionStatus {
 }
 
 export interface ConnectionStatusResponse {
+  schemaVersion?: typeof GAME_FLOW_SCHEMA_VERSION;
   gameNumber: number;
   players: PlayerConnectionStatus[];
 }
 
 // Voting System Types
 export interface VotingStatusResponse {
+  schemaVersion?: typeof GAME_FLOW_SCHEMA_VERSION;
   gameNumber: number;
   currentVotes: number;
   requiredVotes: number;
@@ -166,6 +174,7 @@ export interface VotingStatusResponse {
 
 // Game Action Responses
 export interface CastVoteResponse {
+  schemaVersion?: typeof GAME_FLOW_SCHEMA_VERSION;
   gameNumber: number;
   voterUserId: number;
   targetUserId: number;
@@ -174,6 +183,7 @@ export interface CastVoteResponse {
 }
 
 export interface DefenseSubmissionResponse {
+  schemaVersion?: typeof GAME_FLOW_SCHEMA_VERSION;
   gameNumber: number;
   playerId: number;
   playerNickname: string;
@@ -182,6 +192,7 @@ export interface DefenseSubmissionResponse {
 }
 
 export interface WordGuessResponse {
+  schemaVersion?: typeof GAME_FLOW_SCHEMA_VERSION;
   gameNumber: number;
   guess: string;
   isCorrect: boolean;
@@ -206,6 +217,7 @@ export type RealtimeEventType =
   | 'GAME_END';
 
 export interface RealtimeEvent {
+  schemaVersion?: typeof REALTIME_SCHEMA_VERSION;
   type: RealtimeEventType;
   gameNumber: number;
   timestamp: string;

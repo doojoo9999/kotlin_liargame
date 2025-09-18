@@ -1,5 +1,6 @@
 package org.example.kotlin_liargame.domain.game.dto.response
 
+import org.example.kotlin_liargame.domain.game.dto.GameFlowPayload
 import org.example.kotlin_liargame.domain.game.model.enum.GamePhase
 import java.time.Instant
 
@@ -17,4 +18,4 @@ data class DefenseRecoveryResponse(
     val finalVotingRecord: List<Map<String, Any>>?,
     val scoreboard: List<ScoreboardEntry>?,
     val targetPoints: Int?
-)
+) : GameFlowPayload

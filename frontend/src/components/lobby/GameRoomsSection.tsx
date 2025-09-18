@@ -63,13 +63,6 @@ export function GameRoomsSection() {
     fetchGameModes
   } = useGameStore()
 
-  // 컴포넌트 마운트 시 게임 목록과 게임 모드 불러오기
-  useEffect(() => {
-    fetchGameList()
-    fetchGameModes()
-    fetchSubjects()
-  }, [fetchGameList, fetchGameModes, fetchSubjects])
-
   // 닉네임이 변경되거나 처음 설정될 때 기본 방 이름 설정
   useEffect(() => {
     if (nickname && !roomNameClicked) {
@@ -99,6 +92,13 @@ export function GameRoomsSection() {
       setSubjectsLoading(false)
     }
   }, [toast])
+
+  // 컴포넌트 마운트 시 게임 목록과 게임 모드 불러오기
+  useEffect(() => {
+    fetchGameList()
+    fetchGameModes()
+    fetchSubjects()
+  }, [fetchGameList, fetchGameModes, fetchSubjects])
 
   const handleCreateRoom = async () => {
     if (!newRoom.gameName.trim()) {

@@ -119,26 +119,49 @@ class SessionManagementService(
 
     fun validateSession(session: HttpSession): SessionValidationResult {
         val sessionId = session.id
-        val nickname = sessionIdToNickname[sessionId]
-        
-        if (nickname == null) {
-            return SessionValidationResult.NOT_FOUND
-        }
-        
-        val sessionInfo = activeSessions[nickname]
+        val storedUserSession = sessionDataManager.getUserSession(session)
+        val sessionMetadata = sessionDataManager.getSessionMetadata(session)
+
+        var nickname = sessionIdToNickname[sessionId]
+        var sessionInfo = nickname?.let { activeSessions[it] }
+
         if (sessionInfo == null || sessionInfo.sessionId != sessionId) {
+            if (storedUserSession == null) {
+                nickname?.let { activeSessions.remove(it) }
+                sessionIdToNickname.remove(sessionId)
+                return SessionValidationResult.NOT_FOUND
+            }
+
+            nickname = storedUserSession.nickname
+            sessionInfo = SessionInfo(
+                sessionId = sessionId,
+                nickname = nickname,
+                userId = storedUserSession.userId,
+                loginTime = storedUserSession.loginTime,
+                lastActivity = storedUserSession.lastActivity,
+                ipAddress = sessionMetadata?.ipAddress ?: storedUserSession.ipAddress ?: "unknown"
+            )
+
+            val previousSession = activeSessions.put(nickname, sessionInfo)
+            if (previousSession != null && previousSession.sessionId != sessionId) {
+                sessionIdToNickname.remove(previousSession.sessionId)
+            }
+            sessionIdToNickname[sessionId] = nickname
+        }
+
+        if (sessionInfo.sessionId != sessionId) {
             sessionIdToNickname.remove(sessionId)
             return SessionValidationResult.INVALID
         }
-        
-        val userSessionData = sessionDataManager.getUserSession(session)
-        if (userSessionData != null) {
-            val updatedSessionData = userSessionData.updateLastActivity()
+
+        val updatedSessionData = storedUserSession?.updateLastActivity()
+        if (updatedSessionData != null) {
             sessionDataManager.setUserSession(session, updatedSessionData)
+            sessionInfo.lastActivity = updatedSessionData.lastActivity
+        } else {
+            sessionInfo.lastActivity = LocalDateTime.now()
         }
 
-        sessionInfo.lastActivity = LocalDateTime.now()
-        
         return SessionValidationResult.VALID
     }
 
