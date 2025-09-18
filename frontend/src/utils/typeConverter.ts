@@ -27,6 +27,12 @@ export function convertBackendPlayer(backendPlayer: BackendPlayer, isHost = fals
  * Converts backend game state to frontend game state format
  */
 export function convertBackendGameState(backendState: GameStateResponse): FrontendGameState {
+  const currentTurnIndex = typeof backendState.currentTurnIndex === 'number' ? backendState.currentTurnIndex : 0
+  const currentTurnPlayer =
+    Array.isArray(backendState.turnOrder) && typeof backendState.currentTurnIndex === 'number'
+      ? backendState.turnOrder[backendState.currentTurnIndex] ?? undefined
+      : undefined
+
   const frontendPlayers = backendState.players.map(player => 
     convertBackendPlayer(player, player.nickname === backendState.gameOwner)
   )
@@ -39,15 +45,15 @@ export function convertBackendGameState(backendState: GameStateResponse): Fronte
     currentRound: backendState.gameCurrentRound,
     totalRounds: backendState.gameTotalRounds,
     timeRemaining: 0, // Calculate from phaseEndTime if available
-    currentPlayer: backendState.turnOrder?.[backendState.currentTurnIndex],
-    currentTurnIndex: backendState.currentTurnIndex,
+    currentPlayer: currentTurnPlayer,
+    currentTurnIndex,
     players: frontendPlayers,
     gameData: {
       topic: backendState.citizenSubject || backendState.liarSubject || 'Unknown',
-      secretWord: backendState.yourWord,
+      secretWord: backendState.yourWord ?? undefined,
       hints: [], // Convert from player hints
       votes: [], // Convert from voting data
-      accusedPlayer: backendState.accusedPlayer?.toString(),
+      accusedPlayer: backendState.accusedPlayer?.userId != null ? backendState.accusedPlayer.userId.toString() : undefined,
       defenseStatement: undefined,
       survivalVotes: undefined,
       guessAttempt: undefined,
@@ -57,14 +63,14 @@ export function convertBackendGameState(backendState: GameStateResponse): Fronte
         reason: backendState.reason || 'Game completed'
       } : undefined,
       victoryAchieved: !!backendState.winner,
-      turnOrder: backendState.turnOrder,
-      phaseEndTime: backendState.phaseEndTime
+      turnOrder: backendState.turnOrder ?? undefined,
+      phaseEndTime: backendState.phaseEndTime ?? undefined
     },
     scores: convertScoreboardToRecord(backendState.scoreboard),
     gameMode: backendState.gameMode,
     isChatAvailable: backendState.isChatAvailable,
-    winner: backendState.winner,
-    reason: backendState.reason
+    winner: backendState.winner ?? undefined,
+    reason: backendState.reason ?? undefined
   }
 }
 

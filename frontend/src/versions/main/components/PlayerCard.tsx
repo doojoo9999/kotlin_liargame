@@ -8,9 +8,9 @@ import {cn} from '@/lib/utils'
 export interface Player {
   id: string
   nickname: string
-  isHost: boolean
-  isReady: boolean
-  isOnline: boolean
+t  isHost?: boolean
+  isReady?: boolean
+  isOnline?: boolean
   isCurrentUser?: boolean
   hasVoted?: boolean
   isLiar?: boolean // Only shown in results
@@ -37,6 +37,11 @@ export function PlayerCard({
   showVoteCount = false,
   className 
 }: PlayerCardProps) {
+  const isHost = Boolean(player.isHost)
+  const isReady = Boolean(player.isReady)
+  const isOnline = player.isOnline ?? false
+  const hasVoted = Boolean(player.hasVoted)
+  const isCurrentUser = Boolean(player.isCurrentUser)
   const avatarLetters = player.nickname
     .split(' ')
     .map(word => word[0])
@@ -45,12 +50,12 @@ export function PlayerCard({
     .slice(0, 2)
 
   const handleClick = () => {
-    if (variant === 'voting' && onVote && !disabled && !player.isCurrentUser) {
+    if (variant === 'voting' && onVote && !disabled && !isCurrentUser) {
       onVote(player.id)
     }
   }
 
-  const isClickable = variant === 'voting' && onVote && !disabled && !player.isCurrentUser
+  const isClickable = variant === 'voting' && onVote && !disabled && !isCurrentUser
 
   return (
     <motion.div
@@ -81,8 +86,8 @@ export function PlayerCard({
               )}>
                 <AvatarFallback className={cn(
                   "font-bold text-sm",
-                  player.isHost && "bg-primary text-primary-foreground",
-                  player.isCurrentUser && !player.isHost && "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
+                  isHost && "bg-primary text-primary-foreground",
+                  isCurrentUser && !isHost && "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
                   player.isLiar && variant === 'results' && "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"
                 )}>
                   {avatarLetters}
@@ -91,7 +96,7 @@ export function PlayerCard({
               
               {/* Online Status */}
               <div className="absolute -bottom-1 -right-1">
-                {player.isOnline ? (
+                {isOnline ? (
                   <Wifi className="h-4 w-4 text-green-500 bg-background rounded-full p-0.5" />
                 ) : (
                   <WifiOff className="h-4 w-4 text-red-500 bg-background rounded-full p-0.5" />
@@ -104,18 +109,18 @@ export function PlayerCard({
               <div className="flex items-center space-x-2">
                 <span className={cn(
                   "font-medium truncate",
-                  player.isCurrentUser && "text-blue-600 dark:text-blue-400"
+                  isCurrentUser && "text-blue-600 dark:text-blue-400"
                 )}>
                   {player.nickname}
                 </span>
                 
                 {/* Host Badge */}
-                {player.isHost && (
+                {isHost && (
                   <Crown className="h-4 w-4 text-yellow-500 flex-shrink-0" />
                 )}
                 
                 {/* Current User Badge */}
-                {player.isCurrentUser && (
+                {isCurrentUser && (
                   <Badge variant="outline" className="text-xs px-1.5 py-0.5">
                     나
                   </Badge>
@@ -135,7 +140,7 @@ export function PlayerCard({
                 {/* Lobby Variant - Ready Status */}
                 {variant === 'lobby' && (
                   <div className="flex items-center space-x-1">
-                    {player.isReady ? (
+                    {isReady ? (
                       <>
                         <Check className="h-3 w-3 text-green-500" />
                         <span className="text-xs text-green-600 dark:text-green-400">준비됨</span>
@@ -160,7 +165,7 @@ export function PlayerCard({
                 {/* Voting Variant - Vote Status */}
                 {variant === 'voting' && (
                   <div className="flex items-center space-x-1">
-                    {player.hasVoted ? (
+                    {hasVoted ? (
                       <>
                         <Check className="h-3 w-3 text-green-500" />
                         <span className="text-xs text-green-600 dark:text-green-400">투표 완료</span>

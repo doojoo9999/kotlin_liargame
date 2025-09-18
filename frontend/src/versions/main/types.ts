@@ -23,6 +23,13 @@ const statusMap: Record<BackendGameState, LegacyGameStatus> = {
   ENDED: 'finished',
 }
 
+const toBackendState = (state: unknown): BackendGameState => {
+  if (state === 'WAITING' || state === 'IN_PROGRESS' || state === 'ENDED') {
+    return state
+  }
+  return 'WAITING'
+}
+
 const getNumber = (value: unknown, fallback: number): number => {
   if (typeof value === 'number' && Number.isFinite(value)) {
     return value
@@ -38,11 +45,18 @@ const getNumber = (value: unknown, fallback: number): number => {
 
 export const mapGameRoomInfoToLegacy = (room: GameRoomInfo): LegacyGameRoom => {
   const currentPlayers = room.currentPlayers ?? room.gameParticipants ?? 0
-  const maxPlayers = room.maxPlayers ?? room.gameMaxPlayers ?? 0
-  const status = statusMap[room.state ?? room.gameState ?? 'WAITING'] ?? 'waiting'
+  const maxPlayers = room.maxPlayers ?? room.gameParticipants ?? 0
+  const status = statusMap[toBackendState(room.state ?? room.gameState)] ?? 'waiting'
 
-  const rawTimeLimit = (room as Record<string, unknown>).timeLimitSeconds ?? (room as Record<string, unknown>).timeLimit
-  const rawRounds = (room as Record<string, unknown>).gameTotalRounds ?? (room as Record<string, unknown>).totalRounds
+  const legacySource = room as unknown as Partial<{
+    timeLimitSeconds: number
+    timeLimit: number
+    gameTotalRounds: number
+    totalRounds: number
+  }>
+
+  const rawTimeLimit = legacySource.timeLimitSeconds ?? legacySource.timeLimit
+  const rawRounds = legacySource.gameTotalRounds ?? legacySource.totalRounds
 
   return {
     id: room.gameNumber.toString(),

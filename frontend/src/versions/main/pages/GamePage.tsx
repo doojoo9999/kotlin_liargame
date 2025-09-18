@@ -1,6 +1,6 @@
 import React from 'react'
 import {useNavigate, useParams} from 'react-router-dom'
-import {useGameStore} from '@/stores'
+import {useGameplayStore, useGameStore} from '@/stores'
 import {GameFlowManager} from '@/components/game/GameFlowManager'
 import {Card, CardContent} from '@/components/ui/card'
 import {Button} from '@/components/ui/button'
@@ -12,6 +12,7 @@ export function MainGamePage() {
   const { gameId } = useParams<{ gameId: string }>()
   const navigate = useNavigate()
   const { gameNumber, setGameNumber, resetGame, updateFromGameState } = useGameStore()
+  const { hydrateFromSnapshot } = useGameplayStore((state) => state.actions)
   const { toast } = useToast()
   const [isLoading, setIsLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
@@ -44,6 +45,7 @@ export function MainGamePage() {
           // Store 업데이트
           setGameNumber(gameIdNumber)
           updateFromGameState(gameState)
+          hydrateFromSnapshot(gameState)
 
           console.log('Game state restored:', gameState)
         }
@@ -64,7 +66,7 @@ export function MainGamePage() {
     }
 
     initializeGame()
-  }, [gameId, gameNumber, setGameNumber, updateFromGameState, toast])
+  }, [gameId, gameNumber, setGameNumber, updateFromGameState, hydrateFromSnapshot, toast])
 
   const handleReturnToLobby = () => {
     resetGame()

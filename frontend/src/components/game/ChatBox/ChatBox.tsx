@@ -24,6 +24,8 @@ const MessageComponent: React.FC<{
   isOwn: boolean;
   currentPlayerName?: string;
 }> = ({ message, isOwn }) => {
+  const displayName = message.playerName ?? message.playerNickname ?? message.nickname ?? 'SYSTEM'
+  const messageText = message.message ?? message.content ?? ''
   const messageVariants = {
     initial: { opacity: 0, y: 20, scale: 0.95 },
     animate: { 
@@ -68,7 +70,7 @@ const MessageComponent: React.FC<{
           "px-3 py-1 rounded-full text-sm",
           getMessageTypeStyles()
         )}>
-          {message.message}
+          {messageText}
         </div>
       </motion.div>
     );
@@ -89,7 +91,7 @@ const MessageComponent: React.FC<{
       {!isOwn && (
         <Avatar className="w-8 h-8 flex-shrink-0">
           <AvatarFallback className="text-xs">
-            {message.playerName.charAt(0).toUpperCase()}
+            {displayName.charAt(0).toUpperCase()}
           </AvatarFallback>
         </Avatar>
       )}
@@ -100,10 +102,10 @@ const MessageComponent: React.FC<{
       )}>
         {!isOwn && (
           <div className="text-xs opacity-70 mb-1">
-            {message.playerName}
+            {displayName}
           </div>
         )}
-        <div className="text-sm">{message.message}</div>
+        <div className="text-sm">{messageText}</div>
         <div className={cn(
           "text-xs mt-1 opacity-50",
           isOwn ? "text-right" : "text-left"
@@ -115,7 +117,7 @@ const MessageComponent: React.FC<{
       {isOwn && (
         <Avatar className="w-8 h-8 flex-shrink-0">
           <AvatarFallback className="text-xs">
-            {message.playerName.charAt(0).toUpperCase()}
+            {displayName.charAt(0).toUpperCase()}
           </AvatarFallback>
         </Avatar>
       )}

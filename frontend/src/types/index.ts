@@ -68,7 +68,7 @@ export interface TypeConverter {
 
 // WebSocket message types (unified)
 export interface WebSocketGameEvent {
-  type: import('./backendTypes').RealtimeEventType | 'GAME_STATE_UPDATED' | 'PHASE_CHANGED' | 'TIMER_UPDATE'
+  type: import('./backendTypes').GameRealtimeEventType | 'GAME_STATE_UPDATED' | 'PHASE_CHANGED' | 'TIMER_UPDATE'
   gameId: string
   gameNumber?: number
   payload: unknown

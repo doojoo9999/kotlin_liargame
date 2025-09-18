@@ -9,7 +9,7 @@ import type {
     CreateGameRequest as BackendCreateGameRequest,
     DefenseSubmissionResponse,
     GameMode,
-    GameRoomInfo,
+    GameRoomInfo as BackendGameRoomInfo,
     GameStateResponse as BackendGameStateResponse,
     JoinGameRequest as BackendJoinGameRequest,
     LiarGuessResultResponse,
@@ -19,14 +19,31 @@ import type {
     VotingStatusResponse
 } from './backendTypes'
 
-export type GameStateResponse = BackendGameStateResponse
+export type GameRoomInfo = BackendGameRoomInfo & {
+  gameName: string
+  gameOwner: string
+  gameParticipants: number
+  gameMaxPlayers: number
+  isPrivate: boolean
+  gameState: BackendGameStateResponse['gameState'] | string
+  gameMode?: GameMode | string
+}
+
+export type GameStateResponse = BackendGameStateResponse & {
+  currentSubject?: string | null
+  currentWord?: string | null
+  readyCount?: number
+  maxPlayers?: number
+  totalPlayers?: number
+  accusedPlayerNickname?: string | null
+}
+
 export type CreateGameRequest = BackendCreateGameRequest
 export type JoinGameRequest = BackendJoinGameRequest & { password?: string }
 
 export type {
   BackendPlayer,
   GameMode,
-  GameRoomInfo,
   PlayerReadyResponse,
   CountdownResponse,
   VotingStatusResponse,

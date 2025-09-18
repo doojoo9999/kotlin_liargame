@@ -1,7 +1,7 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { GameWebSocketClient } from './websocket';
-import type { WebSocketMessage, GameStateUpdate, ChatMessage } from './websocket';
-import { MockWebSocket } from '@/test/mocks/handlers';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
+import type {ChatMessage, GameStateUpdate, WebSocketMessage} from './websocket';
+import {GameWebSocketClient} from './websocket';
+import {MockWebSocket} from '@/test/mocks/handlers';
 
 // Mock WebSocket globally
 global.WebSocket = MockWebSocket as any;
@@ -142,10 +142,11 @@ describe('GameWebSocketClient', () => {
           id: 'msg-1',
           gameNumber: 1,
           playerId: 'player-1',
-          playerNickname: 'TestPlayer',
-          content: 'Hello world',
+          playerName: 'TestPlayer',
+          gameId: '1',
+          message: 'Hello world',
           type: 'DISCUSSION',
-          timestamp: '2024-01-01T00:00:00Z'
+          timestamp: Date.now()
         }
       };
 
@@ -538,3 +539,6 @@ describe('GameWebSocketClient', () => {
     });
   });
 });
+
+
+

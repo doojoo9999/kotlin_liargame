@@ -13,6 +13,9 @@ export interface Player {
   isOnline?: boolean
   isHost?: boolean
   lastActive?: number
+  isReady?: boolean
+  hasVoted?: boolean
+  score?: number
 }
 
 export interface Hint {
@@ -30,6 +33,15 @@ export interface Vote {
 export interface GameResults {
   winners: PlayerID[]
   reason: string
+  topic?: string
+  liarName?: string
+  liarWon?: boolean
+  liarId?: PlayerID
+  votes?: Array<{
+    playerId: PlayerID
+    playerName: string
+    votes: number
+  }>
 }
 
 export interface ActivityEvent {

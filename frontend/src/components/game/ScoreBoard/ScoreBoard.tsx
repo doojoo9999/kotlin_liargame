@@ -46,6 +46,8 @@ const getRankColor = (rank: number) => {
   }
 }
 
+type VoteEntry = NonNullable<GameResults['votes']>[number]
+
 const PlayerScoreCard: React.FC<{
   player: Player
   rank: number
@@ -184,10 +186,13 @@ const PlayerScoreCard: React.FC<{
   )
 }
 
-const VoteResultsSection: React.FC<{
-  gameResults: GameResults
-  players: Player[]
-}> = ({ gameResults }) => {
+
+const VoteResultsSection: React.FC<{ gameResults: GameResults }> = ({ gameResults }) => {
+  const votes = React.useMemo<VoteEntry[]>(() => {
+    const source = gameResults.votes ?? []
+    return [...source].sort((a, b) => b.votes - a.votes)
+  }, [gameResults.votes])
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -229,9 +234,7 @@ const VoteResultsSection: React.FC<{
 
             {/* Vote Breakdown */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {gameResults.votes
-                .sort((a, b) => b.votes - a.votes)
-                .map((vote, index) => (
+              {votes.map((vote, index) => (
                   <motion.div
                     key={vote.playerId}
                     initial={{ opacity: 0, x: -20 }}
@@ -289,6 +292,7 @@ export const ScoreBoard: React.FC<ScoreBoardProps> = ({
   }, [players, finalScores])
 
   const winner = scoredPlayers[0]
+  const votes = gameResults?.votes ?? []
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -322,7 +326,7 @@ export const ScoreBoard: React.FC<ScoreBoardProps> = ({
 
       {/* Vote Results */}
       {showRoundResults && gameResults && (
-        <VoteResultsSection gameResults={gameResults} players={players} />
+        <VoteResultsSection gameResults={gameResults} />
       )}
 
       {/* Scores Section */}
@@ -360,7 +364,7 @@ export const ScoreBoard: React.FC<ScoreBoardProps> = ({
                 rank={player.rank}
                 score={player.score}
                 isLiar={gameResults?.liarId === player.id}
-                votes={gameResults?.votes.find(v => v.playerId === player.id)?.votes}
+                votes={votes.find(v => v.playerId === player.id)?.votes}
                 isWinner={showFinalResults && player.rank === 1}
                 delay={index * 0.1}
               />

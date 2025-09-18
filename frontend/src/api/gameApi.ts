@@ -30,22 +30,25 @@ export class GameService {
   // 게임방 목록 조회
 
   async getGameList(page: number = 0, size: number = 10): Promise<GameListResponse> {
-    const response = await apiClient.get<any>(`/api/v1/game/rooms?page=${page}&size=${size}`);
-    const rooms = response?.gameRooms ?? response?.games ?? response?.data;
+    const response = await apiClient.get<any>(`/api/v1/game/rooms?page=${page}&size=${size}`)
+    const rooms = response?.gameRooms ?? response?.games ?? response?.data
 
     if (Array.isArray(rooms)) {
       const normalized: GameRoomInfo[] = rooms.map((room: any) => {
-        const rawNumber = room.gameNumber ?? room.gameId ?? room.id;
-        const gameNumber = typeof rawNumber === 'number' ? rawNumber : Number.parseInt(String(rawNumber ?? 0), 10) || 0;
-        const title = room.title ?? room.gameName ?? (gameNumber > 0 ? `Game #${gameNumber}` : 'Game');
-        const host = room.host ?? room.gameOwner ?? 'Unknown';
-        const currentPlayers = Number(room.currentPlayers ?? room.gameParticipants ?? room.participants ?? 0);
-        const maxPlayers = Number(room.maxPlayers ?? room.gameMaxPlayers ?? room.capacity ?? 0);
-        const hasPassword = Boolean(room.hasPassword ?? room.isPrivate ?? false);
-        const state = (room.state ?? room.gameState ?? 'WAITING') as GameRoomInfo['state'];
-        const subjects = Array.isArray(room.subjects) ? room.subjects.map((subject: unknown) => String(subject)) : [];
-        const players = Array.isArray(room.players) ? (room.players as GameRoomInfo['players']) : undefined;
-        const mode = room.gameMode ?? room.mode ?? 'LIARS_KNOW';
+        const rawNumber = room.gameNumber ?? room.gameId ?? room.id
+        const gameNumber =
+          typeof rawNumber === 'number' ? rawNumber : Number.parseInt(String(rawNumber ?? 0), 10) || 0
+        const title = room.title ?? room.gameName ?? (gameNumber > 0 ? `Game #${gameNumber}` : 'Game')
+        const host = room.host ?? room.gameOwner ?? 'Unknown'
+        const currentPlayers = Number(room.currentPlayers ?? room.gameParticipants ?? room.participants ?? 0)
+        const maxPlayers = Number(room.maxPlayers ?? room.gameMaxPlayers ?? room.capacity ?? 0)
+        const hasPassword = Boolean(room.hasPassword ?? room.isPrivate ?? false)
+        const state = (room.state ?? room.gameState ?? 'WAITING') as GameRoomInfo['state']
+        const subjects = Array.isArray(room.subjects) ? room.subjects.map((subject: unknown) => String(subject)) : []
+        const players = Array.isArray(room.players)
+          ? (room.players as GameRoomInfo['players'])
+          : []
+        const mode = room.gameMode ?? room.mode
 
         return {
           gameNumber,
@@ -65,8 +68,8 @@ export class GameService {
           isPrivate: room.isPrivate ?? hasPassword,
           gameState: (room.gameState ?? state) as GameRoomInfo['state'],
           gameMode: mode as GameRoomInfo['gameMode']
-        } satisfies GameRoomInfo;
-      });
+        } satisfies GameRoomInfo
+      })
 
       const result: GameListResponse = {
         success: true,
@@ -74,17 +77,17 @@ export class GameService {
         gameRooms: normalized,
         games: normalized,
         timestamp: Date.now()
-      };
-
-      if (response?.pagination) {
-        result.pagination = response.pagination;
       }
 
-      return result;
+      if (response?.pagination) {
+        result.pagination = response.pagination
+      }
+
+      return result
     }
 
     if (response && typeof response === 'object' && 'success' in response) {
-      return response as GameListResponse;
+      return response as GameListResponse
     }
 
     return {
@@ -93,7 +96,7 @@ export class GameService {
       gameRooms: [],
       games: [],
       timestamp: Date.now()
-    };
+    }
   }
 
   // 게임방 생성
@@ -255,15 +258,26 @@ export class GameService {
     if (page > 0) {
       params.append('page', String(page));
     }
-    const rawMessages = await apiClient.get<any[]>(`/api/v1/chat/history?${params.toString()}`);
-    return rawMessages.map((message) => ({
-      id: String(message.id ?? `${message.gameNumber}-${message.timestamp}`),
-      gameNumber: message.gameNumber,
-      nickname: message.playerNickname ?? 'SYSTEM',
-      message: message.content ?? '',
-      timestamp: typeof message.timestamp === 'string' ? Date.parse(message.timestamp) : Number(message.timestamp ?? Date.now()),
-      type: (message.type || 'DISCUSSION') as ChatMessage['type'],
-    }));
+    const rawMessages = await apiClient.get<any[]>(`/api/v1/chat/history?${params.toString()}`)
+    return rawMessages.map((message) => {
+      const content = message.content ?? message.message ?? ''
+      const nickname = message.playerNickname ?? message.nickname ?? 'SYSTEM'
+      const timestamp =
+        typeof message.timestamp === 'string'
+          ? Date.parse(message.timestamp)
+          : Number(message.timestamp ?? Date.now())
+
+      return {
+        id: String(message.id ?? `${message.gameNumber ?? 0}-${timestamp}`),
+        gameNumber: Number(message.gameNumber ?? 0),
+        playerNickname: nickname,
+        nickname,
+        content,
+        message: content,
+        timestamp,
+        type: (message.type || 'DISCUSSION') as ChatMessage['type']
+      } satisfies ChatMessage
+    })
   }
 
   // 채팅 메시지 전송

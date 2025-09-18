@@ -12,8 +12,16 @@ export interface SwipeContainerProps extends React.HTMLAttributes<HTMLDivElement
 }
 
 export const SwipeContainer = React.forwardRef<HTMLDivElement, SwipeContainerProps>(({
-  onSwipeLeft,onSwipeRight,onSwipeUp,onSwipeDown,trackMouse=false,threshold=12,className,children,...rest
-},ref) => {
+  onSwipeLeft,
+  onSwipeRight,
+  onSwipeUp,
+  onSwipeDown,
+  trackMouse = false,
+  threshold = 12,
+  className,
+  children,
+  ...rest
+}, ref) => {
   const handlers = useSwipeable({
     onSwipedLeft: () => onSwipeLeft?.(),
     onSwipedRight: () => onSwipeRight?.(),
@@ -23,12 +31,23 @@ export const SwipeContainer = React.forwardRef<HTMLDivElement, SwipeContainerPro
     delta: threshold,
     preventScrollOnSwipe: true
   })
+
+  const { ref: swipeRef, ...swipeHandlers } = handlers
+
+  const combinedRef = React.useCallback((node: HTMLDivElement | null) => {
+    swipeRef(node)
+    if (typeof ref === 'function') {
+      ref(node)
+    } else if (ref) {
+      ;(ref as React.MutableRefObject<HTMLDivElement | null>).current = node
+    }
+  }, [ref, swipeRef])
+
   return (
-    <div ref={ref} {...handlers} className={cn('touch-pan-y touch-pan-x', className)} {...rest}>
+    <div ref={combinedRef} {...swipeHandlers} className={cn('touch-pan-y touch-pan-x', className)} {...rest}>
       {children}
     </div>
   )
 })
-SwipeContainer.displayName='SwipeContainer'
-void SwipeContainer
+SwipeContainer.displayName = 'SwipeContainer'
 

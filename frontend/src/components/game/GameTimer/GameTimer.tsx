@@ -26,8 +26,7 @@ export const GameTimer: React.FC<GameTimerProps> = ({
   // Get timer data from store
   const {
     timer,
-    gamePhase,
-    connectionState
+    gamePhase
   } = useGameStore()
   
   const { isConnected } = useWebSocketActions()
@@ -72,7 +71,10 @@ export const GameTimer: React.FC<GameTimerProps> = ({
   };
 
   const getProgressPercentage = () => {
-    return ((totalTime - displayTime) / totalTime) * 100;
+    if (!totalTime || totalTime <= 0) {
+      return 0
+    }
+    return ((totalTime - displayTime) / totalTime) * 100
   };
 
   const isWarning = displayTime <= 30 && displayTime > 10;
@@ -178,7 +180,7 @@ export const GameTimer: React.FC<GameTimerProps> = ({
                   <WifiOff className="w-3 h-3 text-red-500 animate-pulse" />
                 )}
                 <span className="text-xs text-gray-500 capitalize">
-                  {connectionState}
+                  {isConnected ? 'connected' : 'disconnected'}
                 </span>
               </div>
             </div>

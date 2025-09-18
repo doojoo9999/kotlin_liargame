@@ -1,4 +1,4 @@
-import {useCallback, useEffect, useState} from 'react'
+import {useCallback, useEffect, useMemo, useState} from 'react'
 import {useNavigate} from 'react-router-dom'
 import {Button} from '@/components/ui/button'
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card'
@@ -14,780 +14,673 @@ import {
     DialogTitle,
     DialogTrigger
 } from '@/components/ui/dialog'
-import {Check, Lock, Play, Plus, RefreshCw, Settings, Unlock, Users, X} from 'lucide-react'
+import {ScrollArea} from '@/components/ui/scroll-area'
+import {Check, Lock, Play, Plus, RefreshCw, Settings, Unlock, Users} from 'lucide-react'
 import {useToast} from '@/hooks/useToast'
 import {useAuthStore} from '@/stores/authStore'
-import {useGameStore} from '@/stores'
 import {useModalRegistration} from '@/contexts/ModalContext'
 import {type Subject, subjectApi} from '@/api/subjectApi'
-import type {GameMode} from '@/types/backendTypes'
+import {gameService} from '@/api/gameApi'
+import type {CreateGameRequest, GameMode} from '@/types/backendTypes'
+import type {GameRoomInfo} from '@/types/api'
+
+const GAME_MODES: GameMode[] = ['LIARS_KNOW', 'LIARS_DIFFERENT_WORD']
+const PARTICIPANT_OPTIONS = [4, 5, 6, 7, 8]
+const LIAR_COUNT_OPTIONS = [1, 2]
+const ROUND_OPTIONS = [1, 3, 5]
+const TARGET_POINT_OPTIONS = [10, 20, 30]
+
+const normalizeRoomStatus = (value: unknown): 'WAITING' | 'IN_PROGRESS' | 'ENDED' => {
+  if (typeof value !== 'string') {
+    return 'WAITING'
+  }
+  const normalized = value.toUpperCase()
+  if (normalized === 'IN_PROGRESS') return 'IN_PROGRESS'
+  if (normalized === 'ENDED') return 'ENDED'
+  return 'WAITING'
+}
+
+const statusLabel: Record<'WAITING' | 'IN_PROGRESS' | 'ENDED', string> = {
+  WAITING: '대기 중',
+  IN_PROGRESS: '게임 진행 중',
+  ENDED: '종료됨'
+}
+
+const getStatusBadge = (status: 'WAITING' | 'IN_PROGRESS' | 'ENDED') => {
+  const variant = status === 'IN_PROGRESS' ? 'secondary' : status === 'ENDED' ? 'outline' : 'default'
+  return <Badge variant={variant}>{statusLabel[status]}</Badge>
+}
+
+type CreateGameFormState = {
+  gameName: string
+  gameMode: GameMode
+  gameParticipants: number
+  gameLiarCount: number
+  gameTotalRounds: number
+  targetPoints: number
+  isPrivate: boolean
+  password: string
+  useRandomSubjects: boolean
+  selectedSubjectIds: number[]
+  randomSubjectCount: number
+}
+
+const createDefaultFormState = (nickname?: string | null, subjects: Subject[] = []): CreateGameFormState => ({
+  gameName: nickname ? `${nickname} 님의 방` : '',
+  gameMode: 'LIARS_KNOW',
+  gameParticipants: 6,
+  gameLiarCount: 1,
+  gameTotalRounds: 3,
+  targetPoints: 10,
+  isPrivate: false,
+  password: '',
+  useRandomSubjects: false,
+  selectedSubjectIds: subjects.map(subject => subject.id),
+  randomSubjectCount: 10,
+})
 
 export function GameRoomsSection() {
+  const navigate = useNavigate()
+  const { toast } = useToast()
+  const { nickname } = useAuthStore()
+  const [rooms, setRooms] = useState<GameRoomInfo[]>([])
+  const [roomsLoading, setRoomsLoading] = useState(true)
+  const [roomsError, setRoomsError] = useState<string | null>(null)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isJoinDialogOpen, setIsJoinDialogOpen] = useState(false)
   const [sessionCodeInput, setSessionCodeInput] = useState('')
-  const [availableSubjects, setAvailableSubjects] = useState<Subject[]>([])
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [subjects, setSubjects] = useState<Subject[]>([])
   const [subjectsLoading, setSubjectsLoading] = useState(false)
-  const [roomNameClicked, setRoomNameClicked] = useState(false) // Track if input was clicked
-  const [newRoom, setNewRoom] = useState({
-    gameName: '',
-    gameMode: 'LIARS_KNOW' as GameMode,
-    gameParticipants: 6,
-    gameLiarCount: 1,
-    gameTotalRounds: 3,
-    targetPoints: 10, // Changed default from 100 to 10 points
-    isPrivate: false,
-    password: '',
-    // Subject selection - Changed to show all topics selected by default
-    useRandomSubjects: false,
-    randomSubjectCount: 10,
-    selectedSubjectIds: [] as number[], // Will be populated with all subjects by default
-    excludedSubjectIds: [] as number[]
-  })
+  const [formState, setFormState] = useState<CreateGameFormState>(() => createDefaultFormState(nickname))
 
-  const navigate = useNavigate()
-  const { toast } = useToast()
-  const { nickname } = useAuthStore() // Get nickname from auth store
-
-  // Register modals with the Modal Context
   useModalRegistration('create-game-modal', isCreateDialogOpen)
   useModalRegistration('join-game-modal', isJoinDialogOpen)
 
-  // GameStore에서 상태와 액션들 가져오기
-  const {
-    gameList,
-    gameListLoading,
-    gameListError,
-    isLoading,
-    fetchGameList,
-    fetchGameModes
-  } = useGameStore()
-
-  // 닉네임이 변경되거나 처음 설정될 때 기본 방 이름 설정
-  useEffect(() => {
-    if (nickname && !roomNameClicked) {
-      setNewRoom(prev => ({ ...prev, gameName: `${nickname} 님의 방` }))
+  const loadRooms = useCallback(async () => {
+    setRoomsLoading(true)
+    setRoomsError(null)
+    try {
+      const response = await gameService.getGameList(0, 24)
+      const list = response.gameRooms ?? response.games ?? response.data ?? []
+      setRooms(list)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '게임방 목록을 가져오지 못했습니다'
+      setRoomsError(message)
+    } finally {
+      setRoomsLoading(false)
     }
-  }, [nickname, roomNameClicked])
+  }, [])
 
-  // 주제 목록 불러오기
-  const fetchSubjects = useCallback(async () => {
+  const refreshRooms = useCallback(async () => {
+    setIsRefreshing(true)
+    try {
+      await loadRooms()
+    } finally {
+      setIsRefreshing(false)
+    }
+  }, [loadRooms])
+
+  const loadSubjects = useCallback(async () => {
     setSubjectsLoading(true)
     try {
       const response = await subjectApi.getSubjects()
-      setAvailableSubjects(response.subjects)
-      // Default: select all subjects
-      setNewRoom(prev => ({
+      setSubjects(response.subjects)
+      setFormState(prev => ({
         ...prev,
-        selectedSubjectIds: response.subjects.map(subject => subject.id)
+        selectedSubjectIds: prev.useRandomSubjects ? prev.selectedSubjectIds : response.subjects.map(subject => subject.id)
       }))
     } catch (error) {
-      console.error('Failed to fetch subjects:', error);
+      console.error('Failed to load subjects', error)
       toast({
-        title: "주제 목록 불러오기 실패",
-        description: "주제 목록을 불러오는 중 오류가 발생했습니다",
-        variant: "destructive",
+        title: '주제를 불러오지 못했습니다',
+        description: error instanceof Error ? error.message : '주제 목록 로드 중 오류가 발생했습니다',
+        variant: 'destructive'
       })
     } finally {
       setSubjectsLoading(false)
     }
   }, [toast])
 
-  // 컴포넌트 마운트 시 게임 목록과 게임 모드 불러오기
   useEffect(() => {
-    fetchGameList()
-    fetchGameModes()
-    fetchSubjects()
-  }, [fetchGameList, fetchGameModes, fetchSubjects])
+    loadRooms()
+    loadSubjects()
+  }, [loadRooms, loadSubjects])
 
-  const handleCreateRoom = async () => {
-    if (!newRoom.gameName.trim()) {
-      toast({
-        title: "방 이름이 필요합니다",
-        description: "게임방 이름을 입력해주세요",
-        variant: "destructive",
-      })
-      return
-    }
-
-    if (newRoom.isPrivate && !newRoom.password.trim()) {
-      toast({
-        title: "비밀번호가 필요합니다",
-        description: "비공개 방은 비밀번호를 설정해야 합니다",
-        variant: "destructive",
-      })
-      return
-    }
-
-    // 주제 선택 검증
-    if (newRoom.selectedSubjectIds.length === 0 && !newRoom.useRandomSubjects) {
-      toast({
-        title: "주제를 선택해주세요",
-        description: "최소 하나의 주제를 선택해야 합니다",
-        variant: "destructive",
-      })
-      return
-    }
-
-    if (newRoom.useRandomSubjects && availableSubjects.length - newRoom.excludedSubjectIds.length === 0) {
-      toast({
-        title: "주제를 선택해주세요",
-        description: "모든 주제를 제외할 수는 없습니다",
-        variant: "destructive",
-      })
-      return
-    }
-
-    try {
-      if (!nickname) {
-        toast({
-          title: "로그인이 필요합니다",
-          description: "게임방을 만들려면 먼저 로그인해주세요",
-          variant: "destructive",
-        })
-        return
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (document.hasFocus() && !isCreateDialogOpen && !isJoinDialogOpen) {
+        loadRooms()
       }
+    }, 30000)
+    return () => clearInterval(interval)
+  }, [loadRooms, isCreateDialogOpen, isJoinDialogOpen])
 
-      // Prepare game data for backend
-      const gameData = {
-        hostNickname: nickname,
-        gameName: newRoom.gameName,
-        gameMode: newRoom.gameMode,
-        gameParticipants: newRoom.gameParticipants,
-        gameLiarCount: newRoom.gameLiarCount,
-        gameTotalRounds: newRoom.gameTotalRounds,
-        targetPoints: newRoom.targetPoints,
-        isPrivate: newRoom.isPrivate,
-        password: newRoom.isPrivate ? newRoom.password : undefined,
-        useRandomSubjects: newRoom.useRandomSubjects,
-        selectedSubjectIds: newRoom.selectedSubjectIds,
-        randomSubjectCount: newRoom.useRandomSubjects ? newRoom.randomSubjectCount : undefined
-      }
+  useEffect(() => {
+    setFormState(prev => ({
+      ...prev,
+      gameName: nickname ? `${nickname} 님의 방` : prev.gameName
+    }))
+  }, [nickname])
 
-      // Use the new initialization service for proper backend integration
-      const { gameInitializationService } = await import('@/services/gameInitializationService')
-
-      const gameNumber = await gameInitializationService.createGameRoom(gameData)
-      
-      console.log('Game created successfully, gameNumber:', gameNumber)
-      
-      // 폼 초기화
-      setNewRoom({
-        gameName: nickname ? `${nickname} 님의 방` : '', // Reset with default name
-        gameMode: 'LIARS_KNOW' as GameMode,
-        gameParticipants: 6,
-        gameLiarCount: 1,
-        gameTotalRounds: 3,
-        targetPoints: 10, // Reset to 10 points
-        isPrivate: false,
-        password: '',
-        useRandomSubjects: false, // Reset to specific topic selection mode
-        randomSubjectCount: 10,
-        selectedSubjectIds: availableSubjects.map(subject => subject.id), // Reset with all subjects selected
-        excludedSubjectIds: []
-      })
-      setRoomNameClicked(false) // Reset clicked state
-      handleCreateDialogOpen(false)
-
-      // 생성한 게임방으로 이동
-      console.log('Navigating to game page:', `/game/${gameNumber}`)
-      // Use setTimeout to ensure navigation happens after dialog closes
-      navigate(`/game/${gameNumber}`)
-
-    } catch (error) {
-      console.error('Failed to create game room:', error)
-      toast({
-        title: "게임방 생성 실패",
-        description: error instanceof Error ? error.message : "게임방을 생성하는 중 오류가 발생했습니다",
-        variant: "destructive",
-      })
+  const handleCreateDialogChange = (open: boolean) => {
+    setIsCreateDialogOpen(open)
+    if (open) {
+      setFormState(createDefaultFormState(nickname, subjects))
     }
   }
 
-  // 주제 선택/해제 관리 함수
-  const toggleSubjectSelection = (subjectId: number) => {
-    setNewRoom(prev => ({
+  const handleToggleSubject = (subjectId: number) => {
+    setFormState(prev => {
+      const selected = prev.selectedSubjectIds.includes(subjectId)
+      return {
+        ...prev,
+        selectedSubjectIds: selected
+          ? prev.selectedSubjectIds.filter(id => id !== subjectId)
+          : [...prev.selectedSubjectIds, subjectId]
+      }
+    })
+  }
+
+  const handleSelectAllSubjects = () => {
+    setFormState(prev => ({
       ...prev,
-      selectedSubjectIds: prev.selectedSubjectIds.includes(subjectId)
-        ? prev.selectedSubjectIds.filter(id => id !== subjectId)
-        : [...prev.selectedSubjectIds, subjectId]
+      selectedSubjectIds: subjects.map(subject => subject.id)
     }))
   }
 
-  const selectAllSubjects = () => {
-    setNewRoom(prev => ({ ...prev, selectedSubjectIds: availableSubjects.map(s => s.id) }))
+  const handleClearSubjects = () => {
+    setFormState(prev => ({
+      ...prev,
+      selectedSubjectIds: []
+    }))
   }
 
-  const deselectAllSubjects = () => {
-    setNewRoom(prev => ({ ...prev, selectedSubjectIds: [] }))
-  }
+  const handleCreateRoom = async () => {
+    if (!formState.gameName.trim()) {
+      toast({
+        title: '방 이름이 필요합니다',
+        description: '게임방 이름을 입력해주세요',
+        variant: 'destructive'
+      })
+      return
+    }
 
-  const handleJoinRoom = async (gameNumber: number, isPrivate: boolean = false) => {
+    if (formState.isPrivate && !formState.password.trim()) {
+      toast({
+        title: '비밀번호가 필요합니다',
+        description: '비공개 방은 비밀번호를 설정해야 합니다',
+        variant: 'destructive'
+      })
+      return
+    }
+
+    if (!formState.useRandomSubjects && formState.selectedSubjectIds.length === 0) {
+      toast({
+        title: '주제를 선택해주세요',
+        description: '최소 하나의 주제를 선택해야 합니다',
+        variant: 'destructive'
+      })
+      return
+    }
+
+    if (!nickname) {
+      toast({
+        title: '로그인이 필요합니다',
+        description: '게임방을 만들려면 먼저 로그인해주세요',
+        variant: 'destructive'
+      })
+      return
+    }
+
+    const payload: CreateGameRequest = {
+      nickname,
+      gameName: formState.gameName,
+      gamePassword: formState.isPrivate ? formState.password.trim() || undefined : undefined,
+      gameParticipants: formState.gameParticipants,
+      gameLiarCount: formState.gameLiarCount,
+      gameTotalRounds: formState.gameTotalRounds,
+      gameMode: formState.gameMode,
+      subjectIds: formState.useRandomSubjects ? undefined : formState.selectedSubjectIds,
+      useRandomSubjects: formState.useRandomSubjects,
+      randomSubjectCount: formState.useRandomSubjects ? formState.randomSubjectCount : undefined,
+      targetPoints: formState.targetPoints,
+    }
+
+    setIsSubmitting(true)
     try {
-      if (!nickname) {
-        toast({
-          title: "로그인이 필요합니다",
-          description: "게임에 참가하려면 먼저 로그인해주세요",
-          variant: "destructive",
-        })
+      const gameNumber = await gameService.createGame(payload)
+      toast.success('게임방을 생성했습니다!')
+      setFormState(createDefaultFormState(nickname, subjects))
+      setIsCreateDialogOpen(false)
+      await loadRooms()
+      navigate(`/game/${gameNumber}`)
+    } catch (error) {
+      console.error('Failed to create game room', error)
+      toast({
+        title: '게임방 생성 실패',
+        description: error instanceof Error ? error.message : '게임방을 생성하는 중 오류가 발생했습니다',
+        variant: 'destructive'
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleJoinRoom = async (gameNumber: number, isPrivate: boolean) => {
+    if (!nickname) {
+      toast({
+        title: '로그인이 필요합니다',
+        description: '게임에 참가하려면 먼저 로그인해주세요',
+        variant: 'destructive'
+      })
+      return
+    }
+
+    let password: string | undefined
+    if (isPrivate) {
+      password = prompt('비밀번호를 입력하세요:')?.trim() || undefined
+      if (!password) {
         return
       }
+    }
 
-      let password: string | undefined
-
-      // 비공개 방인 경우 비밀번호 입력 받기
-      if (isPrivate) {
-        password = prompt('비밀번호를 입력하세요:') || undefined
-        if (!password) return // 사용자가 취소한 경우
-      }
-
-      // Use the new initialization service for proper backend integration
-      const { gameInitializationService } = await import('@/services/gameInitializationService')
-
-      await gameInitializationService.joinGameRoom(gameNumber, nickname, password)
-
-      // Navigate to the game room
-      navigate(`/game/${gameNumber}`)
-
-    } catch (error) {
-      console.error('Failed to join game room:', error)
-      toast({
-        title: "게임방 참여 실패",
-        description: error instanceof Error ? error.message : "게임방에 참여하는 중 오류가 발생했습니다",
-        variant: "destructive",
+    setIsSubmitting(true)
+    try {
+      await gameService.joinGame({
+        gameNumber,
+        nickname,
+        gamePassword: password,
       })
+      toast.success('게임방에 참가했습니다!')
+      setIsJoinDialogOpen(false)
+      navigate(`/game/${gameNumber}`)
+    } catch (error) {
+      console.error('Failed to join game room', error)
+      toast({
+        title: '게임방 참여 실패',
+        description: error instanceof Error ? error.message : '게임방에 참여하는 중 오류가 발생했습니다',
+        variant: 'destructive'
+      })
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
   const handleJoinByCode = async () => {
     if (!sessionCodeInput.trim()) {
       toast({
-        title: "게임 번호가 필요합니다",
-        description: "참여할 게임의 번호를 입력해주세요",
-        variant: "destructive",
+        title: '게임 번호가 필요합니다',
+        description: '참여할 게임의 번호를 입력해주세요',
+        variant: 'destructive'
       })
       return
     }
 
-    try {
-      const gameNumber = parseInt(sessionCodeInput.trim())
-
-      if (isNaN(gameNumber)) {
-        toast({
-          title: "올바른 게임 번호를 입력하세요",
-          description: "게임 번호는 숫자여야 합니다",
-          variant: "destructive",
-        })
-        return
-      }
-
-      await handleJoinRoom(gameNumber)
-      setSessionCodeInput('')
-      setIsJoinDialogOpen(false)
-    } catch (error) {
+    const parsed = Number(sessionCodeInput.trim())
+    if (Number.isNaN(parsed)) {
       toast({
-        title: "게임방 참여 실패",
-        description: error instanceof Error ? error.message : "게임방에 참여하는 중 오류가 발생했습니다",
-        variant: "destructive",
+        title: '올바른 게임 번호를 입력하세요',
+        description: '게임 번호는 숫자여야 합니다',
+        variant: 'destructive'
       })
+      return
     }
+
+    await handleJoinRoom(parsed, false)
+    setSessionCodeInput('')
   }
 
-  // Handle room name input click - clear content for immediate typing
-  const handleRoomNameClick = () => {
-    if (!roomNameClicked) {
-      setRoomNameClicked(true)
-      setNewRoom(prev => ({ ...prev, gameName: '' }))
-    }
-  }
-
-  // Handle room name input change
-  const handleRoomNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setRoomNameClicked(true)
-    setNewRoom(prev => ({ ...prev, gameName: e.target.value }))
-  }
-
-  // Handle dialog open - reset room name to default when opening
-  const handleCreateDialogOpen = (open: boolean) => {
-    setIsCreateDialogOpen(open)
-    if (open && nickname) {
-      // Always reset when opening dialog
-      setNewRoom(prev => ({ ...prev, gameName: `${nickname} 님의 방` }))
-      setRoomNameClicked(false)
-    } else if (!open) {
-      // Reset clicked state when closing dialog
-      setRoomNameClicked(false)
-    }
-  }
-
-  const refreshRooms = async () => {
-    try {
-      await fetchGameList()
-      toast({
-        title: "목록이 새로고침되었습니다",
-        description: "최신 게임방 목록을 불러왔습니다",
-      })
-    } catch {
-      toast({
-        title: "새로고침 실패",
-        description: "목록을 새로고침하는 중 오류가 발생했습니다",
-        variant: "destructive",
-      })
-    }
-  }
-
-  const getStatusBadge = (status: 'WAITING' | 'IN_PROGRESS' | 'ENDED') => {
-    switch (status) {
-      case 'WAITING':
-        return <Badge variant="secondary">대기 중</Badge>
-      case 'IN_PROGRESS':
-        return <Badge variant="default">게임 중</Badge>
-      case 'ENDED':
-        return <Badge variant="outline">종료됨</Badge>
-      default:
-        return <Badge variant="outline">알 수 없음</Badge>
-    }
-  }
+  const availableSubjectTags = useMemo(() => subjects.map(subject => ({
+    id: subject.id,
+    label: subject.name
+  })), [subjects])
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold flex items-center gap-2">
-            <Users className="h-6 w-6" />
-            게임룸
-          </h2>
-          <p className="text-muted-foreground">게임방을 만들거나 참여하세요</p>
-        </div>
-
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={refreshRooms} disabled={gameListLoading}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${gameListLoading ? 'animate-spin' : ''}`} />
-            새로고침
-          </Button>
-
-          <Dialog open={isJoinDialogOpen} onOpenChange={setIsJoinDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline">
-                게임 번호로 참여
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>게임 번호로 참여</DialogTitle>
-                <DialogDescription>
-                  참여할 게임의 번호를 입력하세요
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="sessionCode">게임 번호</Label>
-                  <Input
-                    id="sessionCode"
-                    placeholder="예: 12345"
-                    value={sessionCodeInput}
-                    onChange={(e) => setSessionCodeInput(e.target.value)}
-                    className="text-center text-lg font-mono"
-                    type="number"
-                  />
-                </div>
-                <div className="flex gap-2 justify-end">
-                  <Button variant="outline" onClick={() => setIsJoinDialogOpen(false)}>
-                    취소
-                  </Button>
-                  <Button onClick={handleJoinByCode} disabled={isLoading}>
-                    참여
-                  </Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
-
-          <Dialog open={isCreateDialogOpen} onOpenChange={handleCreateDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                새 게임방 만들기
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>새 게임방 만들기</DialogTitle>
-                <DialogDescription>
-                  새로운 게임방을 생성하세요
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-6 max-h-[70vh] overflow-y-auto">
-                {/* 기본 설정 */}
+      <Card>
+        <CardHeader className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <CardTitle className="text-xl font-semibold flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              게임방 목록
+            </CardTitle>
+            <CardDescription>
+              새로운 게임을 생성하거나 대기 중인 게임방에 참여하세요
+            </CardDescription>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={refreshRooms} disabled={roomsLoading || isRefreshing}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+              새로고침
+            </Button>
+            <Dialog open={isJoinDialogOpen} onOpenChange={setIsJoinDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="secondary">코드로 참여</Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>게임 번호로 참여하기</DialogTitle>
+                  <DialogDescription>지인에게 받은 게임 번호를 입력하세요</DialogDescription>
+                </DialogHeader>
                 <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="roomName">방 이름</Label>
+                  <div className="space-y-2">
+                    <Label htmlFor="game-code">게임 번호</Label>
                     <Input
-                      id="roomName"
-                      placeholder="게임방 이름을 입력하세요"
-                      value={newRoom.gameName}
-                      onClick={handleRoomNameClick}
-                      onChange={handleRoomNameChange}
+                      id="game-code"
+                      placeholder="예: 1024"
+                      value={sessionCodeInput}
+                      onChange={(event) => setSessionCodeInput(event.target.value)}
                     />
                   </div>
-
-                  <div>
-                    <Label htmlFor="gameParticipants">
-                      최대 플레이어 수: {newRoom.gameParticipants}명
-                    </Label>
-                    <div className="space-y-2">
-                      <input
-                        type="range"
-                        id="gameParticipants"
-                        min="3"
-                        max="15"
-                        value={newRoom.gameParticipants}
-                        onChange={(e) => setNewRoom(prev => ({ ...prev, gameParticipants: parseInt(e.target.value) }))}
-                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
-                      />
-                      <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>3명</span>
-                        <span>9명</span>
-                        <span>15명</span>
-                      </div>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      최소 3명부터 게임을 시작할 수 있습니다
-                    </p>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="gameLiarCount">라이어 수</Label>
-                    <Select
-                      value={newRoom.gameLiarCount.toString()}
-                      onValueChange={(value) => setNewRoom(prev => ({ ...prev, gameLiarCount: parseInt(value) }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Array.from({length: Math.floor(newRoom.gameParticipants / 3)}, (_, i) => i + 1).map(num => (
-                          <SelectItem key={num} value={num.toString()}>
-                            {num}명
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      참여자 수에 따라 적절한 라이어 수가 결정됩니다
-                    </p>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="gameTotalRounds">총 라운드 수</Label>
-                    <Select
-                      value={newRoom.gameTotalRounds.toString()}
-                      onValueChange={(value) => setNewRoom(prev => ({ ...prev, gameTotalRounds: parseInt(value) }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {[1, 2, 3, 4, 5].map(num => (
-                          <SelectItem key={num} value={num.toString()}>
-                            {num}라운드
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="targetPoints">목표 점수</Label>
-                    <Select
-                      value={newRoom.targetPoints.toString()}
-                      onValueChange={(value) => setNewRoom(prev => ({ ...prev, targetPoints: parseInt(value) }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {[10, 20, 50, 100, 150, 200].map(num => (
-                          <SelectItem key={num} value={num.toString()}>
-                            {num}점
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      라이어가 맞춰야 하는 목표 점수입니다 (라이어가 정답을 맞히면 +2점)
-                    </p>
-                  </div>
-                </div>
-
-                {/* 게임 모드 선택 */}
-                <div>
-                  <Label className="flex items-center gap-2 mb-3">
-                    <Settings className="h-4 w-4" />
-                    게임 모드
-                  </Label>
-                  <div className="space-y-3">
-                    <div
-                      className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-                        newRoom.gameMode === 'LIARS_KNOW' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                      onClick={() => setNewRoom(prev => ({ ...prev, gameMode: 'LIARS_KNOW' }))}
-                    >
-                      <div className="flex items-center gap-2 mb-2">
-                        <input
-                          type="radio"
-                          checked={newRoom.gameMode === 'LIARS_KNOW'}
-                          onChange={() => setNewRoom(prev => ({ ...prev, gameMode: 'LIARS_KNOW' }))}
-                          className="text-blue-600"
-                        />
-                        <Label className="font-medium">라이어가 자신의 역할을 아는 모드</Label>
-                      </div>
-                      <p className="text-sm text-muted-foreground ml-6">
-                        라이어가 자신이 라이어임을 알고 게임을 진행합니다. 전략적 플레이가 가능합니다.
-                      </p>
-                    </div>
-
-                    <div
-                      className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-                        newRoom.gameMode === 'LIARS_DIFFERENT_WORD' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                      onClick={() => setNewRoom(prev => ({ ...prev, gameMode: 'LIARS_DIFFERENT_WORD' }))}
-                    >
-                      <div className="flex items-center gap-2 mb-2">
-                        <input
-                          type="radio"
-                          checked={newRoom.gameMode === 'LIARS_DIFFERENT_WORD'}
-                          onChange={() => setNewRoom(prev => ({ ...prev, gameMode: 'LIARS_DIFFERENT_WORD' }))}
-                          className="text-blue-600"
-                        />
-                        <Label className="font-medium">라이어가 다른 답안을 받는 모드</Label>
-                      </div>
-                      <p className="text-sm text-muted-foreground ml-6">
-                        라이어가 다른 주제를 받아서 자연스럽게 다른 답변을 하게 됩니다.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 주제 선택 */}
-                <div>
-                  <Label className="flex items-center gap-2 mb-3">
-                    <Settings className="h-4 w-4" />
-                    주제 선택
-                  </Label>
-
-                  <div className="p-3 border border-blue-500 bg-blue-50 rounded-lg mb-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Check className="h-4 w-4 text-blue-600" />
-                      <Label className="font-medium">모든 주제 사용 (권장)</Label>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      기본적으로 모든 주제가 선택되어 있습니다. 원하지 않는 주제는 아래에서 선택 해제할 수 있습니다.
-                    </p>
-                  </div>
-
-                  {/* 주제 목록 */}
-                  {subjectsLoading ? (
-                    <div className="text-center py-4">
-                      <div className="animate-spin inline-block w-6 h-6 border-[3px] border-current border-t-transparent text-blue-600 rounded-full" />
-                      <p className="mt-2 text-sm text-muted-foreground">주제를 불러오는 중...</p>
-                    </div>
-                  ) : (
-                    <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-sm font-medium">
-                          사용할 주제 선택 ({newRoom.selectedSubjectIds.length}/{availableSubjects.length})
-                        </span>
-                        <div className="flex gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={selectAllSubjects}
-                          >
-                            <Check className="h-3 w-3 mr-1" />
-                            전체 선택
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={deselectAllSubjects}
-                          >
-                            <X className="h-3 w-3 mr-1" />
-                            전체 해제
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div className="max-h-48 overflow-y-auto border rounded-lg p-3">
-                        <div className="grid grid-cols-1 gap-2">
-                          {availableSubjects.map((subject) => {
-                            const isSelected = newRoom.selectedSubjectIds.includes(subject.id)
-
-                            return (
-                              <div
-                                key={subject.id}
-                                className={`flex items-center gap-3 p-2 rounded cursor-pointer transition-colors ${
-                                  isSelected ? 'bg-blue-50 border border-blue-200' : 'hover:bg-gray-50'
-                                }`}
-                                onClick={() => toggleSubjectSelection(subject.id)}
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={isSelected}
-                                  onChange={() => toggleSubjectSelection(subject.id)}
-                                  className="text-blue-600"
-                                />
-                                <div className="flex-1">
-                                  <div className="font-medium text-sm">{subject.name}</div>
-                                  {subject.wordCount && (
-                                    <div className="text-xs text-muted-foreground">
-                                      {subject.wordCount}개 단어
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* 비공개 방 설정 */}
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="isPrivate"
-                      checked={newRoom.isPrivate}
-                      onChange={(e) => setNewRoom(prev => ({ ...prev, isPrivate: e.target.checked }))}
-                    />
-                    <Label htmlFor="isPrivate">비공개 방 (비밀번호 필요)</Label>
-                  </div>
-                  {newRoom.isPrivate && (
-                    <div>
-                      <Label htmlFor="password">비밀번호</Label>
-                      <Input
-                        id="password"
-                        type="password"
-                        placeholder="비밀번호를 입력하세요"
-                        value={newRoom.password}
-                        onChange={(e) => setNewRoom(prev => ({ ...prev, password: e.target.value }))}
-                      />
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex gap-2 justify-end pt-4 border-t">
-                  <Button variant="outline" onClick={() => handleCreateDialogOpen(false)}>
-                    취소
-                  </Button>
-                  <Button onClick={handleCreateRoom} disabled={isLoading}>
-                    생성
+                  <Button onClick={handleJoinByCode} disabled={isSubmitting} className="w-full">
+                    참여하기
                   </Button>
                 </div>
-              </div>
-            </DialogContent>
-          </Dialog>
-        </div>
-      </div>
-
-      {/* 로딩 및 에러 상태 */}
-      {gameListLoading && (
-        <div className="text-center py-8">
-          <div className="animate-spin inline-block w-6 h-6 border-[3px] border-current border-t-transparent text-blue-600 rounded-full" />
-          <p className="mt-2 text-muted-foreground">게임방 목록을 불러오는 중...</p>
-        </div>
-      )}
-
-      {gameListError && (
-        <div className="text-center py-8 text-red-600">
-          <p>게임방 목록을 불러오는 중 오류가 발생했습니다: {gameListError}</p>
-          <Button variant="outline" onClick={() => fetchGameList()} className="mt-2">
-            다시 시도
-          </Button>
-        </div>
-      )}
-
-      {/* 게임방 목록 */}
-      {!gameListLoading && !gameListError && (
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {gameList.map((room) => (
-            <Card key={room.gameNumber} className="hover:shadow-md transition-shadow">
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      {room.hasPassword ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
-                      {room.title}
-                    </CardTitle>
-                    <CardDescription>
-                      호스트: {room.host}
-                    </CardDescription>
-                  </div>
-                  {getStatusBadge(room.state || room.gameState || 'WAITING')}
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">플레이어</span>
-                    <span className="font-medium">{room.currentPlayers}/{room.maxPlayers}</span>
-                  </div>
-
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">게임 번호</span>
-                    <code className="bg-muted px-2 py-1 rounded text-xs font-mono">
-                      {room.gameNumber}
-                    </code>
-                  </div>
-                  
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">게임 모드</span>
-                    <span className="text-xs">{room.gameMode}</span>
-                  </div>
-
-                  <Button
-                    className="w-full"
-                    onClick={() => handleJoinRoom(room.gameNumber, room.hasPassword)}
-                    disabled={(room.state || room.gameState) === 'IN_PROGRESS' || room.currentPlayers >= room.maxPlayers || isLoading}
-                  >
-                    {(room.state || room.gameState) === 'IN_PROGRESS' ? (
-                      <>
-                        <Play className="h-4 w-4 mr-2" />
-                        게임 중
-                      </>
-                   ) : room.currentPlayers >= room.maxPlayers ? (
-                      '방이 가득참'
-                    ) : (
-                      '참여하기'
-                    )}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-          
-          {gameList.length === 0 && (
-            <Card className="col-span-full">
-              <CardContent className="flex flex-col items-center justify-center py-12">
-                <Users className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">활성 게임방이 없습니다</h3>
-                <p className="text-muted-foreground text-center mb-4">
-                  새로운 게임방을 만들어 게임을 시작해보세요
-                </p>
-                <Button onClick={() => setIsCreateDialogOpen(true)}>
+              </DialogContent>
+            </Dialog>
+            <Dialog open={isCreateDialogOpen} onOpenChange={handleCreateDialogChange}>
+              <DialogTrigger asChild>
+                <Button>
                   <Plus className="h-4 w-4 mr-2" />
-                  첫 게임방 만들기
+                  게임방 만들기
                 </Button>
-              </CardContent>
-            </Card>
+              </DialogTrigger>
+              <DialogContent className="max-h-[90vh] overflow-hidden">
+                <DialogHeader>
+                  <DialogTitle>새 게임방 생성</DialogTitle>
+                  <DialogDescription>
+                    게임 규칙과 주제를 설정하고 새로운 게임을 시작하세요
+                  </DialogDescription>
+                </DialogHeader>
+                <ScrollArea className="h-[70vh] pr-4">
+                  <div className="space-y-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="room-name">게임방 이름</Label>
+                      <Input
+                        id="room-name"
+                        value={formState.gameName}
+                        onChange={(event) => setFormState(prev => ({ ...prev, gameName: event.target.value }))}
+                        placeholder="친구들과 함께하는 라이어 게임"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>게임 모드</Label>
+                        <Select
+                          value={formState.gameMode}
+                          onValueChange={(value: GameMode) => setFormState(prev => ({ ...prev, gameMode: value }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="게임 모드 선택" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {GAME_MODES.map(mode => (
+                              <SelectItem key={mode} value={mode}>
+                                {mode.replace(/_/g, ' ')}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>최대 인원</Label>
+                        <Select
+                          value={String(formState.gameParticipants)}
+                          onValueChange={(value) => setFormState(prev => ({ ...prev, gameParticipants: Number(value) }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="인원" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {PARTICIPANT_OPTIONS.map(option => (
+                              <SelectItem key={option} value={String(option)}>
+                                {option}명
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>라이어 수</Label>
+                        <Select
+                          value={String(formState.gameLiarCount)}
+                          onValueChange={(value) => setFormState(prev => ({ ...prev, gameLiarCount: Number(value) }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="라이어 수" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {LIAR_COUNT_OPTIONS.map(option => (
+                              <SelectItem key={option} value={String(option)}>
+                                {option}명
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>라운드 수</Label>
+                        <Select
+                          value={String(formState.gameTotalRounds)}
+                          onValueChange={(value) => setFormState(prev => ({ ...prev, gameTotalRounds: Number(value) }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="라운드" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {ROUND_OPTIONS.map(option => (
+                              <SelectItem key={option} value={String(option)}>
+                                {option}라운드
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>목표 점수</Label>
+                        <Select
+                          value={String(formState.targetPoints)}
+                          onValueChange={(value) => setFormState(prev => ({ ...prev, targetPoints: Number(value) }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="점수" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {TARGET_POINT_OPTIONS.map(option => (
+                              <SelectItem key={option} value={String(option)}>
+                                {option}점
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="private-room">비공개 방</Label>
+                          <input
+                            id="private-room"
+                            type="checkbox"
+                            className="h-4 w-4"
+                            checked={formState.isPrivate}
+                            onChange={(event) => setFormState(prev => ({ ...prev, isPrivate: event.target.checked }))}
+                          />
+                        </div>
+                        {formState.isPrivate && (
+                          <Input
+                            type="password"
+                            placeholder="비밀번호"
+                            value={formState.password}
+                            onChange={(event) => setFormState(prev => ({ ...prev, password: event.target.value }))}
+                          />
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label className="flex items-center gap-2" htmlFor="random-subjects-toggle">
+                          <Settings className="h-4 w-4" /> 주제 설정
+                        </Label>
+                        <input
+                          id="random-subjects-toggle"
+                          type="checkbox"
+                          className="h-4 w-4"
+                          checked={formState.useRandomSubjects}
+                          onChange={(event) => setFormState(prev => ({ ...prev, useRandomSubjects: event.target.checked }))}
+                        />
+                      </div>
+
+                      {subjectsLoading ? (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <RefreshCw className="h-4 w-4 animate-spin" /> 주제를 불러오는 중...
+                        </div>
+                      ) : formState.useRandomSubjects ? (
+                        <div className="space-y-2">
+                          <Label htmlFor="random-count">랜덤 주제 수</Label>
+                          <Input
+                            id="random-count"
+                            type="number"
+                            min={1}
+                            max={subjects.length || 10}
+                            value={formState.randomSubjectCount}
+                            onChange={(event) => setFormState(prev => ({ ...prev, randomSubjectCount: Number(event.target.value) }))}
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            선택된 수 만큼 주제가 라운드마다 무작위로 선택됩니다.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          <div className="flex flex-wrap gap-2">
+                            <Button type="button" variant="outline" size="sm" onClick={handleSelectAllSubjects}>
+                              전체 선택
+                            </Button>
+                            <Button type="button" variant="outline" size="sm" onClick={handleClearSubjects}>
+                              전체 해제
+                            </Button>
+                          </div>
+                          <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
+                            {availableSubjectTags.map(subject => {
+                              const selected = formState.selectedSubjectIds.includes(subject.id)
+                              return (
+                                <Badge
+                                  key={subject.id}
+                                  variant={selected ? 'default' : 'outline'}
+                                  className="cursor-pointer"
+                                  onClick={() => handleToggleSubject(subject.id)}
+                                >
+                                  {subject.label}
+                                  {selected && <Check className="h-3 w-3 ml-1" />}
+                                </Badge>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex justify-end gap-2">
+                      <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+                        취소
+                      </Button>
+                      <Button type="button" onClick={handleCreateRoom} disabled={isSubmitting}>
+                        생성하기
+                      </Button>
+                    </div>
+                  </div>
+                </ScrollArea>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </CardHeader>
+
+        <CardContent>
+          {roomsLoading ? (
+            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+              <RefreshCw className="h-8 w-8 animate-spin mb-4" />
+              게임방 정보를 불러오는 중입니다...
+            </div>
+          ) : roomsError ? (
+            <div className="flex flex-col items-center justify-center py-12 text-destructive gap-4">
+              {roomsError}
+              <Button variant="outline" onClick={refreshRooms}>다시 시도</Button>
+            </div>
+          ) : rooms.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-4 text-center">
+              <Users className="h-10 w-10 text-muted-foreground" />
+              <div>
+                <p className="font-medium">현재 대기 중인 게임방이 없습니다.</p>
+                <p className="text-sm text-muted-foreground">새로운 게임을 생성하고 친구들을 초대해보세요!</p>
+              </div>
+              <Button onClick={() => handleCreateDialogChange(true)}>
+                <Plus className="h-4 w-4 mr-2" /> 첫 게임방 만들기
+              </Button>
+            </div>
+          ) : (
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
+              {rooms.map(room => {
+                const status = normalizeRoomStatus(room.state ?? room.gameState)
+                const isPrivate = Boolean(room.hasPassword)
+                return (
+                  <Card key={room.gameNumber} className="flex flex-col">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <CardTitle className="text-lg flex items-center gap-2">
+                            {isPrivate ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
+                            {room.title}
+                          </CardTitle>
+                          <CardDescription>호스트: {room.host}</CardDescription>
+                        </div>
+                        {getStatusBadge(status)}
+                      </div>
+                    </CardHeader>
+                    <CardContent className="flex-1 flex flex-col gap-3">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">플레이어</span>
+                        <span className="font-medium">{room.currentPlayers}/{room.maxPlayers}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">게임 번호</span>
+                        <code className="bg-muted px-2 py-1 rounded text-xs font-mono">{room.gameNumber}</code>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">게임 모드</span>
+                        <span className="text-xs">{room.gameMode}</span>
+                      </div>
+                      <div className="mt-auto">
+                        <Button
+                          className="w-full"
+                          onClick={() => handleJoinRoom(room.gameNumber, isPrivate)}
+                          disabled={status === 'IN_PROGRESS' || room.currentPlayers >= room.maxPlayers || isSubmitting}
+                        >
+                          {status === 'IN_PROGRESS' ? (
+                            <>
+                              <Play className="h-4 w-4 mr-2" /> 게임 진행 중
+                            </>
+                          ) : room.currentPlayers >= room.maxPlayers ? (
+                            '인원이 가득 찼습니다'
+                          ) : (
+                            '참여하기'
+                          )}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
           )}
-        </div>
-      )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

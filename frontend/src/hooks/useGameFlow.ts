@@ -62,7 +62,15 @@ export const useGameFlow = () => {
 
       // 투표 상태 업데이트
       if (currentPlayer) {
-        addVote(currentPlayer.id, targetUserId.toString());
+        const target = players.find(player =>
+          player.userId === targetUserId || player.id === targetUserId.toString()
+        )
+        addVote(
+          currentPlayer.id,
+          currentPlayer.nickname,
+          target ? target.id : targetUserId.toString(),
+          target ? target.nickname : '알 수 없음'
+        )
       }
 
       setLoading(false);
@@ -73,7 +81,7 @@ export const useGameFlow = () => {
       setLoading(false);
       throw error;
     }
-  }, [gameNumber, currentPlayer, setLoading, setError, addVote]);
+  }, [gameNumber, currentPlayer, players, setLoading, setError, addVote]);
 
   // 변론 제출
   const submitDefense = useCallback(async (defenseText: string) => {

@@ -7,7 +7,6 @@ import {ProtectedRoute} from '@/components/auth/ProtectedRoute'
 import {MainLoginPage as LoginPage} from '@/versions/main/pages/LoginPage'
 import {MainLobbyPage as LobbyPage} from '@/versions/main/pages/LobbyPage'
 import {MainGamePage as GamePage} from '@/versions/main/pages/GamePage'
-import {MainGamePageV2 as GamePageV2} from '@/versions/main/pages/GamePageV2'
 import {MainResultsPage as ResultsPage} from '@/versions/main/pages/ResultsPage'
 
 // Error Pages
@@ -16,7 +15,7 @@ import {NotFoundPage} from '@/components/common/NotFoundPage'
 
 export const router = createBrowserRouter([
   {
-    path: "/",
+    path: '/',
     element: <AuthLayout />,
     errorElement: <ErrorBoundary />,
     children: [
@@ -25,34 +24,30 @@ export const router = createBrowserRouter([
         element: <LoginPage />,
       },
       {
-        path: "login",
+        path: 'login',
         element: <LoginPage />,
       }
     ]
   },
   {
-    path: "/",
+    path: '/',
     element: <Layout />,
     errorElement: <ErrorBoundary />,
     children: [
       {
-        path: "lobby",
+        path: 'lobby',
         element: <ProtectedRoute><LobbyPage /></ProtectedRoute>,
       },
       {
-        path: "game/:gameId",
-        element: <ProtectedRoute><GamePageV2 /></ProtectedRoute>,
-      },
-      {
-        path: "results/:gameId",
-        element: <ProtectedRoute><ResultsPage /></ProtectedRoute>,
-      },
-      {
-        path: "dev/game-v1/:gameId",
+        path: 'game/:gameId',
         element: <ProtectedRoute><GamePage /></ProtectedRoute>,
       },
       {
-        path: "*",
+        path: 'results/:gameId',
+        element: <ProtectedRoute><ResultsPage /></ProtectedRoute>,
+      },
+      {
+        path: '*',
         element: <NotFoundPage />,
       },
     ]

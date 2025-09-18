@@ -1,9 +1,89 @@
 // WebSocket Connection Hook with Store Integration
 import {useCallback, useEffect, useRef, useState} from 'react'
-import {useGameStore} from '@/stores'
+import {useGameplayStore, useGameStore} from '@/stores'
 import {type GameStateUpdate, gameWebSocket, type PlayerAction} from '@/api/websocket'
-import type {ChatMessage} from '@/types/gameFlow'
+import type {ChatMessage as LegacyChatMessage} from '@/types/gameFlow'
+import {
+    type ChatMessage as GameplayChatMessage,
+    GAME_FLOW_SCHEMA_VERSION,
+    type GameRealtimeEvent,
+    type GameStateResponse
+} from '@/types/backendTypes'
 import {useToast} from './useToast'
+
+const REALTIME_EVENT_TYPES: GameRealtimeEvent['type'][] = [
+  'PHASE_CHANGE',
+  'CURRENT_TURN',
+  'DEFENSE_START',
+  'DEFENSE_SUBMISSION',
+  'DEFENSE_TIMEOUT',
+  'VOTING_START',
+  'VOTING_PROGRESS',
+  'FINAL_VOTING_START',
+  'FINAL_VOTING_PROGRESS',
+  'FINAL_VOTING_RESULT',
+  'SPEECH_TIMER',
+  'COUNTDOWN_UPDATE',
+  'SCOREBOARD',
+  'GAME_END',
+  'TERMINATION',
+  'LIAR_GUESS_START',
+  'LIAR_GUESS_RESULT',
+  'MODERATOR',
+  'STATUS_MESSAGE',
+  'LIAR_MESSAGE'
+]
+
+const CHAT_MESSAGE_TYPES = new Set<GameplayChatMessage['type']>([
+  'HINT',
+  'DISCUSSION',
+  'DEFENSE',
+  'POST_ROUND',
+  'SYSTEM'
+])
+
+const normalizeChatMessage = (message: LegacyChatMessage): GameplayChatMessage | null => {
+  const content = message.content ?? message.message
+  if (!content || content.length === 0) {
+    return null
+  }
+
+  const timestamp =
+    typeof message.timestamp === 'number'
+      ? new Date(message.timestamp).toISOString()
+      : typeof message.timestamp === 'string'
+        ? message.timestamp
+        : new Date().toISOString()
+
+  const rawType = typeof message.type === 'string' ? (message.type.toUpperCase() as GameplayChatMessage['type']) : undefined
+  const normalizedType = rawType && CHAT_MESSAGE_TYPES.has(rawType) ? rawType : 'DISCUSSION'
+
+  const numericId =
+    typeof message.id === 'number'
+      ? message.id
+      : typeof message.id === 'string'
+        ? Number(message.id)
+        : null
+
+  const id = numericId != null && !Number.isNaN(numericId) ? numericId : null
+
+  const gameNumberValue =
+    typeof message.gameNumber === 'number'
+      ? message.gameNumber
+      : typeof message.gameNumber === 'string'
+        ? Number(message.gameNumber)
+        : 0
+  const gameNumber = Number.isNaN(gameNumberValue) ? 0 : gameNumberValue
+
+  return {
+    id,
+    gameNumber,
+    playerNickname: message.playerNickname ?? message.nickname ?? message.playerName ?? 'SYSTEM',
+    content,
+    timestamp,
+    type: normalizedType
+  }
+}
 
 export function useWebSocketConnection() {
   const isInitialized = useRef(false)
@@ -29,6 +109,8 @@ export function useWebSocketConnection() {
     setConnectionError,
     connectionState
   } = useGameStore()
+
+  const { hydrateFromSnapshot, applyRealtimeEvent, appendChatMessages } = useGameplayStore((state) => state.actions)
 
   const [isConnecting, setIsConnecting] = useState(false)
 
@@ -128,6 +210,14 @@ export function useWebSocketConnection() {
     const unsubscribeGameState = gameWebSocket.on('GAME_STATE_UPDATE', (data: GameStateUpdate) => {
       console.log('[WebSocket Hook] Game state update:', data)
       handleGameStateUpdate(data)
+
+      const maybeSnapshot = data as unknown as Partial<GameStateResponse>
+      if (
+        (maybeSnapshot as { schemaVersion?: string }).schemaVersion === GAME_FLOW_SCHEMA_VERSION &&
+        Array.isArray(maybeSnapshot.players)
+      ) {
+        hydrateFromSnapshot(maybeSnapshot as GameStateResponse)
+      }
     })
 
     // Player Events
@@ -259,10 +349,20 @@ export function useWebSocketConnection() {
       })
     })
 
+    const realtimeUnsubscribes = REALTIME_EVENT_TYPES.map((eventType) =>
+      gameWebSocket.on(eventType, (payload: unknown) => {
+        applyRealtimeEvent({ type: eventType, payload } as GameRealtimeEvent)
+      })
+    )
+
     // Chat Events
-    const unsubscribeChatMessage = gameWebSocket.on('CHAT_MESSAGE', (data: ChatMessage) => {
-      console.log('[WebSocket Hook] Chat message:', data.playerName, data.content)
+    const unsubscribeChatMessage = gameWebSocket.on('CHAT_MESSAGE', (data: LegacyChatMessage) => {
+      console.log('[WebSocket Hook] Chat message:', data.playerNickname ?? data.playerName, data.content ?? data.message)
       handleChatMessage(data)
+      const normalized = normalizeChatMessage(data)
+      if (normalized) {
+        appendChatMessages([normalized])
+      }
     })
 
     const unsubscribeTypingStart = gameWebSocket.on('TYPING_START', (data: { playerId: string, playerNickname: string }) => {
@@ -308,6 +408,7 @@ export function useWebSocketConnection() {
       unsubscribeTimerStop()
       unsubscribePlayerVoted()
       unsubscribeDefenseStart()
+      realtimeUnsubscribes.forEach((unsubscribe) => unsubscribe())
       unsubscribeChatMessage()
       unsubscribeTypingStart()
       unsubscribeTypingStop()
@@ -325,6 +426,9 @@ export function useWebSocketConnection() {
     handleTimerUpdate,
     handleVoteUpdate,
     handleChatMessage,
+    hydrateFromSnapshot,
+    applyRealtimeEvent,
+    appendChatMessages,
     addTypingPlayer,
     removeTypingPlayer,
     setError,

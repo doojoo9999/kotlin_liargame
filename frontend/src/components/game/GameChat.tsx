@@ -1,14 +1,14 @@
-import React, {useEffect, useRef, useState} from 'react';
-import {Button} from '@/components/ui/button';
-import {Input} from '@/components/ui/input';
-import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
-import {Avatar, AvatarFallback} from '@/components/ui/avatar';
-import {Badge} from '@/components/ui/badge';
-import {useGameFlow} from '@/hooks/useGameFlow';
-import {websocketService} from '@/services/websocketService';
-import {MessageCircle, Send, Users} from 'lucide-react';
-import type {ChatMessage} from '@/types/gameFlow';
-import type {Player} from '@/stores';
+import React, {useEffect, useRef, useState} from 'react'
+import {Button} from '@/components/ui/button'
+import {Input} from '@/components/ui/input'
+import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card'
+import {Avatar, AvatarFallback} from '@/components/ui/avatar'
+import {Badge} from '@/components/ui/badge'
+import {useGameFlow} from '@/hooks/useGameFlow'
+import {websocketService} from '@/services/websocketService'
+import {MessageCircle, Send, Users} from 'lucide-react'
+import type {ChatMessage} from '@/types/realtime'
+import type {Player} from '@/stores'
 
 interface GameChatProps {
   players: Player[];
@@ -23,16 +23,16 @@ export const GameChat: React.FC<GameChatProps> = ({
   gamePhase,
   className = '',
 }) => {
-  const [message, setMessage] = useState('');
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [isExpanded, setIsExpanded] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { sendChatMessage, loadChatHistory, chatMessages } = useGameFlow();
+  const [message, setMessage] = useState('')
+  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [isExpanded, setIsExpanded] = useState(false)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const { sendChatMessage, loadChatHistory, chatMessages } = useGameFlow()
 
   // 채팅 메시지 동기화
   useEffect(() => {
-    setMessages(chatMessages);
-  }, [chatMessages]);
+    setMessages(chatMessages as ChatMessage[])
+  }, [chatMessages])
 
   // 메시지 목록 끝으로 스크롤
   useEffect(() => {
@@ -47,20 +47,34 @@ export const GameChat: React.FC<GameChatProps> = ({
   // WebSocket 채팅 메시지 구독
   useEffect(() => {
     const unsubscribe = websocketService.onChatMessage((chatMessage) => {
+      const content = chatMessage.content ?? chatMessage.message ?? ''
+      const nickname = chatMessage.playerNickname ?? chatMessage.playerName ?? chatMessage.nickname ?? 'SYSTEM'
+      const timestamp =
+        typeof chatMessage.timestamp === 'string'
+          ? Date.parse(chatMessage.timestamp)
+          : Number(chatMessage.timestamp ?? Date.now())
+
       const formattedMessage: ChatMessage = {
-        id: String(chatMessage.id ?? `${chatMessage.gameNumber}-${chatMessage.timestamp}`),
-        gameNumber: chatMessage.gameNumber ?? (chatMessage.gameId ? parseInt(chatMessage.gameId) : 0),
-        nickname: chatMessage.playerNickname || chatMessage.playerName || 'SYSTEM',
-        message: chatMessage.content || chatMessage.message || '',
-        timestamp: typeof chatMessage.timestamp === 'string' ? Date.parse(chatMessage.timestamp) : Number(chatMessage.timestamp ?? Date.now()),
-        type: (chatMessage.type || 'DISCUSSION') as ChatMessage['type'],
-      };
+        id: String(chatMessage.id ?? `${chatMessage.gameNumber ?? 0}-${timestamp}`),
+        gameNumber: Number(chatMessage.gameNumber ?? (chatMessage.gameId ? Number(chatMessage.gameId) : 0)),
+        playerId: chatMessage.playerId,
+        userId: chatMessage.userId,
+        playerNickname: nickname,
+        nickname,
+        playerName: chatMessage.playerName ?? nickname,
+        content,
+        message: content,
+        gameId: chatMessage.gameId,
+        roomId: chatMessage.roomId,
+        timestamp,
+        type: (chatMessage.type || 'DISCUSSION') as ChatMessage['type']
+      }
 
-      setMessages(prev => [...prev, formattedMessage]);
-    });
+      setMessages(prev => [...prev, formattedMessage])
+    })
 
-    return unsubscribe;
-  }, []);
+    return unsubscribe
+  }, [])
 
   const handleSendMessage = async () => {
     if (!message.trim()) return;
@@ -159,6 +173,13 @@ export const GameChat: React.FC<GameChatProps> = ({
               const player = getPlayerByUserId(msg.userId);
               const isCurrentUser = currentPlayer && msg.userId === parseInt(currentPlayer.id);
               const isSystemMessage = msg.type === 'SYSTEM';
+              const displayName =
+                player?.nickname ??
+                (player as { name?: string } | undefined)?.name ??
+                msg.playerNickname ??
+                msg.nickname ??
+                `플레이어 ${msg.userId ?? '?'}`;
+              const messageText = msg.message ?? msg.content ?? '';
 
               return (
                 <div
@@ -169,7 +190,7 @@ export const GameChat: React.FC<GameChatProps> = ({
                     {isSystemMessage ? (
                       <div className="text-center">
                         <Badge variant="outline" className="text-xs">
-                          {msg.message}
+                          {messageText}
                         </Badge>
                       </div>
                     ) : (
@@ -184,11 +205,11 @@ export const GameChat: React.FC<GameChatProps> = ({
                           <div className="flex items-center space-x-2">
                             <Avatar className="h-6 w-6">
                               <AvatarFallback className="text-xs">
-                                {player?.nickname.charAt(0).toUpperCase() || '?'}
+                                {displayName.charAt(0).toUpperCase()}
                               </AvatarFallback>
                             </Avatar>
                             <span className="font-medium text-sm">
-                              {player?.nickname || `플레이어 ${msg.userId}`}
+                              {displayName}
                             </span>
                             {msg.type !== 'GENERAL' && (
                               <Badge variant="outline" className="text-xs">
@@ -201,7 +222,7 @@ export const GameChat: React.FC<GameChatProps> = ({
                           </span>
                         </div>
                         <div className={`text-sm ${getMessageTypeColor(msg.type)}`}>
-                          {msg.message}
+                          {messageText}
                         </div>
                       </div>
                     )}

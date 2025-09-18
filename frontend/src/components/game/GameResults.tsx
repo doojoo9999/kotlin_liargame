@@ -49,6 +49,12 @@ export const GameResults: React.FC<GameResultsProps> = ({
   const winningTeam = result.winningTeam;
   const winners = result.players.filter(p => p.isWinner);
   const losers = result.players.filter(p => !p.isWinner);
+  const stats = result.gameStatistics ?? {
+    currentRound,
+    totalRounds,
+    totalDuration: 0,
+    averageRoundDuration: 0
+  };
 
   const formatDuration = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
@@ -68,7 +74,7 @@ export const GameResults: React.FC<GameResultsProps> = ({
             {winningTeam === 'CITIZENS' ? '🏛️ 시민팀 승리!' : '🎭 라이어팀 승리!'}
           </CardTitle>
           <div className="text-muted-foreground">
-            {result.reason}
+            {result.reason ?? ''}
           </div>
         </CardHeader>
       </Card>
@@ -101,7 +107,7 @@ export const GameResults: React.FC<GameResultsProps> = ({
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="font-bold text-green-600">+{player.score}</div>
+                    <div className="font-bold text-green-600">+{player.score ?? 0}</div>
                     <div className="text-xs text-muted-foreground">점수</div>
                   </div>
                 </div>
@@ -136,7 +142,7 @@ export const GameResults: React.FC<GameResultsProps> = ({
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="font-bold text-red-600">{player.score}</div>
+                    <div className="font-bold text-red-600">{player.score ?? 0}</div>
                     <div className="text-xs text-muted-foreground">점수</div>
                   </div>
                 </div>
@@ -158,25 +164,25 @@ export const GameResults: React.FC<GameResultsProps> = ({
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="text-center">
               <div className="text-2xl font-bold text-primary">
-                {result.gameStatistics.currentRound}
+                {stats.currentRound ?? currentRound}
               </div>
               <div className="text-sm text-muted-foreground">현재 라운드</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-primary">
-                {result.gameStatistics.totalRounds}
+                {stats.totalRounds ?? totalRounds}
               </div>
               <div className="text-sm text-muted-foreground">총 라운드</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-primary">
-                {formatDuration(result.gameStatistics.totalDuration)}
+                {formatDuration(stats.totalDuration ?? 0)}
               </div>
               <div className="text-sm text-muted-foreground">총 시간</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-primary">
-                {formatDuration(result.gameStatistics.averageRoundDuration)}
+                {formatDuration(stats.averageRoundDuration ?? 0)}
               </div>
               <div className="text-sm text-muted-foreground">평균 라운드 시간</div>
             </div>

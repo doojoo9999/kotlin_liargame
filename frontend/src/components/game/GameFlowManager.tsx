@@ -111,7 +111,7 @@ export const GameFlowManager: React.FC<GameFlowManagerProps> = ({
   };
 
   const canVote = () => {
-    return currentPlayer && !voting.votes[currentPlayer.id];
+    return Boolean(currentPlayer && !voting.votes[currentPlayer.id]);
   };
 
   const handleSubmitHint = React.useCallback(async (hint: string) => {
@@ -130,12 +130,12 @@ export const GameFlowManager: React.FC<GameFlowManagerProps> = ({
     }
   }, [addHint, currentPlayer, gameNumber]);
 
-  const handleVotePlayer = React.useCallback(async (playerId: number) => {
+  const handleVotePlayer = React.useCallback(async (playerId: string) => {
     if (currentPlayer && gameNumber) {
       try {
-        const targetPlayer = players.find(p => p.id === playerId.toString());
+        const targetPlayer = players.find(p => p.id === playerId);
         if (targetPlayer) {
-          castVote(playerId.toString());
+          castVote(currentPlayer.id, playerId);
         }
       } catch (error) {
         console.error('Failed to vote:', error);
@@ -212,11 +212,11 @@ export const GameFlowManager: React.FC<GameFlowManagerProps> = ({
       <div className="space-y-6">
         {/* Moderator Commentary - Prominent Position */}
         <ModeratorCommentary
-          phase={gamePhase}
-          currentTopic={currentTopic}
-          currentWord={currentWord}
-          timeRemaining={timer.timeRemaining}
-          isLiar={isLiar ?? false}
+          gamePhase={gamePhase}
+          currentTopic={currentTopic ?? null}
+          currentWord={currentWord ?? null}
+          timeRemaining={timer.timeRemaining ?? 0}
+          isLiar={Boolean(isLiar)}
           playerCount={players.length}
           suspectedPlayer={suspectedPlayer?.nickname}
         />
@@ -224,13 +224,7 @@ export const GameFlowManager: React.FC<GameFlowManagerProps> = ({
         {/* Game Phase Indicator */}
         <GamePhaseIndicator
           phase={gamePhase}
-          timeRemaining={timer.timeRemaining}
-          maxTime={timer.maxTime || 0}
-          currentRound={currentRound}
-          totalRounds={totalRounds}
-          playerCount={players.length}
-          readyCount={players.filter(p => p.isReady).length}
-          votedCount={Object.keys(voting.votes).length}
+          timeRemaining={timer.timeRemaining ?? 0}
         />
 
         {/* Main Game Layout */}
@@ -239,11 +233,12 @@ export const GameFlowManager: React.FC<GameFlowManagerProps> = ({
           <div className="xl:col-span-1">
             <PlayerStatusPanel
               players={players}
-                phase={gamePhase}
-              currentTurnPlayerId={currentTurnPlayerId}
+              currentPhase={gamePhase}
+              currentPlayer={currentPlayer ?? null}
+              currentTurnPlayerId={currentTurnPlayerId ?? null}
               votes={voting.votes}
-              isLiar={isLiar ?? false}
-              suspectedPlayer={currentLiar}
+              isLiar={Boolean(isLiar)}
+              suspectedPlayer={suspectedPlayer?.id}
             />
           </div>
 
@@ -251,20 +246,21 @@ export const GameFlowManager: React.FC<GameFlowManagerProps> = ({
           <div className="xl:col-span-2 space-y-6">
             {/* Game Action Interface */}
             <GameActionInterface
-              phase={gamePhase}
-                isMyTurn={isMyTurn() ?? false}
-              isLiar={isLiar ?? false}
+              gamePhase={gamePhase}
+              currentPlayer={currentPlayer ?? null}
+              isMyTurn={isMyTurn()}
+              isLiar={Boolean(isLiar)}
               canVote={canVote()}
-              timeRemaining={timer.timeRemaining}
+              timeRemaining={timer.timeRemaining ?? 0}
               onSubmitHint={handleSubmitHint}
               onVotePlayer={handleVotePlayer}
               onSubmitDefense={handleSubmitDefense}
               onGuessWord={handleGuessWord}
               onCastFinalVote={handleCastFinalVote}
               players={players}
-              suspectedPlayer={suspectedPlayer}
-              currentTopic={currentTopic}
-              currentWord={currentWord}
+              suspectedPlayer={suspectedPlayer ?? undefined}
+              currentTopic={currentTopic ?? undefined}
+              currentWord={currentWord ?? undefined}
             />
 
             {/* Legacy Game Phase Components (for fallback) */}
@@ -286,7 +282,8 @@ export const GameFlowManager: React.FC<GameFlowManagerProps> = ({
             
             <GameChat
               players={players}
-                phase={gamePhase}
+              currentPlayer={currentPlayer ?? null}
+              gamePhase={gamePhase}
             />
           </div>
         </div>

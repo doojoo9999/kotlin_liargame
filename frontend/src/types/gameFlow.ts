@@ -65,7 +65,16 @@ export interface GameResult {
     nickname: string;
     role: 'CITIZEN' | 'LIAR';
     isAlive: boolean;
+    isWinner?: boolean;
+    score?: number;
   }[];
+  reason?: string;
+  gameStatistics?: {
+    currentRound?: number;
+    totalRounds?: number;
+    totalDuration?: number;
+    averageRoundDuration?: number;
+  };
 }
 
 // 라운드 종료 응답
@@ -84,7 +93,7 @@ export interface RoundEndResponse {
 }
 
 // 채팅 메시지 - Unified interface for both websocket and gameFlow
-export interface ChatMessage extends RealtimeChatMessage {
-  nickname: string;
+export type ChatMessage = RealtimeChatMessage & {
+  nickname?: string;
   message: string;
 }

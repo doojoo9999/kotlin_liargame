@@ -32,7 +32,7 @@ export const PlayerStatusPanel: React.FC<PlayerStatusPanelProps> = ({
     if (!player.isOnline) return 'offline'
     if (player.id === currentTurnPlayerId) return 'active'
     if (votes[player.id]) return 'voted'
-    if (currentPhase === 'WAITING') return 'ready'
+    if (currentPhase === 'WAITING_FOR_PLAYERS') return 'ready'
     return 'waiting'
   }
 
