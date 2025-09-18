@@ -108,6 +108,11 @@ game:
     # 게임 정리 설정
     game-cleanup-interval-seconds: 30
 
+  state-storage:
+    # Available strategies: redis, in_memory, hybrid
+    strategy: hybrid
+    hybrid-write-through: true
+
 management:
   endpoints:
     web:

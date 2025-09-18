@@ -1,6 +1,5 @@
 import {apiClient} from '../api/client';
 import type {
-    CastVoteResponse,
     ChatHistoryResponse,
     ChatMessage,
     ChatMessageType,
@@ -9,9 +8,10 @@ import type {
     CreateGameRequest,
     DefenseSubmissionResponse,
     GameStateResponse,
+    LiarGuessResultResponse,
     PlayerReadyResponse,
-    VotingStatusResponse,
-    WordGuessResponse
+    VoteResponse,
+    VotingStatusResponse
 } from '../types/backendTypes';
 
 /**
@@ -155,8 +155,8 @@ export class EnhancedGameService {
   }
 
   // New enhanced voting method
-  async castVote(gameNumber: number, targetUserId: number): Promise<CastVoteResponse> {
-    const response = await apiClient.post<CastVoteResponse>('/api/v1/game/cast-vote', {
+  async castVote(gameNumber: number, targetUserId: number): Promise<VoteResponse> {
+    const response = await apiClient.post<VoteResponse>('/api/v1/game/cast-vote', {
       gameNumber,
       targetUserId
     });
@@ -197,8 +197,8 @@ export class EnhancedGameService {
   }
 
   // Legacy guess method
-  async submitLiarGuess(gameNumber: number, guess: string): Promise<WordGuessResponse> {
-    const response = await apiClient.post<WordGuessResponse>('/api/v1/game/submit-liar-guess', {
+  async submitLiarGuess(gameNumber: number, guess: string): Promise<LiarGuessResultResponse> {
+    const response = await apiClient.post<LiarGuessResultResponse>('/api/v1/game/submit-liar-guess', {
       gameNumber,
       guess
     });
@@ -206,8 +206,8 @@ export class EnhancedGameService {
   }
 
   // New enhanced guess method
-  async guessWord(gameNumber: number, guess: string): Promise<WordGuessResponse> {
-    const response = await apiClient.post<WordGuessResponse>('/api/v1/game/guess-word', {
+  async guessWord(gameNumber: number, guess: string): Promise<LiarGuessResultResponse> {
+    const response = await apiClient.post<LiarGuessResultResponse>('/api/v1/game/guess-word', {
       gameNumber,
       guess
     });

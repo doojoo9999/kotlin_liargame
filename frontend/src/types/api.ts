@@ -1,21 +1,45 @@
 import type {
     BackendPlayer,
-    CastVoteResponse,
-    CountdownResponse as BackendCountdownResponse,
+    ChatHistoryRequest,
+    ChatHistoryResponse,
+    ChatMessage,
+    ChatMessageType,
+    ConnectionStatusResponse,
+    CountdownResponse,
     CreateGameRequest as BackendCreateGameRequest,
     DefenseSubmissionResponse,
     GameMode,
-    GameState as BackendGameState,
+    GameRoomInfo,
     GameStateResponse as BackendGameStateResponse,
     JoinGameRequest as BackendJoinGameRequest,
-    PlayerReadyResponse as BackendPlayerReadyResponse,
-    ScoreboardEntry as BackendScoreboardEntry,
-    VotingStatusResponse as BackendVotingStatusResponse,
-    WordGuessResponse,
+    LiarGuessResultResponse,
+    PlayerReadyResponse,
+    ScoreboardEntry,
+    VoteResponse,
+    VotingStatusResponse
 } from './backendTypes'
-import type {APIResponse} from './index'
 
-export type ApiResponse<T = unknown> = APIResponse<T>
+export type GameStateResponse = BackendGameStateResponse
+export type CreateGameRequest = BackendCreateGameRequest
+export type JoinGameRequest = BackendJoinGameRequest & { password?: string }
+
+export type {
+  BackendPlayer,
+  GameMode,
+  GameRoomInfo,
+  PlayerReadyResponse,
+  CountdownResponse,
+  VotingStatusResponse,
+  VoteResponse,
+  DefenseSubmissionResponse,
+  LiarGuessResultResponse,
+  ScoreboardEntry,
+  ChatMessage,
+  ChatHistoryResponse,
+  ChatHistoryRequest,
+  ChatMessageType,
+  ConnectionStatusResponse
+}
 
 export interface ApiError {
   success: false
@@ -25,13 +49,13 @@ export interface ApiError {
   timestamp: string
 }
 
-export interface PaginationParams {
-  page?: number
-  size?: number
-  sort?: string
+export interface ApiResponse<T> {
+  success: boolean
+  data: T
+  timestamp: number
 }
 
-export type PaginatedResponse<T> = ApiResponse<T[]> & {
+export interface PaginatedResponse<T> extends ApiResponse<T[]> {
   pagination: {
     page: number
     size: number
@@ -42,78 +66,14 @@ export type PaginatedResponse<T> = ApiResponse<T[]> & {
   }
 }
 
-export interface GameRoom {
-  gameNumber: number
-  gameName: string
-  gameOwner: string
-  gameState: BackendGameState
-  gameMode: GameMode
-  gameParticipants: number
-  gameMaxPlayers: number
-  isPrivate: boolean
-  createdAt: string
-}
-
-export type CreateGameRequest = BackendCreateGameRequest
-
-export type JoinGameRequest = BackendJoinGameRequest & {
-  password?: string
-}
-
-export interface GameRoomInfo {
-  gameNumber: number
-  title: string
-  host: string
-  currentPlayers: number
-  maxPlayers: number
-  hasPassword: boolean
-  state: BackendGameState
-  subjects: string[]
-  subject?: string | null
-  players?: BackendPlayer[]
-  gameName?: string
-  gameOwner?: string
-  gameParticipants?: number
-  gameMaxPlayers?: number
-  isPrivate?: boolean
-  gameState?: BackendGameState
-  gameMode?: GameMode | string
-}
-
-export type GameListResponse = ApiResponse<GameRoomInfo[]> & {
-  gameRooms?: GameRoomInfo[]
-  games?: GameRoomInfo[]
+export interface GameListResponse {
+  success: boolean
+  gameRooms: GameRoomInfo[]
   data?: GameRoomInfo[]
+  games?: GameRoomInfo[]
+  timestamp: number
+  pagination?: PaginatedResponse<unknown>['pagination']
 }
-
-export type PlayerResponse = BackendPlayer & {
-  role?: 'CITIZEN' | 'LIAR'
-}
-
-export type ScoreboardEntry = BackendScoreboardEntry
-
-export type GameStateResponse = BackendGameStateResponse & {
-  state?: BackendGameState
-  phase?: BackendGameStateResponse['currentPhase']
-}
-
-export interface ChatMessage {
-  id: string
-  gameNumber: number
-  playerId: string
-  playerNickname: string
-  content: string
-  type: 'DISCUSSION' | 'HINT' | 'DEFENSE' | 'SYSTEM'
-  timestamp: string
-}
-
-export interface SendChatRequest {
-  gameNumber: number
-  content: string
-  type?: 'DISCUSSION' | 'HINT' | 'DEFENSE'
-}
-
-export type ChatHistoryResponse = ApiResponse<ChatMessage[]>
 
 export interface VoteRequest {
   gameNumber: number
@@ -140,31 +100,11 @@ export interface FinalVoteRequest {
   voteForExecution: boolean
 }
 
-export type VoteResponse = CastVoteResponse
+export interface SendChatRequest {
+  gameNumber: number
+  content: string
+  type?: ChatMessageType
+}
 
 export type DefenseResponse = DefenseSubmissionResponse
-
-export type GuessResponse = WordGuessResponse
-
-export type PlayerReadyResponse = BackendPlayerReadyResponse
-
-export type CountdownResponse = BackendCountdownResponse
-
-export type VotingStatusResponse = BackendVotingStatusResponse
-
-export interface AdminStats {
-  totalGames: number
-  activeGames: number
-  totalPlayers: number
-  onlinePlayers: number
-}
-
-export interface PlayerInfo {
-  id: number
-  nickname: string
-  isOnline: boolean
-  currentGameId?: number
-  joinedAt: string
-}
-
-export type ApiClientResponse<T> = Promise<ApiResponse<T>>
+export type GuessResponse = LiarGuessResultResponse

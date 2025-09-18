@@ -10,3 +10,4 @@ export { default as useGameStoreLegacy } from './gameStore';
 export { useGameStoreV2 } from './gameStoreV2';
 export type { Player } from './unifiedGameStore'
 export type { GamePhase } from '@/types/backendTypes'
+export { useGameplayStore, selectGameplayMeta, selectGameplayPhase, selectGameplayPlayers, selectGameplayVoting, selectGameplayChat } from './gameplayStore';
