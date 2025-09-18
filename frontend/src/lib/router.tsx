@@ -13,6 +13,7 @@ import {MainResultsPage as ResultsPage} from '@/versions/main/pages/ResultsPage'
 // Error Pages
 import {ErrorBoundary} from '@/components/common/ErrorBoundary'
 import {NotFoundPage} from '@/components/common/NotFoundPage'
+import { NemonemoDashboardPage } from '@/pages/nemonemo/NemonemoDashboardPage'
 
 export const router = createBrowserRouter([
   {
@@ -50,6 +51,10 @@ export const router = createBrowserRouter([
       {
         path: "dev/game-v1/:gameId",
         element: <ProtectedRoute><GamePage /></ProtectedRoute>,
+      },
+      {
+        path: "nemonemo",
+        element: <ProtectedRoute><NemonemoDashboardPage /></ProtectedRoute>,
       },
       {
         path: "*",

@@ -4,6 +4,7 @@ export { useAuthStore } from './authStore';
 export { useConnectionStore } from './connectionStore';
 export { useUIStore } from './uiStore';
 export { useAdminStore } from './adminStore';
+export { useNemonemoStore } from './nemonemoStore';
 
 // Legacy stores - deprecated, use unified store instead
 export { default as useGameStoreLegacy } from './gameStore';
