@@ -11,7 +11,7 @@ import type {
 } from '../types/backendTypes';
 import type {FrontendPlayer} from '../types';
 import type {GameRoomInfo, JoinGameRequest} from '../types/api';
-import type {ChatMessage} from '../types/realtime';
+import type {ChatMessage, GameEvent, ScoreEntry} from '../types/realtime';
 
 // Unified Player interface
 export interface Player extends FrontendPlayer {
@@ -223,7 +223,7 @@ interface GameActions {
   updateFromGameState: (gameState: GameStateResponse) => void;
 
   // Event Handlers
-  handleGameEvent: (event: any) => void;
+  handleGameEvent: (event: GameEvent) => void;
   handleChatMessage: (message: ChatMessage) => void;
   handlePlayerJoined: (player: Player) => void;
   handlePlayerLeft: (playerId: string) => void;
@@ -809,32 +809,34 @@ export const useGameStore = create<UnifiedGameStore>()(
         },
 
         // Event Handlers
-        handleGameEvent: (event) => {
+        handleGameEvent: (event: GameEvent) => {
           const state = get();
           
           switch (event.type) {
             case 'PLAYER_JOINED': {
-              const rawPlayerId = event.payload.playerId ?? '';
+              const { payload } = event;
+              const rawPlayerId = payload.playerId ?? payload.userId ?? payload.nickname ?? '';
               const normalizedId = String(rawPlayerId);
               const parsedUserId =
-                typeof event.payload.userId === 'number'
-                  ? event.payload.userId
-                  : Number.parseInt(String(event.payload.userId ?? rawPlayerId ?? 0), 10) || 0;
+                typeof payload.userId === 'number'
+                  ? payload.userId
+                  : Number.parseInt(String(payload.userId ?? rawPlayerId ?? 0), 10) || 0;
+              const nickname = payload.playerName ?? payload.nickname ?? ('Player ' + normalizedId);
 
               const newPlayer: Player = {
                 id: normalizedId,
                 userId: parsedUserId,
-                nickname: event.payload.playerName,
+                nickname,
                 isAlive: true,
                 state: 'WAITING_FOR_HINT',
                 votesReceived: 0,
                 hasVoted: false,
                 score: 0,
-                isHost: Boolean(event.payload.isHost),
-                isReady: Boolean(event.payload.isReady),
+                isHost: Boolean(payload.isHost),
+                isReady: Boolean(payload.isReady),
                 isConnected: true,
                 isOnline: true,
-                role: event.payload.role ?? undefined,
+                role: payload.role ?? undefined,
                 votedFor: undefined,
                 lastActive: Date.now(),
               };
@@ -843,88 +845,131 @@ export const useGameStore = create<UnifiedGameStore>()(
               break;
             }
 
-            case 'PLAYER_LEFT':
-              get().removePlayer(event.payload.playerId);
+            case 'PLAYER_LEFT': {
+              const { playerId } = event.payload;
+              if (playerId != null) {
+                get().removePlayer(String(playerId));
+              }
               break;
+            }
 
             case 'GAME_STARTED':
               set({
                 gamePhase: 'SPEECH',
-                currentRound: event.payload.currentRound
+                currentRound: event.payload.currentRound ?? state.currentRound
               });
               break;
 
-            case 'ROUND_STARTED':
+            case 'ROUND_STARTED': {
+              const { category, word, liarId, timeLimit } = event.payload;
               set({
-                currentTopic: event.payload.category,
-                currentWord: event.payload.word,
-                isLiar: event.payload.liarId === state.currentPlayer?.id,
-                currentLiar: event.payload.liarId,
+                currentTopic: category ?? state.currentTopic,
+                currentWord: word ?? state.currentWord,
+                isLiar: liarId != null ? String(liarId) === state.currentPlayer?.id : state.isLiar,
+                currentLiar: liarId != null ? String(liarId) : state.currentLiar,
                 hints: [],
                 votes: [],
                 defenses: []
               });
-              
-              if (event.payload.timeLimit) {
-                get().startTimer(event.payload.timeLimit, 'SPEECH');
+
+              if (typeof timeLimit === 'number' && timeLimit > 0) {
+                get().startTimer(timeLimit, 'SPEECH');
               }
               break;
+            }
 
             case 'HINT_PROVIDED':
-              get().addHint(
-                event.payload.playerId,
-                event.payload.playerName,
-                event.payload.hint
-              );
+            case 'HINT_SUBMITTED': {
+              const { playerId, playerName, hint } = event.payload;
+              const resolvedPlayerId = String(playerId ?? 'unknown');
+              get().addHint(resolvedPlayerId, playerName ?? '익명', hint ?? '');
               break;
+            }
 
-            case 'VOTE_CAST':
+            case 'VOTE_CAST': {
+              const { voterId, voterName, targetId, targetName } = event.payload;
               get().addVote(
-                event.payload.voterId,
-                event.payload.voterName,
-                event.payload.targetId,
-                event.payload.targetName
+                String(voterId ?? 'unknown'),
+                voterName ?? '익명',
+                String(targetId ?? 'unknown'),
+                targetName ?? '익명'
               );
               break;
+            }
 
-            case 'DEFENSE_SUBMITTED':
-              get().addDefense(
-                event.payload.defenderId,
-                event.payload.defenderName,
-                event.payload.defense
-              );
+            case 'DEFENSE_SUBMITTED': {
+              const { defenderId, defenderName, defense, playerId, playerName } = event.payload;
+              const resolvedId = defenderId ?? playerId ?? 'unknown';
+              const resolvedName = defenderName ?? playerName ?? '익명';
+              get().addDefense(String(resolvedId), resolvedName, defense ?? '');
               break;
+            }
 
             case 'ROUND_ENDED':
               set({ gamePhase: 'GAME_OVER' });
-              
-              // Update scores
-              if (event.payload.scores) {
-                const newScores: Record<string, number> = {};
-                event.payload.scores.forEach((scoreInfo: any) => {
-                  newScores[scoreInfo.playerId] = scoreInfo.score;
-                });
-                set({ scores: newScores });
+
+              {
+                const scoreEntries = event.payload.scores ?? event.payload.finalScores;
+                if (Array.isArray(scoreEntries) && scoreEntries.length > 0) {
+                  const newScores: Record<string, number> = {};
+                  (scoreEntries as ScoreEntry[]).forEach(entry => {
+                    newScores[String(entry.playerId)] = entry.score;
+                  });
+                  set({ scores: newScores });
+                }
               }
+              break;
+
+            case 'PHASE_CHANGED': {
+              const { phase } = event.payload;
+              if (phase) {
+                set({ gamePhase: mapGamePhase(phase) });
+              }
+              break;
+            }
+
+            case 'TIMER_UPDATE':
+              set(currentState => ({
+                timer: {
+                  ...currentState.timer,
+                  timeRemaining: event.payload.timeRemaining,
+                  phase: event.payload.phase ? String(event.payload.phase) : currentState.timer.phase,
+                }
+              }));
               break;
 
             case 'GAME_STATE_UPDATED':
               if (event.payload.gameState) {
                 get().updateFromGameState(event.payload.gameState);
               } else if (event.payload.state) {
-                set({
-                  gamePhase: mapGamePhase(event.payload.state)
-                });
+                set({ gamePhase: mapGamePhase(event.payload.state) });
               }
 
               if (event.payload.timeRemaining !== undefined) {
-                set((state) => ({
+                set(currentState => ({
                   timer: {
-                    ...state.timer,
-                    timeRemaining: event.payload.timeRemaining
+                    ...currentState.timer,
+                    timeRemaining: event.payload.timeRemaining ?? currentState.timer.timeRemaining
                   }
                 }));
               }
+              break;
+
+            case 'GAME_ENDED': {
+              const scoreEntries = event.payload.scores;
+              if (Array.isArray(scoreEntries) && scoreEntries.length > 0) {
+                const newScores: Record<string, number> = {};
+                (scoreEntries as ScoreEntry[]).forEach(entry => {
+                  newScores[String(entry.playerId)] = entry.score;
+                });
+                set({ scores: newScores, gamePhase: 'GAME_OVER' });
+              } else {
+                set({ gamePhase: 'GAME_OVER' });
+              }
+              break;
+            }
+
+            default:
               break;
           }
         },

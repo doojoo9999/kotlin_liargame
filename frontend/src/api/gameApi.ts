@@ -13,6 +13,7 @@ import type {
     GameMode,
     GameStateResponse,
     PlayerReadyResponse,
+    PlayerResponse,
     VotingStatusResponse
 } from '../types/backendTypes';
 import type {ChatMessage, RoundEndResponse} from '../types/gameFlow';
@@ -27,67 +28,222 @@ export class GameService {
     return GameService.instance;
   }
 
+  private static isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null;
+  }
+
+  private static toNumber(value: unknown, fallback = 0): number {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value;
+    }
+    if (typeof value === 'string') {
+      const parsed = Number.parseInt(value, 10);
+      if (!Number.isNaN(parsed)) {
+        return parsed;
+      }
+    }
+    return fallback;
+  }
+
+  private static toBoolean(value: unknown, fallback = false): boolean {
+    if (typeof value === 'boolean') {
+      return value;
+    }
+    if (typeof value === 'number') {
+      return value !== 0;
+    }
+    if (typeof value === 'string') {
+      const normalized = value.trim().toLowerCase();
+      if (normalized === 'true' || normalized === '1') {
+        return true;
+      }
+      if (normalized === 'false' || normalized === '0') {
+        return false;
+      }
+    }
+    return fallback;
+  }
+
+  private static toString(value: unknown, fallback = ''): string {
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      return trimmed.length > 0 ? trimmed : fallback;
+    }
+    if (typeof value === 'number' || typeof value === 'boolean') {
+      return String(value);
+    }
+    return fallback;
+  }
+
+  private static toOptionalString(value: unknown): string | null {
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      return trimmed.length > 0 ? trimmed : null;
+    }
+    return null;
+  }
+
+  private static toOptionalNumber(value: unknown): number | null {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value;
+    }
+    if (typeof value === 'string') {
+      const parsed = Number.parseInt(value, 10);
+      if (!Number.isNaN(parsed)) {
+        return parsed;
+      }
+    }
+    return null;
+  }
+
+  private static toStringArray(value: unknown): string[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+    return value
+      .map(item => GameService.toString(item, '').trim())
+      .filter(subject => subject.length > 0);
+  }
+
+  private static normalizePlayers(value: unknown): PlayerResponse[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    return value
+      .filter(GameService.isRecord)
+      .map(playerRecord => {
+        const id = GameService.toNumber(playerRecord['id'] ?? playerRecord['playerId']);
+        const userId = GameService.toNumber(playerRecord['userId'] ?? playerRecord['userID'] ?? playerRecord['id'], id);
+        const nickname = GameService.toString(playerRecord['nickname'] ?? playerRecord['playerName'], '');
+        const state = GameService.toString(playerRecord['state'], 'WAITING_FOR_HINT') as PlayerResponse['state'];
+        const hint = GameService.toOptionalString(playerRecord['hint']);
+        const defense = GameService.toOptionalString(playerRecord['defense']);
+        const votesReceived = GameService.toOptionalNumber(playerRecord['votesReceived']);
+
+        const normalized: PlayerResponse = {
+          id,
+          userId,
+          nickname,
+          isAlive: GameService.toBoolean(playerRecord['isAlive'], true),
+          state,
+          hasVoted: GameService.toBoolean(playerRecord['hasVoted'], false)
+        };
+
+        if (hint !== null) {
+          normalized.hint = hint;
+        }
+        if (defense !== null) {
+          normalized.defense = defense;
+        }
+        if (votesReceived !== null) {
+          normalized.votesReceived = votesReceived;
+        }
+        return normalized;
+      })
+      .filter(player => player.nickname.length > 0);
+  }
+
+  private static normalizeRoom(room: Record<string, unknown>): GameRoomInfo {
+    const rawNumber = room['gameNumber'] ?? room['gameId'] ?? room['id'];
+    const gameNumber = GameService.toNumber(rawNumber);
+    const fallbackTitle = gameNumber > 0 ? `Game #${gameNumber}` : 'Game';
+    const title = GameService.toString(room['title'] ?? room['gameName'], fallbackTitle);
+    const host = GameService.toString(room['host'] ?? room['gameOwner'], 'Unknown');
+    const currentPlayers = GameService.toNumber(room['currentPlayers'] ?? room['gameParticipants'] ?? room['participants']);
+    const maxPlayers = GameService.toNumber(room['maxPlayers'] ?? room['gameMaxPlayers'] ?? room['capacity']);
+    const hasPassword = GameService.toBoolean(room['hasPassword'] ?? room['isPrivate']);
+    const state = GameService.toString(room['state'] ?? room['gameState'], 'WAITING') as GameRoomInfo['state'];
+    const subjects = GameService.toStringArray(room['subjects']);
+    const subject = GameService.toOptionalString(room['subject'] ?? room['citizenSubject']);
+    const players = GameService.normalizePlayers(room['players']);
+    const modeValue = room['gameMode'] ?? room['mode'];
+    const normalizedMode = typeof modeValue === 'string' ? (modeValue as GameRoomInfo['gameMode']) : undefined;
+
+    return {
+      gameNumber,
+      title,
+      host,
+      currentPlayers,
+      maxPlayers,
+      hasPassword,
+      state,
+      subjects,
+      subject,
+      players,
+      gameName: GameService.toString(room['gameName'], title),
+      gameOwner: GameService.toString(room['gameOwner'], host),
+      gameParticipants: GameService.toNumber(room['gameParticipants'] ?? currentPlayers),
+      gameMaxPlayers: GameService.toNumber(room['gameMaxPlayers'] ?? maxPlayers),
+      isPrivate: GameService.toBoolean(room['isPrivate'] ?? hasPassword),
+      gameState: state,
+      gameMode: normalizedMode
+    } satisfies GameRoomInfo;
+  }
+
+  private static extractRooms(response: unknown): Record<string, unknown>[] {
+    if (!GameService.isRecord(response)) {
+      return [];
+    }
+
+    const record = response as Record<string, unknown>;
+    const candidateKeys: string[] = ['gameRooms', 'games', 'data'];
+
+    for (const key of candidateKeys) {
+      const value = record[key];
+      if (Array.isArray(value)) {
+        return value.filter(GameService.isRecord) as Record<string, unknown>[];
+      }
+    }
+
+    const dataValue = record['data'];
+    if (GameService.isRecord(dataValue)) {
+      const nested = GameService.extractRooms(dataValue);
+      if (nested.length > 0) {
+        return nested;
+      }
+    }
+
+    return [];
+  }
+
+  private static isGameListResponse(value: unknown): value is GameListResponse {
+    if (!GameService.isRecord(value)) {
+      return false;
+    }
+
+    const record = value as Record<string, unknown>;
+    return typeof record['success'] === 'boolean' && Array.isArray(record['gameRooms']);
+  }
+
   // 게임방 목록 조회
 
   async getGameList(page: number = 0, size: number = 10): Promise<GameListResponse> {
-    const response = await apiClient.get<any>(`/api/v1/game/rooms?page=${page}&size=${size}`)
-    const rooms = response?.gameRooms ?? response?.games ?? response?.data
+    const response = await apiClient.get<unknown>(`/api/v1/game/rooms?page=${page}&size=${size}`);
+    const roomRecords = GameService.extractRooms(response);
 
-    if (Array.isArray(rooms)) {
-      const normalized: GameRoomInfo[] = rooms.map((room: any) => {
-        const rawNumber = room.gameNumber ?? room.gameId ?? room.id
-        const gameNumber =
-          typeof rawNumber === 'number' ? rawNumber : Number.parseInt(String(rawNumber ?? 0), 10) || 0
-        const title = room.title ?? room.gameName ?? (gameNumber > 0 ? `Game #${gameNumber}` : 'Game')
-        const host = room.host ?? room.gameOwner ?? 'Unknown'
-        const currentPlayers = Number(room.currentPlayers ?? room.gameParticipants ?? room.participants ?? 0)
-        const maxPlayers = Number(room.maxPlayers ?? room.gameMaxPlayers ?? room.capacity ?? 0)
-        const hasPassword = Boolean(room.hasPassword ?? room.isPrivate ?? false)
-        const state = (room.state ?? room.gameState ?? 'WAITING') as GameRoomInfo['state']
-        const subjects = Array.isArray(room.subjects) ? room.subjects.map((subject: unknown) => String(subject)) : []
-        const players = Array.isArray(room.players)
-          ? (room.players as GameRoomInfo['players'])
-          : []
-        const mode = room.gameMode ?? room.mode
-
-        return {
-          gameNumber,
-          title,
-          host,
-          currentPlayers,
-          maxPlayers,
-          hasPassword,
-          state,
-          subjects,
-          subject: room.subject ?? room.citizenSubject ?? null,
-          players,
-          gameName: room.gameName ?? title,
-          gameOwner: room.gameOwner ?? host,
-          gameParticipants: room.gameParticipants ?? currentPlayers,
-          gameMaxPlayers: room.gameMaxPlayers ?? maxPlayers,
-          isPrivate: room.isPrivate ?? hasPassword,
-          gameState: (room.gameState ?? state) as GameRoomInfo['state'],
-          gameMode: mode as GameRoomInfo['gameMode']
-        } satisfies GameRoomInfo
-      })
-
+    if (roomRecords.length > 0) {
+      const normalized = roomRecords.map(room => GameService.normalizeRoom(room));
       const result: GameListResponse = {
         success: true,
         data: normalized,
         gameRooms: normalized,
         games: normalized,
         timestamp: Date.now()
+      };
+
+      if (GameService.isRecord(response)) {
+        const pagination = (response as Record<string, unknown>)['pagination'];
+        if (GameService.isRecord(pagination)) {
+          result.pagination = pagination as GameListResponse['pagination'];
+        }
       }
 
-      if (response?.pagination) {
-        result.pagination = response.pagination
-      }
-
-      return result
+      return result;
     }
 
-    if (response && typeof response === 'object' && 'success' in response) {
-      return response as GameListResponse
+    if (GameService.isGameListResponse(response)) {
+      return response;
     }
 
     return {
@@ -96,7 +252,7 @@ export class GameService {
       gameRooms: [],
       games: [],
       timestamp: Date.now()
-    }
+    };
   }
 
   // 게임방 생성
@@ -114,9 +270,9 @@ export class GameService {
 
   // 게임방 참여
   async joinGame(joinData: JoinGameRequest): Promise<GameStateResponse> {
-    const payload = {
+    const payload: JoinGameRequest = {
       gameNumber: joinData.gameNumber,
-      gamePassword: joinData.gamePassword ?? (joinData as any).password ?? null,
+      gamePassword: joinData.gamePassword ?? joinData.password ?? undefined,
       nickname: joinData.nickname
     };
     const response = await apiClient.post<GameStateResponse>('/api/v1/game/join', payload);

@@ -1,7 +1,14 @@
 import {create} from 'zustand';
 import {devtools} from 'zustand/middleware';
 import {websocketService} from '../services/websocketService';
-import type {ChatCallback, ChatMessage, ConnectionCallback, EventCallback, GameEvent} from '../types/realtime';
+import type {
+    ChatCallback,
+    ChatMessage,
+    ConnectionCallback,
+    EventCallback,
+    GameEvent,
+    ScoreEntry
+} from '../types/realtime';
 
 export interface Player {
   id: string;
@@ -217,13 +224,14 @@ const useGameStore = create<GameState>()(
           const state = get();
 
           switch (event.type) {
-            case 'PLAYER_JOINED':
+            case 'PLAYER_JOINED': {
               if (state.currentRoom) {
+                const playerId = String(event.payload.playerId ?? 'unknown');
                 const newPlayer: Player = {
-                  id: event.payload.playerId,
-                  name: event.payload.playerName,
-                  isHost: event.payload.isHost,
-                  isReady: false,
+                  id: playerId,
+                  name: event.payload.playerName ?? event.payload.nickname ?? 'Unknown',
+                  isHost: Boolean(event.payload.isHost),
+                  isReady: Boolean(event.payload.isReady),
                   isConnected: true,
                   score: 0
                 };
@@ -236,19 +244,20 @@ const useGameStore = create<GameState>()(
                 });
               }
               break;
+            }
 
-            case 'PLAYER_LEFT':
+            case 'PLAYER_LEFT': {
               if (state.currentRoom) {
+                const leavingId = String(event.payload.playerId ?? 'unknown');
                 set({
                   currentRoom: {
                     ...state.currentRoom,
-                    players: state.currentRoom.players.filter(
-                      player => player.id !== event.payload.playerId
-                    )
+                    players: state.currentRoom.players.filter(player => player.id !== leavingId)
                   }
                 });
               }
               break;
+            }
 
             case 'GAME_STARTED':
               set({
@@ -256,16 +265,16 @@ const useGameStore = create<GameState>()(
                   ...state.currentRoom,
                   isStarted: true,
                   state: 'PROVIDING_HINTS',
-                  currentRound: event.payload.currentRound
+                  currentRound: event.payload.currentRound ?? state.currentRoom.currentRound
                 } : null
               });
               break;
 
             case 'ROUND_STARTED':
               set({
-                currentCategory: event.payload.category,
-                timeRemaining: event.payload.timeLimit,
-                isLiar: event.payload.liarId === state.currentPlayerId,
+                currentCategory: event.payload.category ?? state.currentCategory,
+                timeRemaining: typeof event.payload.timeLimit === 'number' ? event.payload.timeLimit : state.timeRemaining,
+                isLiar: event.payload.liarId != null ? String(event.payload.liarId) === state.currentPlayerId : state.isLiar,
                 hints: [],
                 votes: [],
                 defenses: []
@@ -274,36 +283,34 @@ const useGameStore = create<GameState>()(
 
             case 'HINT_PROVIDED':
               get().addHint(
-                event.payload.playerId,
-                event.payload.playerName,
-                event.payload.hint
+                String(event.payload.playerId ?? 'unknown'),
+                event.payload.playerName ?? '익명',
+                event.payload.hint ?? ''
               );
               break;
 
             case 'VOTE_CAST':
               get().addVote(
-                event.payload.voterId,
-                event.payload.voterName,
-                event.payload.targetId,
-                event.payload.targetName
+                String(event.payload.voterId ?? 'unknown'),
+                event.payload.voterName ?? '익명',
+                String(event.payload.targetId ?? 'unknown'),
+                event.payload.targetName ?? '익명'
               );
               break;
 
             case 'DEFENSE_SUBMITTED':
               get().addDefense(
-                event.payload.defenderId,
-                event.payload.defenderName,
-                event.payload.defense
+                String(event.payload.defenderId ?? event.payload.playerId ?? 'unknown'),
+                event.payload.defenderName ?? event.payload.playerName ?? '익명',
+                event.payload.defense ?? ''
               );
               break;
 
-            case 'ROUND_ENDED':
-              // Update scores
+            case 'ROUND_ENDED': {
               if (state.currentRoom) {
+                const scoreEntries = (event.payload.scores ?? event.payload.finalScores ?? []) as ScoreEntry[];
                 const updatedPlayers = state.currentRoom.players.map(player => {
-                  const scoreInfo = event.payload.scores.find(
-                    (s: any) => s.playerId === player.id
-                  );
+                  const scoreInfo = scoreEntries.find(entry => String(entry.playerId) === player.id);
                   return scoreInfo ? { ...player, score: scoreInfo.score } : player;
                 });
 
@@ -316,13 +323,13 @@ const useGameStore = create<GameState>()(
                 });
               }
               break;
+            }
 
             case 'GAME_ENDED':
               if (state.currentRoom) {
+                const scoreEntries = (event.payload.finalScores ?? event.payload.scores ?? []) as ScoreEntry[];
                 const finalPlayers = state.currentRoom.players.map(player => {
-                  const scoreInfo = event.payload.finalScores.find(
-                    (s: any) => s.playerId === player.id
-                  );
+                  const scoreInfo = scoreEntries.find(entry => String(entry.playerId) === player.id);
                   return scoreInfo ? { ...player, score: scoreInfo.score } : player;
                 });
 

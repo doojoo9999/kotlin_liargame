@@ -1,3 +1,5 @@
+import type {GamePhase, GameStateResponse, PlayerRole} from './backendTypes'
+
 // 백엔드 신규/강화 API에 맞춘 타입들
 
 export interface PlayerReadyResponse {
@@ -150,26 +152,129 @@ export interface ChatMessage {
 
 export type ChatCallback = (message: ChatMessage) => void
 
-export type GameEventType =
-  | 'PLAYER_JOINED'
-  | 'PLAYER_LEFT'
-  | 'GAME_STARTED'
-  | 'ROUND_STARTED'
-  | 'HINT_PROVIDED'
-  | 'VOTE_CAST'
-  | 'DEFENSE_SUBMITTED'
-  | 'ROUND_ENDED'
-  | 'GAME_ENDED'
-  | 'CHAT_MESSAGE'
-  | 'GAME_STATE_UPDATED'
-  | 'PERSONAL_NOTIFICATION'
+type PlayerIdentifier = string | number
 
-export interface GameEvent {
-  type: GameEventType
-  gameId: string
-  payload: unknown
-  timestamp: number
+export interface PlayerJoinedPayload {
+  playerId: PlayerIdentifier
+  playerName?: string
+  nickname?: string
+  userId?: number | string
+  isHost?: boolean
+  isReady?: boolean
+  role?: PlayerRole | string
+  [key: string]: unknown
 }
+
+export interface PlayerLeftPayload {
+  playerId: PlayerIdentifier
+  [key: string]: unknown
+}
+
+export interface GameStartedPayload {
+  currentRound?: number
+  [key: string]: unknown
+}
+
+export interface RoundStartedPayload {
+  category?: string
+  word?: string
+  liarId?: PlayerIdentifier
+  timeLimit?: number
+  [key: string]: unknown
+}
+
+export interface HintProvidedPayload {
+  playerId: PlayerIdentifier
+  playerName?: string
+  hint?: string
+  [key: string]: unknown
+}
+
+export interface VoteCastPayload {
+  voterId?: PlayerIdentifier
+  voterName?: string
+  targetId?: PlayerIdentifier
+  targetName?: string
+  [key: string]: unknown
+}
+
+export interface DefenseSubmittedPayload {
+  defenderId?: PlayerIdentifier
+  defenderName?: string
+  defense?: string
+  playerId?: PlayerIdentifier
+  playerName?: string
+  [key: string]: unknown
+}
+
+export interface ScoreEntry {
+  playerId: PlayerIdentifier
+  score: number
+}
+
+export interface RoundEndedPayload {
+  scores?: ScoreEntry[]
+  finalScores?: ScoreEntry[]
+  [key: string]: unknown
+}
+
+export interface PhaseChangedPayload {
+  phase: GamePhase | string
+  [key: string]: unknown
+}
+
+export interface TimerUpdatePayload {
+  timeRemaining: number
+  phase?: GamePhase | string
+  [key: string]: unknown
+}
+
+export interface GameStateUpdatedPayload {
+  gameState?: GameStateResponse
+  state?: GamePhase | string
+  timeRemaining?: number
+  [key: string]: unknown
+}
+
+export interface GameEndedPayload {
+  winner?: WinningTeam | string
+  scores?: ScoreEntry[]
+  finalScores?: ScoreEntry[]
+  [key: string]: unknown
+}
+
+export interface PersonalNotificationPayload {
+  [key: string]: unknown
+}
+
+export type GameEventPayloadMap = {
+  PLAYER_JOINED: PlayerJoinedPayload
+  PLAYER_LEFT: PlayerLeftPayload
+  GAME_STARTED: GameStartedPayload
+  ROUND_STARTED: RoundStartedPayload
+  HINT_PROVIDED: HintProvidedPayload
+  HINT_SUBMITTED: HintProvidedPayload
+  VOTE_CAST: VoteCastPayload
+  DEFENSE_SUBMITTED: DefenseSubmittedPayload
+  ROUND_ENDED: RoundEndedPayload
+  GAME_ENDED: GameEndedPayload
+  PHASE_CHANGED: PhaseChangedPayload
+  TIMER_UPDATE: TimerUpdatePayload
+  CHAT_MESSAGE: ChatMessage
+  GAME_STATE_UPDATED: GameStateUpdatedPayload
+  PERSONAL_NOTIFICATION: PersonalNotificationPayload
+}
+
+export type GameEventType = keyof GameEventPayloadMap
+
+export type GameEvent = {
+  [Type in GameEventType]: {
+    type: Type
+    gameId: string
+    payload: GameEventPayloadMap[Type]
+    timestamp: number
+  }
+}[GameEventType]
 
 export type EventCallback = (event: GameEvent) => void
 
