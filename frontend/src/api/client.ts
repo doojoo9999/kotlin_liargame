@@ -89,6 +89,15 @@ export const API_CONFIG = {
     // Profanity Management
     PROFANITY: {
       SUGGEST: '/api/v1/profanity/suggest',
+    },
+    // Nemonemo Puzzle API
+    NEMONEMO: {
+      PUZZLES: '/api/nemonemo/v1/puzzles',
+      PUZZLE_DETAIL: (puzzleId: number | string) => `/api/nemonemo/v1/puzzles/${puzzleId}`,
+      SESSIONS: '/api/nemonemo/v1/sessions',
+      SESSION_DETAIL: (sessionId: number | string) => `/api/nemonemo/v1/sessions/${sessionId}`,
+      SESSION_ACTIONS: (sessionId: number | string) => `/api/nemonemo/v1/sessions/${sessionId}/actions`,
+      LEADERBOARD_WEEKLY: '/api/nemonemo/v1/leaderboards/weekly',
     }
   },
   // WebSocket 메시지 경로 (백엔드 @MessageMapping과 일치) 
@@ -125,18 +134,30 @@ class ApiClient {
     return this.request<T>(endpoint, { method: 'GET' })
   }
 
-  async post<T>(endpoint: string, data?: unknown): Promise<T> {
-    return this.request<T>(endpoint, {
-      method: 'POST',
-      body: data ? JSON.stringify(data) : undefined,
-    })
+  async post<T>(endpoint: string, data?: unknown, options: RequestInit = {}): Promise<T> {
+    const config: RequestInit = {
+      ...options,
+      method: 'POST'
+    }
+
+    if (data !== undefined) {
+      config.body = JSON.stringify(data)
+    }
+
+    return this.request<T>(endpoint, config)
   }
 
-  async put<T>(endpoint: string, data?: unknown): Promise<T> {
-    return this.request<T>(endpoint, {
-      method: 'PUT',
-      body: data ? JSON.stringify(data) : undefined,
-    })
+  async put<T>(endpoint: string, data?: unknown, options: RequestInit = {}): Promise<T> {
+    const config: RequestInit = {
+      ...options,
+      method: 'PUT'
+    }
+
+    if (data !== undefined) {
+      config.body = JSON.stringify(data)
+    }
+
+    return this.request<T>(endpoint, config)
   }
 
   async delete<T>(endpoint: string): Promise<T> {

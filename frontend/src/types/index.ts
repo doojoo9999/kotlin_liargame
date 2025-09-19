@@ -4,6 +4,7 @@
 // Core game types (aligned with backend)
 export * from './game'
 export * from './backendTypes'
+export * from './nemonemo'
 
 // Additional frontend-specific types
 export interface FrontendPlayer extends Omit<import('./backendTypes').BackendPlayer, 'id' | 'userId'> {
