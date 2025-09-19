@@ -1,294 +1,240 @@
-import React, {useEffect, useState} from 'react';
-import {useGameStore} from '@/stores';
-import {websocketService} from '@/services/websocketService';
-import {GameResults} from './GameResults';
-import {GameChat} from './GameChat';
-import {ModeratorCommentary} from './ModeratorCommentary';
-import {GamePhaseIndicator} from './GamePhaseIndicator';
-import {PlayerStatusPanel} from './PlayerStatusPanel';
-import {GameActionInterface} from './GameActionInterface';
-import {ActivityFeed} from './ActivityFeed';
-import {Card, CardContent} from '@/components/ui/card';
-import {AlertCircle} from 'lucide-react';
+import {useCallback, useEffect, useMemo, useState} from 'react'
+import {GameLayout} from './GameLayout'
+import {useGameLayoutViewModel} from './useGameLayoutViewModel'
+import {useWebSocket} from '@/hooks/useWebSocket'
+import {websocketService} from '@/services/websocketService'
+import type {ActivityEvent} from '@/types/game'
+import type {GameEvent} from '@/types/realtime'
+import {useGameStore} from '@/stores'
 
 interface GameFlowManagerProps {
-  onReturnToLobby?: () => void;
-  onNextRound?: () => void;
+  onReturnToLobby?: () => void
+  onNextRound?: () => void
 }
 
-export const GameFlowManager: React.FC<GameFlowManagerProps> = ({
-  onReturnToLobby,
-  onNextRound,
-}) => {
+const createActivityId = (prefix: string): string => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`
+
+const resolveIdentifier = (value: unknown): string | undefined => {
+  if (value == null) return undefined
+  if (typeof value === 'string') return value
+  if (typeof value === 'number' && Number.isFinite(value)) return value.toString()
+  if (typeof value === 'object') {
+    const record = value as Record<string, unknown>
+    if (record.id != null) return resolveIdentifier(record.id)
+    if (record.userId != null) return resolveIdentifier(record.userId)
+    if (record.playerId != null) return resolveIdentifier(record.playerId)
+  }
+  return undefined
+}
+
+const getPhaseForLog = () => useGameStore.getState().gamePhase
+
+export function GameFlowManager({ onReturnToLobby, onNextRound }: GameFlowManagerProps) {
+  const viewModel = useGameLayoutViewModel()
   const {
     gameNumber,
     gamePhase,
-    currentPlayer,
-    players,
+    currentRound,
+    totalRounds,
     currentTopic,
     currentWord,
-    currentLiar,
-    currentTurnPlayerId,
+    isLiar,
     timer,
+    players,
+    currentPlayer,
+    currentTurnPlayerId,
     voting,
+    summary,
     isLoading,
     error,
-    isLiar,
+    currentLiar,
+    roundStage,
+    roundStageEnteredAt,
+    roundHasStarted,
+    roundSummaries,
+    currentRoundSummary,
+    scoreboardEntries,
     addHint,
     castVote,
     addDefense,
-  } = useGameStore();
+    setUserVote,
+  } = viewModel
 
-  // Activity log state
-  const [activities, setActivities] = useState<any[]>([]);
-  const [currentRound] = useState(1);
-  const [totalRounds] = useState(3);
+  const [activities, setActivities] = useState<ActivityEvent[]>([])
 
-  // WebSocket 연결 및 게임 이벤트 구독
+  useWebSocket(gameNumber ? gameNumber.toString() : undefined)
+
   useEffect(() => {
-    if (gameNumber) {
-      const gameId = gameNumber.toString();
+    setActivities([])
+  }, [gameNumber])
 
-      // WebSocket 연결
-      websocketService.connect().then(() => {
-        websocketService.subscribeToGame(gameId);
-      }).catch(console.error);
+  const appendActivity = useCallback((activity: ActivityEvent) => {
+    setActivities(prev => {
+      const next = [...prev, activity]
+      return next.slice(-80)
+    })
+  }, [])
 
-      // 게임 상태 업데이트 구독
-      const unsubscribeGameState = websocketService.onGameStateUpdate((event) => {
-        console.log('Game state updated:', event);
-        // 게임 스토어가 자동으로 상태를 업데이트합니다
-      });
-
-      // 단계 변경 구독
-      const unsubscribePhase = websocketService.onPhaseChanged((event) => {
-        console.log('Phase changed:', event);
-      });
-
-      // 타이머 업데이트 구독
-      const unsubscribeTimer = websocketService.onTimerUpdate((event) => {
-        console.log('Timer updated:', event);
-      });
-
-      // 라운드 종료 구독
-      const unsubscribeRoundEnd = websocketService.onRoundEnded((event) => {
-        console.log('Round ended:', event);
-      });
-
-      // 게임 종료 구독
-      const unsubscribeGameEnd = websocketService.onGameEnded((event) => {
-        console.log('Game ended:', event);
-      });
-
-      // 정리 함수
-      return () => {
-        unsubscribeGameState();
-        unsubscribePhase();
-        unsubscribeTimer();
-        unsubscribeRoundEnd();
-        unsubscribeGameEnd();
-        websocketService.unsubscribeFromGame(gameId);
-      };
-    }
-  }, [gameNumber]);
-
-  // Add phase change activity when phase changes
   useEffect(() => {
-    if (gamePhase) {
-      setActivities(prev => [{
-        id: `phase-${Date.now()}`,
-        type: 'phase_change' as const,
-        timestamp: Date.now(),
-        phase: gamePhase,
-        isHighlight: true
-      }, ...prev]);
+    if (!gamePhase) return
+    appendActivity({
+      id: createActivityId('phase'),
+      type: 'phase_change',
+      phase: gamePhase,
+      timestamp: Date.now(),
+      highlight: true,
+    })
+  }, [gamePhase, appendActivity])
+
+  useEffect(() => {
+    if (!gameNumber) return
+
+    const makeActivity = (type: ActivityEvent['type'], event: GameEvent, content: string, highlight = false): ActivityEvent => ({
+      id: createActivityId(type),
+      type,
+      playerId: resolveIdentifier(event.payload?.playerId ?? event.payload?.userId ?? event.payload?.voterId ?? event.payload?.defenderId),
+      targetId: resolveIdentifier(event.payload?.targetId ?? event.payload?.accusedPlayer),
+      content,
+      phase: getPhaseForLog(),
+      timestamp: event.timestamp ?? Date.now(),
+      highlight,
+    })
+
+    const unsubscribeHint = websocketService.onHintProvided((event) => {
+      const nickname = event.payload.playerName ?? event.payload.playerNickname ?? '플레이어'
+      appendActivity(makeActivity('hint', event, `${nickname} 님이 힌트를 제출했습니다.`))
+    })
+
+    const unsubscribeVote = websocketService.onVoteCast((event) => {
+      const voter = event.payload.voterName ?? event.payload.playerName ?? '플레이어'
+      const target = event.payload.targetName ?? event.payload.targetNickname ?? '누군가'
+      appendActivity(makeActivity('vote', event, `${voter} 님이 ${target}에게 투표했습니다.`))
+    })
+
+    const unsubscribeDefense = websocketService.onDefenseSubmitted((event) => {
+      const defender = event.payload.defenderName ?? event.payload.playerName ?? '플레이어'
+      appendActivity(makeActivity('defense', event, `${defender} 님이 변론을 제출했습니다.`))
+    })
+
+    const unsubscribePhase = websocketService.onPhaseChanged((event) => {
+      const nextPhase = typeof event.payload?.phase === 'string' ? event.payload.phase : gamePhase
+      appendActivity(makeActivity('phase_change', event, `단계가 ${nextPhase}로 변경되었습니다.`, true))
+    })
+
+    const unsubscribeRound = websocketService.onRoundEnded((event) => {
+      appendActivity(makeActivity('system', event, '라운드가 종료되었습니다.', true))
+    })
+
+    return () => {
+      unsubscribeHint()
+      unsubscribeVote()
+      unsubscribeDefense()
+      unsubscribePhase()
+      unsubscribeRound()
     }
-  }, [gamePhase]);
+  }, [appendActivity, gameNumber, gamePhase])
 
-  // Utility functions
-  const isMyTurn = () => {
-    return currentTurnPlayerId === currentPlayer?.id;
-  };
+  const suspectedPlayer = useMemo(() => {
+    const candidate = voting.targetPlayerId
+      ?? (voting.results?.actualLiar ? voting.results.actualLiar.toString() : undefined)
+      ?? currentLiar
 
-  const canVote = () => {
-    return Boolean(currentPlayer && !voting.votes[currentPlayer.id]);
-  };
+    if (!candidate) return null
 
-  const handleSubmitHint = React.useCallback(async (hint: string) => {
-    if (currentPlayer && gameNumber) {
-      try {
-        // Add hint via store function
-        addHint(currentPlayer.id, currentPlayer.nickname, hint);
+    return players.find((player) => {
+      if (player.id === candidate) return true
+      if (player.userId != null && player.userId.toString() === candidate) return true
+      if (player.nickname === candidate) return true
+      return false
+    }) ?? null
+  }, [players, voting.targetPlayerId, voting.results, currentLiar])
 
-        // Send to server via websocket if available
-        if (websocketService) {
-          await websocketService.sendGameAction(gameNumber.toString(), 'hint', { hint });
-        }
-      } catch (error) {
-        console.error('Failed to submit hint:', error);
-      }
+  const handleSubmitHint = useCallback(async (hint: string) => {
+    if (!gameNumber || !currentPlayer) return
+
+    addHint(currentPlayer.id, currentPlayer.nickname, hint)
+    try {
+      websocketService.sendGameAction(gameNumber.toString(), 'hint', { hint })
+    } catch (error) {
+      console.error('Failed to send hint action:', error)
     }
-  }, [addHint, currentPlayer, gameNumber]);
+  }, [addHint, currentPlayer, gameNumber])
 
-  const handleVotePlayer = React.useCallback(async (playerId: string) => {
-    if (currentPlayer && gameNumber) {
-      try {
-        const targetPlayer = players.find(p => p.id === playerId);
-        if (targetPlayer) {
-          castVote(currentPlayer.id, playerId);
-        }
-      } catch (error) {
-        console.error('Failed to vote:', error);
-      }
+  const handleVotePlayer = useCallback(async (playerId: string) => {
+    if (!gameNumber || !currentPlayer) return
+
+    castVote(currentPlayer.id, playerId)
+    setUserVote(playerId)
+    try {
+      websocketService.sendGameAction(gameNumber.toString(), 'vote', { targetUserId: playerId })
+    } catch (error) {
+      console.error('Failed to send vote action:', error)
     }
-  }, [castVote, currentPlayer, gameNumber, players]);
+  }, [castVote, currentPlayer, gameNumber, setUserVote])
 
-  const handleSubmitDefense = React.useCallback(async (defense: string) => {
-    if (currentPlayer && gameNumber) {
-      try {
-        addDefense(currentPlayer.id, currentPlayer.nickname, defense);
+  const handleSubmitDefense = useCallback(async (defense: string) => {
+    if (!gameNumber || !currentPlayer) return
 
-        if (websocketService) {
-          await websocketService.sendGameAction(gameNumber.toString(), 'defense', { defense });
-        }
-      } catch (error) {
-        console.error('Failed to submit defense:', error);
-      }
+    addDefense(currentPlayer.id, currentPlayer.nickname, defense)
+    try {
+      websocketService.sendGameAction(gameNumber.toString(), 'defense', { defenseText: defense })
+    } catch (error) {
+      console.error('Failed to send defense action:', error)
     }
-  }, [addDefense, currentPlayer, gameNumber]);
+  }, [addDefense, currentPlayer, gameNumber])
 
-  const handleGuessWord = React.useCallback(async (guess: string) => {
-    if (currentPlayer && gameNumber) {
-      try {
-        if (websocketService) {
-          await websocketService.sendGameAction(gameNumber.toString(), 'guess', { guess });
-        }
-      } catch (error) {
-        console.error('Failed to guess word:', error);
-      }
+  const handleGuessWord = useCallback(async (guess: string) => {
+    if (!gameNumber || !currentPlayer) return
+
+    try {
+      websocketService.sendGameAction(gameNumber.toString(), 'guess', { guess })
+    } catch (error) {
+      console.error('Failed to send guess action:', error)
     }
-  }, [currentPlayer, gameNumber]);
+  }, [currentPlayer, gameNumber])
 
-  const handleCastFinalVote = React.useCallback(async (execute: boolean) => {
-    if (currentPlayer && gameNumber) {
-      try {
-        if (websocketService) {
-          await websocketService.sendGameAction(gameNumber.toString(), 'final_vote', { execute });
-        }
-      } catch (error) {
-        console.error('Failed to cast final vote:', error);
-      }
+  const handleCastFinalVote = useCallback(async (execute: boolean) => {
+    if (!gameNumber || !currentPlayer) return
+
+    try {
+      websocketService.sendGameAction(gameNumber.toString(), 'final_vote', { execute })
+    } catch (error) {
+      console.error('Failed to send final vote action:', error)
     }
-  }, [currentPlayer, gameNumber]);
-
-
-  const suspectedPlayer = players.find(player => player.id === currentLiar) || null;
-  if (error) {
-    return (
-      <Card className="border-destructive">
-        <CardContent className="pt-6">
-          <div className="flex items-center justify-center text-destructive">
-            <AlertCircle className="mr-2 h-5 w-5" />
-            {error}
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (isLoading || !gameNumber) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <div className="text-muted-foreground">게임을 불러오는 중...</div>
-        </div>
-      </div>
-    );
-  }
+  }, [currentPlayer, gameNumber])
 
   return (
-    <div className="container mx-auto p-4 max-w-7xl">
-      <div className="space-y-6">
-        {/* Moderator Commentary - Prominent Position */}
-        <ModeratorCommentary
-          gamePhase={gamePhase}
-          currentTopic={currentTopic ?? null}
-          currentWord={currentWord ?? null}
-          timeRemaining={timer.timeRemaining ?? 0}
-          isLiar={Boolean(isLiar)}
-          playerCount={players.length}
-          suspectedPlayer={suspectedPlayer?.nickname}
-        />
-
-        {/* Game Phase Indicator */}
-        <GamePhaseIndicator
-          phase={gamePhase}
-          timeRemaining={timer.timeRemaining ?? 0}
-        />
-
-        {/* Main Game Layout */}
-        <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
-          {/* Left Sidebar - Player Status */}
-          <div className="xl:col-span-1">
-            <PlayerStatusPanel
-              players={players}
-              currentPhase={gamePhase}
-              currentPlayer={currentPlayer ?? null}
-              currentTurnPlayerId={currentTurnPlayerId ?? null}
-              votes={voting.votes}
-              isLiar={Boolean(isLiar)}
-              suspectedPlayer={suspectedPlayer?.id}
-            />
-          </div>
-
-          {/* Main Game Area */}
-          <div className="xl:col-span-2 space-y-6">
-            {/* Game Action Interface */}
-            <GameActionInterface
-              gamePhase={gamePhase}
-              currentPlayer={currentPlayer ?? null}
-              isMyTurn={isMyTurn()}
-              isLiar={Boolean(isLiar)}
-              canVote={canVote()}
-              timeRemaining={timer.timeRemaining ?? 0}
-              onSubmitHint={handleSubmitHint}
-              onVotePlayer={handleVotePlayer}
-              onSubmitDefense={handleSubmitDefense}
-              onGuessWord={handleGuessWord}
-              onCastFinalVote={handleCastFinalVote}
-              players={players}
-              suspectedPlayer={suspectedPlayer ?? undefined}
-              currentTopic={currentTopic ?? undefined}
-              currentWord={currentWord ?? undefined}
-            />
-
-            {/* Legacy Game Phase Components (for fallback) */}
-            {gamePhase === 'GAME_OVER' && (
-              <GameResults
-                currentRound={currentRound}
-                totalRounds={totalRounds}
-                onNextRound={onNextRound}
-                onReturnToLobby={onReturnToLobby}
-              />
-            )}
-          </div>
-
-          {/* Right Sidebar - Activity & Chat */}
-          <div className="xl:col-span-1 space-y-6">
-            <ActivityFeed
-              events={activities}
-            />
-            
-            <GameChat
-              players={players}
-              currentPlayer={currentPlayer ?? null}
-              gamePhase={gamePhase}
-            />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
+    <GameLayout
+      gameNumber={gameNumber}
+      currentRound={currentRound}
+      totalRounds={totalRounds}
+      currentTopic={currentTopic}
+      currentWord={currentWord}
+      isLiar={isLiar}
+      currentPhase={gamePhase}
+      timer={timer}
+      players={players}
+      currentPlayer={currentPlayer}
+      currentTurnPlayerId={currentTurnPlayerId}
+      voting={voting}
+      suspectedPlayer={suspectedPlayer}
+      activities={activities}
+      summary={summary}
+      isLoading={isLoading}
+      error={error}
+      roundStage={roundStage}
+      roundStageEnteredAt={roundStageEnteredAt}
+      roundHasStarted={roundHasStarted}
+      roundSummaries={roundSummaries}
+      currentRoundSummary={currentRoundSummary}
+      scoreboardEntries={scoreboardEntries}
+      onReturnToLobby={onReturnToLobby}
+      onNextRound={onNextRound}
+      onSubmitHint={handleSubmitHint}
+      onVotePlayer={handleVotePlayer}
+      onSubmitDefense={handleSubmitDefense}
+      onGuessWord={handleGuessWord}
+      onCastFinalVote={handleCastFinalVote}
+    />
+  )
+}

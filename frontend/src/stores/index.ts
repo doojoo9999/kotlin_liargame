@@ -8,5 +8,6 @@ export { useAdminStore } from './adminStore'
 // Legacy stores - deprecated, use unified store instead
 export { default as useGameStoreLegacy } from './gameStore'
 export type { Player } from './unifiedGameStore'
+export type { RoundSummaryEntry, RoundUxStage } from './unifiedGameStore'
 export type { GamePhase } from '@/types/backendTypes'
 export { useGameplayStore, selectGameplayMeta, selectGameplayPhase, selectGameplayPlayers, selectGameplayVoting, selectGameplayChat } from './gameplayStore'

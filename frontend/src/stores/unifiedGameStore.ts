@@ -13,6 +13,22 @@ import type {FrontendPlayer} from '../types';
 import type {GameRoomInfo, JoinGameRequest} from '../types/api';
 import type {ChatMessage, GameEvent, ScoreEntry} from '../types/realtime';
 
+export type RoundUxStage = 'waiting' | 'speech' | 'debate' | 'vote' | 'results';
+
+export interface RoundSummaryEntry {
+  round: number;
+  topic: string | null;
+  suspectedPlayerId?: string | null;
+  scoreboard: Array<{
+    playerId: string;
+    nickname: string;
+    score: number;
+    isAlive: boolean;
+  }>;
+  winningTeam?: 'CITIZENS' | 'LIARS' | 'UNKNOWN';
+  concludedAt: number;
+}
+
 // Unified Player interface
 export interface Player extends FrontendPlayer {
   score: number;
@@ -123,6 +139,13 @@ export interface GameState {
   isLoading: boolean;
   error: string | null;
 
+  // Round UX State
+  roundStage: RoundUxStage;
+  roundStageEnteredAt: number | null;
+  roundHasStarted: boolean;
+  roundSummaries: RoundSummaryEntry[];
+  currentRoundSummary: RoundSummaryEntry | null;
+
   // Game List Management
   gameList: GameRoomInfo[];
   gameListLoading: boolean;
@@ -232,6 +255,11 @@ interface GameActions {
   handleTimerUpdate: (timeRemaining: number) => void;
   handleVoteUpdate: (votes: Record<string, string>) => void;
 
+  // Round UX helpers
+  setRoundStage: (stage: RoundUxStage, options?: { force?: boolean }) => void;
+  addRoundSummary: (summary: RoundSummaryEntry) => void;
+  clearRoundSummaries: () => void;
+
   // Reset Actions
   resetGame: () => void;
   resetVote: () => void;
@@ -274,6 +302,139 @@ const mapGamePhase = (
   return allowedPhases.includes(phase as GameState['gamePhase'])
     ? (phase as GameState['gamePhase'])
     : defaultPhase;
+};
+
+const stageOrder: Record<RoundUxStage, number> = {
+  waiting: 0,
+  speech: 1,
+  debate: 2,
+  vote: 3,
+  results: 4,
+};
+
+const mapPhaseToStage = (phase: GameState['gamePhase']): RoundUxStage => {
+  switch (phase) {
+    case 'SPEECH':
+      return 'speech';
+    case 'DEFENDING':
+      return 'debate';
+    case 'VOTING_FOR_LIAR':
+    case 'VOTING_FOR_SURVIVAL':
+      return 'vote';
+    case 'GUESSING_WORD':
+    case 'GAME_OVER':
+      return 'results';
+    case 'WAITING_FOR_PLAYERS':
+    default:
+      return 'waiting';
+  }
+};
+
+interface AuthIdentifiers {
+  userId: string | null;
+  nickname: string | null;
+}
+
+const getAuthIdentifiers = (): AuthIdentifiers => {
+  const { userId, nickname } = useAuthStore.getState();
+  return {
+    userId: userId != null ? String(userId) : null,
+    nickname: nickname ?? null,
+  };
+};
+
+const normalizeIdentifier = (value: unknown): string | null => {
+  if (value == null) {
+    return null;
+  }
+
+  if (typeof value === 'string') {
+    return value;
+  }
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value.toString();
+  }
+
+  if (typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    if (record.id != null) {
+      const normalized = normalizeIdentifier(record.id);
+      if (normalized) {
+        return normalized;
+      }
+    }
+    if (record.userId != null) {
+      const normalized = normalizeIdentifier(record.userId);
+      if (normalized) {
+        return normalized;
+      }
+    }
+    if (record.nickname != null) {
+      const normalized = normalizeIdentifier(record.nickname);
+      if (normalized) {
+        return normalized;
+      }
+    }
+  }
+
+  return null;
+};
+
+const pickFirstIdentifier = (...values: unknown[]): string | null => {
+  for (const value of values) {
+    const normalized = normalizeIdentifier(value);
+    if (normalized) {
+      return normalized;
+    }
+  }
+  return null;
+};
+
+const findSelfPlayer = (players: Player[], auth: AuthIdentifiers): Player | undefined => {
+  return players.find((player) => {
+    if (auth.userId && player.userId != null && String(player.userId) === auth.userId) {
+      return true;
+    }
+    if (auth.nickname && player.nickname === auth.nickname) {
+      return true;
+    }
+    return false;
+  });
+};
+
+const isIdentifierSelf = (value: unknown, players: Player[], auth: AuthIdentifiers): boolean => {
+  const normalized = normalizeIdentifier(value);
+  if (!normalized) {
+    return false;
+  }
+
+  if (auth.userId && normalized === auth.userId) {
+    return true;
+  }
+
+  if (auth.nickname && normalized === auth.nickname) {
+    return true;
+  }
+
+  const selfPlayer = findSelfPlayer(players, auth);
+  if (!selfPlayer) {
+    return false;
+  }
+
+  if (selfPlayer.id === normalized) {
+    return true;
+  }
+
+  if (selfPlayer.userId != null && String(selfPlayer.userId) === normalized) {
+    return true;
+  }
+
+  if (selfPlayer.nickname === normalized) {
+    return true;
+  }
+
+  return false;
 };
 
 // Initial state
@@ -336,6 +497,13 @@ const initialState: GameState = {
   isLoading: false,
   error: null,
 
+  // Round UX
+  roundStage: 'waiting',
+  roundStageEnteredAt: null,
+  roundHasStarted: false,
+  roundSummaries: [],
+  currentRoundSummary: null,
+
   // Game List
   gameList: [],
   gameListLoading: false,
@@ -372,7 +540,11 @@ export const useGameStore = create<UnifiedGameStore>()(
         })),
 
         // Game Flow
-        setGamePhase: (gamePhase) => set({ gamePhase }),
+        setGamePhase: (gamePhase) => {
+          set({ gamePhase });
+          const nextStage = mapPhaseToStage(gamePhase);
+          get().setRoundStage(nextStage);
+        },
         setGameMode: (gameMode) => set({ gameMode }),
         setCurrentTopic: (currentTopic) => set({ currentTopic }),
         setCurrentWord: (currentWord) => set({ currentWord }),
@@ -756,9 +928,29 @@ export const useGameStore = create<UnifiedGameStore>()(
 
 
 
+          const mappedPhase = mapGamePhase(gameState.currentPhase);
+
+          const auth = getAuthIdentifiers();
+
+          const selfPlayer = findSelfPlayer(mappedPlayers, auth);
+
+          const isSelfLiar = gameState.yourRole === 'LIAR';
+
+          const revealPhase = mappedPhase === 'GAME_OVER';
+
+          const liarIdentifier = isSelfLiar
+
+            ? pickFirstIdentifier(selfPlayer?.id, selfPlayer?.userId, selfPlayer?.nickname, auth.userId, auth.nickname)
+
+            : (revealPhase ? pickFirstIdentifier(gameState.accusedPlayer) : null);
+
+          const maskedWord = isSelfLiar ? null : gameState.yourWord ?? null;
+
+
+
           set({
 
-            gamePhase: mapGamePhase(gameState.currentPhase),
+            gamePhase: mappedPhase,
 
             players: mappedPlayers,
 
@@ -782,13 +974,15 @@ export const useGameStore = create<UnifiedGameStore>()(
 
             currentTopic: gameState.citizenSubject ?? null,
 
-            currentWord: gameState.yourWord ?? null,
+            currentWord: maskedWord,
 
-            currentLiar: gameState.accusedPlayer != null ? gameState.accusedPlayer.toString() : null,
+            currentLiar: liarIdentifier ?? null,
 
-            isLiar: gameState.yourRole === 'LIAR',
+            isLiar: isSelfLiar,
 
           });
+
+          get().setRoundStage(mapPhaseToStage(mappedPhase));
 
 
 
@@ -862,15 +1056,27 @@ export const useGameStore = create<UnifiedGameStore>()(
 
             case 'ROUND_STARTED': {
               const { category, word, liarId, timeLimit } = event.payload;
+              const auth = getAuthIdentifiers();
+              const selfPlayer = findSelfPlayer(state.players, auth);
+              const isSelfRoundLiar = state.isLiar || isIdentifierSelf(liarId, state.players, auth);
+              const nextWord = isSelfRoundLiar ? null : (word ?? state.currentWord);
+              const nextLiarId = isSelfRoundLiar
+                ? pickFirstIdentifier(liarId, selfPlayer?.id, selfPlayer?.userId, selfPlayer?.nickname, auth.userId, auth.nickname)
+                : null;
+
               set({
                 currentTopic: category ?? state.currentTopic,
-                currentWord: word ?? state.currentWord,
-                isLiar: liarId != null ? String(liarId) === state.currentPlayer?.id : state.isLiar,
-                currentLiar: liarId != null ? String(liarId) : state.currentLiar,
+                currentWord: nextWord,
+                isLiar: isSelfRoundLiar,
+                currentLiar: nextLiarId ?? null,
                 hints: [],
                 votes: [],
-                defenses: []
+                defenses: [],
+                roundHasStarted: true,
+                currentRoundSummary: null,
               });
+
+              get().setRoundStage('speech', { force: true });
 
               if (typeof timeLimit === 'number' && timeLimit > 0) {
                 get().startTimer(timeLimit, 'SPEECH');
@@ -905,25 +1111,60 @@ export const useGameStore = create<UnifiedGameStore>()(
               break;
             }
 
-            case 'ROUND_ENDED':
-              set({ gamePhase: 'GAME_OVER' });
+            case 'ROUND_ENDED': {
+              get().setGamePhase('GAME_OVER');
 
-              {
-                const scoreEntries = event.payload.scores ?? event.payload.finalScores;
-                if (Array.isArray(scoreEntries) && scoreEntries.length > 0) {
-                  const newScores: Record<string, number> = {};
-                  (scoreEntries as ScoreEntry[]).forEach(entry => {
-                    newScores[String(entry.playerId)] = entry.score;
+              const scoreEntries = event.payload.scores ?? event.payload.finalScores;
+              if (Array.isArray(scoreEntries) && scoreEntries.length > 0) {
+                const newScores: Record<string, number> = {};
+                const scoreboardSnapshot: RoundSummaryEntry['scoreboard'] = [];
+
+                (scoreEntries as ScoreEntry[]).forEach(entry => {
+                  const playerId = String(entry.playerId);
+                  newScores[playerId] = entry.score;
+                  const player = state.players.find(p => p.id === playerId || String(p.userId) === playerId);
+                  scoreboardSnapshot.push({
+                    playerId,
+                    nickname: player?.nickname ?? '플레이어',
+                    score: entry.score,
+                    isAlive: player?.isAlive !== false,
                   });
-                  set({ scores: newScores });
-                }
+                });
+
+                set({ scores: newScores });
+
+                get().addRoundSummary({
+                  round: state.currentRound,
+                  topic: state.currentTopic,
+                  suspectedPlayerId: state.voting.targetPlayerId ?? undefined,
+                  scoreboard: scoreboardSnapshot.sort((a, b) => b.score - a.score),
+                  winningTeam: 'UNKNOWN',
+                  concludedAt: Date.now(),
+                });
+              } else {
+                get().addRoundSummary({
+                  round: state.currentRound,
+                  topic: state.currentTopic,
+                  suspectedPlayerId: state.voting.targetPlayerId ?? undefined,
+                  scoreboard: state.players.map((player) => ({
+                    playerId: player.id,
+                    nickname: player.nickname,
+                    score: state.scores[player.id] ?? player.score ?? 0,
+                    isAlive: player.isAlive !== false,
+                  })).sort((a, b) => b.score - a.score),
+                  winningTeam: 'UNKNOWN',
+                  concludedAt: Date.now(),
+                });
               }
+
+              get().setRoundStage('results', { force: true });
               break;
+            }
 
             case 'PHASE_CHANGED': {
               const { phase } = event.payload;
               if (phase) {
-                set({ gamePhase: mapGamePhase(phase) });
+                get().setGamePhase(mapGamePhase(phase));
               }
               break;
             }
@@ -936,13 +1177,20 @@ export const useGameStore = create<UnifiedGameStore>()(
                   phase: event.payload.phase ? String(event.payload.phase) : currentState.timer.phase,
                 }
               }));
+
+              if (event.payload.phase) {
+                const mapped = mapGamePhase(event.payload.phase);
+                if (mapped !== get().gamePhase) {
+                  get().setGamePhase(mapped);
+                }
+              }
               break;
 
             case 'GAME_STATE_UPDATED':
               if (event.payload.gameState) {
                 get().updateFromGameState(event.payload.gameState);
               } else if (event.payload.state) {
-                set({ gamePhase: mapGamePhase(event.payload.state) });
+                get().setGamePhase(mapGamePhase(event.payload.state));
               }
 
               if (event.payload.timeRemaining !== undefined) {
@@ -962,10 +1210,12 @@ export const useGameStore = create<UnifiedGameStore>()(
                 (scoreEntries as ScoreEntry[]).forEach(entry => {
                   newScores[String(entry.playerId)] = entry.score;
                 });
-                set({ scores: newScores, gamePhase: 'GAME_OVER' });
+                set({ scores: newScores });
               } else {
-                set({ gamePhase: 'GAME_OVER' });
+                // no-op
               }
+              get().setGamePhase('GAME_OVER');
+              get().setRoundStage('results', { force: true });
               break;
             }
 
@@ -1005,6 +1255,38 @@ export const useGameStore = create<UnifiedGameStore>()(
             voting: { ...state.voting, votes }
           }));
         },
+
+        setRoundStage: (stage, options) => {
+          const { force = false } = options ?? {};
+          const currentStage = get().roundStage;
+          const currentOrder = stageOrder[currentStage] ?? 0;
+          const nextOrder = stageOrder[stage] ?? 0;
+
+          if (!force && nextOrder < currentOrder && stage !== 'waiting') {
+            return;
+          }
+
+          set({
+            roundStage: stage,
+            roundStageEnteredAt: Date.now(),
+            roundHasStarted: stage !== 'waiting',
+          });
+        },
+
+        addRoundSummary: (summary) => {
+          set((state) => {
+            const nextSummaries = [summary, ...state.roundSummaries];
+            return {
+              currentRoundSummary: summary,
+              roundSummaries: nextSummaries.slice(0, 5),
+            };
+          });
+        },
+
+        clearRoundSummaries: () => set({
+          roundSummaries: [],
+          currentRoundSummary: null,
+        }),
 
         // Reset Actions
         resetGame: () => set({ ...initialState, typingPlayers: new Set() }),
