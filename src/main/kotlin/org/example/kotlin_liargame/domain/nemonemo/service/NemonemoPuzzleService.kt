@@ -65,7 +65,7 @@ class NemonemoPuzzleService(
             return null
         }
         val hints = loadHints(puzzle)
-        return PuzzleDetailResponse.from(puzzle, hints)
+        return PuzzleDetailResponse.from(puzzle)
     }
 
     private fun loadHints(puzzle: NemonemoPuzzleEntity): PuzzleHintPayload {

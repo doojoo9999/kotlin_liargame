@@ -8,7 +8,7 @@ import {cn} from '@/lib/utils'
 export interface Player {
   id: string
   nickname: string
-t  isHost?: boolean
+  isHost?: boolean
   isReady?: boolean
   isOnline?: boolean
   isCurrentUser?: boolean
