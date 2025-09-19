@@ -14,7 +14,7 @@ import type {ChatMessage} from '@/types/realtime'
 
 type GameStoreSnapshot = ReturnType<typeof useGameStore.getState>
 
-type StoreActions = Pick<GameStoreSnapshot, 'addHint' | 'castVote' | 'addDefense' | 'setUserVote'>
+type StoreActions = Pick<GameStoreSnapshot, 'addHint' | 'castVote' | 'addDefense' | 'setUserVote' | 'sendChatMessage' | 'loadChatHistory'>
 
 export interface GameLayoutViewModel extends StoreActions {
   gameId: string | null
@@ -34,6 +34,9 @@ export interface GameLayoutViewModel extends StoreActions {
   currentPlayer: Player | null
   currentTurnPlayerId: string | null
   chatMessages: ChatMessage[]
+  chatLoading: boolean
+  chatError: string | null
+  typingPlayers: Set<string>
   gameResults: GameResults[] | null
   isLoading: boolean
   error: string | null
@@ -70,6 +73,9 @@ export function useGameLayoutViewModel(): GameLayoutViewModel {
       currentPlayer: store.currentPlayer,
       currentTurnPlayerId: store.currentTurnPlayerId ?? null,
       chatMessages: store.chatMessages,
+      chatLoading: store.chatLoading,
+      chatError: store.chatError,
+      typingPlayers: store.typingPlayers,
       gameResults: store.gameResults,
       isLoading: store.isLoading,
       error: store.error,
@@ -82,6 +88,8 @@ export function useGameLayoutViewModel(): GameLayoutViewModel {
       castVote: store.castVote,
       addDefense: store.addDefense,
       setUserVote: store.setUserVote,
+      sendChatMessage: store.sendChatMessage,
+      loadChatHistory: store.loadChatHistory,
     }),
     shallow,
   )

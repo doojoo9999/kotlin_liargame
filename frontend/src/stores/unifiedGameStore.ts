@@ -11,7 +11,7 @@ import type {
 } from '../types/backendTypes';
 import type {FrontendPlayer} from '../types';
 import type {GameRoomInfo, JoinGameRequest} from '../types/api';
-import type {ChatMessage, GameEvent, ScoreEntry} from '../types/realtime';
+import type {ChatMessage, ChatMessageType, GameEvent, ScoreEntry} from '../types/realtime';
 
 export type RoundUxStage = 'waiting' | 'speech' | 'debate' | 'vote' | 'results';
 
@@ -89,6 +89,131 @@ export interface Defense {
   timestamp: number;
 }
 
+
+
+const CHAT_MESSAGE_LIMIT = 200;
+const CHAT_TYPES: readonly ChatMessageType[] = ['DISCUSSION', 'HINT', 'DEFENSE', 'SYSTEM', 'POST_ROUND', 'GENERAL'] as const;
+
+const normalizeChatType = (value: unknown): ChatMessageType => {
+  if (typeof value === 'string') {
+    const normalized = value.trim().toUpperCase();
+    if ((CHAT_TYPES as readonly string[]).includes(normalized)) {
+      return normalized as ChatMessageType;
+    }
+    if (normalized === 'ANNOUNCEMENT' || normalized === 'NOTICE') {
+      return 'SYSTEM';
+    }
+  }
+  return 'DISCUSSION';
+};
+
+const toFiniteNumber = (value: unknown): number | null => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string') {
+    const parsed = Number.parseInt(value, 10);
+    if (!Number.isNaN(parsed)) {
+      return parsed;
+    }
+  }
+  return null;
+};
+
+const toOptionalString = (value: unknown): string | null => {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value.toString();
+  }
+  return null;
+};
+
+const resolvePlayerByIdentifiers = (players: Player[], identifiers: Array<string | number | null | undefined>): Player | undefined => {
+  for (const identifier of identifiers) {
+    if (identifier == null) {
+      continue;
+    }
+    const normalized = typeof identifier === 'number' ? identifier.toString() : identifier;
+    const match = players.find((player) => {
+      if (player.id === normalized) return true;
+      if (player.userId != null && player.userId.toString() === normalized) return true;
+      if (player.nickname === normalized) return true;
+      return false;
+    });
+    if (match) {
+      return match;
+    }
+  }
+  return undefined;
+};
+
+const normalizeChatMessage = (
+  rawMessage: Partial<ChatMessage> | Record<string, unknown>,
+  players: Player[],
+  defaultGameNumber: number | null
+): ChatMessage => {
+  const candidate = rawMessage as Record<string, unknown>;
+
+  const type = normalizeChatType(candidate['type'] ?? candidate['messageType'] ?? candidate['category']);
+  const timestamp = toFiniteNumber(candidate['timestamp'] ?? candidate['createdAt'] ?? candidate['time']) ?? Date.now();
+  const rawGameNumber = toFiniteNumber(candidate['gameNumber'] ?? candidate['gameId'] ?? candidate['roomId']);
+  const gameNumber = rawGameNumber ?? (defaultGameNumber ?? 0);
+
+  const userId = toFiniteNumber(candidate['userId'] ?? candidate['playerUserId'] ?? candidate['senderUserId']) ?? undefined;
+  const rawPlayerId = toOptionalString(candidate['playerId'] ?? candidate['playerID'] ?? candidate['playerUuid'] ?? candidate['senderId']);
+  const rawNickname = toOptionalString(candidate['playerNickname'] ?? candidate['playerName'] ?? candidate['nickname']);
+  const content = toOptionalString(candidate['content'] ?? candidate['message'] ?? candidate['body'] ?? '') ?? '';
+
+  const fallbackIdPart = rawPlayerId ?? (typeof userId === 'number' ? userId.toString() : type);
+  const id =
+    toOptionalString(candidate['id'] ?? candidate['messageId'] ?? candidate['eventId'] ?? candidate['uuid'])
+    ?? `${gameNumber}-${timestamp}-${fallbackIdPart}`;
+
+  const resolvedPlayer = resolvePlayerByIdentifiers(players, [rawPlayerId, rawNickname, userId]);
+
+  const playerId = resolvedPlayer?.id ?? rawPlayerId ?? (typeof userId === 'number' ? userId.toString() : undefined);
+  const nickname =
+    resolvedPlayer?.nickname
+    ?? rawNickname
+    ?? (type === 'SYSTEM' ? 'SYSTEM' : `플레이어 ${playerId ?? (typeof userId === 'number' ? userId : '?')}`);
+
+  return {
+    id: id.toString(),
+    gameNumber,
+    playerId: playerId ?? undefined,
+    userId,
+    playerNickname: nickname,
+    nickname,
+    playerName: resolvedPlayer?.nickname ?? rawNickname ?? undefined,
+    content,
+    message: content,
+    gameId: toOptionalString(candidate['gameId']) ?? (gameNumber ? gameNumber.toString() : undefined),
+    roomId: toOptionalString(candidate['roomId'] ?? candidate['channelId'] ?? candidate['topic']) ?? undefined,
+    timestamp,
+    type,
+  };
+};
+
+const mergeChatMessages = (existing: ChatMessage[], next: ChatMessage[]): ChatMessage[] => {
+  if (!next.length) {
+    return existing;
+  }
+  const map = new Map<string, ChatMessage>();
+  for (const message of existing) {
+    map.set(message.id, message);
+  }
+  for (const message of next) {
+    map.set(message.id, message);
+  }
+  return Array.from(map.values())
+    .sort((a, b) => a.timestamp - b.timestamp)
+    .slice(-CHAT_MESSAGE_LIMIT);
+};
+
+
 // Main Game State interface
 export interface GameState {
   // Session Management
@@ -128,6 +253,8 @@ export interface GameState {
   timer: GameTimer;
   voting: VotingState;
   chatMessages: ChatMessage[];
+  chatLoading: boolean;
+  chatError: string | null;
   typingPlayers: Set<string>;
 
   // Connection State
@@ -204,7 +331,9 @@ interface GameActions {
   // Chat Management
   addChatMessage: (message: ChatMessage) => void;
   setChatMessages: (messages: ChatMessage[]) => void;
-  sendChatMessage: (message: string) => void;
+  ingestChatMessage: (message: Partial<ChatMessage> | Record<string, unknown>) => void;
+  loadChatHistory: (limit?: number) => Promise<ChatMessage[]>;
+  sendChatMessage: (message: string, type?: ChatMessageType) => Promise<void>;
   clearChat: () => void;
 
   // Typing Indicators
@@ -486,6 +615,8 @@ const initialState: GameState = {
     results: undefined,
   },
   chatMessages: [],
+  chatLoading: false,
+  chatError: null,
   typingPlayers: new Set(),
 
   // Connection
@@ -634,22 +765,70 @@ export const useGameStore = create<UnifiedGameStore>()(
 
         // Chat Management
         addChatMessage: (message) => set((state) => ({
-          chatMessages: [...state.chatMessages, message]
+          chatMessages: mergeChatMessages(state.chatMessages, [message])
         })),
-        setChatMessages: (chatMessages) => set({ chatMessages }),
-        sendChatMessage: async (message) => {
-          const { gameNumber, isConnected } = get();
-          if (!gameNumber || !isConnected) return;
+        setChatMessages: (chatMessages) => set({
+          chatMessages: mergeChatMessages([], chatMessages)
+        }),
+        ingestChatMessage: (message) => {
+          const { players, gameNumber } = get();
+          const normalized = normalizeChatMessage(message, players, gameNumber);
+          set((state) => ({
+            chatMessages: mergeChatMessages(state.chatMessages, [normalized])
+          }));
+        },
+        loadChatHistory: async (limit = 50) => {
+          const { gameNumber } = get();
+          if (!gameNumber) {
+            return [];
+          }
 
+          set({ chatLoading: true, chatError: null });
           try {
-            const { nickname } = useAuthStore.getState();
-            const { websocketService } = await import('../services/websocketService');
-            websocketService.sendChatMessage(gameNumber.toString(), message, nickname ?? undefined);
+            const { gameFlowService } = await import('../services/gameFlowService');
+            const messages = await gameFlowService.getChatHistory(gameNumber, limit);
+            const players = get().players;
+            const normalized = messages.map((msg) => normalizeChatMessage(msg, players, gameNumber));
+            set({
+              chatMessages: mergeChatMessages([], normalized),
+              chatLoading: false,
+              chatError: null,
+            });
+            return normalized;
           } catch (error) {
-            console.error('Failed to send chat message:', error);
+            const errorMessage = error instanceof Error ? error.message : 'Failed to load chat history';
+            set({ chatLoading: false, chatError: errorMessage });
+            throw error;
           }
         },
-        clearChat: () => set({ chatMessages: [] }),
+        sendChatMessage: async (message, type = 'DISCUSSION') => {
+          const trimmed = (message ?? '').trim();
+          if (!trimmed) {
+            return;
+          }
+
+          const { gameNumber, currentPlayer } = get();
+          if (!gameNumber) {
+            throw new Error('게임 번호가 없습니다.');
+          }
+
+          try {
+            const nickname = currentPlayer?.nickname ?? useAuthStore.getState().nickname ?? undefined;
+            const { websocketService } = await import('../services/websocketService');
+            websocketService.sendChatMessage(gameNumber.toString(), trimmed, {
+              nickname,
+              type,
+            });
+          } catch (error) {
+            console.error('Failed to send chat message:', error);
+            throw error;
+          }
+        },
+        clearChat: () => set({
+          chatMessages: [],
+          chatLoading: false,
+          chatError: null,
+        }),
 
         // Typing Indicators
         addTypingPlayer: (playerId) => set((state) => ({
@@ -1225,7 +1404,7 @@ export const useGameStore = create<UnifiedGameStore>()(
         },
 
         handleChatMessage: (message) => {
-          get().addChatMessage(message);
+          get().ingestChatMessage(message);
         },
 
         handlePlayerJoined: (player) => {
@@ -1300,6 +1479,8 @@ export const useGameStore = create<UnifiedGameStore>()(
           currentLiar: null,
           isLiar: false,
           chatMessages: [],
+          chatLoading: false,
+          chatError: null,
           scores: {}
         })
       }),

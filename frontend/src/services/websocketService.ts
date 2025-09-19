@@ -2,7 +2,14 @@ import SockJS from 'sockjs-client';
 import type {IMessage} from '@stomp/stompjs';
 import {Client, StompConfig} from '@stomp/stompjs';
 import {toast} from 'sonner';
-import type {ChatCallback, ChatMessage, ConnectionCallback, EventCallback, GameEvent} from '@/types/realtime';
+import type {
+    ChatCallback,
+    ChatMessage,
+    ChatMessageType,
+    ConnectionCallback,
+    EventCallback,
+    GameEvent
+} from '@/types/realtime';
 
 export interface WebSocketMessage {
   type: string;
@@ -290,12 +297,21 @@ class WebSocketService {
     }
   }
 
-  public sendChatMessage(gameId: string, message: string, playerNickname?: string): void {
-    const payload = {
+  public sendChatMessage(
+    gameId: string,
+    message: string,
+    options?: { nickname?: string; type?: ChatMessageType }
+  ): void {
+    const normalizedType: ChatMessageType = options?.type ?? 'DISCUSSION';
+    const payload: Record<string, unknown> = {
       gameNumber: Number(gameId),
       content: message,
-      playerNickname: playerNickname ?? undefined
+      type: normalizedType,
     };
+
+    if (options?.nickname) {
+      payload.playerNickname = options.nickname;
+    }
 
     if (!this.isConnected || !this.client) {
       toast.error('실시간 연결이 필요합니다');

@@ -3,8 +3,9 @@ import {GameLayout} from './GameLayout'
 import {useGameLayoutViewModel} from './useGameLayoutViewModel'
 import {useWebSocket} from '@/hooks/useWebSocket'
 import {websocketService} from '@/services/websocketService'
+import {toast} from 'sonner'
 import type {ActivityEvent} from '@/types/game'
-import type {GameEvent} from '@/types/realtime'
+import type {ChatMessage, ChatMessageType, GameEvent} from '@/types/realtime'
 import {useGameStore} from '@/stores'
 
 interface GameFlowManagerProps {
@@ -47,6 +48,10 @@ export function GameFlowManager({ onReturnToLobby, onNextRound }: GameFlowManage
     summary,
     isLoading,
     error,
+    chatMessages,
+    chatLoading,
+    chatError,
+    typingPlayers,
     currentLiar,
     roundStage,
     roundStageEnteredAt,
@@ -58,6 +63,8 @@ export function GameFlowManager({ onReturnToLobby, onNextRound }: GameFlowManage
     castVote,
     addDefense,
     setUserVote,
+    sendChatMessage,
+    loadChatHistory,
   } = viewModel
 
   const [activities, setActivities] = useState<ActivityEvent[]>([])
@@ -202,6 +209,25 @@ export function GameFlowManager({ onReturnToLobby, onNextRound }: GameFlowManage
       console.error('Failed to send final vote action:', error)
     }
   }, [currentPlayer, gameNumber])
+
+  const handleSendChatMessage = useCallback(async (content: string, type: ChatMessageType = 'DISCUSSION') => {
+    await sendChatMessage(content, type)
+  }, [sendChatMessage])
+
+  const handleReloadChatHistory = useCallback(async () => {
+    try {
+      await loadChatHistory()
+    } catch (error) {
+      console.error('Failed to reload chat history:', error)
+      toast.error('채팅 기록을 불러오지 못했습니다.')
+    }
+  }, [loadChatHistory])
+
+  const handleReportChatMessage = useCallback((message: ChatMessage) => {
+    toast.info('신고가 접수되었습니다.', {
+      description: `${message.playerNickname ?? '알 수 없음'}: ${message.content}`
+    })
+  }, [])
 
   return (
     <GameLayout

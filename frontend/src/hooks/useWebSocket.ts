@@ -26,12 +26,24 @@ export function useWebSocket(gameId?: string) {
     };
   }, [status, connect]);
 
+  useEffect(() => {
+    const unsubscribe = websocketService.onChatMessage((message) => {
+      useGameStore.getState().ingestChatMessage(message);
+    });
+
+    return unsubscribe;
+  }, []);
+
   // 게임 구독 처리
   useEffect(() => {
     const target = gameId || (gameNumber ? gameNumber.toString() : undefined);
     if (status === 'connected' && target) {
       websocketService.subscribeToGame(target);
       processQueue();
+      const store = useGameStore.getState();
+      if (typeof store.loadChatHistory === 'function' && store.chatMessages.length === 0) {
+        store.loadChatHistory().catch(() => {});
+      }
       return () => {
         websocketService.unsubscribeFromGame(target);
       };

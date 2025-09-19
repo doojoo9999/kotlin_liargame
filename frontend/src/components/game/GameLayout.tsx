@@ -14,6 +14,7 @@ import {RoundSummaryPanel} from './RoundSummaryPanel'
 import {GameplayScoreboard} from '@/components/gameplay/GameplayScoreboard'
 import type {GamePhase, ScoreboardEntry} from '@/types/backendTypes'
 import type {GameTimer, Player, RoundSummaryEntry, RoundUxStage, VotingState} from '@/stores/unifiedGameStore'
+import type {ChatMessage, ChatMessageType} from '@/types/realtime'
 import type {ActivityEvent} from '@/types/game'
 
 export interface GameLayoutProps {
@@ -38,6 +39,10 @@ export interface GameLayoutProps {
   }
   isLoading: boolean
   error: string | null
+  chatMessages: ChatMessage[]
+  chatLoading: boolean
+  chatError: string | null
+  typingPlayers: Set<string>
   actionSlot?: ReactNode
   roundStage: RoundUxStage
   roundStageEnteredAt: number | null
@@ -45,6 +50,9 @@ export interface GameLayoutProps {
   roundSummaries: RoundSummaryEntry[]
   currentRoundSummary: RoundSummaryEntry | null
   scoreboardEntries: ScoreboardEntry[]
+  onSendChatMessage: (message: string, type?: ChatMessageType) => Promise<void>
+  onReportChatMessage?: (message: ChatMessage) => void
+  onReloadChat?: () => Promise<void>
   onReturnToLobby?: () => void
   onNextRound?: () => void
   onSubmitHint: (hint: string) => Promise<void>
@@ -72,6 +80,10 @@ export function GameLayout({
   summary,
   isLoading,
   error,
+  chatMessages,
+  chatLoading,
+  chatError,
+  typingPlayers,
   actionSlot,
   roundStage,
   roundStageEnteredAt,
@@ -79,6 +91,9 @@ export function GameLayout({
   roundSummaries,
   currentRoundSummary,
   scoreboardEntries,
+  onSendChatMessage,
+  onReportChatMessage,
+  onReloadChat,
   onReturnToLobby,
   onNextRound,
   onSubmitHint,
@@ -234,9 +249,16 @@ export function GameLayout({
             <aside className="order-3 hidden flex-col gap-6 xl:flex">
               <ActivityFeed events={activities} maxEvents={60} />
               <GameChat
+                messages={chatMessages}
                 players={players}
                 currentPlayer={currentPlayer}
+                typingPlayers={typingPlayers}
                 gamePhase={currentPhase}
+                isLoading={chatLoading}
+                error={chatError}
+                onSendMessage={onSendChatMessage}
+                onReportMessage={onReportChatMessage}
+                onReloadHistory={onReloadChat}
                 className="flex-1"
               />
             </aside>
@@ -244,9 +266,16 @@ export function GameLayout({
 
           <div className="xl:hidden">
             <GameChat
+              messages={chatMessages}
               players={players}
               currentPlayer={currentPlayer}
+              typingPlayers={typingPlayers}
               gamePhase={currentPhase}
+              isLoading={chatLoading}
+              error={chatError}
+              onSendMessage={onSendChatMessage}
+              onReportMessage={onReportChatMessage}
+              onReloadHistory={onReloadChat}
               className="h-[420px]"
             />
           </div>
