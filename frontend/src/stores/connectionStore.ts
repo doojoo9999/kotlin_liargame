@@ -1,6 +1,5 @@
 import {create} from 'zustand';
 import {devtools} from 'zustand/middleware';
-import {withLogger} from './middleware/logger';
 import type {
     ConnectionStatus,
     ConnectionStoreActions,
@@ -37,7 +36,7 @@ const initialState: ConnectionStoreState = {
 
 export const useConnectionStore = create<ConnectionStoreState & ConnectionStoreActions>()(
   devtools(
-    withLogger((set, get) => ({
+    (set, get) => ({
       ...initialState,
       connect: async () => {
         const { status } = get();
@@ -77,11 +76,11 @@ export const useConnectionStore = create<ConnectionStoreState & ConnectionStoreA
         // 낙관적 업데이트 처리
         let optimisticId: string | undefined;
         if (opts?.optimisticState) {
-          const gameStore = useGameStore.getState();
-            const original: any = {};
-          for (const k of Object.keys(opts.optimisticState)) {
-            // @ts-expect-error: copying dynamic state slice
-            original[k] = (gameStore as any)[k];
+          const gameStoreState = useGameStore.getState() as Record<string, unknown>;
+          const optimisticState = opts.optimisticState as Record<string, unknown>;
+          const original: Record<string, unknown> = {};
+          for (const key of Object.keys(optimisticState)) {
+            original[key] = gameStoreState[key];
           }
           optimisticId = get().addOptimisticUpdate({
             action: destination,
@@ -89,7 +88,7 @@ export const useConnectionStore = create<ConnectionStoreState & ConnectionStoreA
             originalState: original,
           });
           // 적용
-          useGameStore.setState(opts.optimisticState);
+          useGameStore.setState(opts.optimisticState as Record<string, unknown>);
         }
         // 실제 전송 (offline 시 queue)
         const id = websocketService.safePublish(destination, body) || genId();
@@ -103,7 +102,7 @@ export const useConnectionStore = create<ConnectionStoreState & ConnectionStoreA
           optimisticUpdateId: optimisticId,
           status: 'sent',
           lastAttempt: Date.now(),
-        } as any; // timestamp는 OutgoingMessage 필드이지만 여기서 추가
+        };
         set(state => ({
           pendingMessages: { ...state.pendingMessages, [id]: pending },
         }));
@@ -152,7 +151,7 @@ export const useConnectionStore = create<ConnectionStoreState & ConnectionStoreA
           confirmed: false,
           rolledBack: false,
           ...update,
-        } as any;
+        };
         set(state => ({ optimisticUpdates: { ...state.optimisticUpdates, [id]: optimistic } }));
         return id;
       },
@@ -176,12 +175,12 @@ export const useConnectionStore = create<ConnectionStoreState & ConnectionStoreA
         set(state => ({ optimisticUpdates: { ...state.optimisticUpdates, [id]: target } }));
       },
       addSyncIssue: (issue) => {
-        const syncIssue: SyncIssue = { id: genId(), timestamp: Date.now(), ...issue } as any;
+        const syncIssue: SyncIssue = { id: genId(), timestamp: Date.now(), ...issue };
         set(state => ({ syncIssues: [...state.syncIssues, syncIssue] }));
       },
       clearSyncIssues: () => set({ syncIssues: [] }),
       pruneQueue: () => set(state => ({ messageQueue: state.messageQueue.filter(m => Date.now() - m.timestamp < 30000) })),
-    }))
+    })
   )
 );
 

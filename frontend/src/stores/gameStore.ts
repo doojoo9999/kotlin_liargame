@@ -1,6 +1,7 @@
 import {create} from 'zustand';
 import {devtools} from 'zustand/middleware';
 import {websocketService} from '../services/websocketService';
+import {useAuthStore} from './authStore';
 import type {
     ChatCallback,
     ChatMessage,
@@ -193,7 +194,10 @@ const useGameStore = create<GameState>()(
         castVote: (targetPlayerId: string) => {
           const { currentRoom } = get();
           if (currentRoom && get().isConnected) {
-            websocketService.sendVote(currentRoom.id, targetPlayerId);
+            const numericTargetId = Number.parseInt(targetPlayerId, 10);
+            if (!Number.isNaN(numericTargetId)) {
+              websocketService.sendVote(currentRoom.id, numericTargetId);
+            }
           }
         },
 

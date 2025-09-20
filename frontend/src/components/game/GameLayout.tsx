@@ -1,4 +1,4 @@
-import type {ReactNode} from 'react'
+import {useEffect, useRef, type ReactNode} from 'react'
 import {ArrowLeft, Users} from 'lucide-react'
 import {Button} from '@/components/ui/button'
 import {Card, CardContent} from '@/components/ui/card'
@@ -11,8 +11,11 @@ import {ActivityFeed} from './ActivityFeed'
 import {GameChat} from './GameChat'
 import {RoundStageTimeline} from './RoundStageTimeline'
 import {RoundSummaryPanel} from './RoundSummaryPanel'
+import {ConnectionStatus} from './ConnectionStatus/ConnectionStatus'
+import {GameHelpPanel} from './GameHelpPanel'
 import {GameplayScoreboard} from '@/components/gameplay/GameplayScoreboard'
 import type {GamePhase, ScoreboardEntry} from '@/types/backendTypes'
+import {toast} from 'sonner'
 import type {GameTimer, Player, RoundSummaryEntry, RoundUxStage, VotingState} from '@/stores/unifiedGameStore'
 import type {ChatMessage, ChatMessageType} from '@/types/realtime'
 import type {ActivityEvent} from '@/types/game'
@@ -102,6 +105,34 @@ export function GameLayout({
   onGuessWord,
   onCastFinalVote,
 }: GameLayoutProps) {
+  const lastCriticalToast = useRef<number | null>(null)
+
+  useEffect(() => {
+    if (error) {
+      toast.error(error)
+    }
+  }, [error])
+
+  useEffect(() => {
+    if (chatError) {
+      toast.error(`채팅 오류: ${chatError}`)
+    }
+  }, [chatError])
+
+  useEffect(() => {
+    if (timer.timeRemaining === 10 && lastCriticalToast.current !== 10) {
+      toast.warning('남은 시간 10초!', {
+        description: '빠르게 입력을 마무리하세요.',
+        duration: 3000,
+      })
+      lastCriticalToast.current = 10
+      return
+    }
+    if (timer.timeRemaining > 10) {
+      lastCriticalToast.current = null
+    }
+  }, [timer.timeRemaining])
+
   if (isLoading) {
     return (
       <div className="flex min-h-[480px] items-center justify-center">
@@ -152,12 +183,15 @@ export function GameLayout({
           </div>
 
           <div className="flex flex-col items-start gap-2 sm:items-end">
-            <GamePhaseIndicator phase={currentPhase} timeRemaining={timer.timeRemaining} />
-            <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+            <div className="flex w-full flex-wrap items-center justify-between gap-3">
+              <GamePhaseIndicator phase={currentPhase} timeRemaining={timer.timeRemaining} />
+              <ConnectionStatus compact className="text-xs" />
+            </div>
+            <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground" aria-live="polite">
               <span>라운드 {roundLabel}</span>
               <span className="hidden md:inline" aria-hidden>•</span>
               <span className="flex items-center gap-1">
-                <Users className="h-3 w-3" />
+                <Users className="h-3 w-3" aria-hidden="true" />
                 {summary.alivePlayers}/{summary.totalPlayers} 생존
               </span>
               <span className="hidden lg:inline" aria-hidden>•</span>
@@ -202,6 +236,7 @@ export function GameLayout({
                 suspectedPlayer={suspectedPlayer?.id ?? undefined}
               />
               <GameplayScoreboard entries={scoreboardEntries} />
+              <GameHelpPanel />
               <div className="xl:hidden">
                 <ActivityFeed events={activities} maxEvents={40} />
               </div>

@@ -1,3 +1,4 @@
+import type {GameStateResponse} from './backendTypes';
 import type {WebSocketChatMessage} from './index';
 
 // Shared WebSocket & real-time types
@@ -30,8 +31,7 @@ export interface OutgoingClientMessage<T = unknown> {
 }
 
 export interface GameStateUpdatePayload {
-  // shape kept flexible; align later with backend contract
-  gameState: unknown;
+  gameState?: GameStateResponse;
 }
 
 export interface PhaseChangePayload { phase: string; previousPhase: string; }

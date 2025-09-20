@@ -1,5 +1,4 @@
 import {useMemo} from 'react'
-import {shallow} from 'zustand/shallow'
 import {useGameStore} from '@/stores'
 import type {GamePhase, ScoreboardEntry} from '@/types/backendTypes'
 import type {
@@ -90,8 +89,7 @@ export function useGameLayoutViewModel(): GameLayoutViewModel {
       setUserVote: store.setUserVote,
       sendChatMessage: store.sendChatMessage,
       loadChatHistory: store.loadChatHistory,
-    }),
-    shallow,
+    })
   )
 
   const summary = useMemo(() => {

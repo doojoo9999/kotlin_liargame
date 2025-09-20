@@ -1,15 +1,26 @@
 import React from 'react';
 import {AnimatePresence, motion} from 'framer-motion';
-import {AlertCircle, CheckCircle, Loader2} from 'lucide-react';
+import {AlertCircle, CheckCircle, Loader2, Signal} from 'lucide-react';
 import {Card, CardContent} from '@/components/ui/card';
 import {Button} from '@/components/ui/button';
 import {cn} from '@/lib/utils';
 import {useGameWebSocket} from '../../../hooks/useGameWebSocket';
+import {useConnectionStore} from '@/stores/connectionStore';
+import type {ConnectionStoreState} from '@/types/store';
 
 export interface ConnectionStatusProps {
   className?: string;
   showDetails?: boolean;
   compact?: boolean;
+}
+
+interface StatusDescriptor {
+  status: 'error' | 'connected' | 'connecting' | 'reconnecting' | 'degraded';
+  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+  text: string;
+  color: string;
+  bgColor: string;
+  borderColor: string;
 }
 
 export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
@@ -23,8 +34,35 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
     retry
   } = useGameWebSocket();
 
-  const getConnectionStatus = () => {
-    if (connectionError) {
+  const connectionMetrics = useConnectionStore(
+    (state): {
+      realtimeStatus: ConnectionStoreState['status'];
+      avgLatency: ConnectionStoreState['avgLatency'];
+      backlog: number;
+    } => ({
+      realtimeStatus: state.status,
+      avgLatency: state.avgLatency,
+      backlog: state.messageQueue.length + Object.keys(state.pendingMessages).length,
+    })
+  );
+
+  const { realtimeStatus, avgLatency, backlog } = connectionMetrics;
+
+  const isReconnecting = realtimeStatus === 'reconnecting';
+  const isDegraded = realtimeStatus === 'connected' && (backlog > 0 || (avgLatency ?? 0) > 1500);
+
+  const metricsText = React.useMemo(() => {
+    if (backlog > 0) {
+      return `대기 ${backlog}건`;
+    }
+    if (avgLatency != null && avgLatency > 0) {
+      return `${Math.round(avgLatency)}ms`;
+    }
+    return undefined;
+  }, [avgLatency, backlog]);
+
+  const getConnectionStatus = (): StatusDescriptor => {
+    if (connectionError || realtimeStatus === 'error') {
       return {
         status: 'error',
         icon: AlertCircle,
@@ -35,7 +73,29 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
       };
     }
 
-    if (isConnected) {
+    if (isReconnecting) {
+      return {
+        status: 'reconnecting',
+        icon: Loader2,
+        text: '재연결 중...',
+        color: 'text-yellow-500',
+        bgColor: 'bg-yellow-50 dark:bg-yellow-900/20',
+        borderColor: 'border-yellow-200 dark:border-yellow-800'
+      };
+    }
+
+    if (isDegraded) {
+      return {
+        status: 'degraded',
+        icon: Signal,
+        text: '연결 품질 저하',
+        color: 'text-amber-500',
+        bgColor: 'bg-amber-50 dark:bg-amber-900/20',
+        borderColor: 'border-amber-200 dark:border-amber-800'
+      };
+    }
+
+    if (isConnected || realtimeStatus === 'connected') {
       return {
         status: 'connected',
         icon: CheckCircle,
@@ -66,12 +126,15 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
           className={cn(
             "w-4 h-4",
             statusInfo.color,
-            statusInfo.status === 'connecting' && "animate-spin"
+            (statusInfo.status === 'connecting' || statusInfo.status === 'reconnecting') && "animate-spin"
           )}
         />
         <span className={cn("text-sm", statusInfo.color)}>
           {statusInfo.text}
         </span>
+        {metricsText && statusInfo.status !== 'error' && (
+          <span className="text-xs text-muted-foreground">({metricsText})</span>
+        )}
       </div>
     );
   }
@@ -90,13 +153,18 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
               className={cn(
                 "w-5 h-5",
                 statusInfo.color,
-                statusInfo.status === 'connecting' && "animate-spin"
+                (statusInfo.status === 'connecting' || statusInfo.status === 'reconnecting') && "animate-spin"
               )}
             />
             <div>
               <div className={cn("font-medium", statusInfo.color)}>
                 {statusInfo.text}
               </div>
+              {metricsText && statusInfo.status !== 'error' && (
+                <div className="text-xs text-muted-foreground mt-1">
+                  {metricsText}
+                </div>
+              )}
               {showDetails && connectionError && (
                 <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                   {connectionError}
@@ -105,7 +173,7 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
             </div>
           </div>
 
-          {statusInfo.status === 'error' && (
+          {(statusInfo.status === 'error' || statusInfo.status === 'degraded') && (
             <Button
               onClick={retry}
               variant="outline"
@@ -128,6 +196,18 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
               >
                 <div className="text-sm text-gray-600 dark:text-gray-400">
                   실시간 채팅과 게임 상태가 동기화됩니다.
+                </div>
+              </motion.div>
+            )}
+            {statusInfo.status === 'degraded' && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="mt-3 pt-3 border-t border-amber-200 dark:border-amber-800"
+              >
+                <div className="text-sm text-gray-700 dark:text-gray-300">
+                  네트워크 지연이 감지되었습니다. 입력한 동작이 반영되기까지 시간이 걸릴 수 있습니다.
                 </div>
               </motion.div>
             )}

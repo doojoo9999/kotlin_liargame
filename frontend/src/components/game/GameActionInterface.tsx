@@ -10,6 +10,7 @@ import {
     Clock,
     Lightbulb,
     Loader2,
+    Lock,
     MessageSquare,
     Search,
     Send,
@@ -18,6 +19,7 @@ import {
 } from 'lucide-react';
 import {AnimatePresence, motion} from 'framer-motion';
 import type {GamePhase, Player} from '@/stores';
+import {toast} from 'sonner';
 
 interface GameActionInterfaceProps {
   gamePhase: GamePhase;
@@ -78,6 +80,12 @@ export const GameActionInterface: React.FC<GameActionInterfaceProps> = ({
     setFinalVote(null);
     setError('');
   }, [gamePhase]);
+
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+    }
+  }, [error]);
 
   const getActionConfig = (): ActionConfig => {
     switch (gamePhase) {
@@ -220,6 +228,7 @@ export const GameActionInterface: React.FC<GameActionInterfaceProps> = ({
   const showInput = gamePhase === 'SPEECH' || gamePhase === 'DEFENDING' || gamePhase === 'GUESSING_WORD';
   const showVoting = gamePhase === 'VOTING_FOR_LIAR';
   const showFinalVote = gamePhase === 'VOTING_FOR_SURVIVAL';
+  const helperId = `game-action-helper-${gamePhase}`;
 
   return (
     <AnimatePresence mode="wait">
@@ -264,13 +273,13 @@ export const GameActionInterface: React.FC<GameActionInterfaceProps> = ({
           <CardContent>
             <div className="space-y-4">
               {/* Description */}
-              <p className="text-sm text-gray-700 leading-relaxed">
+              <p id={helperId} className="text-sm text-gray-700 leading-relaxed">
                 {config.description}
               </p>
 
               {/* Current Topic/Word Display */}
               {gamePhase === 'SPEECH' && (
-                <div className="p-3 rounded-lg bg-white border border-gray-200">
+                <div className="relative overflow-hidden rounded-lg border border-gray-200 bg-white p-3" aria-live="polite">
                   <div className="flex items-center justify-between text-sm">
                     <div>
                       <span className="font-medium text-gray-600">주제:</span>
@@ -284,8 +293,9 @@ export const GameActionInterface: React.FC<GameActionInterfaceProps> = ({
                     )}
                   </div>
                   {isLiar && (
-                    <div className="mt-2 text-xs text-orange-600 font-medium">
-                      ⚠️ 라이어는 단어를 볼 수 없습니다
+                    <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-orange-500/15 via-background/95 to-orange-500/15 backdrop-blur-sm" role="note">
+                      <Lock className="h-6 w-6 text-orange-500" aria-hidden="true" />
+                      <span className="text-sm font-semibold text-orange-600">라이어는 비밀 단어를 확인할 수 없습니다</span>
                     </div>
                   )}
                 </div>
@@ -305,6 +315,8 @@ export const GameActionInterface: React.FC<GameActionInterfaceProps> = ({
                           maxLength={config.maxLength}
                           rows={4}
                           className="resize-none"
+                          aria-describedby={helperId}
+                          aria-invalid={Boolean(error)}
                         />
                       ) : (
                         <Input
@@ -312,6 +324,8 @@ export const GameActionInterface: React.FC<GameActionInterfaceProps> = ({
                           value={inputValue}
                           onChange={(e) => setInputValue(e.target.value)}
                           maxLength={config.maxLength}
+                          aria-describedby={helperId}
+                          aria-invalid={Boolean(error)}
                           onKeyPress={(e) => {
                             if (e.key === 'Enter' && !e.shiftKey) {
                               e.preventDefault();
@@ -340,31 +354,34 @@ export const GameActionInterface: React.FC<GameActionInterfaceProps> = ({
                   {/* Player Voting */}
                   {showVoting && (
                     <div className="space-y-2">
-                      <div className="text-sm font-medium text-gray-700">
+                      <div className="text-sm font-medium text-gray-700" id="vote-instruction">
                         라이어로 의심되는 플레이어를 선택하세요:
                       </div>
-                      <div className="grid grid-cols-1 gap-2">
+                      <div className="grid grid-cols-1 gap-2" role="listbox" aria-labelledby="vote-instruction">
                         {players
                           .filter(p => p.id !== currentPlayer?.id && p.isAlive !== false)
-                          .map(player => (
+                          .map((player) => (
                             <button
                               key={player.id}
                               onClick={() => setSelectedPlayer(player.id)}
-                              className={`p-3 rounded-lg border text-left transition-all ${
+                              className={`p-3 rounded-lg border text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-red-400 ${
                                 selectedPlayer === player.id
                                   ? 'border-red-400 bg-red-50 text-red-800'
                                   : 'border-gray-200 bg-white hover:border-red-200'
                               }`}
+                              aria-pressed={selectedPlayer === player.id}
+                              aria-selected={selectedPlayer === player.id}
+                              aria-label={`${player.nickname}에게 투표`}
+                              role="option"
                             >
                               <div className="flex items-center justify-between">
                                 <span className="font-medium">{player.nickname}</span>
                                 {selectedPlayer === player.id && (
-                                  <CheckCircle className="h-4 w-4 text-red-600" />
+                                  <CheckCircle className="h-4 w-4 text-red-600" aria-hidden="true" />
                                 )}
                               </div>
                             </button>
-                          ))
-                        }
+                          ))}
                       </div>
                     </div>
                   )}
@@ -372,17 +389,19 @@ export const GameActionInterface: React.FC<GameActionInterfaceProps> = ({
                   {/* Final Vote */}
                   {showFinalVote && (
                     <div className="space-y-2">
-                      <div className="text-sm font-medium text-gray-700">
+                      <div className="text-sm font-medium text-gray-700" id="final-vote-instruction">
                         {suspectedPlayer?.nickname}님을 처형할까요?
                       </div>
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-2 gap-2" role="group" aria-labelledby="final-vote-instruction">
                         <button
                           onClick={() => setFinalVote(true)}
-                          className={`p-3 rounded-lg border transition-all ${
+                          className={`p-3 rounded-lg border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-red-400 ${
                             finalVote === true
                               ? 'border-red-400 bg-red-50 text-red-800'
                               : 'border-gray-200 bg-white hover:border-red-200'
                           }`}
+                          aria-pressed={finalVote === true}
+                          aria-label={`${suspectedPlayer?.nickname ?? '해당 플레이어'} 처형 결정`}
                         >
                           <div className="text-center">
                             <div className="font-medium">처형</div>
@@ -391,11 +410,13 @@ export const GameActionInterface: React.FC<GameActionInterfaceProps> = ({
                         </button>
                         <button
                           onClick={() => setFinalVote(false)}
-                          className={`p-3 rounded-lg border transition-all ${
+                          className={`p-3 rounded-lg border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-green-400 ${
                             finalVote === false
                               ? 'border-green-400 bg-green-50 text-green-800'
                               : 'border-gray-200 bg-white hover:border-green-200'
                           }`}
+                          aria-pressed={finalVote === false}
+                          aria-label={`${suspectedPlayer?.nickname ?? '해당 플레이어'} 생존 결정`}
                         >
                           <div className="text-center">
                             <div className="font-medium">생존</div>
@@ -408,7 +429,7 @@ export const GameActionInterface: React.FC<GameActionInterfaceProps> = ({
 
                   {/* Error Message */}
                   {error && (
-                    <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm">
+                    <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm" role="alert" aria-live="assertive">
                       {error}
                     </div>
                   )}

@@ -1,4 +1,4 @@
-import type {ComponentProps} from 'react'
+import type {ComponentProps, ComponentType} from 'react'
 import {PlayerStatusPanel} from '../PlayerStatusPanel'
 import type {Player} from '@/types/game'
 import type {GamePhase} from '@/types/backendTypes'
@@ -55,7 +55,17 @@ const defaults: ComponentProps<typeof PlayerStatusPanel> = {
   suspectedPlayer: '3',
 }
 
-const meta = {
+interface StoryMeta<T extends ComponentType<any>> {
+  title: string
+  component: T
+  args?: ComponentProps<T>
+}
+
+type Story<T extends ComponentType<any>> = {
+  args?: Partial<ComponentProps<T>>
+}
+
+const meta: StoryMeta<typeof PlayerStatusPanel> = {
   title: 'Game/PlayerStatusPanel',
   component: PlayerStatusPanel,
   args: defaults,
@@ -63,9 +73,9 @@ const meta = {
 
 export default meta
 
-export const Default = {}
+export const Default: Story<typeof PlayerStatusPanel> = {}
 
-export const WithLiarPerspective = {
+export const WithLiarPerspective: Story<typeof PlayerStatusPanel> = {
   args: {
     isLiar: true,
     currentPlayer: samplePlayers[2],

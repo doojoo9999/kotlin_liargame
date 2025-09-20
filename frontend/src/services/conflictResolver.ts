@@ -1,5 +1,5 @@
 // Basic conflict resolution strategies (stub)
-import type {GameStateResponse} from '@/types/game';
+import type {GameStateResponse} from '@/types/backendTypes';
 
 export type ConflictType = 'FIELD' | 'VERSION' | 'OUT_OF_ORDER';
 export interface GameAction { type: string; payload?: any; timestamp?: number }
@@ -44,7 +44,9 @@ export class ConflictResolver {
     }
 
     if (to.gameCurrentRound === from.gameCurrentRound) {
-      return to.currentTurnIndex >= from.currentTurnIndex;
+      const fromIndex = from.currentTurnIndex ?? 0;
+      const toIndex = to.currentTurnIndex ?? 0;
+      return toIndex >= fromIndex;
     }
 
     return true;

@@ -116,6 +116,22 @@ export const PlayerStatusPanel: React.FC<PlayerStatusPanelProps> = ({
     }
   }
 
+  const getRoleAccentClass = (role: string, isCurrent: boolean) => {
+    if (role === 'suspected') {
+      return 'border-red-300 bg-red-50 animate-[pulse_2s_ease-in-out_infinite]'
+    }
+    if (role === 'liar') {
+      return 'border-orange-300 bg-orange-50'
+    }
+    if (role === 'host') {
+      return 'border-purple-200 bg-purple-50'
+    }
+    if (isCurrent) {
+      return 'border-blue-300 bg-blue-50'
+    }
+    return 'border-gray-200 bg-white'
+  }
+
   const getVoteCount = (playerId: string) => {
     return Object.values(votes).filter(vote => vote === playerId).length
   }
@@ -149,6 +165,8 @@ export const PlayerStatusPanel: React.FC<PlayerStatusPanelProps> = ({
                 const roleConfig = getRoleConfig(role)
                 const voteCount = getVoteCount(player.id)
                 const isCurrentPlayer = player.id === currentPlayer?.id
+                const accentClass = getRoleAccentClass(role, isCurrentPlayer)
+                const badgeAriaLabel = `${player.nickname} ${roleConfig.label}`
 
                 return (
                   <motion.div
@@ -160,10 +178,12 @@ export const PlayerStatusPanel: React.FC<PlayerStatusPanelProps> = ({
                     transition={{ duration: 0.2 }}
                     className={`
                       flex items-center justify-between p-3 rounded-lg border transition-all
-                      ${isCurrentPlayer ? 'border-blue-300 bg-blue-50' : 'border-gray-200 bg-white'}
+                      ${accentClass}
                       ${player.id === currentTurnPlayerId ? 'ring-2 ring-green-300 ring-opacity-50' : ''}
                       ${!player.isOnline ? 'opacity-60' : ''}
                     `}
+                    data-role={role}
+                    aria-label={`${player.nickname} — ${roleConfig.label}`}
                   >
                     <div className="flex items-center space-x-3 flex-1">
                       {/* Avatar */}
@@ -196,8 +216,9 @@ export const PlayerStatusPanel: React.FC<PlayerStatusPanelProps> = ({
                           <Badge
                             variant="secondary"
                             className={`text-xs ${roleConfig.bgColor} ${roleConfig.color}`}
+                            aria-label={badgeAriaLabel}
                           >
-                            <div className="flex items-center space-x-1">
+                            <div className="flex items-center space-x-1" aria-hidden="true">
                               {roleConfig.icon}
                               <span>{roleConfig.label}</span>
                             </div>

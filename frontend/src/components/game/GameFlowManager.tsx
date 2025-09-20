@@ -2,6 +2,7 @@ import {useCallback, useEffect, useMemo, useState} from 'react'
 import {GameLayout} from './GameLayout'
 import {useGameLayoutViewModel} from './useGameLayoutViewModel'
 import {useWebSocket} from '@/hooks/useWebSocket'
+import {useGameRecovery} from '@/hooks/useGameRecovery'
 import {websocketService} from '@/services/websocketService'
 import {toast} from 'sonner'
 import type {ActivityEvent} from '@/types/game'
@@ -32,6 +33,7 @@ const getPhaseForLog = () => useGameStore.getState().gamePhase
 
 export function GameFlowManager({ onReturnToLobby, onNextRound }: GameFlowManagerProps) {
   const viewModel = useGameLayoutViewModel()
+  useGameRecovery()
   const {
     gameNumber,
     gamePhase,
@@ -96,11 +98,17 @@ export function GameFlowManager({ onReturnToLobby, onNextRound }: GameFlowManage
   useEffect(() => {
     if (!gameNumber) return
 
-    const makeActivity = (type: ActivityEvent['type'], event: GameEvent, content: string, highlight = false): ActivityEvent => ({
+    const makeActivity = (
+      type: ActivityEvent['type'],
+      event: GameEvent,
+      content: string,
+      highlight = false,
+      identifiers: { actor?: unknown; target?: unknown } = {}
+    ): ActivityEvent => ({
       id: createActivityId(type),
       type,
-      playerId: resolveIdentifier(event.payload?.playerId ?? event.payload?.userId ?? event.payload?.voterId ?? event.payload?.defenderId),
-      targetId: resolveIdentifier(event.payload?.targetId ?? event.payload?.accusedPlayer),
+      playerId: resolveIdentifier(identifiers.actor),
+      targetId: resolveIdentifier(identifiers.target),
       content,
       phase: getPhaseForLog(),
       timestamp: event.timestamp ?? Date.now(),
@@ -108,27 +116,55 @@ export function GameFlowManager({ onReturnToLobby, onNextRound }: GameFlowManage
     })
 
     const unsubscribeHint = websocketService.onHintProvided((event) => {
-      const nickname = event.payload.playerName ?? event.payload.playerNickname ?? '플레이어'
-      appendActivity(makeActivity('hint', event, `${nickname} 님이 힌트를 제출했습니다.`))
+      if (event.type !== 'HINT_PROVIDED' && event.type !== 'HINT_SUBMITTED') return
+
+      const nickname = event.payload.playerName ?? (event.payload as Record<string, unknown>).playerNickname ?? '플레이어'
+      appendActivity(
+        makeActivity('hint', event, `${nickname} 님이 힌트를 제출했습니다.`, false, {
+          actor: event.payload.playerId,
+        })
+      )
     })
 
     const unsubscribeVote = websocketService.onVoteCast((event) => {
-      const voter = event.payload.voterName ?? event.payload.playerName ?? '플레이어'
-      const target = event.payload.targetName ?? event.payload.targetNickname ?? '누군가'
-      appendActivity(makeActivity('vote', event, `${voter} 님이 ${target}에게 투표했습니다.`))
+      if (event.type !== 'VOTE_CAST') return
+
+      const fallbackPayload = event.payload as Record<string, unknown>
+      const voter = event.payload.voterName ?? (fallbackPayload.playerName as string | undefined) ?? '플레이어'
+      const target =
+        event.payload.targetName
+          ?? (fallbackPayload.targetNickname as string | undefined)
+          ?? '누군가'
+
+      appendActivity(
+        makeActivity('vote', event, `${voter} 님이 ${target}에게 투표했습니다.`, false, {
+          actor: event.payload.voterId,
+          target: event.payload.targetId,
+        })
+      )
     })
 
     const unsubscribeDefense = websocketService.onDefenseSubmitted((event) => {
+      if (event.type !== 'DEFENSE_SUBMITTED') return
+
       const defender = event.payload.defenderName ?? event.payload.playerName ?? '플레이어'
-      appendActivity(makeActivity('defense', event, `${defender} 님이 변론을 제출했습니다.`))
+      appendActivity(
+        makeActivity('defense', event, `${defender} 님이 변론을 제출했습니다.`, false, {
+          actor: event.payload.defenderId ?? event.payload.playerId,
+        })
+      )
     })
 
     const unsubscribePhase = websocketService.onPhaseChanged((event) => {
-      const nextPhase = typeof event.payload?.phase === 'string' ? event.payload.phase : gamePhase
+      if (event.type !== 'PHASE_CHANGED') return
+
+      const nextPhase = typeof event.payload.phase === 'string' ? event.payload.phase : gamePhase
       appendActivity(makeActivity('phase_change', event, `단계가 ${nextPhase}로 변경되었습니다.`, true))
     })
 
     const unsubscribeRound = websocketService.onRoundEnded((event) => {
+      if (event.type !== 'ROUND_ENDED') return
+
       appendActivity(makeActivity('system', event, '라운드가 종료되었습니다.', true))
     })
 
@@ -254,6 +290,13 @@ export function GameFlowManager({ onReturnToLobby, onNextRound }: GameFlowManage
       roundSummaries={roundSummaries}
       currentRoundSummary={currentRoundSummary}
       scoreboardEntries={scoreboardEntries}
+      chatMessages={chatMessages}
+      chatLoading={chatLoading}
+      chatError={chatError}
+      typingPlayers={typingPlayers}
+      onSendChatMessage={handleSendChatMessage}
+      onReportChatMessage={handleReportChatMessage}
+      onReloadChat={handleReloadChatHistory}
       onReturnToLobby={onReturnToLobby}
       onNextRound={onNextRound}
       onSubmitHint={handleSubmitHint}

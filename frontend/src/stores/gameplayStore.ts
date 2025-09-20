@@ -163,6 +163,26 @@ const toBoolean = (value: unknown): boolean | undefined => {
   return undefined
 }
 
+const KNOWN_GAME_PHASES = new Set<GameStateResponse['currentPhase']>([
+  'WAITING_FOR_PLAYERS',
+  'SPEECH',
+  'VOTING_FOR_LIAR',
+  'DEFENDING',
+  'VOTING_FOR_SURVIVAL',
+  'GUESSING_WORD',
+  'GAME_OVER'
+])
+
+const toGamePhase = (
+  value: unknown,
+  fallback: GameStateResponse['currentPhase']
+): GameStateResponse['currentPhase'] => {
+  if (typeof value === 'string' && KNOWN_GAME_PHASES.has(value as GameStateResponse['currentPhase'])) {
+    return value as GameStateResponse['currentPhase']
+  }
+  return fallback
+}
+
 const toNumberArray = (value: unknown): number[] | undefined => {
   if (!Array.isArray(value)) {
     return undefined
@@ -313,7 +333,7 @@ export const useGameplayStore = create<GameplayStoreState>()(
           switch (event.type) {
             case 'PHASE_CHANGE': {
               const additionalData = (event.payload.additionalData ?? {}) as Record<string, unknown>
-              const turnOrder = toNumberArray(additionalData['turnOrder'])
+              const turnOrder = toNumberArray(additionalData['turnOrder'])?.map((id) => id.toString())
               const activeId = toNumber(additionalData['currentSpeakerId'] ?? additionalData['currentTurnPlayerId'])
               const accusedId = toNumber(additionalData['accusedPlayerId'])
               const phaseEndsAt = toStringValue(additionalData['phaseEndsAt'] ?? additionalData['phaseEndTime'])
@@ -322,7 +342,7 @@ export const useGameplayStore = create<GameplayStoreState>()(
 
               phase = {
                 ...phase,
-                current: event.payload.phase,
+                current: toGamePhase(event.payload.phase, phase.current),
                 endsAt: phaseEndsAt ?? null,
                 turnOrder: turnOrder ?? phase.turnOrder,
                 activePlayerId: activeId ?? phase.activePlayerId ?? null,
@@ -381,7 +401,8 @@ export const useGameplayStore = create<GameplayStoreState>()(
             }
             case 'DEFENSE_TIMEOUT': {
               if ('defense' in timerItems) {
-                const {defense: _removed, ...rest} = timerItems
+                const rest = {...timerItems}
+                delete rest.defense
                 timerItems = rest
                 timersChanged = true
               }
@@ -487,7 +508,9 @@ export const useGameplayStore = create<GameplayStoreState>()(
                 canChangeVote: false
               }
               scoreboard = event.payload.scoreboard
-              const {voting: _votingTimer, finalVoting: _finalVotingTimer, ...restTimers} = timerItems
+              const restTimers = {...timerItems}
+              delete restTimers.voting
+              delete restTimers.finalVoting
               timerItems = restTimers
               timersChanged = true
               break

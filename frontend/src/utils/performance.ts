@@ -140,9 +140,9 @@ export class PerformanceMonitor {
         CLS: this.getCLS(),
         
         // Navigation timing
-        domContentLoaded: navigation.domContentLoadedEventEnd - navigation.domContentLoadedEventStart,
-        domComplete: navigation.domComplete - navigation.navigationStart,
-        loadComplete: navigation.loadEventEnd - navigation.navigationStart,
+        domContentLoaded: navigation.domContentLoadedEventEnd - navigation.startTime,
+        domComplete: navigation.domComplete - navigation.startTime,
+        loadComplete: navigation.loadEventEnd - navigation.startTime,
         
         // Resource timing
         resourceCount: performance.getEntriesByType('resource').length,
@@ -191,8 +191,9 @@ export class PerformanceMonitor {
       if ('PerformanceObserver' in window) {
         const observer = new PerformanceObserver((entryList) => {
           const firstInput = entryList.getEntries()[0];
-          if (firstInput) {
-            resolve(firstInput.processingStart - firstInput.startTime);
+          if (firstInput && 'processingStart' in firstInput) {
+            const typed = firstInput as PerformanceEventTiming;
+            resolve(typed.processingStart - typed.startTime);
             observer.disconnect();
           }
         });

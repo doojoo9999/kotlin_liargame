@@ -6,7 +6,7 @@ import {Badge} from '@/components/ui/badge';
 import {AlertCircle, CheckCircle, Clock, Wifi, WifiOff} from 'lucide-react';
 import {cn} from '@/lib/utils';
 import {useGameStore} from '@/stores';
-import {useWebSocketActions} from '@/hooks/useWebSocketConnection';
+import {useConnectionStore} from '@/stores/connectionStore';
 
 interface GameTimerProps {
   showProgress?: boolean;
@@ -29,7 +29,7 @@ export const GameTimer: React.FC<GameTimerProps> = ({
     gamePhase
   } = useGameStore()
   
-  const { isConnected } = useWebSocketActions()
+  const isConnected = useConnectionStore((state) => state.status === 'connected')
   
   const { isActive, timeRemaining, totalTime, phase } = timer
   const [displayTime, setDisplayTime] = useState(timeRemaining);

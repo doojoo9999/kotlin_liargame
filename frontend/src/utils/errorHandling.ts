@@ -1,16 +1,18 @@
 import {toast} from 'sonner';
 
 // Error types
-export enum ErrorType {
-  NETWORK = 'NETWORK',
-  AUTHENTICATION = 'AUTHENTICATION',
-  AUTHORIZATION = 'AUTHORIZATION',
-  VALIDATION = 'VALIDATION',
-  WEBSOCKET = 'WEBSOCKET',
-  GAME_STATE = 'GAME_STATE',
-  TIMEOUT = 'TIMEOUT',
-  UNKNOWN = 'UNKNOWN'
-}
+export const ERROR_TYPE = {
+  NETWORK: 'NETWORK',
+  AUTHENTICATION: 'AUTHENTICATION',
+  AUTHORIZATION: 'AUTHORIZATION',
+  VALIDATION: 'VALIDATION',
+  WEBSOCKET: 'WEBSOCKET',
+  GAME_STATE: 'GAME_STATE',
+  TIMEOUT: 'TIMEOUT',
+  UNKNOWN: 'UNKNOWN'
+} as const
+
+export type ErrorType = typeof ERROR_TYPE[keyof typeof ERROR_TYPE]
 
 // Custom error classes
 export class AppError extends Error {
@@ -21,7 +23,7 @@ export class AppError extends Error {
 
   constructor(
     message: string,
-    type: ErrorType = ErrorType.UNKNOWN,
+    type: ErrorType = ERROR_TYPE.UNKNOWN,
     userMessage?: string,
     retryable: boolean = false,
     context?: any
@@ -36,19 +38,19 @@ export class AppError extends Error {
 
   private getDefaultUserMessage(type: ErrorType): string {
     switch (type) {
-      case ErrorType.NETWORK:
+      case ERROR_TYPE.NETWORK:
         return 'Network connection failed. Please check your internet connection.';
-      case ErrorType.AUTHENTICATION:
+      case ERROR_TYPE.AUTHENTICATION:
         return 'Authentication failed. Please log in again.';
-      case ErrorType.AUTHORIZATION:
+      case ERROR_TYPE.AUTHORIZATION:
         return 'You do not have permission to perform this action.';
-      case ErrorType.VALIDATION:
+      case ERROR_TYPE.VALIDATION:
         return 'Invalid input. Please check your data and try again.';
-      case ErrorType.WEBSOCKET:
+      case ERROR_TYPE.WEBSOCKET:
         return 'Real-time connection lost. Attempting to reconnect...';
-      case ErrorType.GAME_STATE:
+      case ERROR_TYPE.GAME_STATE:
         return 'Game state error occurred. Please refresh the page.';
-      case ErrorType.TIMEOUT:
+      case ERROR_TYPE.TIMEOUT:
         return 'Request timed out. Please try again.';
       default:
         return 'An unexpected error occurred. Please try again.';
@@ -58,31 +60,31 @@ export class AppError extends Error {
 
 export class NetworkError extends AppError {
   constructor(message: string, userMessage?: string, context?: any) {
-    super(message, ErrorType.NETWORK, userMessage, true, context);
+    super(message, ERROR_TYPE.NETWORK, userMessage, true, context);
   }
 }
 
 export class AuthenticationError extends AppError {
   constructor(message: string, userMessage?: string, context?: any) {
-    super(message, ErrorType.AUTHENTICATION, userMessage, false, context);
+    super(message, ERROR_TYPE.AUTHENTICATION, userMessage, false, context);
   }
 }
 
 export class ValidationError extends AppError {
   constructor(message: string, userMessage?: string, context?: any) {
-    super(message, ErrorType.VALIDATION, userMessage, false, context);
+    super(message, ERROR_TYPE.VALIDATION, userMessage, false, context);
   }
 }
 
 export class WebSocketError extends AppError {
   constructor(message: string, userMessage?: string, context?: any) {
-    super(message, ErrorType.WEBSOCKET, userMessage, true, context);
+    super(message, ERROR_TYPE.WEBSOCKET, userMessage, true, context);
   }
 }
 
 export class GameStateError extends AppError {
   constructor(message: string, userMessage?: string, context?: any) {
-    super(message, ErrorType.GAME_STATE, userMessage, true, context);
+    super(message, ERROR_TYPE.GAME_STATE, userMessage, true, context);
   }
 }
 
@@ -100,11 +102,11 @@ export function handleError(error: unknown, context?: string): AppError {
     }
     // Timeout errors
     else if (error.name === 'TimeoutError' || error.message.includes('timeout')) {
-      appError = new AppError(error.message, ErrorType.TIMEOUT, undefined, true, { originalError: error, context });
+      appError = new AppError(error.message, ERROR_TYPE.TIMEOUT, undefined, true, { originalError: error, context });
     }
     // Generic errors
     else {
-      appError = new AppError(error.message, ErrorType.UNKNOWN, undefined, false, { originalError: error, context });
+      appError = new AppError(error.message, ERROR_TYPE.UNKNOWN, undefined, false, { originalError: error, context });
     }
   } else if (typeof error === 'object' && error !== null && 'status' in error) {
     // HTTP errors
@@ -115,13 +117,13 @@ export function handleError(error: unknown, context?: string): AppError {
         appError = new AuthenticationError('Authentication failed', 'Please log in again', { httpError, context });
         break;
       case 403:
-        appError = new AppError('Access forbidden', ErrorType.AUTHORIZATION, 'You do not have permission to perform this action', false, { httpError, context });
+        appError = new AppError('Access forbidden', ERROR_TYPE.AUTHORIZATION, 'You do not have permission to perform this action', false, { httpError, context });
         break;
       case 422:
         appError = new ValidationError('Validation failed', httpError.message || 'Please check your input', { httpError, context });
         break;
       case 408:
-        appError = new AppError('Request timeout', ErrorType.TIMEOUT, undefined, true, { httpError, context });
+        appError = new AppError('Request timeout', ERROR_TYPE.TIMEOUT, undefined, true, { httpError, context });
         break;
       case 500:
       case 502:
@@ -133,9 +135,9 @@ export function handleError(error: unknown, context?: string): AppError {
         appError = new NetworkError(`HTTP ${httpError.status}`, undefined, { httpError, context });
     }
   } else if (typeof error === 'string') {
-    appError = new AppError(error, ErrorType.UNKNOWN, undefined, false, { context });
+    appError = new AppError(error, ERROR_TYPE.UNKNOWN, undefined, false, { context });
   } else {
-    appError = new AppError('Unknown error occurred', ErrorType.UNKNOWN, undefined, false, { originalError: error, context });
+    appError = new AppError('Unknown error occurred', ERROR_TYPE.UNKNOWN, undefined, false, { originalError: error, context });
   }
   
   // Log error
@@ -158,10 +160,10 @@ export function handleError(error: unknown, context?: string): AppError {
   
   // Show user notification
   switch (appError.type) {
-    case ErrorType.NETWORK:
+    case ERROR_TYPE.NETWORK:
       toast.error(appError.userMessage);
       break;
-    case ErrorType.AUTHENTICATION:
+    case ERROR_TYPE.AUTHENTICATION:
       toast.error(appError.userMessage, {
         action: {
           label: 'Login',
@@ -169,13 +171,13 @@ export function handleError(error: unknown, context?: string): AppError {
         }
       });
       break;
-    case ErrorType.VALIDATION:
+    case ERROR_TYPE.VALIDATION:
       toast.error(appError.userMessage);
       break;
-    case ErrorType.WEBSOCKET:
+    case ERROR_TYPE.WEBSOCKET:
       toast.warning(appError.userMessage);
       break;
-    case ErrorType.GAME_STATE:
+    case ERROR_TYPE.GAME_STATE:
       toast.error(appError.userMessage, {
         action: {
           label: 'Refresh',

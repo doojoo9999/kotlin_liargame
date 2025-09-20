@@ -128,7 +128,11 @@ export class ApiResponseHandler {
     transformer: (data: T) => U
   ): APIResponse<U> {
     if (!response.success) {
-      return response as APIResponse<U>
+      return {
+        success: false,
+        error: response.error,
+        timestamp: response.timestamp,
+      }
     }
     
     try {
@@ -147,7 +151,11 @@ export class ApiResponseHandler {
     handler: (data: T) => APIResponse<U>
   ): APIResponse<U> {
     if (!response.success) {
-      return response as APIResponse<U>
+      return {
+        success: false,
+        error: response.error,
+        timestamp: response.timestamp,
+      }
     }
     
     return handler(response.data!)

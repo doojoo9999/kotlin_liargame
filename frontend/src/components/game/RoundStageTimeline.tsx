@@ -1,5 +1,5 @@
 import {motion} from 'framer-motion'
-import {CheckCircle2, CircleDot, Clock} from 'lucide-react'
+import {AlertTriangle, CheckCircle2, CircleDot, Clock} from 'lucide-react'
 import {Card, CardContent} from '@/components/ui/card'
 import {Badge} from '@/components/ui/badge'
 import {Progress} from '@/components/ui/progress'
@@ -78,6 +78,19 @@ export function RoundStageTimeline({
   const completedCount = stepStatuses.filter((status) => status === 'done').length
   const progressValue = (completedCount / (stepDefinitions.length - 1)) * 100
 
+  const remainingSeconds = Math.max(0, timer.timeRemaining ?? 0)
+  const timerStatus = remainingSeconds === 0 ? 'idle' : remainingSeconds <= 10 ? 'critical' : remainingSeconds <= 30 ? 'warning' : 'normal'
+  const timerTextClass = timerStatus === 'critical'
+    ? 'text-destructive font-semibold'
+    : timerStatus === 'warning'
+      ? 'text-amber-600 font-medium'
+      : 'text-muted-foreground'
+  const progressIndicatorClass = timerStatus === 'critical'
+    ? 'bg-destructive'
+    : timerStatus === 'warning'
+      ? 'bg-amber-500'
+      : undefined
+
   const renderIcon = (status: StepStatus) => {
     if (status === 'done') {
       return <CheckCircle2 className="h-4 w-4 text-green-600" />
@@ -96,17 +109,25 @@ export function RoundStageTimeline({
             <div className="text-sm text-muted-foreground">현재 라운드</div>
             <div className="text-lg font-semibold">라운드 {round || 0} / {totalRounds || 0}</div>
           </div>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground font-mono">
-            <Clock className="h-4 w-4" />
-            {timer.timeRemaining > 0
-              ? `${Math.floor(timer.timeRemaining / 60)}:${(timer.timeRemaining % 60).toString().padStart(2, '0')}`
-              : stageEnteredAt
-                ? '연동 중'
-                : '대기 중'}
+          <div className="flex flex-wrap items-center gap-2 text-sm" role="status" aria-live="polite">
+            <div className={`flex items-center gap-2 font-mono ${timerTextClass}`}>
+              <Clock className="h-4 w-4" aria-hidden="true" />
+              {remainingSeconds > 0
+                ? `${Math.floor(remainingSeconds / 60)}:${(remainingSeconds % 60).toString().padStart(2, '0')}`
+                : stageEnteredAt
+                  ? '연동 중'
+                  : '대기 중'}
+            </div>
+            {timerStatus === 'critical' && (
+              <Badge variant="destructive" className="flex items-center gap-1 text-xs uppercase tracking-wide" role="alert">
+                <AlertTriangle className="h-3 w-3" aria-hidden="true" />
+                마지막 10초!
+              </Badge>
+            )}
           </div>
         </div>
 
-        <Progress value={progressValue} className="h-2" />
+        <Progress value={progressValue} className="h-2 bg-muted" indicatorClassName={progressIndicatorClass} aria-label="라운드 진행률" />
 
         <div className="grid gap-3 md:grid-cols-3">
           {stepDefinitions.map((definition, index) => {

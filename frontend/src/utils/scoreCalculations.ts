@@ -15,7 +15,9 @@ type OptionMap = {
   LIAR_GUESSED_TOPIC: LiarGuessedTopic
 }
 
-export function calculateScoreChanges<S extends ScoringScenario>(scenario: S, options: OptionMap[S]): ScoreChange[] {
+export type ScoreCalculationOptions<S extends ScoringScenario> = OptionMap[S]
+
+export function calculateScoreChanges<S extends ScoringScenario>(scenario: S, options: ScoreCalculationOptions<S>): ScoreChange[] {
   const changes: ScoreChange[] = []
   switch (scenario) {
     case 'LIAR_ELIMINATED': {

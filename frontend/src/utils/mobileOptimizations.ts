@@ -12,24 +12,29 @@ export function auditTouchTargets(minSize = 44): TouchTargetReport[] {
   })
 }
 
+declare global {
+  interface Window {
+    __passivePatched__?: boolean
+  }
+}
+
 export function applyPassiveScrollOptimization() {
   if(typeof window === 'undefined') return
-  // Force passive listeners for scroll & touch events to improve FPS
+  if(window.__passivePatched__) return
+
   const original = EventTarget.prototype.addEventListener
-  // @ts-expect-error augment
-  if(!('___passivePatched' in window)){
-    // @ts-expect-error mark
-    window.___passivePatched = true
-    // @ts-expect-error override
-    EventTarget.prototype.addEventListener = function(type: string, listener: any, options?: any){
-      if(type.startsWith('touch') || type==='wheel' || type==='scroll'){
-        if(typeof options === 'boolean') options = { capture: options, passive: true }
-        else if(typeof options === 'object') options = {...options, passive: true }
-        else options = { passive: true }
-      }
-      return original.call(this, type, listener, options)
+  const patched: typeof original = function(type, listener, options){
+    let normalized = options
+    if(type.startsWith('touch') || type==='wheel' || type==='scroll'){
+      if(typeof normalized === 'boolean') normalized = { capture: normalized, passive: true }
+      else if(typeof normalized === 'object' && normalized !== null) normalized = { ...normalized, passive: true }
+      else normalized = { passive: true }
     }
+    return original.call(this, type, listener, normalized)
   }
+
+  EventTarget.prototype.addEventListener = patched
+  window.__passivePatched__ = true
 }
 
 export function prefersReducedMotion(): boolean {

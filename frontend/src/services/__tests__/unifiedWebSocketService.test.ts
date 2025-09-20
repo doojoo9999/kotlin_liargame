@@ -1,4 +1,5 @@
-import {afterEach, beforeEach, describe, expect, it, MockedFunction, vi} from 'vitest';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
+import type {MockedFunction} from 'vitest';
 import {UnifiedWebSocketService} from '../unifiedWebSocketService';
 
 // Mock SockJS and STOMP Client
@@ -282,9 +283,11 @@ describe('UnifiedWebSocketService', () => {
 
       // Simulate subscription to chat channel
       service.joinGameRoom(12345);
-      const chatHandler = mockStompClient.subscribe.mock.calls.find(
+      const chatSubscription = mockStompClient.subscribe.mock.calls.find(
         call => call[0].includes('/chat')
-      )[1];
+      );
+      expect(chatSubscription).toBeDefined();
+      const chatHandler = (chatSubscription ?? [undefined, () => undefined])[1];
       
       chatHandler(mockMessage);
 

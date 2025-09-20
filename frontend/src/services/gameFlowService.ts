@@ -88,14 +88,34 @@ export class GameFlowService {
 
     const rawMessages = await apiService.get<any[]>(`${CHAT_BASE}/history?${params.toString()}`);
 
-    return rawMessages.map((message) => ({
-      id: String(message.id ?? `${message.gameNumber}-${message.timestamp}`),
-      gameNumber: message.gameNumber,
-      nickname: message.playerNickname ?? 'SYSTEM',
-      message: message.content ?? '',
-      timestamp: typeof message.timestamp === 'string' ? Date.parse(message.timestamp) : Number(message.timestamp ?? Date.now()),
-      type: (message.type || 'DISCUSSION') as ChatMessage['type']
-    }));
+    return rawMessages.map((message) => {
+      const gameNumberParsed = typeof message.gameNumber === 'number'
+        ? message.gameNumber
+        : Number.parseInt(String(message.gameNumber ?? 0), 10)
+
+      const timestamp = typeof message.timestamp === 'string'
+        ? Date.parse(message.timestamp)
+        : Number(message.timestamp ?? Date.now())
+
+      const playerNickname = message.playerNickname ?? message.nickname ?? 'SYSTEM'
+      const content = message.content ?? message.message ?? ''
+
+      return {
+        id: String(message.id ?? `${gameNumberParsed}-${timestamp}`),
+        gameNumber: Number.isNaN(gameNumberParsed) ? 0 : gameNumberParsed,
+        playerId: message.playerId != null ? String(message.playerId) : undefined,
+        userId: typeof message.userId === 'number' ? message.userId : undefined,
+        playerNickname,
+        nickname: message.nickname ?? undefined,
+        playerName: message.playerName ?? undefined,
+        content,
+        message: content,
+        gameId: message.gameId != null ? String(message.gameId) : undefined,
+        roomId: message.roomId != null ? String(message.roomId) : undefined,
+        timestamp,
+        type: (message.type || 'DISCUSSION') as ChatMessage['type']
+      } satisfies ChatMessage
+    })
   }
 }
 

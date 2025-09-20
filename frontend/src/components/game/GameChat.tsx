@@ -36,10 +36,11 @@ const typeLabelMap: Record<ChatMessageType, string> = {
 }
 
 const formatTimestamp = (timestamp: number) => {
-  return new Date(timestamp).toLocaleTimeString('ko-KR', {
+  return new Intl.DateTimeFormat('ko-KR', {
     hour: '2-digit',
     minute: '2-digit',
-  })
+    hour12: false,
+  }).format(new Date(timestamp))
 }
 
 export const GameChat: React.FC<GameChatProps> = ({
@@ -240,27 +241,45 @@ export const GameChat: React.FC<GameChatProps> = ({
         {pinnedMessages.length > 0 && (
           <div className="mb-4 space-y-2">
             <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">공지</div>
-            {pinnedMessages.map((message) => (
-              <div
-                key={message.id}
-                className="flex items-start justify-between gap-3 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-primary"
-              >
-                <div className="flex-1 whitespace-pre-wrap break-words text-left">
-                  <div className="mb-1 flex items-center gap-2">
-                    <Badge variant="outline" className="border-primary/60 text-[11px] uppercase tracking-wide">
-                      {typeLabelMap[message.type]}
-                    </Badge>
-                    <span className="font-semibold text-sm text-primary-foreground/90">
-                      {message.playerNickname ?? 'SYSTEM'}
-                    </span>
+            {pinnedMessages.map((message) => {
+              const player = resolvePlayer(message)
+              const isSystemMessage =
+                message.type === 'SYSTEM' || message.playerNickname?.toUpperCase() === 'SYSTEM'
+              const displayName = isSystemMessage ? '시스템' : player?.nickname ?? message.playerNickname ?? '플레이어'
+              const accentLabel = isSystemMessage ? '시스템' : '방장'
+              const accentVariant = isSystemMessage ? 'default' : 'secondary'
+              const containerTone = isSystemMessage
+                ? 'border border-primary/50 bg-primary/10 text-primary'
+                : 'border border-amber-500/40 bg-amber-50 text-amber-900 dark:bg-amber-500/15 dark:text-amber-100'
+              const typeLabel = typeLabelMap[message.type]
+
+              return (
+                <div
+                  key={message.id}
+                  className={`flex items-start justify-between gap-3 rounded-md px-3 py-2 text-xs ${containerTone}`}
+                >
+                  <div className="flex-1 whitespace-pre-wrap break-words text-left">
+                    <div className="mb-1 flex flex-wrap items-center gap-2">
+                      <Badge variant={accentVariant} className="text-[11px] uppercase tracking-wide">
+                        {accentLabel}
+                      </Badge>
+                      {typeLabel && (
+                        <Badge variant="outline" className="text-[11px] uppercase tracking-wide">
+                          {typeLabel}
+                        </Badge>
+                      )}
+                      <span className="text-sm font-semibold leading-none">{displayName}</span>
+                    </div>
+                    <div className="text-sm leading-relaxed">
+                      {message.content}
+                    </div>
                   </div>
-                  <div className="text-primary/90">{message.content}</div>
+                  <span className="whitespace-nowrap text-[11px] opacity-80">
+                    {formatTimestamp(message.timestamp)}
+                  </span>
                 </div>
-                <span className="whitespace-nowrap text-[11px] text-primary/70">
-                  {formatTimestamp(message.timestamp)}
-                </span>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
 
@@ -283,24 +302,25 @@ export const GameChat: React.FC<GameChatProps> = ({
                     (message.userId != null && currentPlayer.userId === message.userId) ||
                     message.playerNickname === currentPlayer.nickname)
                 const displayName = player?.nickname ?? message.playerNickname ?? '플레이어'
-                const badgeLabels: string[] = []
+                const badgeConfigs: Array<{ label: string; variant: 'default' | 'secondary' | 'outline' }> = []
                 if (player?.isHost) {
-                  badgeLabels.push('방장')
+                  badgeConfigs.push({ label: '방장', variant: 'default' })
                 }
-                if (player?.role === 'LIAR' && currentPlayer?.id === player.id) {
-                  badgeLabels.push('라이어')
+                const isViewerSamePlayer = currentPlayer?.id === player?.id
+                if (isViewerSamePlayer && player?.role === 'LIAR') {
+                  badgeConfigs.push({ label: '라이어', variant: 'outline' })
                 }
-                if (player?.role === 'CITIZEN' && badgeLabels.length === 0) {
-                  badgeLabels.push('시민')
+                if (isViewerSamePlayer && player?.role === 'CITIZEN') {
+                  badgeConfigs.push({ label: '시민', variant: 'outline' })
                 }
                 if (isSelf) {
-                  badgeLabels.push('나')
+                  badgeConfigs.push({ label: '나', variant: 'secondary' })
                 }
                 const typeLabel =
                   message.type === 'DISCUSSION' || message.type === 'GENERAL'
                     ? null
                     : typeLabelMap[message.type]
-                const showReport = !isSelf
+                const showReport = !isSelf && message.type !== 'SYSTEM'
                 const avatarInitial = displayName.charAt(0).toUpperCase()
 
                 return (
@@ -315,8 +335,8 @@ export const GameChat: React.FC<GameChatProps> = ({
                             <div className="text-left">
                               <div className="flex flex-wrap items-center gap-2">
                                 <span className="text-sm font-semibold leading-none">{displayName}</span>
-                                {badgeLabels.map((label) => (
-                                  <Badge key={label} variant={label === '방장' ? 'default' : 'secondary'} className="text-[10px]">
+                                {badgeConfigs.map(({ label, variant }) => (
+                                  <Badge key={label} variant={variant} className="text-[10px]">
                                     {label}
                                   </Badge>
                                 ))}
@@ -336,6 +356,7 @@ export const GameChat: React.FC<GameChatProps> = ({
                               className="h-6 w-6 text-muted-foreground hover:text-foreground"
                               onClick={() => handleReport(message)}
                               aria-label="신고"
+                              title="메시지 신고"
                             >
                               <Flag className="h-3 w-3" />
                             </Button>
