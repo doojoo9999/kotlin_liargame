@@ -15,7 +15,7 @@ class GameHistorySummaryEntity(
     @Column(nullable = false)
     val gameMode: GameMode,
 
-    @ElementCollection(fetch = FetchType.EAGER)
+    @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(name = "game_history_players", joinColumns = [JoinColumn(name = "game_history_id")])
     @Column(name = "player_nickname")
     val participants: Set<String>,

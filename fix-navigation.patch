@@ -1,0 +1,36 @@
+--- a/frontend/src/components/lobby/GameRoomsSection.tsx
++++ b/frontend/src/components/lobby/GameRoomsSection.tsx
+@@ -167,7 +167,9 @@ export function GameRoomsSection() {
+       const { gameInitializationService } = await import('@/services/gameInitializationService')
+ 
+       const gameNumber = await gameInitializationService.createGameRoom(gameData)
+-
++      
++      console.log('Game created successfully, gameNumber:', gameNumber)
++      
+       // 폼 초기화
+       setNewRoom({
+         gameName: nickname ? `${nickname} 님의 방` : '', // Reset with default name
+@@ -187,6 +189,8 @@ export function GameRoomsSection() {
+       handleCreateDialogOpen(false)
+ 
+       // 생성한 게임방으로 이동
++      console.log('Navigating to game page:', `/game/${gameNumber}`)
++      // Use setTimeout to ensure navigation happens after dialog closes
+       navigate(`/game/${gameNumber}`)
+ 
+     } catch (error) {
+--- a/frontend/src/services/gameInitializationService.ts
++++ b/frontend/src/services/gameInitializationService.ts
+@@ -283,8 +283,9 @@ export class GameInitializationService {
+     try {
+       const gameNumber = await gameService.createGame(gameData)
+ 
+-      // Initialize the created game
+-      await this.initializeGameFromBackend(gameNumber)
++      // Don't initialize here - let the game page handle initialization
++      // This prevents double initialization and navigation issues
++      console.log('Game room created successfully with number:', gameNumber)
+ 
+       toast.success('게임방을 생성했습니다!')
+       return gameNumber

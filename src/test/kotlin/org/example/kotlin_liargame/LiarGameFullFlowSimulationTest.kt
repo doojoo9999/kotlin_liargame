@@ -58,6 +58,8 @@ class LiarGameFullFlowSimulationTest {
 
     @Autowired lateinit var gameService: GameService
     @Autowired lateinit var gameProgressService: GameProgressService
+    @Autowired lateinit var sessionDataManager: org.example.kotlin_liargame.global.security.SessionDataManager
+    @Autowired lateinit var sessionManagementService: org.example.kotlin_liargame.global.security.SessionManagementService
 
     @PersistenceContext lateinit var em: EntityManager
 
@@ -85,13 +87,14 @@ class LiarGameFullFlowSimulationTest {
         // 4) 주제 + 단어 6개 생성
         val subjectId = createSubject(admin, subjectName)
         listOf("짜장면","김치","비빔밥","불고기","냉면","초밥").forEach {
-            createWord(admin, subjectName, it)
+            createWord(admin, subjectId, it)
         }
 
         // 5) 승인 처리 + 재검증
         approveSubjectAndWords(subjectId)
         val approved = subjectRepository.findById(subjectId).orElseThrow()
-        val approvedWordCount = approved.word.count { it.status == ContentStatus.APPROVED }
+        val approvedWordCount = wordRepository.findAll()
+            .count { it.subject?.id == subjectId && it.status == ContentStatus.APPROVED }
         require(approved.status == ContentStatus.APPROVED && approvedWordCount >= 5) {
             "승인 데이터 준비 실패: status=${approved.status}, approvedWordCount=$approvedWordCount"
         }
@@ -154,14 +157,14 @@ class LiarGameFullFlowSimulationTest {
         // 로그인 처리 중 새 세션이 발급될 수 있으므로 반환된 세션 사용
         val session = result.request.session as MockHttpSession
 
-        // 세션에 인증 속성이 비어 있다면 테스트에서 직접 주입
-        val hasUserId = session.getAttribute("userId") as? Long
-        val hasNickname = session.getAttribute("nickname") as? String
-        if (hasUserId == null || hasNickname.isNullOrBlank()) {
+        // 세션에 인증 속성이 비어 있다면 테스트에서 JSON 직렬화 방식으로 주입
+        val userSessionData = sessionDataManager.getUserSession(session)
+        if (userSessionData == null) {
             val user = userRepository.findAll().find { it.nickname == nickname }
                 ?: throw IllegalArgumentException("User not found for nickname=$nickname")
-            session.setAttribute("userId", user.id)
-            session.setAttribute("nickname", user.nickname)
+
+            // JSON 직렬화 방식으로 세션 등록
+            sessionManagementService.registerSession(session, user.nickname, user.id)
         }
 
         return session
@@ -177,11 +180,11 @@ class LiarGameFullFlowSimulationTest {
         return objectMapper.readTree(result.response.contentAsString).get("id").asLong()
     }
 
-    private fun createWord(session: MockHttpSession, subject: String, word: String) {
+    private fun createWord(session: MockHttpSession, subjectId: Long, word: String) {
         mockMvc.perform(
             post("/api/v1/words/applyw")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(ApplyWordRequest(subject, word)))
+                .content(objectMapper.writeValueAsString(ApplyWordRequest(subjectId, word)))
                 .session(session)
         ).andExpect(status().isOk())
     }
@@ -190,10 +193,14 @@ class LiarGameFullFlowSimulationTest {
         val subject = subjectRepository.findById(subjectId).orElseThrow()
         subject.status = ContentStatus.APPROVED
         subjectRepository.save(subject)
-        subject.word.forEach { w ->
-            w.status = ContentStatus.APPROVED
-            wordRepository.save(w)
-        }
+
+        wordRepository.findAll()
+            .filter { it.subject?.id == subjectId }
+            .forEach { word ->
+                word.status = ContentStatus.APPROVED
+                wordRepository.save(word)
+            }
+
         wordRepository.flush()
         subjectRepository.flush()
     }

@@ -1,0 +1,21 @@
+{
+  "mcpServers": {
+    "Browser Inspector MCP": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "browser-inspection-mcp@latest"
+      ],
+      "env": {
+        "TARGET_URL": "http://localhost:5175",
+        "BROWSER_TYPE": "chromium",
+        "HEADLESS": "false",
+        "VIEWPORT_WIDTH": "1920",
+        "VIEWPORT_HEIGHT": "1080",
+        "WAIT_FOR_LOAD_STATE": "networkidle",
+        "SCREENSHOT_PATH": "./screenshots",
+        "ENABLE_DEVTOOLS": "true"
+      }
+    }
+  }
+}

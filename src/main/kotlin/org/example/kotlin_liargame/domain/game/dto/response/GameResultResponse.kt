@@ -1,5 +1,6 @@
 package org.example.kotlin_liargame.domain.game.dto.response
 
+import org.example.kotlin_liargame.domain.game.dto.GameFlowPayload
 import org.example.kotlin_liargame.domain.game.model.GameEntity
 import org.example.kotlin_liargame.domain.game.model.PlayerEntity
 import org.example.kotlin_liargame.domain.game.model.enum.PlayerRole
@@ -15,7 +16,7 @@ data class GameResultResponse(
     val liars: List<PlayerResponse>,
     val rounds: Int,
     val correctGuess: Boolean? = null
-) {
+) : GameFlowPayload {
     companion object {
         fun from(
             game: GameEntity,

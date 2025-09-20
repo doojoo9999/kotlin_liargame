@@ -1,0 +1,208 @@
+/* Game-specific animations and styles */
+
+/* Pulse animation for urgent states */
+@keyframes urgent-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.02);
+  }
+}
+
+.urgent-pulse {
+  animation: urgent-pulse 2s ease-in-out infinite;
+}
+
+/* Moderator commentary animations */
+@keyframes moderator-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.moderator-enter {
+  animation: moderator-slide-in 0.5s ease-out;
+}
+
+/* Phase transition animations */
+@keyframes phase-transition {
+  0% {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  50% {
+    opacity: 0.7;
+    transform: translateX(5px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.phase-transition {
+  animation: phase-transition 0.6s ease-out;
+}
+
+/* Timer warning animations */
+@keyframes timer-warning {
+  0%, 100% {
+    color: rgb(239 68 68);
+    text-shadow: 0 0 5px rgba(239, 68, 68, 0.3);
+  }
+  50% {
+    color: rgb(220 38 38);
+    text-shadow: 0 0 10px rgba(239, 68, 68, 0.6);
+  }
+}
+
+.timer-warning {
+  animation: timer-warning 1s ease-in-out infinite;
+}
+
+/* Activity feed item animations */
+@keyframes activity-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(-20px) scale(0.95);
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+    max-height: 200px;
+  }
+}
+
+.activity-enter {
+  animation: activity-slide-in 0.3s ease-out;
+}
+
+/* Player status indicators */
+@keyframes status-blink {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.status-active {
+  animation: status-blink 2s ease-in-out infinite;
+}
+
+/* Voting button hover effects */
+.vote-button {
+  transition: all 0.2s ease;
+}
+
+.vote-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.vote-button:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Phase indicator progress bar */
+@keyframes progress-fill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.progress-animate {
+  animation: progress-fill 0.8s ease-out;
+  transform-origin: left;
+}
+
+/* Highlight effects for important elements */
+.highlight-glow {
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.3);
+  border: 2px solid rgba(59, 130, 246, 0.5);
+}
+
+/* Connection status indicators */
+@keyframes connection-pulse {
+  0% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.4;
+  }
+}
+
+.connection-pulse {
+  animation: connection-pulse 2s ease-in-out infinite;
+}
+
+/* Success/Error state animations */
+@keyframes success-bounce {
+  0%, 20%, 50%, 80%, 100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-5px);
+  }
+  60% {
+    transform: translateY(-3px);
+  }
+}
+
+.success-bounce {
+  animation: success-bounce 0.6s ease;
+}
+
+@keyframes error-shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-5px);
+  }
+  75% {
+    transform: translateX(5px);
+  }
+}
+
+.error-shake {
+  animation: error-shake 0.5s ease-in-out;
+}
+
+/* Card hover effects - animations only */
+.game-card-animated {
+  transition: all 0.2s ease;
+}
+
+.game-card-animated:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Responsive design utilities */
+@media (max-width: 768px) {
+  .moderator-enter {
+    animation-duration: 0.3s;
+  }
+  
+  .phase-transition {
+    animation-duration: 0.4s;
+  }
+}

@@ -1,5 +1,6 @@
 package org.example.kotlin_liargame.domain.game.dto.response
 
+import org.example.kotlin_liargame.domain.game.dto.GameFlowPayload
 import java.time.Instant
 
 data class GameTerminationResponse(
@@ -8,4 +9,4 @@ data class GameTerminationResponse(
     val reason: String,
     val timestamp: Instant,
     val success: Boolean
-)
+) : GameFlowPayload

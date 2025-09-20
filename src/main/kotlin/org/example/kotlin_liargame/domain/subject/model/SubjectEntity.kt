@@ -13,7 +13,7 @@ class SubjectEntity (
     @Enumerated(EnumType.STRING)
     var status: ContentStatus = ContentStatus.PENDING,
 
-    @OneToMany(mappedBy = "subject", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "subject", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.LAZY)
     val word: List<WordEntity>,
 ) : BaseEntity() {
     @Id

@@ -1,11 +1,12 @@
 package org.example.kotlin_liargame.domain.game.dto.response
 
+import org.example.kotlin_liargame.domain.game.dto.GameFlowPayload
 import org.example.kotlin_liargame.domain.game.model.GameEntity
 import org.example.kotlin_liargame.domain.game.model.PlayerEntity
 
 data class GameRoomListResponse(
     val gameRooms: List<GameRoomInfo>
-) {
+) : GameFlowPayload {
     companion object {
         fun from(games: List<GameEntity>, playerCounts: Map<Long, Int>, playersMap: Map<Long, List<PlayerEntity>> = emptyMap(), gameSubjectsMap: Map<Long, List<String>> = emptyMap()): GameRoomListResponse {
             return GameRoomListResponse(

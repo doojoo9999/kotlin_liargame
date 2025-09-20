@@ -1,10 +1,14 @@
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import '@mantine/core/styles.css';
-import {RouterProvider} from './app/providers/RouterProvider';
+import {StrictMode} from 'react'
+import {createRoot} from 'react-dom/client'
+import './index.css'
+import './styles/game-animations.css'
+import App from './App.tsx'
+import {ModalProvider} from './contexts/ModalContext'
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <RouterProvider />
-  </React.StrictMode>
-);
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <ModalProvider>
+      <App />
+    </ModalProvider>
+  </StrictMode>,
+)

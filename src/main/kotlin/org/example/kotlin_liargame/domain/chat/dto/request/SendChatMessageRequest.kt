@@ -10,7 +10,10 @@ data class SendChatMessageRequest(
     
     @field:NotBlank(message = "메시지 내용은 필수입니다")
     @field:Size(min = 1, max = 500, message = "메시지는 1자 이상 500자 이하여야 합니다")
-    val content: String
+    val content: String,
+
+    @field:Size(max = 50, message = "플레이어 닉네임은 50자 이하여야 합니다")
+    val playerNickname: String? = null
 ) {
     fun getSanitizedContent(): String {
         return content.trim()

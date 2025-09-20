@@ -19,7 +19,8 @@ import java.util.concurrent.ScheduledFuture
 class WebSocketConnectionManager(
     @Lazy private val messagingTemplate: SimpMessagingTemplate,
     private val taskScheduler: TaskScheduler,
-    @Lazy private val gameService: GameService
+    @Lazy private val gameService: GameService,
+    @Lazy private val enhancedConnectionService: org.example.kotlin_liargame.global.connection.service.EnhancedConnectionService
 ) {
     
     private val connectionStates = ConcurrentHashMap<String, ConnectionState>()
@@ -27,9 +28,9 @@ class WebSocketConnectionManager(
     private val reconnectionAttempts = ConcurrentHashMap<String, Int>()
     
     companion object {
-        private const val HEARTBEAT_INTERVAL_SECONDS = 30L
-        private const val CONNECTION_TIMEOUT_SECONDS = 90L
-        private const val MAX_RECONNECTION_ATTEMPTS = 5
+        private const val HEARTBEAT_INTERVAL_SECONDS = 10L // 30초에서 10초로 단축
+        private const val CONNECTION_TIMEOUT_SECONDS = 25L // 90초에서 25초로 단축
+        private const val MAX_RECONNECTION_ATTEMPTS = 3 // 5회에서 3회로 단축
     }
 
     fun registerConnection(sessionId: String, userId: Long?) {
@@ -44,7 +45,9 @@ class WebSocketConnectionManager(
         connectionStates[sessionId] = connectionState
         startHeartbeatMonitoring(sessionId)
         
-        println("[CONNECTION] Registered WebSocket connection: $sessionId (userId: $userId)")
+        // 연결 등록 로그 간소화
+        println("[CONNECTION] Registered: $sessionId (userId: $userId)")
+
         messagingTemplate.convertAndSendToUser(
             sessionId,
             "/topic/connection",
@@ -59,32 +62,37 @@ class WebSocketConnectionManager(
     fun handleDisconnection(sessionId: String) {
         val connectionState = connectionStates[sessionId]
         if (connectionState != null) {
-            connectionState.status = ConnectionStatus.DISCONNECTED
-            connectionState.disconnectedAt = Instant.now()
-            
-            heartbeatTasks[sessionId]?.cancel(false)
-            heartbeatTasks.remove(sessionId)
-            
             println("[CONNECTION] WebSocket disconnected: $sessionId (userId: ${connectionState.userId})")
 
-            connectionState.userId?.let {
-                gameService.handlePlayerDisconnection(it)
+            connectionState.userId?.let { userId ->
+                val player = gameService.findPlayerInActiveGame(userId)
+                player?.let {
+                    // 새 연결: 향상된 연결 로그/알림 서비스 호출
+                    try {
+                        enhancedConnectionService.handleDisconnection(userId, it.game.gameNumber)
+                    } catch (e: Exception) {
+                        println("[CONNECTION] Enhanced disconnection handling failed: ${e.message}")
+                    }
+                    // 기존 게임 서비스 처리 유지
+                    gameService.handlePlayerDisconnection(userId)
+                }
             }
-            
-            taskScheduler.schedule({
-                cleanupConnection(sessionId)
-            }, Instant.now().plusSeconds(300)) // 5 minutes grace period
+
+            // 즉시 정리 (3초 대기 제거)
+            cleanupConnection(sessionId)
         }
     }
 
     private fun cleanupConnection(sessionId: String) {
         val connectionState = connectionStates[sessionId]
         connectionState?.userId?.let { userId ->
-            val player = gameService.findPlayerInActiveGame(userId)
-            player?.let {
-                if (it.state == org.example.kotlin_liargame.domain.game.model.enum.PlayerState.DISCONNECTED) {
-                    gameService.leaveGameAsSystem(it.game.gameNumber, userId)
-                }
+            try {
+                // GameService의 cleanupPlayerByUserId 메서드를 직접 호출하여 안전하게 처리
+                gameService.cleanupPlayerByUserId(userId)
+                println("[CONNECTION] Successfully cleaned up player by userId: $userId")
+            } catch (e: Exception) {
+                println("[CONNECTION] Error during connection cleanup for sessionId: $sessionId, userId: $userId - ${e.message}")
+                // 로그만 남기고 계속 진행 (예외로 인한 중단 방지)
             }
         }
 
@@ -145,6 +153,16 @@ class WebSocketConnectionManager(
             
             userId?.let {
                 gameService.handlePlayerReconnection(it)
+
+                // 새 연결: 향상된 연결 로그/알림 서비스 호출
+                try {
+                    val player = gameService.findPlayerInActiveGame(it)
+                    if (player != null) {
+                        enhancedConnectionService.handleReconnection(it, player.game.gameNumber)
+                    }
+                } catch (e: Exception) {
+                    println("[CONNECTION] Enhanced reconnection handling failed: ${e.message}")
+                }
             }
 
             return true
@@ -263,5 +281,14 @@ class WebSocketConnectionManager(
                 java.time.Duration.between(connection.connectedAt, endTime).seconds
             }.average().takeIf { !it.isNaN() } ?: 0.0
         )
+    }
+
+    fun updateLastActivity(sessionId: String) {
+        val connectionState = connectionStates[sessionId]
+        if (connectionState != null) {
+            connectionState.lastHeartbeat = Instant.now()
+            connectionState.status = ConnectionStatus.CONNECTED
+            println("[ACTIVITY] Updated last activity for session: $sessionId")
+        }
     }
 }

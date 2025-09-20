@@ -1,6 +1,7 @@
 package org.example.kotlin_liargame.tools.websocket
 
 import org.example.kotlin_liargame.global.security.RateLimitingService
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Lazy
 import org.springframework.http.server.ServerHttpRequest
@@ -24,17 +25,20 @@ import org.springframework.web.socket.server.HandshakeInterceptor
 class WebSocketConfig(
     private val webSocketSessionManager: WebSocketSessionManager,
     private val rateLimitingService: RateLimitingService,
-    @Lazy private val connectionManager: WebSocketConnectionManager
+    @Lazy private val connectionManager: WebSocketConnectionManager,
+    @Lazy private val webSocketActivityInterceptor: WebSocketActivityInterceptor,
+    private val sessionUtil: org.example.kotlin_liargame.global.util.SessionUtil,
+    @Value("\${ratelimit.enabled:true}") private val rateLimitEnabled: Boolean
 ) : WebSocketMessageBrokerConfigurer {
     
     override fun configureMessageBroker(config: MessageBrokerRegistry) {
         config.enableSimpleBroker("/topic")
-        config.setApplicationDestinationPrefixes("/app")
+        config.setApplicationDestinationPrefixes("/app") // "/chat" 프리픽스 제거
     }
     
     override fun registerStompEndpoints(registry: StompEndpointRegistry) {
         registry.addEndpoint("/ws")
-            .setAllowedOrigins("*")
+            .setAllowedOriginPatterns(*getAllowedOriginPatterns())
             .addInterceptors(object : HandshakeInterceptor {
                 override fun beforeHandshake(
                     request: ServerHttpRequest,
@@ -46,15 +50,6 @@ class WebSocketConfig(
                         val httpSession = request.servletRequest.session
                         if (httpSession != null) {
                             attributes["HTTP.SESSION"] = httpSession
-                            println("[DEBUG] HTTP session added to WebSocket attributes: ${httpSession.id}")
-                            
-                            try {
-                                httpSession.attributeNames.asIterator().forEach { attrName ->
-                                    println("[DEBUG] HTTP Session attribute: $attrName = ${httpSession.getAttribute(attrName)}")
-                                }
-                            } catch (e: Exception) {
-                                println("[WARN] Error reading HTTP session attributes: ${e.message}")
-                            }
                         } else {
                             println("[WARN] No HTTP session found during WebSocket handshake")
                         }
@@ -70,128 +65,139 @@ class WebSocketConfig(
                 ) {
                     if (exception != null) {
                         println("[ERROR] WebSocket handshake failed: ${exception.message}")
-                    } else {
-                        println("[DEBUG] WebSocket handshake completed successfully")
                     }
                 }
             })
             .withSockJS()
     }
     
+    private fun getAllowedOriginPatterns(): Array<String> {
+        val profile = System.getProperty("spring.profiles.active") ?: "dev"
+
+        return when (profile) {
+            "prod" -> arrayOf(
+                "https://liargame.com",
+                "https://www.liargame.com",
+                "https://api.liargame.com"
+            )
+            "staging" -> arrayOf(
+                "https://staging.liargame.com",
+                "http://localhost:3000",
+                "http://localhost:5173"
+            )
+            else -> arrayOf(
+                "http://localhost:3000",
+                "http://localhost:5173",
+                "http://127.0.0.1:3000",
+                "http://127.0.0.1:5173"
+            )
+        }
+    }
+
     override fun configureClientInboundChannel(registration: ChannelRegistration) {
-        registration.interceptors(object : ChannelInterceptor {
-            override fun preSend(message: Message<*>, channel: MessageChannel): Message<*>? {
-                val accessor = StompHeaderAccessor.wrap(message)
-                
-                when (accessor.command) {
-                    StompCommand.CONNECT -> {
-                        val sessionId = accessor.sessionId
-                        println("[DEBUG] WebSocket connection attempt: $sessionId")
+        registration.interceptors(
+            webSocketActivityInterceptor, // 활동 감지 인터셉터 추가
+            object : ChannelInterceptor {
+                override fun preSend(message: Message<*>, channel: MessageChannel): Message<*>? {
+                    val accessor = StompHeaderAccessor.wrap(message)
 
-                        try {
-                            val httpSession = accessor.sessionAttributes?.get("HTTP.SESSION") as? jakarta.servlet.http.HttpSession
-                            println("[DEBUG] HTTP Session found: ${httpSession != null}")
+                    when (accessor.command) {
+                        StompCommand.CONNECT -> {
+                            val sessionId = accessor.sessionId
 
-                            if (httpSession != null) {
-                                println("[DEBUG] HTTP Session details: ${httpSession.id}")
-                                try {
-                                    httpSession.attributeNames.asIterator().forEach { attrName ->
-                                        println("[DEBUG]   - $attrName: ${httpSession.getAttribute(attrName)}")
-                                    }
-                                } catch (e: Exception) {
-                                    println("[WARN] Error reading session attributes: ${e.message}")
-                                }
+                            try {
+                                val httpSession = accessor.sessionAttributes?.get("HTTP.SESSION") as? jakarta.servlet.http.HttpSession
 
-                                sessionId?.let { wsSessionId ->
-                                    webSocketSessionManager.storeSession(wsSessionId, httpSession)
-                                }
-
-                                val userId = httpSession.getAttribute("userId") as? Long
-                                val nickname = httpSession.getAttribute("nickname") as? String
-
-                                println("[DEBUG] Session values - userId: $userId, nickname: $nickname")
-
-                                if (userId != null) {
-                                    accessor.sessionAttributes = accessor.sessionAttributes ?: mutableMapOf()
-                                    accessor.sessionAttributes!!["userId"] = userId
-
-                                    if (nickname != null) {
-                                        accessor.sessionAttributes!!["nickname"] = nickname
+                                if (httpSession != null) {
+                                    // 세션 정보 조회 및 재시도 로직
+                                    var userId = sessionUtil.getUserId(httpSession)
+                                    var nickname = sessionUtil.getUserNickname(httpSession)
+                                    if (userId == null || nickname == null) {
+                                        println("[WARN] Initial session data not found during WebSocket connect, attempting retry...")
+                                        Thread.sleep(50)
+                                        userId = sessionUtil.getUserId(httpSession)
+                                        nickname = sessionUtil.getUserNickname(httpSession)
+                                        if (userId == null || nickname == null) {
+                                            Thread.sleep(100)
+                                            userId = sessionUtil.getUserId(httpSession)
+                                            nickname = sessionUtil.getUserNickname(httpSession)
+                                        }
                                     }
 
-                                    println("[DEBUG] WebSocket session authenticated with userId: $userId, nickname: $nickname")
-                                }
-                                
-                                // Register connection with ConnectionManager for advanced monitoring
-                                sessionId?.let { wsSessionId ->
-                                    connectionManager.registerConnection(wsSessionId, userId)
-                                }
-                            } else {
-                                println("[WARN] No HTTP session found in WebSocket connection")
+                                    if (userId != null) {
+                                        accessor.sessionAttributes = accessor.sessionAttributes ?: mutableMapOf()
+                                        accessor.sessionAttributes!!["userId"] = userId
+                                        if (nickname != null) accessor.sessionAttributes!!["nickname"] = nickname
 
-                                try {
-                                    val headers = message.headers
-                                    println("[DEBUG] All headers:")
-                                    headers.forEach { (key, value) ->
-                                        println("[DEBUG]   - $key: $value")
-                                    }
+                                        println("[CONNECTION] WebSocket connected: sessionId=$sessionId, userId=$userId, nickname=$nickname")
 
-                                    if (accessor.sessionAttributes != null) {
-                                        println("[DEBUG] Session attributes:")
-                                        accessor.sessionAttributes!!.forEach { (key, value) ->
-                                            println("[DEBUG]   - $key: $value")
+                                        // WebSocket 세션 저장
+                                        sessionId?.let { wsSessionId ->
+                                            webSocketSessionManager.storeSession(wsSessionId, httpSession)
+                                        }
+
+                                        // === 표준 재연결 경로: x-old-session-id 헤더 처리 ===
+                                        val oldSessionId = accessor.getFirstNativeHeader("x-old-session-id")
+                                        var reconnected = false
+                                        if (!oldSessionId.isNullOrBlank() && sessionId != null && oldSessionId != sessionId) {
+                                            try {
+                                                reconnected = connectionManager.handleReconnection(oldSessionId, sessionId, userId)
+                                                if (reconnected) {
+                                                    println("[CONNECTION] Standardized reconnection via header: $oldSessionId -> $sessionId (userId=$userId)")
+                                                }
+                                            } catch (e: Exception) {
+                                                println("[ERROR] Standardized reconnection failed: ${e.message}")
+                                            }
+                                        }
+
+                                        // 신규 연결 등록 (재연결 실패 시에만)
+                                        if (!reconnected) {
+                                            sessionId?.let { wsSessionId ->
+                                                connectionManager.registerConnection(wsSessionId, userId)
+                                            }
                                         }
                                     } else {
-                                        println("[DEBUG] No session attributes available")
+                                        println("[WARN] No userId found in HTTP session after retries")
                                     }
-                                } catch (e: Exception) {
-                                    println("[DEBUG] Failed to read headers: ${e.message}")
+                                } else {
+                                    println("[WARN] No HTTP session found in WebSocket connection")
                                 }
-                                
-                                // Register connection even without userId for monitoring
-                                sessionId?.let { wsSessionId ->
-                                    connectionManager.registerConnection(wsSessionId, null)
+                            } catch (e: Exception) {
+                                println("[ERROR] Failed to extract userId from HTTP session: ${e.message}")
+                            }
+                        }
+
+                        StompCommand.SEND -> {
+                            val sessionId = accessor.sessionId
+                            if (sessionId != null) {
+                                // Rate limiting 검사
+                                val clientId = getWebSocketClientId(accessor)
+                                if (rateLimitEnabled && !rateLimitingService.isWebSocketMessageAllowed(clientId)) {
+                                    println("[SECURITY] WebSocket rate limit exceeded for client: $clientId")
+                                    return null
                                 }
+
+                                webSocketSessionManager.injectUserInfo(accessor)
+                                // 빈번한 SEND 메시지 로그 제거
                             }
-                        } catch (e: Exception) {
-                            println("[ERROR] Failed to extract userId from HTTP session: ${e.message}")
-                            e.printStackTrace()
                         }
-                    }
 
-                    StompCommand.SEND -> {
-                        val sessionId = accessor.sessionId
-                        if (sessionId != null) {
-                            // Rate limiting 검사
-                            val clientId = getWebSocketClientId(accessor)
-                            if (!rateLimitingService.isWebSocketMessageAllowed(clientId)) {
-                                println("[SECURITY] WebSocket rate limit exceeded for client: $clientId")
-                                // 메시지 차단 - null 반환으로 메시지 전송 중단
-                                return null
+                        StompCommand.DISCONNECT -> {
+                            val sessionId = accessor.sessionId
+                            if (sessionId != null) {
+                                webSocketSessionManager.removeSession(sessionId)
+                                connectionManager.handleDisconnection(sessionId)
+                                println("[CONNECTION] WebSocket disconnected: $sessionId")
                             }
-                            
-                            webSocketSessionManager.injectUserInfo(accessor)
-
-                            println("[DEBUG] WebSocket message from sessionId: $sessionId")
-                            println("[DEBUG] SessionAttributes after injection: ${accessor.sessionAttributes?.keys}")
                         }
+
+                        else -> {}
                     }
 
-                    StompCommand.DISCONNECT -> {
-                        val sessionId = accessor.sessionId
-                        if (sessionId != null) {
-                            webSocketSessionManager.removeSession(sessionId)
-                            connectionManager.handleDisconnection(sessionId)
-                            println("[DEBUG] WebSocket session disconnected: $sessionId")
-                        }
-                    }
-
-                    else -> {}
+                    return message
                 }
-                
-                return message
             }
-        })
+        )
     }
     
     /**

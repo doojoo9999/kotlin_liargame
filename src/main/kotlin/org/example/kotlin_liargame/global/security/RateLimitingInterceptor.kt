@@ -2,13 +2,15 @@ package org.example.kotlin_liargame.global.security
 
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
+import org.example.kotlin_liargame.global.util.SessionUtil
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.HandlerInterceptor
 
 @Component
 class RateLimitingInterceptor(
-    private val rateLimitingService: RateLimitingService
+    private val rateLimitingService: RateLimitingService,
+    private val sessionUtil: SessionUtil
 ) : HandlerInterceptor {
     
     override fun preHandle(
@@ -16,7 +18,6 @@ class RateLimitingInterceptor(
         response: HttpServletResponse,
         handler: Any
     ): Boolean {
-        // 관리자 엔드포인트나 헬스체크는 제외
         val requestURI = request.requestURI
         if (shouldSkipRateLimit(requestURI)) {
             return true
@@ -29,50 +30,61 @@ class RateLimitingInterceptor(
             return false
         }
         
-        // Rate limit 헤더 추가
         addRateLimitHeaders(response, clientId)
         
         return true
     }
-    
-    /**
-     * Rate limiting을 건너뛸 엔드포인트 확인
-     */
+
     private fun shouldSkipRateLimit(requestURI: String): Boolean {
         val skipPaths = listOf(
+            // Health check endpoints
             "/actuator/health",
             "/actuator/info",
             "/actuator/metrics",
             "/actuator/prometheus",
             "/api/v1/admin/health",
-            "/h2-console"
+            "/h2-console",
+
+            // WebSocket related endpoints
+            "/ws",
+            "/ws/info",
+            "/sockjs",
+
+            // Frequently called authentication endpoints that should not be rate limited
+            "/api/v1/auth/me",
+
+            // Game state queries - these are called frequently during gameplay
+            "/api/v1/game/",
+
+            // Static resources
+            "/favicon.ico",
+            "/static",
+            "/assets"
         )
         
+        // WebSocket 관련 모든 경로 제외
+        if (requestURI.contains("/ws") || requestURI.contains("/sockjs")) {
+            return true
+        }
+
         return skipPaths.any { requestURI.startsWith(it) }
     }
     
-    /**
-     * 클라이언트 식별자 생성 (세션 ID 우선, 없으면 IP 주소)
-     */
+
     private fun getClientIdentifier(request: HttpServletRequest): String {
-        // 1. 세션 ID 사용 (로그인한 사용자)
         val session = request.getSession(false)
         if (session != null) {
-            val userId = session.getAttribute("userId")
+            val userId = sessionUtil.getUserId(session)
             if (userId != null) {
                 return "user:$userId"
             }
             return "session:${session.id}"
         }
         
-        // 2. IP 주소 사용 (익명 사용자)
         val clientIp = getClientIpAddress(request)
         return "ip:$clientIp"
     }
-    
-    /**
-     * 클라이언트 IP 주소 추출 (프록시 고려)
-     */
+
     private fun getClientIpAddress(request: HttpServletRequest): String {
         val xForwardedFor = request.getHeader("X-Forwarded-For")
         if (!xForwardedFor.isNullOrBlank()) {
@@ -86,10 +98,7 @@ class RateLimitingInterceptor(
         
         return request.remoteAddr ?: "unknown"
     }
-    
-    /**
-     * Rate limit 초과 시 응답 처리
-     */
+
     private fun handleRateLimitExceeded(response: HttpServletResponse, clientId: String) {
         response.status = HttpStatus.TOO_MANY_REQUESTS.value()
         response.contentType = "application/json;charset=UTF-8"
@@ -110,14 +119,10 @@ class RateLimitingInterceptor(
         
         response.writer.write(errorResponse)
         response.addHeader("Retry-After", "60")
-        
-        // 로깅
+
         println("[SECURITY] Rate limit exceeded for client: $clientId, requests: ${status.apiRequestsInLastMinute}/${status.apiRequestsPerMinuteLimit}")
     }
-    
-    /**
-     * Rate limit 관련 헤더 추가
-     */
+
     private fun addRateLimitHeaders(response: HttpServletResponse, clientId: String) {
         val status = rateLimitingService.getClientRequestStatus(clientId)
         
