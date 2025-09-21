@@ -224,7 +224,7 @@ export function GameLayout({
             suspectedPlayer={suspectedPlayer?.nickname}
           />
 
-          <div className="grid gap-6 lg:grid-cols-[260px,minmax(0,1fr)] xl:grid-cols-[280px,minmax(0,1fr),320px] 2xl:grid-cols-[320px,minmax(0,1fr),360px]">
+          <div className="grid gap-6 lg:grid-cols-[260px,minmax(0,1fr)] xl:grid-cols-[300px,minmax(0,1.6fr),minmax(0,1.2fr)] 2xl:grid-cols-[340px,minmax(0,1.8fr),minmax(0,1.3fr)]">
             <aside className="order-2 space-y-6 lg:order-1">
               <PlayerStatusPanel
                 players={players}
@@ -296,7 +296,7 @@ export function GameLayout({
                 onSendMessage={onSendChatMessage}
                 onReportMessage={onReportChatMessage}
                 onReloadHistory={onReloadChat}
-                className="flex-1"
+                className="flex-1 xl:min-h-[580px] 2xl:min-h-[660px]"
               />
             </aside>
           </div>
@@ -313,7 +313,7 @@ export function GameLayout({
               onSendMessage={onSendChatMessage}
               onReportMessage={onReportChatMessage}
               onReloadHistory={onReloadChat}
-              className="h-[420px]"
+              className="w-full min-h-[420px] sm:min-h-[520px]"
             />
           </div>
         </div>

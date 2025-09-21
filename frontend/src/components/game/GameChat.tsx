@@ -43,6 +43,16 @@ const formatTimestamp = (timestamp: number) => {
   }).format(new Date(timestamp))
 }
 
+const messageToneMap: Record<ChatMessageType | 'DEFAULT', string> = {
+  DISCUSSION: 'border-border/70 bg-background/95 text-foreground',
+  GENERAL: 'border-border/70 bg-background/95 text-foreground',
+  HINT: 'border-sky-500/50 bg-sky-50 text-sky-900 shadow-sm dark:bg-sky-500/15 dark:text-sky-100',
+  DEFENSE: 'border-rose-500/60 bg-rose-50 text-rose-900 shadow-sm dark:bg-rose-500/15 dark:text-rose-100',
+  SYSTEM: 'border-primary/60 bg-primary/10 text-primary-900 shadow-sm dark:bg-primary/25 dark:text-primary-50',
+  POST_ROUND: 'border-amber-500/60 bg-amber-50 text-amber-900 shadow-sm dark:bg-amber-500/15 dark:text-amber-100',
+  DEFAULT: 'border-border/70 bg-background/95 text-foreground',
+}
+
 export const GameChat: React.FC<GameChatProps> = ({
   messages,
   players,
@@ -195,20 +205,28 @@ export const GameChat: React.FC<GameChatProps> = ({
     })
   }, [onReloadHistory])
 
-  const containerClasses = `${className} ${isExpanded ? 'fixed inset-4 z-50' : 'h-96'} flex flex-col`
+  const containerClasses = [
+    'flex flex-col overflow-hidden rounded-xl border border-border/70 shadow-lg transition-all duration-200',
+    isExpanded
+      ? 'fixed inset-4 z-50 bg-background/95 backdrop-blur-md'
+      : 'relative min-h-[26rem] sm:min-h-[28rem] xl:min-h-[32rem] 2xl:min-h-[36rem]',
+    className,
+  ]
+    .filter(Boolean)
+    .join(' ')
 
   const hasMessages = messageCount > 0
   const hasRegularMessages = regularMessages.length > 0
 
   return (
     <Card className={containerClasses}>
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-sm font-semibold">
-            <MessageCircle className="h-5 w-5" />
+      <CardHeader className="border-b border-border/60 bg-muted/30 pb-3 pt-3">
+        <CardTitle className="flex items-center justify-between text-base font-semibold sm:text-lg">
+          <div className="flex items-center gap-2 text-sm font-semibold sm:text-base">
+            <MessageCircle className="h-5 w-5 text-primary" />
             <span>게임 채팅</span>
             {messageCount > 0 && (
-              <Badge variant="secondary" className="text-xs">
+              <Badge variant="secondary" className="rounded-full px-2 py-0.5 text-xs">
                 {messageCount}
               </Badge>
             )}
@@ -219,16 +237,24 @@ export const GameChat: React.FC<GameChatProps> = ({
               <Users className="h-4 w-4" />
               {onlineCount}
             </span>
-            <Button variant="ghost" size="sm" onClick={() => setIsExpanded((prev) => !prev)}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsExpanded((prev) => !prev)}
+              className="h-7 px-2 text-xs"
+              aria-pressed={isExpanded}
+              aria-label="채팅창 크기 전환"
+              title="채팅창 크기 전환"
+            >
               {isExpanded ? '최소화' : '확대'}
             </Button>
           </div>
         </CardTitle>
       </CardHeader>
 
-      <CardContent className="flex h-full flex-col">
+      <CardContent className="flex h-full flex-col gap-4">
         {error && (
-          <div className="mb-3 flex items-center justify-between gap-3 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <div className="flex items-center justify-between gap-3 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
             <span className="truncate">{error}</span>
             {onReloadHistory && (
               <Button variant="outline" size="xs" onClick={handleReloadHistory} className="h-7">
@@ -239,7 +265,7 @@ export const GameChat: React.FC<GameChatProps> = ({
         )}
 
         {pinnedMessages.length > 0 && (
-          <div className="mb-4 space-y-2">
+          <div className="space-y-2">
             <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">공지</div>
             {pinnedMessages.map((message) => {
               const player = resolvePlayer(message)
@@ -249,8 +275,8 @@ export const GameChat: React.FC<GameChatProps> = ({
               const accentLabel = isSystemMessage ? '시스템' : '방장'
               const accentVariant = isSystemMessage ? 'default' : 'secondary'
               const containerTone = isSystemMessage
-                ? 'border border-primary/50 bg-primary/10 text-primary'
-                : 'border border-amber-500/40 bg-amber-50 text-amber-900 dark:bg-amber-500/15 dark:text-amber-100'
+                ? 'border border-primary/40 border-l-4 bg-primary/10 text-primary-900 shadow-sm dark:bg-primary/20 dark:text-primary-50'
+                : 'border border-amber-400/50 border-l-4 bg-amber-50 text-amber-900 shadow-sm dark:bg-amber-500/15 dark:text-amber-100'
               const typeLabel = typeLabelMap[message.type]
 
               return (
@@ -260,11 +286,11 @@ export const GameChat: React.FC<GameChatProps> = ({
                 >
                   <div className="flex-1 whitespace-pre-wrap break-words text-left">
                     <div className="mb-1 flex flex-wrap items-center gap-2">
-                      <Badge variant={accentVariant} className="text-[11px] uppercase tracking-wide">
+                      <Badge variant={accentVariant} className="rounded-full px-2.5 py-0.5 text-[11px] uppercase tracking-wide">
                         {accentLabel}
                       </Badge>
                       {typeLabel && (
-                        <Badge variant="outline" className="text-[11px] uppercase tracking-wide">
+                        <Badge variant="outline" className="rounded-full px-2.5 py-0.5 text-[11px] uppercase tracking-wide">
                           {typeLabel}
                         </Badge>
                       )}
@@ -283,7 +309,9 @@ export const GameChat: React.FC<GameChatProps> = ({
           </div>
         )}
 
-        <div className={`flex-1 overflow-y-auto rounded-md border border-border/60 bg-muted/40 px-3 py-3 ${isExpanded ? 'max-h-[calc(100vh-220px)]' : 'max-h-60'}`}>
+        <div
+          className={`relative flex-1 overflow-y-auto rounded-lg border border-border/60 bg-muted/40 px-4 py-4 shadow-inner ${isExpanded ? 'max-h-[calc(100vh-260px)]' : 'min-h-[18rem]'}`}
+        >
           {!hasMessages ? (
             <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
               아직 메시지가 없습니다
@@ -293,7 +321,7 @@ export const GameChat: React.FC<GameChatProps> = ({
               현재 고정된 공지를 제외한 메시지가 없습니다
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-4">
               {regularMessages.map((message) => {
                 const player = resolvePlayer(message)
                 const isSelf =
@@ -322,38 +350,63 @@ export const GameChat: React.FC<GameChatProps> = ({
                     : typeLabelMap[message.type]
                 const showReport = !isSelf && message.type !== 'SYSTEM'
                 const avatarInitial = displayName.charAt(0).toUpperCase()
+                const bubbleTone = isSelf
+                  ? 'border-primary/70 bg-primary text-primary-foreground shadow-lg shadow-primary/20'
+                  : messageToneMap[message.type] ?? messageToneMap.DEFAULT
+                const justifyClass = isSelf ? 'justify-end' : 'justify-start'
+                const alignmentClasses = isSelf ? 'items-end text-right' : 'items-start text-left'
+                const contentTone = isSelf ? 'text-primary-foreground/95' : 'text-foreground/90'
+                const typeBadgeTone = (() => {
+                  switch (message.type) {
+                    case 'HINT':
+                      return 'border-sky-500 text-sky-700 dark:border-sky-400 dark:text-sky-200'
+                    case 'DEFENSE':
+                      return 'border-rose-500 text-rose-600 dark:border-rose-400 dark:text-rose-200'
+                    case 'SYSTEM':
+                      return 'border-primary text-primary-700 dark:border-primary/80 dark:text-primary-200'
+                    case 'POST_ROUND':
+                      return 'border-amber-500 text-amber-700 dark:border-amber-400 dark:text-amber-200'
+                    default:
+                      return 'border-muted-foreground/40 text-muted-foreground'
+                  }
+                })()
 
                 return (
-                  <div key={message.id} className={`flex ${isSelf ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[82%] ${isSelf ? 'items-end text-right' : 'items-start text-left'} flex flex-col gap-2`}>
-                      <div className={`rounded-lg border px-3 py-2 ${isSelf ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background/80 text-foreground'}`}>
+                  <div key={message.id} className={`flex ${justifyClass}`}>
+                    <div className={`flex max-w-[85%] flex-col gap-2 ${alignmentClasses} 2xl:max-w-[78%]`}>
+                      <div className={`rounded-2xl border px-4 py-3 transition-all duration-150 ${bubbleTone}`} data-message-type={message.type}>
                         <div className="flex items-start justify-between gap-3">
-                          <div className="flex items-center gap-2">
-                            <Avatar className="h-7 w-7">
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-8 w-8 shadow-sm">
                               <AvatarFallback className="text-xs uppercase">{avatarInitial}</AvatarFallback>
                             </Avatar>
                             <div className="text-left">
                               <div className="flex flex-wrap items-center gap-2">
-                                <span className="text-sm font-semibold leading-none">{displayName}</span>
+                                <span className="text-sm font-semibold leading-none tracking-tight">{displayName}</span>
                                 {badgeConfigs.map(({ label, variant }) => (
-                                  <Badge key={label} variant={variant} className="text-[10px]">
+                                  <Badge key={label} variant={variant} className="rounded-full px-2.5 py-0.5 text-[10px] uppercase tracking-wide">
                                     {label}
                                   </Badge>
                                 ))}
                                 {typeLabel && (
-                                  <Badge variant="outline" className="text-[10px] uppercase tracking-wide">
+                                  <Badge
+                                    variant="outline"
+                                    className={`rounded-full px-2.5 py-0.5 text-[10px] uppercase tracking-wide ${typeBadgeTone}`}
+                                  >
                                     {typeLabel}
                                   </Badge>
                                 )}
                               </div>
-                              <div className="text-[11px] text-muted-foreground">{formatTimestamp(message.timestamp)}</div>
+                              <div className="mt-1 text-[11px] text-muted-foreground">
+                                {formatTimestamp(message.timestamp)}
+                              </div>
                             </div>
                           </div>
                           {showReport && (
                             <Button
                               size="icon"
                               variant="ghost"
-                              className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                              className="h-6 w-6 text-muted-foreground transition-colors hover:text-foreground"
                               onClick={() => handleReport(message)}
                               aria-label="신고"
                               title="메시지 신고"
@@ -362,7 +415,7 @@ export const GameChat: React.FC<GameChatProps> = ({
                             </Button>
                           )}
                         </div>
-                        <div className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
+                        <div className={`mt-3 whitespace-pre-wrap text-[15px] leading-relaxed ${contentTone}`}>
                           {message.content}
                         </div>
                       </div>
@@ -376,13 +429,14 @@ export const GameChat: React.FC<GameChatProps> = ({
         </div>
 
         {typingNames.length > 0 && (
-          <div className="mt-2 text-xs text-muted-foreground">
+          <div className="mt-2 text-xs italic text-muted-foreground">
             {typingNames.join(', ')} 님이 입력 중...
           </div>
         )}
 
         <div className="mt-3 flex items-center gap-2">
           <Input
+            className="h-11"
             placeholder={
               canSendMessage ? '메시지를 입력하세요...' : '투표 중에는 채팅할 수 없습니다'
             }
@@ -396,6 +450,7 @@ export const GameChat: React.FC<GameChatProps> = ({
             onClick={handleSendMessage}
             disabled={!canSendMessage || isSending || draft.trim().length === 0}
             size="sm"
+            className="h-11 px-4"
           >
             {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           </Button>
