@@ -1,6 +1,7 @@
 import {useCallback, useEffect, useMemo, useState} from 'react'
 import {GameLayout} from './GameLayout'
 import {useGameLayoutViewModel} from './useGameLayoutViewModel'
+import {WaitingRoomControls} from './WaitingRoomControls'
 import {useWebSocket} from '@/hooks/useWebSocket'
 import {useGameRecovery} from '@/hooks/useGameRecovery'
 import {websocketService} from '@/services/websocketService'
@@ -67,9 +68,13 @@ export function GameFlowManager({ onReturnToLobby, onNextRound }: GameFlowManage
     setUserVote,
     sendChatMessage,
     loadChatHistory,
+    startGame,
+    toggleReady,
   } = viewModel
 
   const [activities, setActivities] = useState<ActivityEvent[]>([])
+  const [isStartingGame, setIsStartingGame] = useState(false)
+  const [isTogglingReady, setIsTogglingReady] = useState(false)
 
   useWebSocket(gameNumber ? gameNumber.toString() : undefined)
 
@@ -265,6 +270,55 @@ export function GameFlowManager({ onReturnToLobby, onNextRound }: GameFlowManage
     })
   }, [])
 
+  const handleToggleReady = useCallback(async () => {
+    if (!toggleReady || !currentPlayer) return
+
+    setIsTogglingReady(true)
+    const nextReadyState = !(currentPlayer.isReady ?? false)
+    try {
+      await toggleReady()
+      toast.success(nextReadyState ? '준비가 완료되었습니다.' : '준비 상태를 해제했습니다.')
+    } catch (error) {
+      console.error('Failed to toggle ready state:', error)
+      toast.error('준비 상태 변경에 실패했습니다. 다시 시도해주세요.')
+    } finally {
+      setIsTogglingReady(false)
+    }
+  }, [toggleReady, currentPlayer])
+
+  const handleStartGame = useCallback(async () => {
+    if (!startGame || !currentPlayer?.isHost) return
+
+    setIsStartingGame(true)
+    try {
+      await startGame()
+      toast.success('게임을 시작합니다!')
+    } catch (error) {
+      console.error('Failed to start game:', error)
+      toast.error('게임을 시작하지 못했습니다. 조건을 확인하고 다시 시도하세요.')
+    } finally {
+      setIsStartingGame(false)
+    }
+  }, [startGame, currentPlayer?.isHost])
+
+  const isWaitingForPlayers = gamePhase === 'WAITING_FOR_PLAYERS'
+  const canStartGame = summary.totalPlayers >= 3 && summary.readyPlayers === summary.totalPlayers
+
+  const waitingControls = isWaitingForPlayers ? (
+    <WaitingRoomControls
+      players={players}
+      currentPlayer={currentPlayer}
+      readyPlayers={summary.readyPlayers}
+      totalPlayers={summary.totalPlayers}
+      minimumPlayers={3}
+      onToggleReady={handleToggleReady}
+      onStartGame={handleStartGame}
+      isTogglePending={isTogglingReady}
+      isStartPending={isStartingGame}
+      canStartGame={canStartGame}
+    />
+  ) : null
+
   return (
     <GameLayout
       gameNumber={gameNumber}
@@ -284,6 +338,7 @@ export function GameFlowManager({ onReturnToLobby, onNextRound }: GameFlowManage
       summary={summary}
       isLoading={isLoading}
       error={error}
+      actionSlot={waitingControls}
       roundStage={roundStage}
       roundStageEnteredAt={roundStageEnteredAt}
       roundHasStarted={roundHasStarted}

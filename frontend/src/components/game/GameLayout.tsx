@@ -243,25 +243,27 @@ export function GameLayout({
             </aside>
 
             <main className="order-1 flex flex-col gap-6 lg:order-2">
-              <GameActionInterface
-                gamePhase={currentPhase}
-                currentPlayer={currentPlayer}
-                isMyTurn={currentTurnPlayerId === currentPlayer?.id}
-                isLiar={isLiar}
-                canVote={Boolean(currentPlayer && !voting.votes[currentPlayer.id])}
-                timeRemaining={timer.timeRemaining}
-                onSubmitHint={onSubmitHint}
-                onVotePlayer={onVotePlayer}
-                onSubmitDefense={onSubmitDefense}
-                onGuessWord={onGuessWord}
-                onCastFinalVote={onCastFinalVote}
-                players={players}
-                suspectedPlayer={suspectedPlayer ?? undefined}
-                currentTopic={currentTopic ?? undefined}
-                currentWord={currentWord ?? undefined}
-              />
-
               {actionSlot}
+
+              {currentPhase !== 'WAITING_FOR_PLAYERS' && (
+                <GameActionInterface
+                  gamePhase={currentPhase}
+                  currentPlayer={currentPlayer}
+                  isMyTurn={currentTurnPlayerId === currentPlayer?.id}
+                  isLiar={isLiar}
+                  canVote={Boolean(currentPlayer && !voting.votes[currentPlayer.id])}
+                  timeRemaining={timer.timeRemaining}
+                  onSubmitHint={onSubmitHint}
+                  onVotePlayer={onVotePlayer}
+                  onSubmitDefense={onSubmitDefense}
+                  onGuessWord={onGuessWord}
+                  onCastFinalVote={onCastFinalVote}
+                  players={players}
+                  suspectedPlayer={suspectedPlayer ?? undefined}
+                  currentTopic={currentTopic ?? undefined}
+                  currentWord={currentWord ?? undefined}
+                />
+              )}
 
               {currentRoundSummary && (
                 <RoundSummaryPanel

@@ -2,6 +2,7 @@ import {useCallback, useEffect, useState} from 'react';
 import {websocketService} from '../services/websocketService';
 import useGameStore from '../stores/gameStore';
 import {toast} from 'sonner';
+import {useShallow} from 'zustand/react/shallow';
 
 export interface UseGameWebSocketReturn {
   isConnected: boolean;
@@ -18,64 +19,90 @@ export interface UseGameWebSocketReturn {
 }
 
 export const useGameWebSocket = (): UseGameWebSocketReturn => {
-  const gameStore = useGameStore();
+  const selectWebSocketState = useShallow((state: ReturnType<typeof useGameStore.getState>) => ({
+    isConnected: state.isConnected,
+    connectionError: state.connectionError,
+    setConnectionError: state.setConnectionError,
+    connectWebSocket: state.connectWebSocket,
+    disconnectWebSocket: state.disconnectWebSocket,
+    joinGame: state.joinGame,
+    leaveGame: state.leaveGame,
+    sendChatMessage: state.sendChatMessage,
+    castVote: state.castVote,
+    submitDefense: state.submitDefense,
+    startGame: state.startGame,
+  }));
+
+  const {
+    isConnected,
+    connectionError,
+    setConnectionError,
+    connectWebSocket,
+    disconnectWebSocket,
+    joinGame: joinGameAction,
+    leaveGame: leaveGameAction,
+    sendChatMessage: sendChatMessageAction,
+    castVote: castVoteAction,
+    submitDefense: submitDefenseAction,
+    startGame: startGameAction,
+  } = useGameStore(selectWebSocketState);
   const [isConnecting, setIsConnecting] = useState(false);
 
   const connect = useCallback(async () => {
-    if (isConnecting || gameStore.isConnected) return;
+    if (isConnecting || isConnected) return;
 
     setIsConnecting(true);
-    gameStore.setConnectionError(null);
+    setConnectionError(null);
 
     try {
-      await gameStore.connectWebSocket();
+      await connectWebSocket();
       toast.success('실시간 연결이 성공했습니다');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : '연결에 실패했습니다';
-      gameStore.setConnectionError(errorMessage);
+      setConnectionError(errorMessage);
       toast.error(errorMessage);
       throw error;
     } finally {
       setIsConnecting(false);
     }
-  }, [isConnecting, gameStore]);
+  }, [isConnecting, isConnected, connectWebSocket, setConnectionError]);
 
   const disconnect = useCallback(() => {
-    gameStore.disconnectWebSocket();
+    disconnectWebSocket();
     toast.info('실시간 연결이 종료되었습니다');
-  }, [gameStore]);
+  }, [disconnectWebSocket]);
 
   const retry = useCallback(async () => {
-    if (gameStore.isConnected) {
+    if (isConnected) {
       disconnect();
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
     return connect();
-  }, [gameStore.isConnected, connect, disconnect]);
+  }, [isConnected, connect, disconnect]);
 
   const joinGame = useCallback((gameId: string) => {
-    gameStore.joinGame(gameId);
-  }, [gameStore]);
+    joinGameAction(gameId);
+  }, [joinGameAction]);
 
   const leaveGame = useCallback(() => {
-    gameStore.leaveGame();
-  }, [gameStore]);
+    leaveGameAction();
+  }, [leaveGameAction]);
 
   const sendChatMessage = useCallback((message: string) => {
-    gameStore.sendChatMessage(message);
-  }, [gameStore]);
+    sendChatMessageAction(message);
+  }, [sendChatMessageAction]);
 
   const castVote = useCallback((targetPlayerId: string) => {
-    gameStore.castVote(targetPlayerId);
-  }, [gameStore]);
+    castVoteAction(targetPlayerId);
+  }, [castVoteAction]);
 
   const submitDefense = useCallback((defense: string) => {
-    gameStore.submitDefense(defense);
-  }, [gameStore]);
+    submitDefenseAction(defense);
+  }, [submitDefenseAction]);
 
   const startGame = useCallback(() => {
-    gameStore.startGame();
-  }, [gameStore]);
+    startGameAction();
+  }, [startGameAction]);
 
   // Auto-connect is handled by App.tsx based on authentication status
   // No automatic connection here to prevent connection timeout on login page
@@ -83,15 +110,15 @@ export const useGameWebSocket = (): UseGameWebSocketReturn => {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (gameStore.isConnected) {
+      if (isConnected) {
         websocketService.disconnect();
       }
     };
-  }, [gameStore.isConnected]);
+  }, [isConnected]);
 
   return {
-    isConnected: gameStore.isConnected,
-    connectionError: gameStore.connectionError,
+    isConnected,
+    connectionError,
     connect,
     disconnect,
     retry,

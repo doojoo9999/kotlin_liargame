@@ -17,7 +17,7 @@ class GameMonitoringService(
 ) {
 
     fun notifyPlayerJoined(game: GameEntity, newPlayer: PlayerEntity, currentPlayers: List<PlayerEntity>) {
-        val payload = mapOf(
+        val roomPayload = mapOf(
             "type" to "PLAYER_JOINED",
             "gameNumber" to game.gameNumber,
             "playerName" to newPlayer.nickname,
@@ -25,21 +25,55 @@ class GameMonitoringService(
             "currentPlayers" to currentPlayers.size,
             "maxPlayers" to game.gameParticipants
         )
-        gameMessagingService.sendRoomUpdate(game.gameNumber, payload)
-        gameMessagingService.sendLobbyUpdate(payload)
+        gameMessagingService.sendRoomUpdate(game.gameNumber, roomPayload)
+        gameMessagingService.sendLobbyUpdate(roomPayload)
+
+        val eventPayload = mapOf(
+            "playerId" to newPlayer.id,
+            "playerName" to newPlayer.nickname,
+            "nickname" to newPlayer.nickname,
+            "userId" to newPlayer.userId,
+            "isHost" to (game.gameOwner == newPlayer.nickname),
+            "isReady" to false,
+            "currentPlayers" to currentPlayers.size,
+            "maxPlayers" to game.gameParticipants
+        )
+        val eventMessage = mapOf(
+            "type" to "PLAYER_JOINED",
+            "gameNumber" to game.gameNumber,
+            "timestamp" to Instant.now().toString(),
+            "payload" to eventPayload
+        )
+        gameMessagingService.broadcastGameEvent(game.gameNumber, eventMessage)
     }
 
-    fun notifyPlayerLeft(game: GameEntity, playerName: String, userId: Long, remainingPlayers: List<PlayerEntity>) {
-        val payload = mapOf(
+    fun notifyPlayerLeft(game: GameEntity, departingPlayer: PlayerEntity, remainingPlayers: List<PlayerEntity>) {
+        val roomPayload = mapOf(
             "type" to "PLAYER_LEFT",
             "gameNumber" to game.gameNumber,
-            "playerName" to playerName,
-            "userId" to userId,
+            "playerName" to departingPlayer.nickname,
+            "userId" to departingPlayer.userId,
             "currentPlayers" to remainingPlayers.size,
             "maxPlayers" to game.gameParticipants
         )
-        gameMessagingService.sendRoomUpdate(game.gameNumber, payload)
-        gameMessagingService.sendLobbyUpdate(payload)
+        gameMessagingService.sendRoomUpdate(game.gameNumber, roomPayload)
+        gameMessagingService.sendLobbyUpdate(roomPayload)
+
+        val eventPayload = mapOf(
+            "playerId" to departingPlayer.id,
+            "playerName" to departingPlayer.nickname,
+            "nickname" to departingPlayer.nickname,
+            "userId" to departingPlayer.userId,
+            "currentPlayers" to remainingPlayers.size,
+            "maxPlayers" to game.gameParticipants
+        )
+        val eventMessage = mapOf(
+            "type" to "PLAYER_LEFT",
+            "gameNumber" to game.gameNumber,
+            "timestamp" to Instant.now().toString(),
+            "payload" to eventPayload
+        )
+        gameMessagingService.broadcastGameEvent(game.gameNumber, eventMessage)
     }
 
     fun notifyRoomDeleted(gameNumber: Int) {

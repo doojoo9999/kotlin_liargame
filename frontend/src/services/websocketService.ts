@@ -19,6 +19,15 @@ export interface WebSocketMessage {
   userId?: string;
 }
 
+interface RawWebSocketPayload {
+  type: 'event' | 'chat' | 'notification' | 'system';
+  data: any;
+  receivedAt: number;
+  destination?: string;
+}
+
+type RawListener = (payload: RawWebSocketPayload) => void;
+
 class WebSocketService {
   private client: Client | null = null;
   private isConnected = false;
@@ -41,6 +50,7 @@ class WebSocketService {
   private maxQueue = 100;
   private maxMessageAttempts = 3;
   private outboundListeners: ((msg: { destination: string; body: any; sentAt: number }) => void)[] = [];
+  private rawListeners: RawListener[] = [];
   private pingInterval: NodeJS.Timeout | null = null;
   private lastPongReceived = Date.now();
   private connectionState: 'connecting' | 'connected' | 'disconnected' | 'reconnecting' = 'disconnected';
@@ -143,6 +153,7 @@ class WebSocketService {
     this.eventCallbacks.clear();
     this.chatCallbacks = [];
     this.connectionCallbacks = [];
+    this.rawListeners = [];
     this.messageQueue = [];
     
     console.log('WebSocket service disconnected and cleaned up');
@@ -280,6 +291,24 @@ class WebSocketService {
     const index = this.connectionCallbacks.indexOf(callback);
     if (index > -1) {
       this.connectionCallbacks.splice(index, 1);
+    }
+  }
+
+  public registerRawListener(listener: RawListener): () => void {
+    this.rawListeners.push(listener);
+    return () => {
+      this.rawListeners = this.rawListeners.filter(l => l !== listener);
+    };
+  }
+
+  private notifyRawListeners(payload: RawWebSocketPayload): void {
+    if (!this.rawListeners.length) return;
+    for (const listener of this.rawListeners) {
+      try {
+        listener(payload);
+      } catch (error) {
+        console.error('Raw listener error:', error);
+      }
     }
   }
 
@@ -702,6 +731,13 @@ class WebSocketService {
       const event: GameEvent = JSON.parse(message.body);
       console.log('Received game event:', event);
 
+      this.notifyRawListeners({
+        type: 'event',
+        data: event,
+        receivedAt: Date.now(),
+        destination: message.headers?.destination,
+      });
+
       // Notify specific event type callbacks
       const callbacks = this.eventCallbacks.get(event.type) || [];
       callbacks.forEach(callback => callback(event));
@@ -732,6 +768,13 @@ class WebSocketService {
       };
       console.log('Received chat message:', chatMessage);
 
+      this.notifyRawListeners({
+        type: 'chat',
+        data: chatMessage,
+        receivedAt: Date.now(),
+        destination: message.headers?.destination,
+      });
+
       this.chatCallbacks.forEach(callback => callback(chatMessage));
 
     } catch (error) {
@@ -752,6 +795,13 @@ class WebSocketService {
         timestamp: Date.now()
       };
 
+      this.notifyRawListeners({
+        type: 'notification',
+        data: notification,
+        receivedAt: Date.now(),
+        destination: message.headers?.destination,
+      });
+
       // 알림 타입별 이벤트 콜백 호출
       const callbacks = this.eventCallbacks.get('PERSONAL_NOTIFICATION') || [];
       callbacks.forEach(callback => callback(gameEvent));
@@ -770,6 +820,12 @@ class WebSocketService {
       const data = JSON.parse(message.body);
       if (data.type === 'pong') {
         this.handlePong();
+        this.notifyRawListeners({
+          type: 'system',
+          data,
+          receivedAt: Date.now(),
+          destination: message.headers?.destination,
+        });
       }
     } catch (error) {
       console.error('Error parsing ping/pong message:', error);

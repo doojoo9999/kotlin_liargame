@@ -59,19 +59,21 @@ class SessionDataManager(
      */
     fun <T> getSessionData(session: HttpSession, key: String, clazz: Class<T>): T? {
         return try {
-            // 세션 유효성 검증
             if (isSessionInvalid(session)) {
                 return null
             }
 
-            val jsonData = session.getAttribute(key) as? String
-            if (jsonData != null) {
-                objectMapper.readValue(jsonData, clazz)
-            } else {
-                null
+            val attribute = session.getAttribute(key) ?: return null
+
+            when {
+                // Allow compatibility with legacy attribute formats that may already store the object instance
+                clazz.isInstance(attribute) -> clazz.cast(attribute)
+                attribute is String -> objectMapper.readValue(attribute, clazz)
+                attribute is ByteArray -> objectMapper.readValue(attribute, clazz)
+                else -> objectMapper.convertValue(attribute, clazz)
             }
         } catch (e: IllegalStateException) {
-            null // 세션이 무효화된 경우
+            null
         } catch (e: Exception) {
             throw SessionDataException("Failed to deserialize session data for key: $key", e)
         }

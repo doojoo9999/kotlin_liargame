@@ -3,17 +3,24 @@ import {useConnectionStore} from '@/stores/connectionStore';
 import {websocketService} from '@/services/websocketService';
 import {stateSync} from '@/services/stateSync';
 import {useGameStore} from '@/stores';
+import {useShallow} from 'zustand/react/shallow';
 
 /**
  * WebSocket 연결 및 구독 관리 기본 훅
  */
 export function useWebSocket(gameId?: string) {
+  const selectConnectionState = useShallow((state: ReturnType<typeof useConnectionStore.getState>) => ({
+    status: state.status,
+    connect: state.connect,
+    processQueue: state.processQueue,
+  }));
+
   const {
     status,
     connect,
     processQueue,
-  } = useConnectionStore();
-  const { gameNumber } = useGameStore();
+  } = useConnectionStore(selectConnectionState);
+  const gameNumber = useGameStore((state) => state.gameNumber);
 
   useEffect(() => {
     stateSync.init();

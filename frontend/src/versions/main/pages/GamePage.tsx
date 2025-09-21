@@ -1,6 +1,7 @@
 import React from 'react'
 import {useNavigate, useParams} from 'react-router-dom'
 import {useGameplayStore, useGameStore} from '@/stores'
+import {useShallow} from 'zustand/react/shallow'
 import {GameFlowManager} from '@/components/game/GameFlowManager'
 import {Card, CardContent} from '@/components/ui/card'
 import {Button} from '@/components/ui/button'
@@ -11,7 +12,14 @@ import {useToast} from '@/hooks/useToast'
 export function MainGamePage() {
   const { gameId } = useParams<{ gameId: string }>()
   const navigate = useNavigate()
-  const { gameNumber, setGameNumber, resetGame, updateFromGameState } = useGameStore()
+  const selectGamePageState = useShallow((state: ReturnType<typeof useGameStore.getState>) => ({
+    gameNumber: state.gameNumber,
+    setGameNumber: state.setGameNumber,
+    resetGame: state.resetGame,
+    updateFromGameState: state.updateFromGameState,
+  }));
+
+  const { gameNumber, setGameNumber, resetGame, updateFromGameState } = useGameStore(selectGamePageState)
   const { hydrateFromSnapshot } = useGameplayStore((state) => state.actions)
   const { toast } = useToast()
   const [isLoading, setIsLoading] = React.useState(true)
@@ -114,36 +122,9 @@ export function MainGamePage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* 헤더 */}
-      <div className="border-b bg-card">
-        <div className="container mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleReturnToLobby}
-              >
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                나가기
-              </Button>
-              <div>
-                <div className="font-semibold">라이어 게임</div>
-                <div className="text-sm text-muted-foreground">
-                  게임 #{gameNumber}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 게임 플로우 매니저 */}
-      <GameFlowManager
-        onReturnToLobby={handleReturnToLobby}
-        onNextRound={handleNextRound}
-      />
-    </div>
+    <GameFlowManager
+      onReturnToLobby={handleReturnToLobby}
+      onNextRound={handleNextRound}
+    />
   )
 }

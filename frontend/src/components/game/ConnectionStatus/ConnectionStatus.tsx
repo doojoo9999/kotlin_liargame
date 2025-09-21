@@ -7,6 +7,7 @@ import {cn} from '@/lib/utils';
 import {useGameWebSocket} from '../../../hooks/useGameWebSocket';
 import {useConnectionStore} from '@/stores/connectionStore';
 import type {ConnectionStoreState} from '@/types/store';
+import {useShallow} from 'zustand/react/shallow';
 
 export interface ConnectionStatusProps {
   className?: string;
@@ -34,17 +35,13 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
     retry
   } = useGameWebSocket();
 
-  const connectionMetrics = useConnectionStore(
-    (state): {
-      realtimeStatus: ConnectionStoreState['status'];
-      avgLatency: ConnectionStoreState['avgLatency'];
-      backlog: number;
-    } => ({
-      realtimeStatus: state.status,
-      avgLatency: state.avgLatency,
-      backlog: state.messageQueue.length + Object.keys(state.pendingMessages).length,
-    })
-  );
+  const selectConnectionMetrics = useShallow((state: ConnectionStoreState) => ({
+    realtimeStatus: state.status,
+    avgLatency: state.avgLatency,
+    backlog: state.messageQueue.length + Object.keys(state.pendingMessages).length,
+  }));
+
+  const connectionMetrics = useConnectionStore(selectConnectionMetrics);
 
   const { realtimeStatus, avgLatency, backlog } = connectionMetrics;
 

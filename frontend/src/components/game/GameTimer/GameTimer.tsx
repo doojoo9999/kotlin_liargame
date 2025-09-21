@@ -6,6 +6,7 @@ import {Badge} from '@/components/ui/badge';
 import {AlertCircle, CheckCircle, Clock, Wifi, WifiOff} from 'lucide-react';
 import {cn} from '@/lib/utils';
 import {useGameStore} from '@/stores';
+import {useShallow} from 'zustand/react/shallow';
 import {useConnectionStore} from '@/stores/connectionStore';
 
 interface GameTimerProps {
@@ -24,11 +25,16 @@ export const GameTimer: React.FC<GameTimerProps> = ({
   onTimeUp
 }) => {
   // Get timer data from store
+  const selectTimerState = useShallow((state: ReturnType<typeof useGameStore.getState>) => ({
+    timer: state.timer,
+    gamePhase: state.gamePhase,
+  }));
+
   const {
     timer,
-    gamePhase
-  } = useGameStore()
-  
+    gamePhase,
+  } = useGameStore(selectTimerState);
+
   const isConnected = useConnectionStore((state) => state.status === 'connected')
   
   const { isActive, timeRemaining, totalTime, phase } = timer

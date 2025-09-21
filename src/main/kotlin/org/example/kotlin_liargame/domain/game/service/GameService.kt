@@ -446,7 +446,7 @@ class GameService(
                 }
             }
 
-            gameMonitoringService.notifyPlayerLeft(game, nickname, userId, remainingPlayers)
+            gameMonitoringService.notifyPlayerLeft(game, player, remainingPlayers)
 
             return true
         }
@@ -762,7 +762,7 @@ class GameService(
                     gameRepository.save(game)
                 }
             }
-            gameMonitoringService.notifyPlayerLeft(game, player.nickname, userId, remainingPlayers)
+            gameMonitoringService.notifyPlayerLeft(game, player, remainingPlayers)
         }
     }
 

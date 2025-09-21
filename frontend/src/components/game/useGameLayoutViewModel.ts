@@ -1,5 +1,6 @@
 import {useMemo} from 'react'
 import {useGameStore} from '@/stores'
+import {useShallow} from 'zustand/react/shallow'
 import type {GamePhase, ScoreboardEntry} from '@/types/backendTypes'
 import type {
     GameResults,
@@ -13,7 +14,7 @@ import type {ChatMessage} from '@/types/realtime'
 
 type GameStoreSnapshot = ReturnType<typeof useGameStore.getState>
 
-type StoreActions = Pick<GameStoreSnapshot, 'addHint' | 'castVote' | 'addDefense' | 'setUserVote' | 'sendChatMessage' | 'loadChatHistory'>
+type StoreActions = Pick<GameStoreSnapshot, 'addHint' | 'castVote' | 'addDefense' | 'setUserVote' | 'sendChatMessage' | 'loadChatHistory' | 'startGame' | 'toggleReady'>
 
 export interface GameLayoutViewModel extends StoreActions {
   gameId: string | null
@@ -53,44 +54,46 @@ export interface GameLayoutViewModel extends StoreActions {
 }
 
 export function useGameLayoutViewModel(): GameLayoutViewModel {
-  const state = useGameStore(
-    (store) => ({
-      gameId: store.gameId,
-      gameNumber: store.gameNumber,
-      sessionCode: store.sessionCode,
-      gamePhase: store.gamePhase,
-      currentRound: store.currentRound,
-      totalRounds: store.totalRounds,
-      currentTopic: store.currentTopic,
-      currentWord: store.currentWord,
-      currentLiar: store.currentLiar,
-      isLiar: store.isLiar,
-      timer: store.timer,
-      voting: store.voting,
-      scores: store.scores,
-      players: store.players,
-      currentPlayer: store.currentPlayer,
-      currentTurnPlayerId: store.currentTurnPlayerId ?? null,
-      chatMessages: store.chatMessages,
-      chatLoading: store.chatLoading,
-      chatError: store.chatError,
-      typingPlayers: store.typingPlayers,
-      gameResults: store.gameResults,
-      isLoading: store.isLoading,
-      error: store.error,
-      roundStage: store.roundStage,
-      roundStageEnteredAt: store.roundStageEnteredAt,
-      roundHasStarted: store.roundHasStarted,
-      roundSummaries: store.roundSummaries,
-      currentRoundSummary: store.currentRoundSummary,
-      addHint: store.addHint,
-      castVote: store.castVote,
-      addDefense: store.addDefense,
-      setUserVote: store.setUserVote,
-      sendChatMessage: store.sendChatMessage,
-      loadChatHistory: store.loadChatHistory,
-    })
-  )
+  const selectGameLayout = useShallow((store: ReturnType<typeof useGameStore.getState>) => ({
+    gameId: store.gameId,
+    gameNumber: store.gameNumber,
+    sessionCode: store.sessionCode,
+    gamePhase: store.gamePhase,
+    currentRound: store.currentRound,
+    totalRounds: store.totalRounds,
+    currentTopic: store.currentTopic,
+    currentWord: store.currentWord,
+    currentLiar: store.currentLiar,
+    isLiar: store.isLiar,
+    timer: store.timer,
+    voting: store.voting,
+    scores: store.scores,
+    players: store.players,
+    currentPlayer: store.currentPlayer,
+    currentTurnPlayerId: store.currentTurnPlayerId ?? null,
+    chatMessages: store.chatMessages,
+    chatLoading: store.chatLoading,
+    chatError: store.chatError,
+    typingPlayers: store.typingPlayers,
+    gameResults: store.gameResults,
+    isLoading: store.isLoading,
+    error: store.error,
+    roundStage: store.roundStage,
+    roundStageEnteredAt: store.roundStageEnteredAt,
+    roundHasStarted: store.roundHasStarted,
+    roundSummaries: store.roundSummaries,
+    currentRoundSummary: store.currentRoundSummary,
+    addHint: store.addHint,
+    castVote: store.castVote,
+    addDefense: store.addDefense,
+    setUserVote: store.setUserVote,
+    sendChatMessage: store.sendChatMessage,
+    loadChatHistory: store.loadChatHistory,
+    startGame: store.startGame,
+    toggleReady: store.toggleReady,
+  }));
+
+  const state = useGameStore(selectGameLayout)
 
   const summary = useMemo(() => {
     const totalPlayers = state.players.length
