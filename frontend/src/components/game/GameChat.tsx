@@ -184,8 +184,12 @@ export const GameChat: React.FC<GameChatProps> = ({
     if (!autoScroll) {
       return
     }
-    listEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [autoScroll, regularMessages, pinnedMessages])
+    const container = scrollContainerRef.current
+    if (!container) {
+      return
+    }
+    container.scrollTo({ top: container.scrollHeight, behavior: prefersReducedMotion ? 'auto' : 'smooth' })
+  }, [autoScroll, regularMessages, pinnedMessages, prefersReducedMotion])
 
   useEffect(() => {
     const latest = regularMessages[regularMessages.length - 1]

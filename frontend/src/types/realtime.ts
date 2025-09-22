@@ -152,6 +152,21 @@ export interface ChatMessage {
 
 export type ChatCallback = (message: ChatMessage) => void
 
+export type LobbyEventType = 'PLAYER_JOINED' | 'PLAYER_LEFT' | 'ROOM_DELETED' | 'OWNER_KICKED_AND_TRANSFERRED' | string
+
+export interface LobbyUpdate {
+  type: LobbyEventType
+  gameNumber?: number | string
+  playerName?: string
+  nickname?: string
+  userId?: number
+  currentPlayers?: number
+  maxPlayers?: number
+  [key: string]: unknown
+}
+
+export type LobbyUpdateCallback = (update: LobbyUpdate) => void
+
 type PlayerIdentifier = string | number
 
 export interface PlayerJoinedPayload {

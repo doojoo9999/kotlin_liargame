@@ -707,13 +707,13 @@ class GameService(
     }
 
     fun findPlayerInActiveGame(userId: Long): PlayerEntity? {
-        return playerRepository.findByUserIdAndGameInProgress(userId)
+        return playerRepository.findByUserIdAndGameActive(userId)
     }
 
     @Transactional
     fun cleanupPlayerByUserId(userId: Long) {
         try {
-            val player = playerRepository.findByUserIdAndGameInProgress(userId)
+            val player = playerRepository.findByUserIdAndGameActive(userId)
             if (player != null) {
                 val gameNumber = player.game.gameNumber
                 leaveGameAsSystem(gameNumber, userId)
@@ -768,7 +768,7 @@ class GameService(
 
     @Transactional
     fun handlePlayerDisconnection(userId: Long) {
-        val player = playerRepository.findByUserIdAndGameInProgress(userId)
+        val player = playerRepository.findByUserIdAndGameActive(userId)
         player?.let {
             logger.debug("플레이어 연결 해제 처리: userId={}, gameNumber={}, nickname={}",
                 userId, it.game.gameNumber, it.nickname)
@@ -780,7 +780,7 @@ class GameService(
 
     @Transactional
     fun handlePlayerReconnection(userId: Long) {
-        val player = playerRepository.findByUserIdAndGameInProgress(userId)
+        val player = playerRepository.findByUserIdAndGameActive(userId)
         player?.let {
             // DISCONNECTED 상태 체크 제거 - 연결 해제된 플레이어는 이미 게임에서 제거됨
             // 재연결 시에는 새로 게임에 참여해야 함

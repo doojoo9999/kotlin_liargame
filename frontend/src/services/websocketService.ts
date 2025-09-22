@@ -8,7 +8,9 @@ import type {
     ChatMessageType,
     ConnectionCallback,
     EventCallback,
-    GameEvent
+    GameEvent,
+    LobbyUpdate,
+    LobbyUpdateCallback
 } from '@/types/realtime';
 
 export interface WebSocketMessage {
@@ -20,7 +22,7 @@ export interface WebSocketMessage {
 }
 
 interface RawWebSocketPayload {
-  type: 'event' | 'chat' | 'notification' | 'system';
+  type: 'event' | 'chat' | 'notification' | 'system' | 'lobby';
   data: any;
   receivedAt: number;
   destination?: string;
@@ -43,6 +45,8 @@ class WebSocketService {
   private eventCallbacks: Map<string, EventCallback[]> = new Map();
   private chatCallbacks: ChatCallback[] = [];
   private connectionCallbacks: ConnectionCallback[] = [];
+  private lobbyCallbacks: LobbyUpdateCallback[] = [];
+  private readonly lobbySubscriptionKey = 'lobby';
 
   // Subscription management
   private subscriptions: Map<string, any> = new Map();
@@ -283,6 +287,35 @@ class WebSocketService {
     };
   }
 
+  public onLobbyUpdate(callback: LobbyUpdateCallback): () => void {
+    this.lobbyCallbacks.push(callback);
+
+    if (this.isConnected) {
+      this.subscribeToLobby();
+    }
+
+    return () => {
+      this.lobbyCallbacks = this.lobbyCallbacks.filter(cb => cb !== callback);
+      if (this.lobbyCallbacks.length === 0) {
+        const subscription = this.subscriptions.get(this.lobbySubscriptionKey);
+        if (subscription) {
+          try {
+            subscription.unsubscribe();
+          } catch (error) {
+            console.warn('Error unsubscribing from lobby updates:', error);
+          }
+          this.subscriptions.delete(this.lobbySubscriptionKey);
+        }
+      }
+    };
+  }
+
+  public ensureLobbySubscription(): void {
+    if (this.isConnected) {
+      this.subscribeToLobby();
+    }
+  }
+
   public addConnectionCallback(callback: ConnectionCallback): void {
     this.connectionCallbacks.push(callback);
   }
@@ -310,6 +343,26 @@ class WebSocketService {
         console.error('Raw listener error:', error);
       }
     }
+  }
+
+  private subscribeToLobby(): void {
+    if (!this.client || this.lobbyCallbacks.length === 0) {
+      return;
+    }
+
+    const existing = this.subscriptions.get(this.lobbySubscriptionKey);
+    if (existing) {
+      try {
+        existing.unsubscribe();
+      } catch (error) {
+        console.warn('Error unsubscribing existing lobby listener:', error);
+      }
+      this.subscriptions.delete(this.lobbySubscriptionKey);
+    }
+
+    const subscription = this.client.subscribe('/topic/lobby', this.handleLobbyMessage.bind(this));
+    this.subscriptions.set(this.lobbySubscriptionKey, subscription);
+    console.log('Subscribed to lobby updates');
   }
 
   public safePublish(destination: string, body: any): string | undefined {
@@ -612,6 +665,8 @@ class WebSocketService {
     // Start heartbeat monitoring
     this.startHeartbeat();
 
+    this.subscribeToLobby();
+
     // Notify connection callbacks
     this.connectionCallbacks.forEach(callback => {
       try {
@@ -724,6 +779,65 @@ class WebSocketService {
         }
       }
     }, delay);
+  }
+
+  private handleLobbyMessage(message: IMessage): void {
+    try {
+      const raw = JSON.parse(message.body ?? '{}') ?? {};
+      const rawGameNumber = raw.gameNumber ?? raw.gameId ?? raw.id;
+      const parsedNumber = typeof rawGameNumber === 'number'
+        ? rawGameNumber
+        : typeof rawGameNumber === 'string'
+          ? Number.parseInt(rawGameNumber, 10)
+          : undefined;
+      const normalizedGameNumber = typeof parsedNumber === 'number' && Number.isFinite(parsedNumber)
+        ? parsedNumber
+        : rawGameNumber;
+
+      const normalized: LobbyUpdate = {
+        ...raw,
+        type: typeof raw.type === 'string' ? raw.type : 'UNKNOWN',
+        gameNumber: normalizedGameNumber,
+        currentPlayers: typeof raw.currentPlayers === 'number' ? raw.currentPlayers : undefined,
+        maxPlayers: typeof raw.maxPlayers === 'number' ? raw.maxPlayers : undefined,
+      };
+
+      const nickname = typeof raw.nickname === 'string' ? raw.nickname : undefined;
+      if (nickname) {
+        normalized.nickname = nickname;
+      }
+      if (typeof raw.playerName === 'string') {
+        normalized.playerName = raw.playerName;
+      } else if (nickname) {
+        normalized.playerName = nickname;
+      }
+
+      const parsedUserId = typeof raw.userId === 'number'
+        ? raw.userId
+        : typeof raw.userId === 'string'
+          ? Number.parseInt(raw.userId, 10)
+          : undefined;
+      if (typeof parsedUserId === 'number' && Number.isFinite(parsedUserId)) {
+        normalized.userId = parsedUserId;
+      }
+
+      this.notifyRawListeners({
+        type: 'lobby',
+        data: normalized,
+        receivedAt: Date.now(),
+        destination: message.headers?.destination,
+      });
+
+      this.lobbyCallbacks.forEach(callback => {
+        try {
+          callback(normalized);
+        } catch (error) {
+          console.error('Error in lobby callback:', error);
+        }
+      });
+    } catch (error) {
+      console.error('Error parsing lobby message:', error);
+    }
   }
 
   private handleGameEvent(message: IMessage): void {

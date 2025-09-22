@@ -23,6 +23,9 @@ import {type Subject, subjectApi} from '@/api/subjectApi'
 import {gameService} from '@/api/gameApi'
 import type {CreateGameRequest, GameMode} from '@/types/backendTypes'
 import type {GameRoomInfo} from '@/types/api'
+import type {LobbyUpdate} from '@/types/realtime'
+import {useConnectionStore} from '@/stores/connectionStore'
+import {websocketService} from '@/services/websocketService'
 
 const GAME_MODES: GameMode[] = ['LIARS_KNOW', 'LIARS_DIFFERENT_WORD']
 const PARTICIPANT_OPTIONS = [4, 5, 6, 7, 8]
@@ -83,6 +86,7 @@ export function GameRoomsSection() {
   const navigate = useNavigate()
   const { toast } = useToast()
   const { nickname } = useAuthStore()
+  const connectWebSocket = useConnectionStore(state => state.connect)
   const [rooms, setRooms] = useState<GameRoomInfo[]>([])
   const [roomsLoading, setRoomsLoading] = useState(true)
   const [roomsError, setRoomsError] = useState<string | null>(null)
@@ -98,8 +102,11 @@ export function GameRoomsSection() {
   useModalRegistration('create-game-modal', isCreateDialogOpen)
   useModalRegistration('join-game-modal', isJoinDialogOpen)
 
-  const loadRooms = useCallback(async () => {
-    setRoomsLoading(true)
+  const loadRooms = useCallback(async (options?: { skipLoadingState?: boolean }) => {
+    const shouldToggleLoading = !options?.skipLoadingState
+    if (shouldToggleLoading) {
+      setRoomsLoading(true)
+    }
     setRoomsError(null)
     try {
       const response = await gameService.getGameList(0, 24)
@@ -109,7 +116,9 @@ export function GameRoomsSection() {
       const message = error instanceof Error ? error.message : '게임방 목록을 가져오지 못했습니다'
       setRoomsError(message)
     } finally {
-      setRoomsLoading(false)
+      if (shouldToggleLoading) {
+        setRoomsLoading(false)
+      }
     }
   }, [])
 
@@ -120,6 +129,70 @@ export function GameRoomsSection() {
     } finally {
       setIsRefreshing(false)
     }
+  }, [loadRooms])
+
+  const handleLobbyUpdateEvent = useCallback((update: LobbyUpdate) => {
+    const rawGameNumber = update.gameNumber
+    const parsedGameNumber = typeof rawGameNumber === 'number'
+      ? rawGameNumber
+      : typeof rawGameNumber === 'string'
+        ? Number.parseInt(rawGameNumber, 10)
+        : Number.NaN
+
+    if (!Number.isFinite(parsedGameNumber)) {
+      return
+    }
+
+    const gameNumber = parsedGameNumber
+
+    if (update.type === 'ROOM_DELETED') {
+      setRooms(prev => {
+        const next = prev.filter(room => room.gameNumber !== gameNumber)
+        return next.length === prev.length ? prev : next
+      })
+      return
+    }
+
+    if (update.type === 'PLAYER_JOINED' || update.type === 'PLAYER_LEFT') {
+      let matched = false
+      setRooms(prev => {
+        const next: GameRoomInfo[] = []
+        for (const room of prev) {
+          if (room.gameNumber === gameNumber) {
+            matched = true
+            const currentPlayers = typeof update.currentPlayers === 'number'
+              ? update.currentPlayers
+              : update.type === 'PLAYER_JOINED'
+                ? room.currentPlayers + 1
+                : Math.max(0, room.currentPlayers - 1)
+            const maxPlayers = typeof update.maxPlayers === 'number' ? update.maxPlayers : room.maxPlayers
+
+            if (currentPlayers <= 0) {
+              continue
+            }
+
+            next.push({
+              ...room,
+              currentPlayers,
+              maxPlayers,
+            })
+          } else {
+            next.push(room)
+          }
+        }
+        return matched ? next : prev
+      })
+
+      const shouldRefreshHost = update.type === 'PLAYER_LEFT'
+        && (typeof update.currentPlayers !== 'number' || update.currentPlayers > 0)
+
+      if (!matched || shouldRefreshHost) {
+        void loadRooms({ skipLoadingState: true })
+      }
+      return
+    }
+
+    void loadRooms({ skipLoadingState: true })
   }, [loadRooms])
 
   const loadSubjects = useCallback(async () => {
@@ -147,6 +220,33 @@ export function GameRoomsSection() {
     loadRooms()
     loadSubjects()
   }, [loadRooms, loadSubjects])
+
+  useEffect(() => {
+    let unsubscribe: (() => void) | undefined
+    let cancelled = false
+
+    const setupRealtime = async () => {
+      try {
+        await connectWebSocket()
+        if (cancelled) {
+          return
+        }
+        websocketService.ensureLobbySubscription()
+        unsubscribe = websocketService.onLobbyUpdate(handleLobbyUpdateEvent)
+      } catch (error) {
+        console.error('Failed to initialize lobby realtime updates', error)
+      }
+    }
+
+    setupRealtime()
+
+    return () => {
+      cancelled = true
+      if (unsubscribe) {
+        unsubscribe()
+      }
+    }
+  }, [connectWebSocket, handleLobbyUpdateEvent])
 
   useEffect(() => {
     const interval = setInterval(() => {
