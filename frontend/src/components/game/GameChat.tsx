@@ -1,10 +1,10 @@
-import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react'
+import React, {useCallback, useEffect, useId, useMemo, useRef, useState} from 'react'
 import {Button} from '@/components/ui/button'
 import {Input} from '@/components/ui/input'
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card'
 import {Avatar, AvatarFallback} from '@/components/ui/avatar'
 import {Badge} from '@/components/ui/badge'
-import {Flag, Loader2, MessageCircle, RefreshCw, Send, Users} from 'lucide-react'
+import {ArrowDown, Check, Flag, Loader2, MessageCircle, RefreshCw, Send, Users} from 'lucide-react'
 import {toast} from 'sonner'
 import type {ChatMessage, ChatMessageType} from '@/types/realtime'
 import type {Player} from '@/stores'
@@ -25,6 +25,7 @@ interface GameChatProps {
 
 const restrictedPhases = new Set<string>(['VOTING_FOR_LIAR', 'VOTING_FOR_SURVIVAL'])
 const MAX_PINNED = 5
+const MAX_MESSAGE_LENGTH = 240
 
 const typeLabelMap: Record<ChatMessageType, string> = {
   DISCUSSION: '일반',
@@ -53,6 +54,36 @@ const messageToneMap: Record<ChatMessageType | 'DEFAULT', string> = {
   DEFAULT: 'border-border/70 bg-background/95 text-foreground',
 }
 
+const SENDABLE_MESSAGE_TYPES: ChatMessageType[] = ['DISCUSSION', 'HINT', 'DEFENSE']
+
+function usePrefersReducedMotion(): boolean {
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) {
+      return false
+    }
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  })
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) {
+      return
+    }
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const updatePreference = () => {
+      setPrefersReducedMotion(mediaQuery.matches)
+    }
+    updatePreference()
+    const handleChange = (event: MediaQueryListEvent) => {
+      setPrefersReducedMotion(event.matches)
+    }
+    mediaQuery.addEventListener('change', handleChange)
+    return () => mediaQuery.removeEventListener('change', handleChange)
+  }, [])
+
+  return prefersReducedMotion
+}
+
+
 export const GameChat: React.FC<GameChatProps> = ({
   messages,
   players,
@@ -70,6 +101,24 @@ export const GameChat: React.FC<GameChatProps> = ({
   const [isExpanded, setIsExpanded] = useState(false)
   const [isSending, setIsSending] = useState(false)
   const listEndRef = useRef<HTMLDivElement>(null)
+
+  const [isInputFocused, setIsInputFocused] = useState(false)
+  const [sendError, setSendError] = useState<string | null>(null)
+  const [justSent, setJustSent] = useState(false)
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null)
+  const [autoScroll, setAutoScroll] = useState(true)
+  const [hasUnread, setHasUnread] = useState(false)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const composerRef = useRef<HTMLDivElement>(null)
+  const [composerHeight, setComposerHeight] = useState<number | null>(null)
+  const [selectedType, setSelectedType] = useState<ChatMessageType>('DISCUSSION')
+  const prefersReducedMotion = usePrefersReducedMotion()
+  const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const sendPulseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lastRegularMessageIdRef = useRef<string | null>(null)
+  const hasHydratedRef = useRef(false)
+
+  const accessibilityId = useId()
 
   const playersByKey = useMemo(() => {
     const map = new Map<string, Player>()
@@ -132,8 +181,37 @@ export const GameChat: React.FC<GameChatProps> = ({
   )
 
   useEffect(() => {
+    if (!autoScroll) {
+      return
+    }
     listEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [regularMessages, pinnedMessages])
+  }, [autoScroll, regularMessages, pinnedMessages])
+
+  useEffect(() => {
+    const latest = regularMessages[regularMessages.length - 1]
+    if (!latest) {
+      lastRegularMessageIdRef.current = null
+      setHighlightedMessageId(null)
+      return
+    }
+    if (!hasHydratedRef.current) {
+      hasHydratedRef.current = true
+      lastRegularMessageIdRef.current = latest.id
+      return
+    }
+    if (latest.id === lastRegularMessageIdRef.current) {
+      return
+    }
+    lastRegularMessageIdRef.current = latest.id
+    setHighlightedMessageId(latest.id)
+    if (!autoScroll) {
+      setHasUnread(true)
+    }
+    if (highlightTimeoutRef.current) {
+      clearTimeout(highlightTimeoutRef.current)
+    }
+    highlightTimeoutRef.current = setTimeout(() => setHighlightedMessageId(null), 1800)
+  }, [regularMessages, autoScroll])
 
   const typingNames = useMemo(() => {
     if (!typingPlayers) {
@@ -149,37 +227,100 @@ export const GameChat: React.FC<GameChatProps> = ({
 
   const canSendMessage = useMemo(() => !restrictedPhases.has(gamePhase), [gamePhase])
 
+  const messageTypeOptions = useMemo(() =>
+    SENDABLE_MESSAGE_TYPES.map((type) => ({ value: type, label: typeLabelMap[type] ?? type })),
+    [],
+  )
+
+  const composerStyle = useMemo(
+    () => ({ '--composer-height': composerHeight != null ? `${composerHeight}px` : '6.5rem' }) as React.CSSProperties,
+    [composerHeight],
+  )
+
   const messageCount = messages.length
+  const remainingCharacters = MAX_MESSAGE_LENGTH - draft.length
+  const characterWarningThreshold = Math.round(MAX_MESSAGE_LENGTH * 0.4)
+  const characterCriticalThreshold = Math.round(MAX_MESSAGE_LENGTH * 0.2)
+  const characterCountTone =
+    remainingCharacters <= characterCriticalThreshold
+      ? 'text-destructive font-semibold'
+      : remainingCharacters <= characterWarningThreshold
+        ? 'text-amber-600 dark:text-amber-400 font-medium'
+        : 'text-muted-foreground'
   const onlineCount = useMemo(
     () => players.filter((player) => (player.isOnline ?? player.isConnected)).length,
     [players],
   )
 
-  const handleSendMessage = useCallback(async () => {
-    const trimmed = draft.trim()
-    if (!trimmed || isSending) {
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('ResizeObserver' in window)) {
       return
     }
-    setIsSending(true)
-    try {
-      await onSendMessage(trimmed)
-      setDraft('')
-    } catch (err) {
-      console.error('Failed to send chat message', err)
-      toast.error('메시지 전송에 실패했습니다. 다시 시도해주세요.')
-    } finally {
-      setIsSending(false)
+    const node = composerRef.current
+    if (!node) {
+      return
     }
-  }, [draft, isSending, onSendMessage])
+    const updateHeight = () => {
+      setComposerHeight(node.offsetHeight)
+    }
+    updateHeight()
+    const observer = new ResizeObserver(() => updateHeight())
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [isExpanded])
+
+  const sendMessage = useCallback(
+    async (override?: string) => {
+      const source = override ?? draft
+      const trimmed = source.trim()
+      if (!trimmed || isSending) {
+        return
+      }
+      setIsSending(true)
+      setAutoScroll(true)
+      setHasUnread(false)
+      try {
+        await onSendMessage(trimmed, selectedType)
+        setDraft('')
+        setSendError(null)
+        const pulseDuration = prefersReducedMotion ? 200 : 700
+        setJustSent(true)
+        if (sendPulseTimeoutRef.current) {
+          clearTimeout(sendPulseTimeoutRef.current)
+        }
+        sendPulseTimeoutRef.current = setTimeout(() => setJustSent(false), pulseDuration)
+      } catch (err) {
+        console.error('Failed to send chat message', err)
+        setSendError('메시지 전송에 실패했습니다. 다시 시도해 주세요.')
+        toast.error('메시지 전송에 실패했습니다. 다시 시도해 주세요.')
+        setDraft(trimmed)
+        throw err
+      } finally {
+        setIsSending(false)
+      }
+    },
+    [draft, isSending, onSendMessage, prefersReducedMotion, selectedType],
+  )
+
+  const handleSubmit = useCallback(() => {
+    sendMessage().catch(() => {})
+  }, [sendMessage])
+
+  const handleRetry = useCallback(() => {
+    if (!draft.trim()) {
+      return
+    }
+    sendMessage(draft).catch(() => {})
+  }, [draft, sendMessage])
 
   const handleKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLInputElement>) => {
       if (event.key === 'Enter' && !event.shiftKey) {
         event.preventDefault()
-        handleSendMessage().catch(() => {})
+        handleSubmit()
       }
     },
-    [handleSendMessage],
+    [handleSubmit],
   )
 
   const handleReport = useCallback(
@@ -205,18 +346,67 @@ export const GameChat: React.FC<GameChatProps> = ({
     })
   }, [onReloadHistory])
 
+  const handleScroll = useCallback(() => {
+    const container = scrollContainerRef.current
+    if (!container) {
+      return
+    }
+    const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight
+    const atBottom = distanceFromBottom <= 48
+    setAutoScroll((prev) => (prev === atBottom ? prev : atBottom))
+    if (atBottom) {
+      setHasUnread(false)
+    }
+  }, [])
+
+  const handleScrollToLatest = useCallback(() => {
+    const container = scrollContainerRef.current
+    if (!container) {
+      return
+    }
+    container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' })
+    setAutoScroll(true)
+    setHasUnread(false)
+  }, [])
+
   const containerClasses = [
-    'flex flex-col overflow-hidden rounded-xl border border-border/70 shadow-lg transition-all duration-200',
+    'flex flex-1 flex-col overflow-hidden rounded-xl border border-border/70 shadow-lg motion-safe:transition-all motion-safe:duration-200',
     isExpanded
       ? 'fixed inset-4 z-50 bg-background/95 backdrop-blur-md'
-      : 'relative min-h-[26rem] sm:min-h-[28rem] xl:min-h-[32rem] 2xl:min-h-[36rem]',
+      : 'relative h-full min-h-[26rem] sm:min-h-[28rem] xl:min-h-[32rem] 2xl:min-h-[36rem]',
     className,
+  ]
+    .filter(Boolean)
+    .join(' ')
+
+  const sendErrorId = sendError ? `${accessibilityId}-send-error` : undefined
+
+  const unreadButtonClasses = [
+    'absolute bottom-3 right-4 flex items-center gap-2 rounded-full bg-primary/90 px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-lg',
+    prefersReducedMotion
+      ? hasUnread
+        ? 'pointer-events-auto opacity-100'
+        : 'pointer-events-none opacity-0'
+      : hasUnread
+        ? 'pointer-events-auto translate-y-0 opacity-100 motion-safe:transition-all motion-safe:duration-200'
+        : 'pointer-events-none translate-y-2 opacity-0 motion-safe:transition-all motion-safe:duration-200',
   ]
     .filter(Boolean)
     .join(' ')
 
   const hasMessages = messageCount > 0
   const hasRegularMessages = regularMessages.length > 0
+
+  useEffect(() => {
+    return () => {
+      if (highlightTimeoutRef.current) {
+        clearTimeout(highlightTimeoutRef.current)
+      }
+      if (sendPulseTimeoutRef.current) {
+        clearTimeout(sendPulseTimeoutRef.current)
+      }
+    }
+  }, [])
 
   return (
     <Card className={containerClasses}>
@@ -252,7 +442,7 @@ export const GameChat: React.FC<GameChatProps> = ({
         </CardTitle>
       </CardHeader>
 
-      <CardContent className="flex h-full flex-col gap-4">
+      <CardContent className="flex h-full flex-col gap-4" style={composerStyle}>
         {error && (
           <div className="flex items-center justify-between gap-3 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
             <span className="truncate">{error}</span>
@@ -310,7 +500,12 @@ export const GameChat: React.FC<GameChatProps> = ({
         )}
 
         <div
-          className={`relative flex-1 overflow-y-auto rounded-lg border border-border/60 bg-muted/40 px-4 py-4 shadow-inner ${isExpanded ? 'max-h-[calc(100vh-260px)]' : 'min-h-[18rem]'}`}
+          ref={scrollContainerRef}
+          onScroll={handleScroll}
+          role="region"
+          aria-label="채팅 메시지 영역"
+          tabIndex={0}
+          className={`relative flex-1 overflow-y-auto rounded-2xl border border-border/60 bg-muted/40 px-4 py-4 shadow-inner transition-colors scroll-smooth chat-scroll-area ${isExpanded ? 'max-h-[calc(100vh-8rem)]' : 'max-h-[calc(100%-var(--composer-height,6.5rem))] min-h-[18rem]'}`}
         >
           {!hasMessages ? (
             <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
@@ -321,7 +516,12 @@ export const GameChat: React.FC<GameChatProps> = ({
               현재 고정된 공지를 제외한 메시지가 없습니다
             </div>
           ) : (
-            <div className="space-y-4">
+            <div
+              className="space-y-3 sm:space-y-4"
+              role="log"
+              aria-live="polite"
+              aria-relevant="additions text"
+            >
               {regularMessages.map((message) => {
                 const player = resolvePlayer(message)
                 const isSelf =
@@ -370,14 +570,20 @@ export const GameChat: React.FC<GameChatProps> = ({
                       return 'border-muted-foreground/40 text-muted-foreground'
                   }
                 })()
+                const isHighlighted = highlightedMessageId === message.id
+                const highlightClasses = isHighlighted ? 'ring-2 ring-primary/50 shadow-[0_0_0_4px_rgba(59,130,246,0.18)]' : ''
 
                 return (
                   <div key={message.id} className={`flex ${justifyClass}`}>
-                    <div className={`flex max-w-[85%] flex-col gap-2 ${alignmentClasses} 2xl:max-w-[78%]`}>
-                      <div className={`rounded-2xl border px-4 py-3 transition-all duration-150 ${bubbleTone}`} data-message-type={message.type}>
+                    <div className={`flex max-w-[88%] flex-col gap-1.5 ${alignmentClasses} 2xl:max-w-[75%]`}>
+                      <div
+                        className={`rounded-2xl border px-4 py-3 transition-all duration-150 ${bubbleTone} ${highlightClasses}`}
+                        data-message-type={message.type}
+                        data-highlighted={isHighlighted}
+                      >
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex items-center gap-3">
-                            <Avatar className="h-8 w-8 shadow-sm">
+                            <Avatar className="h-8 w-8 shadow-sm ring-1 ring-border/40">
                               <AvatarFallback className="text-xs uppercase">{avatarInitial}</AvatarFallback>
                             </Avatar>
                             <div className="text-left">
@@ -415,7 +621,7 @@ export const GameChat: React.FC<GameChatProps> = ({
                             </Button>
                           )}
                         </div>
-                        <div className={`mt-3 whitespace-pre-wrap text-[15px] leading-relaxed ${contentTone}`}>
+                        <div className={`mt-2.5 whitespace-pre-wrap text-[15px] leading-relaxed ${contentTone}`}>
                           {message.content}
                         </div>
                       </div>
@@ -426,6 +632,16 @@ export const GameChat: React.FC<GameChatProps> = ({
               <div ref={listEndRef} />
             </div>
           )}
+
+          <button
+            type="button"
+            className={unreadButtonClasses}
+            onClick={handleScrollToLatest}
+            aria-live="polite"
+          >
+            <ArrowDown className="h-3.5 w-3.5" />
+            새 메시지
+          </button>
         </div>
 
         {typingNames.length > 0 && (
@@ -434,26 +650,86 @@ export const GameChat: React.FC<GameChatProps> = ({
           </div>
         )}
 
-        <div className="mt-3 flex items-center gap-2">
-          <Input
-            className="h-11"
-            placeholder={
-              canSendMessage ? '메시지를 입력하세요...' : '투표 중에는 채팅할 수 없습니다'
-            }
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            onKeyDown={handleKeyDown}
-            disabled={!canSendMessage || isSending}
-            maxLength={240}
-          />
-          <Button
-            onClick={handleSendMessage}
-            disabled={!canSendMessage || isSending || draft.trim().length === 0}
-            size="sm"
-            className="h-11 px-4"
+        <div className="mt-3" ref={composerRef}>
+          <div
+            className={`group flex items-center gap-2 rounded-2xl border border-border/60 bg-background/90 px-3 py-2 motion-safe:transition-all motion-safe:duration-200 ${isInputFocused ? 'border-primary/70 shadow-[0_0_0_3px_rgba(59,130,246,0.18)]' : ''} ${justSent ? 'border-emerald-500/60 shadow-[0_0_0_3px_rgba(16,185,129,0.18)]' : ''}`}
           >
-            {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-          </Button>
+            <Input
+              className="h-11 flex-1 border-none bg-transparent text-base shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+              placeholder={
+                canSendMessage ? '메시지를 입력해 주세요...' : '투표 중에는 채팅을 보낼 수 없어요'
+              }
+              value={draft}
+              onChange={(event) => {
+                const value = event.target.value
+                setDraft(value)
+                if (sendError) {
+                  setSendError(null)
+                }
+              }}
+              onKeyDown={handleKeyDown}
+              onFocus={() => setIsInputFocused(true)}
+              onBlur={() => setIsInputFocused(false)}
+              disabled={!canSendMessage || isSending}
+              maxLength={MAX_MESSAGE_LENGTH}
+              aria-invalid={sendError ? true : undefined}
+              aria-describedby={sendErrorId}
+            />
+            <Button
+              onClick={handleSubmit}
+              disabled={!canSendMessage || isSending || draft.trim().length === 0}
+              size="sm"
+              className={`relative h-11 px-4 motion-safe:transition-all motion-safe:duration-200 ${justSent ? 'bg-emerald-500 text-emerald-50 hover:bg-emerald-500' : ''}`}
+            >
+              {isSending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : justSent ? (
+                <Check className="h-4 w-4" />
+              ) : (
+                <Send className="h-4 w-4 motion-safe:transition-transform motion-safe:duration-200 motion-safe:group-hover:translate-x-0.5" />
+              )}
+            </Button>
+          </div>
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <span className="whitespace-nowrap">Shift+Enter로 줄바꿈</span>
+              <span className={`whitespace-nowrap transition-colors ${characterCountTone}`} aria-live="polite">
+                남은 글자 {Math.max(remainingCharacters, 0)}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              {messageTypeOptions.map(({ value, label }) => {
+                const isSelected = selectedType === value
+                return (
+                  <Button
+                    key={value}
+                    type="button"
+                    variant={isSelected ? 'secondary' : 'ghost'}
+                    size="xs"
+                    className="h-7 px-3"
+                    onClick={() => setSelectedType(value)}
+                    aria-pressed={isSelected}
+                    disabled={isSending}
+                  >
+                    {label}
+                  </Button>
+                )
+              })}
+            </div>
+          </div>
+          <div className="mt-2 min-h-[1.5rem]" aria-live="assertive">
+            {sendError && (
+              <div id={sendErrorId} role="alert" className="flex items-center justify-between gap-3 rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-1.5 text-xs text-destructive">
+                <span className="truncate">{sendError}</span>
+                <Button variant="outline" size="xs" onClick={handleRetry} disabled={isSending}>
+                  다시 보내기
+                </Button>
+              </div>
+            )}
+          </div>
+          <span className="sr-only" role="status" aria-live="polite">
+            {justSent ? '메시지가 전송되었습니다.' : ''}
+          </span>
         </div>
 
         {!canSendMessage && (

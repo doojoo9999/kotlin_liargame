@@ -11,11 +11,13 @@ export function Layout() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="system" storageKey="liar-game-theme">
-        <div className="h-screen bg-background flex flex-col overflow-hidden">
+        <div className="min-h-screen bg-background flex flex-col">
           <Header className="shrink-0" />
-          <main className="flex-1 overflow-hidden container mx-auto px-4">
-            <div className="h-full py-8 overflow-hidden">
-              <Outlet />
+          <main className="flex-1 overflow-hidden">
+            <div className="mx-auto w-full max-w-screen-2xl px-4">
+              <div className="flex min-h-0 flex-col overflow-y-auto py-8">
+                <Outlet />
+              </div>
             </div>
           </main>
           <Footer className="shrink-0" />
