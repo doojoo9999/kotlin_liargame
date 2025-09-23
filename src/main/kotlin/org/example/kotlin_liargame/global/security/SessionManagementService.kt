@@ -246,9 +246,19 @@ class SessionManagementService(
     
 
     fun rehydrateSession(session: HttpSession, existingInfo: SessionInfo? = null): Boolean {
-        val sessionInfo = existingInfo ?: getSessionInfoById(session.id) ?: return false
+        var sessionInfo = existingInfo ?: getSessionInfoById(session.id) ?: return false
 
         return try {
+            if (sessionInfo.sessionId != session.id) {
+                sessionIdToNickname.remove(sessionInfo.sessionId)
+                sessionIdToNickname[session.id] = sessionInfo.nickname
+                sessionInfo = sessionInfo.copy(sessionId = session.id)
+                activeSessions[sessionInfo.nickname] = sessionInfo
+            }
+
+            val now = LocalDateTime.now()
+            sessionInfo.lastActivity = now
+
             val userSessionData = UserSessionData(
                 userId = sessionInfo.userId,
                 nickname = sessionInfo.nickname,
@@ -265,7 +275,7 @@ class SessionManagementService(
                     userAgent = extractUserAgent(session),
                     ipAddress = sessionInfo.ipAddress,
                     createdAt = sessionInfo.loginTime,
-                    expiresAt = sessionInfo.lastActivity.plusMinutes(30)
+                    expiresAt = now.plusMinutes(30)
                 )
             )
             true

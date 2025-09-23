@@ -32,6 +32,8 @@ export interface PlayerResponse {
   userId: number
   nickname: string
   isAlive: boolean
+  isOnline: boolean
+  lastActiveAt?: string | null
   state: PlayerState
   hint?: string | null
   defense?: string | null

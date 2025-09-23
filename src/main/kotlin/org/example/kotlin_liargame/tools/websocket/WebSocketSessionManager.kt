@@ -1,6 +1,7 @@
 package org.example.kotlin_liargame.tools.websocket
 
 import jakarta.servlet.http.HttpSession
+import org.example.kotlin_liargame.global.security.SessionInfo
 import org.example.kotlin_liargame.global.security.SessionManagementService
 import org.example.kotlin_liargame.global.util.SessionUtil
 import org.slf4j.LoggerFactory
@@ -23,13 +24,34 @@ class WebSocketSessionManager(
 
     fun storeSession(webSocketSessionId: String, httpSession: HttpSession) {
         val userId = resolveUserId(httpSession, webSocketSessionId) ?: return
-        val nickname = sessionUtil.getUserNickname(httpSession)
+        storeSnapshot(
+            webSocketSessionId = webSocketSessionId,
+            userId = userId,
+            nickname = sessionUtil.getUserNickname(httpSession),
+            httpSessionId = httpSession.id
+        )
+    }
 
+    fun storeSession(webSocketSessionId: String, sessionInfo: SessionInfo) {
+        storeSnapshot(
+            webSocketSessionId = webSocketSessionId,
+            userId = sessionInfo.userId,
+            nickname = sessionInfo.nickname,
+            httpSessionId = sessionInfo.sessionId
+        )
+    }
+
+    private fun storeSnapshot(
+        webSocketSessionId: String,
+        userId: Long,
+        nickname: String?,
+        httpSessionId: String
+    ) {
         val snapshot = SessionSnapshot(
             sessionId = webSocketSessionId,
             userId = userId,
             nickname = nickname,
-            httpSessionId = httpSession.id,
+            httpSessionId = httpSessionId,
             connectedAt = Instant.now()
         )
 

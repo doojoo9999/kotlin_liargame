@@ -120,12 +120,16 @@ export class GameService {
         const hint = GameService.toOptionalString(playerRecord['hint']);
         const defense = GameService.toOptionalString(playerRecord['defense']);
         const votesReceived = GameService.toOptionalNumber(playerRecord['votesReceived']);
+        const lastActiveAt = GameService.toOptionalString(playerRecord['lastActiveAt'] ?? playerRecord['lastActive']);
+        const isOnline = GameService.toBoolean(playerRecord['isOnline'], true);
 
         const normalized: PlayerResponse = {
           id,
           userId,
           nickname,
           isAlive: GameService.toBoolean(playerRecord['isAlive'], true),
+          isOnline,
+          lastActiveAt,
           state,
           hasVoted: GameService.toBoolean(playerRecord['hasVoted'], false)
         };
