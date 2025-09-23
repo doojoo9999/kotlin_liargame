@@ -1,6 +1,7 @@
 package org.example.kotlin_liargame.tools.websocket
 
 import jakarta.servlet.http.HttpSession
+import org.example.kotlin_liargame.global.security.SessionManagementService
 import org.example.kotlin_liargame.global.util.SessionUtil
 import org.slf4j.LoggerFactory
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor
@@ -11,7 +12,8 @@ import java.util.concurrent.CopyOnWriteArraySet
 
 @Component
 class WebSocketSessionManager(
-    private val sessionUtil: SessionUtil
+    private val sessionUtil: SessionUtil,
+    private val sessionManagementService: SessionManagementService
 ) {
     private val logger = LoggerFactory.getLogger(WebSocketSessionManager::class.java)
 
@@ -115,10 +117,18 @@ class WebSocketSessionManager(
 
         sleepSafely(100)
         userId = sessionUtil.getUserId(httpSession)
-        if (userId == null) {
-            logger.warn("No userId found in HTTP session for WebSocket {} even after retries", sessionId)
+        if (userId != null) {
+            return userId
         }
-        return userId
+
+        sessionManagementService.getSessionInfoById(httpSession.id)?.let { info ->
+            if (sessionManagementService.rehydrateSession(httpSession, info)) {
+                return info.userId
+            }
+        }
+
+        logger.warn("No userId found in HTTP session for WebSocket {} even after retries", sessionId)
+        return null
     }
 
     private fun sleepSafely(millis: Long) {

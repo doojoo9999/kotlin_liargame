@@ -245,6 +245,36 @@ class SessionManagementService(
     }
     
 
+    fun rehydrateSession(session: HttpSession, existingInfo: SessionInfo? = null): Boolean {
+        val sessionInfo = existingInfo ?: getSessionInfoById(session.id) ?: return false
+
+        return try {
+            val userSessionData = UserSessionData(
+                userId = sessionInfo.userId,
+                nickname = sessionInfo.nickname,
+                loginTime = sessionInfo.loginTime,
+                lastActivity = sessionInfo.lastActivity,
+                ipAddress = sessionInfo.ipAddress
+            )
+            sessionDataManager.setUserSession(session, userSessionData)
+
+            sessionDataManager.setSessionMetadata(
+                session,
+                SessionMetadata(
+                    sessionId = sessionInfo.sessionId,
+                    userAgent = extractUserAgent(session),
+                    ipAddress = sessionInfo.ipAddress,
+                    createdAt = sessionInfo.loginTime,
+                    expiresAt = sessionInfo.lastActivity.plusMinutes(30)
+                )
+            )
+            true
+        } catch (e: Exception) {
+            println("[WARN] Failed to rehydrate session ${session.id}: ${e.message}")
+            false
+        }
+    }
+
     fun getSessionInfoById(sessionId: String): SessionInfo? {
         val nickname = sessionIdToNickname[sessionId] ?: return null
         return activeSessions[nickname]
