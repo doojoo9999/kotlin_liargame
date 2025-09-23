@@ -14,7 +14,6 @@ class HeartbeatController(
         val sessionId = accessor.sessionId
         if (sessionId != null) {
             connectionManager.handleHeartbeat(sessionId)
-            println("[HEARTBEAT] Received heartbeat from session: $sessionId")
         } else {
             println("[HEARTBEAT] Received heartbeat without session ID")
         }

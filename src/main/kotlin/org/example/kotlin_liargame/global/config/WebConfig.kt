@@ -1,6 +1,7 @@
 package org.example.kotlin_liargame.global.config
 
 import org.example.kotlin_liargame.global.security.RateLimitingInterceptor
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
@@ -11,7 +12,8 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer
 
 @Configuration
 class WebConfig(
-    private val rateLimitingInterceptor: RateLimitingInterceptor
+    private val rateLimitingInterceptor: RateLimitingInterceptor,
+    @Value("\${ratelimit.enabled:true}") private val rateLimitEnabled: Boolean
 ) : WebMvcConfigurer {
 
     @Bean
@@ -20,13 +22,15 @@ class WebConfig(
     }
     
     override fun addInterceptors(registry: InterceptorRegistry) {
-        registry.addInterceptor(rateLimitingInterceptor)
-            .addPathPatterns("/api/**") // API 경로에만 적용
-            .excludePathPatterns(
-                "/api/v1/admin/health",
-                "/actuator/**",
-                "/h2-console/**"
-            )
+        if (rateLimitEnabled) {
+            registry.addInterceptor(rateLimitingInterceptor)
+                .addPathPatterns("/api/**") // API 경로에만 적용
+                .excludePathPatterns(
+                    "/api/v1/admin/health",
+                    "/actuator/**",
+                    "/h2-console/**"
+                )
+        }
     }
     
     override fun addCorsMappings(registry: CorsRegistry) {
@@ -61,8 +65,12 @@ class WebConfig(
             else -> arrayOf(
                 "http://localhost:3000",
                 "http://localhost:5173",
+                "http://localhost:5174",
+                "http://localhost:5175",
                 "http://127.0.0.1:3000",
-                "http://127.0.0.1:5173"
+                "http://127.0.0.1:5173",
+                "http://127.0.0.1:5174",
+                "http://127.0.0.1:5175"
             )
         }
     }

@@ -1,0 +1,27 @@
+{
+  "mcpServers": {
+    "Live CSS Inspector MCP": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "live-css-debugger@latest"
+      ],
+      "env": {
+        "TARGET_URL": "http://localhost:5175",
+        "LIVE_RELOAD": "true",
+        "WATCH_CSS_CHANGES": "true",
+        "AUTO_SCREENSHOT": "true",
+        "HIGHLIGHT_ISSUES": "true",
+        "TRACK_BORDER_COLORS": "true",
+        "DETECT_WHITE_BORDERS": "true",
+        "MONITOR_TAILWIND": "true",
+        "EXPORT_REPORTS": "true",
+        "UPDATE_INTERVAL": "2000",
+        "SCREENSHOTS_DIR": "./screenshots",
+        "REPORTS_DIR": "./css-reports",
+        "BROWSER_DEVTOOLS": "true",
+        "CONSOLE_LOGGING": "verbose"
+      }
+    }
+  }
+}

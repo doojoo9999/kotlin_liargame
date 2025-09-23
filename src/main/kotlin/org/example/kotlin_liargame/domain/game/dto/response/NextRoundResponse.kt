@@ -1,5 +1,6 @@
 package org.example.kotlin_liargame.domain.game.dto.response
 
+import org.example.kotlin_liargame.domain.game.dto.GameFlowPayload
 import java.time.Instant
 
 data class NextRoundResponse(
@@ -8,4 +9,4 @@ data class NextRoundResponse(
     val totalRounds: Int,
     val message: String,
     val timestamp: Instant = Instant.now()
-)
+) : GameFlowPayload

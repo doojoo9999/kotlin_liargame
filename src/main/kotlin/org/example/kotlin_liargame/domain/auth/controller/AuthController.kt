@@ -1,108 +1,117 @@
 package org.example.kotlin_liargame.domain.auth.controller
 
 import jakarta.servlet.http.HttpSession
+import jakarta.validation.Valid
 import org.example.kotlin_liargame.domain.auth.dto.request.LoginRequest
 import org.example.kotlin_liargame.domain.auth.dto.response.LoginResponse
 import org.example.kotlin_liargame.domain.user.service.UserService
+import org.example.kotlin_liargame.global.security.SessionManagementService
+import org.example.kotlin_liargame.global.security.SessionRegistrationResult
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 
 @RestController
 @RequestMapping("/api/v1/auth")
 class AuthController(
-    private val userService: UserService
+    private val userService: UserService,
+    private val sessionManagementService: SessionManagementService
 ) {
 
     @PostMapping("/login")
     fun login(
-        @RequestBody request: LoginRequest, 
+        @RequestBody @Valid request: LoginRequest,
         session: HttpSession
     ): ResponseEntity<LoginResponse> {
-        val user = userService.authenticate(request.nickname, request.password)
+        return try {
+            println("[DEBUG] Login request received - nickname: ${request.nickname}, password: ${if (request.password.isNullOrEmpty()) "empty" else "provided"}")
+            
+            val user = userService.authenticate(request.getSanitizedNickname(), request.getEffectivePassword())
 
-        session.setAttribute("userId", user.id)
-        session.setAttribute("nickname", user.nickname)
+            // SessionManagementService에서 동시 세션 제어와 등록을 안전하게 처리
+            val result = sessionManagementService.registerSession(session, user.nickname, user.id)
 
-        return ResponseEntity.ok(LoginResponse(
-            success = true,
-            userId = user.id,
-            nickname = user.nickname
-        ))
+            if (result != SessionRegistrationResult.SUCCESS) {
+                println("[ERROR] Session registration failed for user: ${user.nickname}")
+                return ResponseEntity.status(500).body(LoginResponse(
+                    success = false,
+                    userId = null,
+                    nickname = null,
+                    message = "세션 등록에 실패했습니다."
+                ))
+            }
+
+            println("[SUCCESS] User authenticated and session created: ${user.nickname}")
+            ResponseEntity.ok(LoginResponse(
+                success = true,
+                userId = user.id,
+                nickname = user.nickname
+            ))
+        } catch (e: Exception) {
+            println("[ERROR] Login failed: ${e.message}")
+            e.printStackTrace()
+            ResponseEntity.status(500).body(LoginResponse(
+                success = false,
+                userId = null,
+                nickname = null,
+                message = "로그인 처리 중 오류가 발생했습니다: ${e.message}"
+            ))
+        }
     }
 
     @PostMapping("/logout")
     fun logout(session: HttpSession): ResponseEntity<Map<String, Boolean>> {
-        session.invalidate()
+        // JSON 세션 데이터 완전 삭제
+        sessionManagementService.logout(session)
         return ResponseEntity.ok(mapOf("success" to true))
     }
 
     @PostMapping("/refresh-session")
     fun refreshSession(session: HttpSession): ResponseEntity<Map<String, Any>> {
-        // 세션이 유효한지 확인
-        val userId = session.getAttribute("userId") as? Long
-        val nickname = session.getAttribute("nickname") as? String
+        // 세션이 유효한지 확인 (JSON 역직렬화 방식)
+        val validationResult = sessionManagementService.validateSession(session)
 
-        if (userId == null) {
+        if (validationResult != org.example.kotlin_liargame.global.security.SessionValidationResult.VALID) {
             return ResponseEntity.badRequest().body(mapOf(
                 "success" to false,
                 "message" to "세션이 유효하지 않습니다."
             ))
         }
 
-        // 세션 갱신 (기존 속성 유지)
-        session.setAttribute("userId", userId)
-        if (nickname != null) {
-            session.setAttribute("nickname", nickname)
+        val userId = sessionManagementService.getUserId(session)
+        val nickname = sessionManagementService.getNickname(session)
+
+        // null 체크 후 안전한 타입 변환
+        if (userId == null || nickname == null) {
+            return ResponseEntity.badRequest().body(mapOf(
+                "success" to false,
+                "message" to "세션 데이터를 가져올 수 없습니다."
+            ))
         }
 
-        // 세션 속성 모두 출력 (디버깅용)
-        println("[DEBUG] Session refreshed. Attributes:")
-        session.attributeNames.asIterator().forEach { name ->
-            println("[DEBUG]   - $name: ${session.getAttribute(name)}")
-        }
+        println("[DEBUG] Session refreshed for user: $nickname (ID: $userId)")
 
         return ResponseEntity.ok(mapOf(
             "success" to true,
-            "userId" to userId,
-            "nickname" to (nickname ?: "Unknown"),
-            "sessionId" to session.id
+            "userId" to userId as Any,
+            "nickname" to nickname as Any,
+            "message" to "세션이 갱신되었습니다."
         ))
     }
 
-    @GetMapping("/me")
-    fun getCurrentUser(session: HttpSession): ResponseEntity<Map<String, Any>> {
-        val userId = session.getAttribute("userId") as? Long
-        val nickname = session.getAttribute("nickname") as? String
+    @GetMapping("/check")
+    fun checkAuth(session: HttpSession): ResponseEntity<Map<String, Any>> {
+        val userId = sessionManagementService.getUserId(session)
+        val nickname = sessionManagementService.getNickname(session)
 
-        if (userId == null) {
-            return ResponseEntity.status(401).body(mapOf(
-                "authenticated" to false,
-                "message" to "Not authenticated"
-            ))
-        }
-
-        // 세션 정보 출력 (디버깅용)
-        println("[DEBUG] Session check. ID: ${session.id}, Attributes:")
-        session.attributeNames.asIterator().forEach { name ->
-            println("[DEBUG]   - $name: ${session.getAttribute(name)}")
-        }
-
-        try {
-            val user = userService.findById(userId)
-            return ResponseEntity.ok(mapOf(
+        return if (userId != null && nickname != null) {
+            ResponseEntity.ok(mapOf(
                 "authenticated" to true,
-                "userId" to userId,
-                "nickname" to user.nickname,
-                "sessionId" to session.id
+                "userId" to userId as Any,
+                "nickname" to nickname as Any
             ))
-        } catch (e: Exception) {
-            // 사용자 조회 실패 시에도 세션 정보는 반환
-            println("[WARN] Failed to fetch user details: ${e.message}")
-            return ResponseEntity.ok(mapOf(
-                "authenticated" to true,
-                "userId" to userId,
-                "nickname" to (nickname ?: "Unknown"),
-                "sessionId" to session.id
+        } else {
+            ResponseEntity.ok(mapOf(
+                "authenticated" to false
             ))
         }
     }

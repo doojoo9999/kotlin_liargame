@@ -1,5 +1,6 @@
 package org.example.kotlin_liargame.domain.game.dto.response
 
+import org.example.kotlin_liargame.domain.game.dto.GameFlowPayload
 import java.time.Instant
 
 data class LiarGuessStartResponse(
@@ -8,4 +9,4 @@ data class LiarGuessStartResponse(
     val citizenSubject: String,
     val guessTimeLimit: Int = 30,
     val timestamp: Instant = Instant.now()
-)
+) : GameFlowPayload

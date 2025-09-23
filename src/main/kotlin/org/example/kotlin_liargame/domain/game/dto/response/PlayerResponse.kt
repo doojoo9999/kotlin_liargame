@@ -4,6 +4,7 @@ import org.example.kotlin_liargame.domain.game.model.PlayerEntity
 
 data class PlayerResponse(
     val id: Long,
+    val userId: Long,
     val nickname: String,
     val isAlive: Boolean,
     val state: String,
@@ -16,6 +17,7 @@ data class PlayerResponse(
         fun from(player: PlayerEntity): PlayerResponse {
             return PlayerResponse(
                 id = player.id,
+                userId = player.userId,
                 nickname = player.nickname,
                 isAlive = player.isAlive,
                 state = player.state.name,
@@ -27,4 +29,3 @@ data class PlayerResponse(
         }
     }
 }
-

@@ -9,6 +9,7 @@ import org.example.kotlin_liargame.domain.chat.dto.response.ChatMessageResponse
 import org.example.kotlin_liargame.domain.chat.model.enum.ChatMessageType
 import org.example.kotlin_liargame.domain.chat.service.ChatService
 import org.example.kotlin_liargame.domain.game.service.GameProgressService
+import org.example.kotlin_liargame.global.util.SessionUtil
 import org.springframework.http.ResponseEntity
 import org.springframework.messaging.handler.annotation.MessageMapping
 import org.springframework.messaging.handler.annotation.Payload
@@ -21,7 +22,8 @@ import org.springframework.web.bind.annotation.*
 class ChatController(
     private val chatService: ChatService,
     private val messagingTemplate: SimpMessagingTemplate,
-    private val gameProgressService: GameProgressService
+    private val gameProgressService: GameProgressService,
+    private val sessionUtil: SessionUtil
 ) {
 
     @PostMapping("/send")
@@ -34,81 +36,25 @@ class ChatController(
         return ResponseEntity.ok(response)
     }
     
-    @MessageMapping("/chat.send")
+    @MessageMapping("/chat.send")  // "/send"에서 "/chat.send"로 변경하여 프론트엔드와 일치시킴
     fun handleChatMessage(
         @Valid @Payload request: SendChatMessageRequest,
         headerAccessor: SimpMessageHeaderAccessor
     ) {
         try {
-            println("[DEBUG] WebSocket chat message received: gameNumber=${request.gameNumber}, content='${request.content}'")
+            // 세션 속성 추출
+            val sessionAttributes = headerAccessor.sessionAttributes
+            val webSocketSessionId = headerAccessor.sessionId
 
-            // 세션 액세서의 모든 정보 로깅
-            println("[DEBUG] MessageHeaders: ${headerAccessor.messageHeaders.keys}")
-            println("[DEBUG] SessionId: ${headerAccessor.sessionId}")
-            println("[DEBUG] SessionAttributes: ${headerAccessor.sessionAttributes?.keys}")
+            // ChatService의 실제 로직 사용 (임시 처리 제거)
+            val response = chatService.sendMessageViaWebSocket(request, sessionAttributes, webSocketSessionId)
 
-            // 다양한 방법으로 사용자 인증 정보 추출 시도
-            var sessionAttributes = headerAccessor.sessionAttributes
-
-            // 1. WebSocket 세션 속성에서 직접 userId 추출 시도
-            var userId = sessionAttributes?.get("userId") as? Long
-            if (userId != null) {
-                println("[DEBUG] Found userId in WebSocket session attributes: $userId")
-            }
-
-            // 2. HttpSession에서 userId 추출 시도
-            if (userId == null) {
-                val httpSession = sessionAttributes?.get("HTTP.SESSION") as? HttpSession
-                if (httpSession != null) {
-                    userId = httpSession.getAttribute("userId") as? Long
-                    if (userId != null) {
-                        println("[DEBUG] Found userId in HTTP session: $userId")
-                        // WebSocket 세션에 userId 저장
-                        if (sessionAttributes == null) {
-                            sessionAttributes = mutableMapOf()
-                            headerAccessor.sessionAttributes = sessionAttributes
-                        }
-                        sessionAttributes["userId"] = userId
-                        
-                        // nickname도 함께 저장
-                        val nickname = httpSession.getAttribute("nickname") as? String
-                        if (nickname != null) {
-                            sessionAttributes["nickname"] = nickname
-                        }
-                    }
-                } else {
-                    println("[DEBUG] No HTTP session found in WebSocket connection")
-                }
-            }
-
-            // 3. 세션 속성이 없는 경우 빈 맵으로 초기화
-            if (sessionAttributes == null) {
-                sessionAttributes = mutableMapOf()
-                headerAccessor.sessionAttributes = sessionAttributes
-            }
-
-            // 모든 세션 속성 정보 로깅
-            sessionAttributes.forEach { (key, value) ->
-                println("[DEBUG] Final session attribute: $key = $value")
-            }
-
-            // ChatService 호출 (userId가 null이어도 ChatService에서 처리)
-            val response = chatService.sendMessageViaWebSocket(request, sessionAttributes, headerAccessor.sessionId)
             messagingTemplate.convertAndSend("/topic/chat.${request.gameNumber}", response)
-            
-            println("[DEBUG] WebSocket chat message sent successfully")
-            
+
+            // 중요한 에러만 로그 출력
         } catch (e: Exception) {
-            println("[ERROR] WebSocket chat error: ${e.message}")
-            e.printStackTrace()
-            
-            // Send error message back to the client
-            val errorMessage = mapOf(
-                "error" to true,
-                "message" to (e.message ?: "Unknown error occurred"),
-                "gameNumber" to request.gameNumber
-            )
-            messagingTemplate.convertAndSend("/topic/chat.error.${request.gameNumber}", errorMessage)
+            println("[ERROR] WebSocket chat message handling failed: ${e.message}")
+            throw e
         }
     }
 
@@ -117,7 +63,7 @@ class ChatController(
         @RequestParam gameNumber: Int,
         @RequestParam(required = false) type: String?,
         @RequestParam(required = false) round: Int?,
-        @RequestParam(required = false, defaultValue = "50") limit: Int
+        @RequestParam(required = false, defaultValue = "100") limit: Int
     ): ResponseEntity<List<ChatMessageResponse>> {
         val messageType = type?.let { 
             ChatMessageType.valueOf(it) 
@@ -152,7 +98,7 @@ class ChatController(
     @PostMapping("/speech/complete")
     fun completeSpeech(@RequestBody request: CompleteSpeechRequest, session: HttpSession): ResponseEntity<String> {
         return try {
-            val userId = session.getAttribute("userId") as? Long
+            val userId = sessionUtil.getUserId(session)
                 ?: return ResponseEntity.status(401).body("Not authenticated")
                 
             gameProgressService.markPlayerAsSpoken(request.gameNumber.toInt(), userId)

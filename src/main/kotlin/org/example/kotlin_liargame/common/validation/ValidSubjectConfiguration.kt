@@ -36,6 +36,7 @@ class ValidSubjectConfigurationValidator : ConstraintValidator<ValidSubjectConfi
         }
     }
     
+    @Suppress("UNUSED_PARAMETER")
     private fun validateCreateGameRoomRequest(value: Any, context: ConstraintValidatorContext?): Boolean {
         val clazz = value::class.java
         

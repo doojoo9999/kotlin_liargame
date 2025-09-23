@@ -1,0 +1,57 @@
+spring:
+  application:
+    name: kotlin-liargame
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/liargame
+    username: liar_game
+    password: change-me
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 3
+      connection-timeout: 30000
+
+  session:
+    store-type: redis
+    redis:
+      namespace: liargame:session
+      flush-mode: immediate
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: ""
+      ssl:
+        enabled: false
+      timeout: 3s
+
+# Game service tuning defaults
+game:
+  properties:
+    min-players: 3
+    max-players: 15
+    turn-timeout-seconds: 60
+    voting-time-seconds: 60
+    defense-time-seconds: 60
+    final-voting-time-seconds: 30
+    topic-guess-time-seconds: 30
+    post-round-chat-duration-seconds: 7
+    max-message-length: 500
+    max-game-duration-hours: 2
+    session-extension-minutes: 5
+    phase-transition-delay-seconds: 3
+    answer-similarity-threshold: 0.7
+    game-cleanup-interval-seconds: 30
+
+  state-storage:
+    # Available strategies: redis, in_memory, hybrid
+    strategy: hybrid
+    hybrid-write-through: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "prometheus,health"

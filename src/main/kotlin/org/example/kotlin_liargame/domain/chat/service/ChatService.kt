@@ -19,7 +19,6 @@ import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
@@ -31,18 +30,15 @@ class ChatService(
     private val playerRepository: PlayerRepository,
     private val messagingTemplate: SimpMessagingTemplate,
     private val webSocketSessionManager: WebSocketSessionManager,
-    private val profanityService: ProfanityService
+    private val profanityService: ProfanityService,
+    private val gameProperties: org.example.kotlin_liargame.global.config.GameProperties,
+    private val gameStateService: org.example.kotlin_liargame.global.redis.GameStateService,
+    private val sessionService: org.example.kotlin_liargame.global.session.SessionService,
+    private val gameMessagingService: org.example.kotlin_liargame.global.messaging.GameMessagingService,
+    private val sessionUtil: org.example.kotlin_liargame.global.util.SessionUtil,
+    @org.springframework.context.annotation.Lazy private val votingService: org.example.kotlin_liargame.domain.game.service.VotingService
 ) {
-    private val postRoundChatWindows = ConcurrentHashMap<Int, Instant>()
-
     private val scheduler: ScheduledExecutorService = Executors.newScheduledThreadPool(1)
-
-    private val POST_ROUND_CHAT_DURATION = 7L
-
-    fun getCurrentUserId(session: HttpSession): Long {
-        return session.getAttribute("userId") as? Long
-            ?: throw RuntimeException("Not authenticated")
-    }
 
     // WebSocket용 별도 메서드
     @Transactional
@@ -51,35 +47,61 @@ class ChatService(
         sessionAttributes: Map<String, Any>?,
         webSocketSessionId: String?
     ): ChatMessageResponse {
-        println("[DEBUG] WebSocket message: sessionAttributes = ${sessionAttributes?.keys}, sessionId = $webSocketSessionId")
+        // 세션에서 userId 추출
+        var userId = sessionAttributes?.get("userId") as? Long
 
-        // 디버깅을 위해 세션 속성 출력
+        // HTTP 세션 참조를 먼저 가져오기
+        val httpSession = sessionAttributes?.get("HTTP.SESSION") as? HttpSession
+
+        // WebSocket 세션에서 userId를 찾을 수 없는 경우 HTTP 세션에서 찾기
+        if (userId == null) {
+            if (httpSession != null) {
+                // JSON 직렬화 방식으로 사용자 ID 조회
+                userId = sessionUtil.getUserId(httpSession)
+                println("[DEBUG] Using userId from HTTP session (JSON): $userId")
+            }
+        }
+
+        // WebSocketSessionManager에서 userId 찾기
+        if (userId == null && webSocketSessionId != null) {
+            userId = webSocketSessionManager.getUserId(webSocketSessionId)
+            println("[DEBUG] Using userId from WebSocketSessionManager: $userId")
+
+            // WebSocket 세션에 사용자 정보가 없는 경우 HTTP 세션로부터 갱신 시도
+            if (userId == null && httpSession != null) {
+                println("[DEBUG] Attempting to refresh WebSocket session info...")
+                webSocketSessionManager.refreshSessionInfo(webSocketSessionId, httpSession)
+                userId = webSocketSessionManager.getUserId(webSocketSessionId)
+                println("[DEBUG] After refresh, userId from WebSocketSessionManager: $userId")
+            }
+        }
+
+        // 디버깅: WebSocket 메시지의 세션 정보
+        println("[DEBUG] WebSocket message: sessionAttributes = ${sessionAttributes?.keys}, sessionId = $webSocketSessionId")
         sessionAttributes?.forEach { (key, value) ->
             println("[DEBUG] Session attribute: $key = $value")
         }
 
-        // 1차: 세션 속성에서 직접 userId 추출 시도
-        var userId = sessionAttributes?.get("userId") as? Long
+        // HTTP 세션 값 확인 (JSON 직렬화 방식)
+        if (httpSession != null) {
+            val httpUserId = sessionUtil.getUserId(httpSession)
+            val httpNickname = sessionUtil.getUserNickname(httpSession)
+            println("[DEBUG] HTTP Session values (JSON) - userId: $httpUserId, nickname: $httpNickname")
 
-        // 2차: WebSocketSessionManager를 통한 fallback 인증 시도
-        if (userId == null && webSocketSessionId != null) {
-            println("[DEBUG] Attempting fallback authentication via WebSocketSessionManager for sessionId: $webSocketSessionId")
-            userId = webSocketSessionManager.getUserId(webSocketSessionId)
-            if (userId != null) {
-                println("[DEBUG] Found userId via WebSocketSessionManager: $userId")
+            if (userId == null) {
+                userId = httpUserId
+                println("[DEBUG] Using userId from HTTP session (JSON): $userId")
             }
         }
 
-        // 3차: 최후의 수단으로 게임 참가자 중에서 추정 (임시 해결책)
+        // 싱글 플레이어 게임의 경우 userId 자동 결정
         if (userId == null) {
-            println("[WARN] No userId found through normal channels, attempting game-based fallback")
             val game = gameRepository.findByGameNumber(req.gameNumber)
             if (game != null) {
                 val players = playerRepository.findByGame(game)
                 if (players.size == 1) {
-                    // 게임에 플레이어가 1명만 있는 경우, 해당 플레이어로 추정
                     userId = players.first().userId
-                    println("[DEBUG] Single player game detected, using userId: $userId")
+                    println("[DEBUG] Single player game, using userId: $userId")
                 } else {
                     println("[DEBUG] Multiple players in game, cannot determine user without authentication")
                 }
@@ -87,49 +109,186 @@ class ChatService(
         }
 
         if (userId == null) {
-            // 인증 실패 시 더 자세한 오류 정보
+            // 인증 실패 시 더 상세한 오류 정보
             println("[ERROR] WebSocket authentication failed. Session attributes available: ${sessionAttributes?.keys}")
             println("[ERROR] WebSocketSessionId: $webSocketSessionId")
-            println("[ERROR] WebSocketSessionManager state:")
-            webSocketSessionManager.printSessionInfo()
+            println("[ERROR] HTTP Session userId (JSON): ${httpSession?.let { sessionUtil.getUserId(it) }}")
             throw RuntimeException("Not authenticated via WebSocket")
         }
 
         println("[DEBUG] WebSocket message authenticated for userId: $userId")
+
+        // WebSocketSessionManager에서 플레이어의 현재 게임 번호 확인
+        val playerCurrentGame = webSocketSessionManager.getPlayerGame(userId)
+        if (playerCurrentGame != null && playerCurrentGame != req.gameNumber) {
+            println("[WARN] Player $userId is trying to send message to game ${req.gameNumber}, but is registered in game $playerCurrentGame")
+            // 플레이어의 현재 게임으로 메시지 전송하도록 gameNumber 업데이트
+            val correctedRequest = SendChatMessageRequest(
+                gameNumber = playerCurrentGame,
+                content = req.content,
+                playerNickname = req.playerNickname
+            )
+            return sendMessageWithUserId(correctedRequest, userId)
+        }
+
         return sendMessageWithUserId(req, userId)
     }
     
     private fun sendMessageWithUserId(req: SendChatMessageRequest, userId: Long): ChatMessageResponse {
+        // 욕설 필터링
         val approvedWords = profanityService.getApprovedWords()
         val lowerContent = req.content.lowercase()
         if (approvedWords.any { lowerContent.contains(it) }) {
             throw IllegalArgumentException("메시지에 부적절한 단어가 포함되어 있습니다.")
         }
 
+        // 메시지 내용 검증 및 sanitize
+        if (!req.isValidLength()) {
+            throw IllegalArgumentException("메시지 길이가 유효하지 않습니다.")
+        }
+
+        val sanitizedContent = req.getSanitizedContent()
+
+        println("[DEBUG] Looking for game with gameNumber: ${req.gameNumber}")
         val game = gameRepository.findByGameNumber(req.gameNumber)
             ?: throw RuntimeException("Game not found")
         
+        println("[DEBUG] Found game: ${game.gameName} (ID: ${game.id})")
+
+        // 게임의 모든 플레이어 조회하여 디버깅
+        val allPlayers = playerRepository.findByGame(game)
+        println("[DEBUG] All players in game ${req.gameNumber}:")
+        allPlayers.forEach { player ->
+            println("[DEBUG]   - Player userId=${player.userId} (pk=${player.id}), Nickname=${player.nickname}")
+        }
+
+        println("[DEBUG] Looking for player with userId: $userId in game: ${req.gameNumber}")
         val player = playerRepository.findByGameAndUserId(game, userId)
-            ?: throw RuntimeException("You are not in this game")
-        
+
+        if (player == null) {
+            println("[ERROR] Player not found! userId: $userId, gameNumber: ${req.gameNumber}")
+            println("[ERROR] Available players in this game:")
+            allPlayers.forEach { p ->
+                println("[ERROR]   - UserId: ${p.userId}, Nickname: ${p.nickname}")
+            }
+            throw RuntimeException("You are not in this game")
+        }
+
+        println("[DEBUG] Found player: ${player.nickname} (userId=${player.userId}, pk=${player.id})")
+
         val messageType = determineMessageType(game, player)
             ?: throw RuntimeException("Chat not available")
         
+        println("[DEBUG] Message type determined: $messageType")
+
         val chatMessage = ChatMessageEntity(
             game = game,
             player = player,
-            content = req.content,
+            content = sanitizedContent,
             type = messageType
         )
         
-        return ChatMessageResponse.from(chatMessageRepository.save(chatMessage))
+        // 채팅 입력 시 게임의 마지막 활동 시간 업데이트 (부재 시간 초기화)
+        game.lastActivityAt = Instant.now()
+
+        val savedMessage = chatMessageRepository.save(chatMessage)
+
+        // 힌트 입력 시 자동으로 다음 턴으로 진행
+        val currentPhase = determineGamePhase(game, allPlayers)
+        println("[DEBUG] Current phase: $currentPhase, Message type: $messageType")
+        println("[DEBUG] Game state: ${game.gameState}, Current player userId: ${game.currentPlayerId}, Player userId: ${player.userId}")
+
+        if (messageType == ChatMessageType.HINT &&
+            game.gameState == GameState.IN_PROGRESS &&
+            currentPhase == GamePhase.SPEECH &&
+            game.currentPlayerId == player.userId) {
+
+            println("[DEBUG] All conditions met for turn progression - Processing hint from current player ${player.nickname}")
+
+            // 플레이어 상태를 힌트 제공 완료로 변경
+            player.state = org.example.kotlin_liargame.domain.game.model.enum.PlayerState.GAVE_HINT
+            playerRepository.save(player)
+
+            // 다음 턴으로 진행
+            try {
+                proceedToNextTurn(game)
+                println("[DEBUG] Successfully proceeded to next turn")
+            } catch (e: Exception) {
+                println("[ERROR] Failed to proceed to next turn: ${e.message}")
+                e.printStackTrace()
+            }
+        } else {
+            println("[DEBUG] Conditions not met for turn progression:")
+            println("[DEBUG] - Is HINT message: ${messageType == ChatMessageType.HINT}")
+            println("[DEBUG] - Game IN_PROGRESS: ${game.gameState == GameState.IN_PROGRESS}")
+            println("[DEBUG] - Phase SPEECH: ${currentPhase == GamePhase.SPEECH}")
+            println("[DEBUG] - Is current player: ${game.currentPlayerId == player.userId}")
+        }
+
+        return ChatMessageResponse.from(savedMessage)
+    }
+
+    private fun proceedToNextTurn(game: GameEntity) {
+        // 현재 턴 인덱스 증가
+        game.currentTurnIndex += 1
+
+        val turnOrder = game.turnOrder?.split(',') ?: emptyList()
+
+        // 모든 플레이어가 힌트를 제공했거나 턴이 끝난 경우 투표 단계로 진행
+        if (game.currentTurnIndex >= turnOrder.size) {
+            println("[DEBUG] All players completed hints (currentTurnIndex: ${game.currentTurnIndex}, turnOrder.size: ${turnOrder.size})")
+            println("[DEBUG] Starting voting phase...")
+
+            try {
+                // 주입받은 VotingService 직접 사용
+                votingService.startVotingPhase(game)
+                println("[DEBUG] Successfully started voting phase")
+
+                // 투표 시작 시스템 메시지를 딜레이와 함께 전송
+                scheduler.schedule({
+                    try {
+                        sendSystemMessage(game, "🗳️ 투표 단계가 시작되었습니다! 라이어라고 생각하는 플레이어에게 투표해주세요.")
+                        println("[DEBUG] Voting phase start message sent")
+                    } catch (e: Exception) {
+                        println("[ERROR] Failed to send voting start message: ${e.message}")
+                    }
+                }, 1000, TimeUnit.MILLISECONDS) // 1초 딜레이
+
+            } catch (e: Exception) {
+                println("[ERROR] Failed to start voting phase: ${e.message}")
+                e.printStackTrace()
+            }
+            return
+        }
+
+        // 다음 플레이어의 차례 시작
+        val nextPlayerNickname = turnOrder[game.currentTurnIndex]
+        val players = playerRepository.findByGame(game)
+        val nextPlayer = players.find { it.nickname == nextPlayerNickname }
+
+        if (nextPlayer != null) {
+            game.currentPlayerId = nextPlayer.userId
+            game.turnStartedAt = Instant.now()
+            game.phaseEndTime = Instant.now().plusSeconds(gameProperties.turnTimeoutSeconds)
+            gameRepository.save(game)
+
+            // 메시지 전송 순서를 보장하기 위해 약간의 지연 추가
+            scheduler.schedule({
+                try {
+                    sendSystemMessage(game, "🎯 ${nextPlayer.nickname}님의 차례입니다! 힌트를 말해주세요. (${gameProperties.turnTimeoutSeconds}초)")
+                    println("[DEBUG] Next turn message sent for ${nextPlayer.nickname}")
+                } catch (e: Exception) {
+                    println("[ERROR] Failed to send turn start message: ${e.message}")
+                }
+            }, 500, TimeUnit.MILLISECONDS) // 500ms 지연
+        }
     }
 
 
 
     @Transactional
     fun sendMessage(req: SendChatMessageRequest, session: HttpSession): ChatMessageResponse {
-        val userId = getCurrentUserId(session)
+        val userId = sessionService.getCurrentUserId(session)
         return sendMessageWithUserId(req, userId)
     }
 
@@ -150,14 +309,14 @@ class ChatService(
         val allPlayers = playerRepository.findByGame(game)
         println("[DEBUG] Players in game ${req.gameNumber}:")
         allPlayers.forEach { player ->
-            println("[DEBUG]   - Player: ${player.nickname} (ID: ${player.id}, UserId: ${player.userId})")
+            println("[DEBUG]   - Player: ${player.nickname} (userId=${player.userId}, pk=${player.id})")
         }
         
         // 해당 게임의 모든 채팅 메시지 조회 (필터 없이)
         val allMessages = chatMessageRepository.findByGame(game)
         println("[DEBUG] All messages in database for game ${req.gameNumber}: ${allMessages.size}")
         allMessages.forEach { msg ->
-            println("[DEBUG]   - Message ID: ${msg.id}, Player: ${msg.player.nickname}, Content: '${msg.content}', Type: ${msg.type}, Time: ${msg.timestamp}")
+            println("[DEBUG]   - Message ID: ${msg.id}, Player: ${msg.player?.nickname ?: "SYSTEM"}, Content: '${msg.content}', Type: ${msg.type}, Time: ${msg.timestamp}")
         }
         
         // 필터링 적용
@@ -193,27 +352,107 @@ class ChatService(
     }
     
     private fun determineMessageType(game: GameEntity, player: PlayerEntity): ChatMessageType? {
+        println("[ChatService] === DETERMINE MESSAGE TYPE DEBUG ===")
+        println("[ChatService] Player DB pk: ${player.id} (userId=${player.userId})")
+        println("[ChatService] Player nickname: ${player.nickname}")
+        println("[ChatService] Player isAlive: ${player.isAlive}")
+        println("[ChatService] Game state: ${game.gameState}")
+        println("[ChatService] Game currentPlayerId: ${game.currentPlayerId}")
+        println("[ChatService] Game turnStartedAt: ${game.turnStartedAt}")
+
         if (!player.isAlive) {
+            println("[ChatService] Player is not alive, returning null")
             return null
         }
         
         val players = playerRepository.findByGame(game)
         val currentPhase = determineGamePhase(game, players)
+        println("[ChatService] Current phase: $currentPhase")
 
         if (game.gameState == GameState.IN_PROGRESS) {
             return when (currentPhase) {
-                GamePhase.GIVING_HINTS -> ChatMessageType.HINT
-                GamePhase.VOTING_FOR_LIAR -> ChatMessageType.DISCUSSION
-                GamePhase.DEFENDING -> ChatMessageType.DEFENSE
-                else -> null
+                GamePhase.SPEECH -> {
+                    println("[ChatService] In SPEECH phase")
+                    println("[ChatService] Current player ID: ${game.currentPlayerId}")
+                    println("[ChatService] Is current player: ${game.currentPlayerId == player.userId}")
+
+                    // SPEECH 페이즈에서는 현재 턴인 플레이어만 채팅 가능하고, 아직 힌트를 제공하지 않은 경우에만
+                    if (game.currentPlayerId == player.userId) {
+                        println("[ChatService] Player is current turn player")
+
+                        // 이미 힌트를 제공했는지 확인
+                        val existingHint = chatMessageRepository.findTopByGameAndPlayerAndTypeOrderByTimestampDesc(
+                            game, player, ChatMessageType.HINT
+                        )
+                        println("[ChatService] Existing hint: $existingHint")
+
+                        // 현재 턴에서 이미 힌트를 제공했는지 확인 (턴이 시작된 이후에 힌트가 있는지)
+                        val hasProvidedHintInCurrentTurn = existingHint != null &&
+                            game.turnStartedAt != null &&
+                            existingHint.timestamp.isAfter(game.turnStartedAt)
+
+                        println("[ChatService] Has provided hint in current turn: $hasProvidedHintInCurrentTurn")
+
+                        if (hasProvidedHintInCurrentTurn) {
+                            println("[ChatService] Already provided hint, returning null")
+                            // 이미 힌트를 제공했으면 채팅 불가
+                            null
+                        } else {
+                            println("[ChatService] Can provide hint, returning HINT")
+                            ChatMessageType.HINT
+                        }
+                    } else {
+                        println("[ChatService] Not current turn player, returning null")
+                        // 현재 턴이 아닌 플레이어는 채팅 불가
+                        null
+                    }
+                }
+                GamePhase.VOTING_FOR_LIAR -> {
+                    println("[ChatService] In VOTING_FOR_LIAR phase, returning null to enable voting UI")
+                    // 투표 단계에서는 채팅이 아닌 투표 UI가 표시되어야 하므로 null 반환
+                    null
+                }
+                GamePhase.DEFENDING -> {
+                    println("[ChatService] In DEFENDING phase")
+                    // 모든 플레이어가 DEFENDING 단계에서 채팅 가능
+                    // 변론자 메시지는 DEFENSE 타입, 다른 플레이어는 DISCUSSION 타입
+                    if (game.accusedPlayerId == player.userId) {
+                        println("[ChatService] Player is accused, returning DEFENSE")
+                        ChatMessageType.DEFENSE
+                    } else {
+                        println("[ChatService] Player is not accused, returning DISCUSSION")
+                        ChatMessageType.DISCUSSION
+                    }
+                }
+                GamePhase.VOTING_FOR_SURVIVAL -> {
+                    println("[ChatService] In VOTING_FOR_SURVIVAL phase, chat disabled")
+                    // 최종 투표 단계에서는 채팅 비활성화
+                    null
+                }
+                GamePhase.GUESSING_WORD -> {
+                    println("[ChatService] In GUESSING_WORD phase")
+                    // 라이어 추측 단계에서는 라이어만 채팅 가능
+                    if (player.role == org.example.kotlin_liargame.domain.game.model.enum.PlayerRole.LIAR) {
+                        println("[ChatService] Player is liar, returning DISCUSSION")
+                        ChatMessageType.DISCUSSION
+                    } else {
+                        println("[ChatService] Player is not liar, chat disabled")
+                        null
+                    }
+                }
+                else -> {
+                    println("[ChatService] In phase $currentPhase, returning null")
+                    null
+                }
             }
         }
 
+        println("[ChatService] Game not in progress, returning POST_ROUND")
         return ChatMessageType.POST_ROUND
     }
 
     fun isPostRoundChatAvailable(game: GameEntity): Boolean {
-        val endTime = postRoundChatWindows[game.gameNumber] ?: return false
+        val endTime = gameStateService.getPostRoundChatWindow(game.gameNumber) ?: return false
         return Instant.now().isBefore(endTime)
     }
     
@@ -222,45 +461,64 @@ class ChatService(
         gameRepository.findByGameNumber(gameNumber)
             ?: throw RuntimeException("Game not found")
 
-        val endTime = Instant.now().plusSeconds(POST_ROUND_CHAT_DURATION)
-        postRoundChatWindows[gameNumber] = endTime
+        val endTime = Instant.now().plusSeconds(gameProperties.postRoundChatDurationSeconds)
 
-        messagingTemplate.convertAndSend("/topic/chat.status.$gameNumber", mapOf(
-            "type" to "POST_ROUND_CHAT_STARTED",
-            "gameNumber" to gameNumber,
+        gameStateService.setPostRoundChatWindow(gameNumber, endTime)
+
+        gameMessagingService.sendChatStatusUpdate(gameNumber, "POST_ROUND_CHAT_STARTED", mapOf(
             "endTime" to endTime.toString()
         ))
 
         scheduler.schedule({
             stopPostRoundChat(gameNumber)
-        }, POST_ROUND_CHAT_DURATION, TimeUnit.SECONDS)
+        }, gameProperties.postRoundChatDurationSeconds, TimeUnit.SECONDS)
     }
 
     private fun stopPostRoundChat(gameNumber: Int) {
-        postRoundChatWindows.remove(gameNumber)
-
-        messagingTemplate.convertAndSend("/topic/chat.status.$gameNumber", mapOf(
-            "type" to "POST_ROUND_CHAT_ENDED",
-            "gameNumber" to gameNumber
-        ))
+        gameStateService.removePostRoundChatWindow(gameNumber)
+        gameMessagingService.sendChatStatusUpdate(gameNumber, "POST_ROUND_CHAT_ENDED")
     }
     
-    private fun determineGamePhase(game: GameEntity, players: List<PlayerEntity>): GamePhase {
+
+    @Transactional
+    fun sendSystemMessage(game: GameEntity, message: String) {
+        println("[ChatService] Attempting to send system message to game ${game.gameNumber}: $message")
+
+        val systemMessage = ChatMessageEntity(
+            game = game,
+            player = null, // 시스템 메시지는 플레이어가 없음
+            content = message,
+            type = ChatMessageType.SYSTEM
+        )
+
+        val savedMessage = chatMessageRepository.save(systemMessage)
+        println("[ChatService] System message saved to database with ID: ${savedMessage.id}")
+
+        val response = ChatMessageResponse.from(savedMessage)
+        val topicName = "/topic/chat.${game.gameNumber}"
+
+        try {
+            messagingTemplate.convertAndSend(topicName, response)
+            println("[ChatService] System message sent via WebSocket to topic: $topicName")
+        } catch (e: Exception) {
+            println("[ChatService] ERROR: Failed to send WebSocket message to $topicName: ${e.message}")
+            e.printStackTrace()
+            throw e
+        }
+
+        println("[ChatService] System message sent successfully to game ${game.gameNumber}: $message")
+    }
+
+    private fun determineGamePhase(game: GameEntity, @Suppress("UNUSED_PARAMETER") players: List<PlayerEntity>): GamePhase {
+        // 게임의 실제 currentPhase 값을 우선적으로 사용
+        // 플레이어 상태 기반 추측 fallback으로만 사용
         return when (game.gameState) {
             GameState.WAITING -> GamePhase.WAITING_FOR_PLAYERS
             GameState.ENDED -> GamePhase.GAME_OVER
             GameState.IN_PROGRESS -> {
-                val allPlayersGaveHints = players.all { it.state == org.example.kotlin_liargame.domain.game.model.enum.PlayerState.GAVE_HINT || !it.isAlive }
-                val allPlayersVoted = players.all { it.state == org.example.kotlin_liargame.domain.game.model.enum.PlayerState.VOTED || !it.isAlive }
-                val accusedPlayer = findAccusedPlayer(players)
-                
-                when {
-                    accusedPlayer?.state == org.example.kotlin_liargame.domain.game.model.enum.PlayerState.ACCUSED -> GamePhase.DEFENDING
-                    accusedPlayer?.state == org.example.kotlin_liargame.domain.game.model.enum.PlayerState.DEFENDED -> GamePhase.VOTING_FOR_SURVIVAL
-                    allPlayersVoted -> GamePhase.VOTING_FOR_LIAR
-                    allPlayersGaveHints -> GamePhase.VOTING_FOR_LIAR
-                    else -> GamePhase.GIVING_HINTS
-                }
+                // 실제 게임의 currentPhase가 설정되어 있으므로 그것을 사용
+                println("[ChatService] Using actual game currentPhase: ${game.currentPhase}")
+                return game.currentPhase
             }
         }
     }
@@ -269,6 +527,59 @@ class ChatService(
         return players.find { 
             it.state == org.example.kotlin_liargame.domain.game.model.enum.PlayerState.ACCUSED || 
             it.state == org.example.kotlin_liargame.domain.game.model.enum.PlayerState.DEFENDED 
+        }
+    }
+
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    fun deletePlayerChatMessages(userId: Long): Int {
+        // Use batched deletion with a small retry loop to handle transient deadlocks.
+        val ids = chatMessageRepository.findIdsByPlayerUserId(userId)
+        if (ids.isEmpty()) {
+            println("[CHAT] No chat messages found for player userId: $userId")
+            return 0
+        }
+
+        val batchSize = 200
+        val maxAttempts = 3
+        var attempt = 0
+
+        while (attempt < maxAttempts) {
+            attempt += 1
+            try {
+                var deletedThisAttempt = 0
+                ids.chunked(batchSize).forEach { batch ->
+                    chatMessageRepository.deleteAllByIdInBatch(batch)
+                    deletedThisAttempt += batch.size
+                }
+                println("[CHAT] Deleted $deletedThisAttempt chat messages for player userId: $userId in ${ids.size / batchSize + 1} batches (attempt $attempt)")
+                return deletedThisAttempt
+            } catch (e: Exception) {
+                if (e is org.springframework.dao.CannotAcquireLockException || e.cause is java.sql.SQLException || e.message?.contains("deadlock", ignoreCase = true) == true) {
+                    println("[WARN] Deadlock when deleting chat messages for userId=$userId on attempt $attempt: ${e.message}")
+                    if (attempt >= maxAttempts) {
+                        println("[ERROR] Max retries reached while deleting chat messages for userId=$userId")
+                        throw e
+                    }
+                    try { Thread.sleep((attempt * 150).toLong()) } catch (ie: InterruptedException) { Thread.currentThread().interrupt() }
+                    continue
+                }
+                println("[ERROR] Failed to delete chat messages for player userId: $userId - ${e.message}")
+                throw e
+            }
+        }
+
+        return 0
+    }
+
+    @Transactional
+    fun deleteGameChatMessages(game: GameEntity): Int {
+        return try {
+            val deletedCount = chatMessageRepository.deleteByGame(game)
+            println("[CHAT] Deleted $deletedCount chat messages for game: ${game.gameNumber}")
+            deletedCount
+        } catch (e: Exception) {
+            println("[ERROR] Failed to delete chat messages for game: ${game.gameNumber} - ${e.message}")
+            0
         }
     }
 }

@@ -1,159 +1,140 @@
 package org.example.kotlin_liargame.tools.websocket
 
 import jakarta.servlet.http.HttpSession
- import org.springframework.context.annotation.Lazy
+import org.example.kotlin_liargame.global.util.SessionUtil
+import org.slf4j.LoggerFactory
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor
-import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.stereotype.Component
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArraySet
 
 @Component
 class WebSocketSessionManager(
-    @Lazy private val messagingTemplate: SimpMessagingTemplate
+    private val sessionUtil: SessionUtil
 ) {
-    private val sessionMap = ConcurrentHashMap<String, Map<String, Any>>()
-    
+    private val logger = LoggerFactory.getLogger(WebSocketSessionManager::class.java)
+
+    private val sessionMap = ConcurrentHashMap<String, SessionSnapshot>()
+    private val userSessions = ConcurrentHashMap<Long, MutableSet<String>>()
     private val playerGameMap = ConcurrentHashMap<Long, Int>()
 
-
     fun storeSession(webSocketSessionId: String, httpSession: HttpSession) {
-        val userId = httpSession.getAttribute("userId") as? Long
-        val nickname = httpSession.getAttribute("nickname") as? String
+        val userId = resolveUserId(httpSession, webSocketSessionId) ?: return
+        val nickname = sessionUtil.getUserNickname(httpSession)
 
-        val sessionInfo = mutableMapOf<String, Any>()
-        if (userId != null) {
-            sessionInfo["userId"] = userId
-            println("[DEBUG] Storing WebSocket session mapping: $webSocketSessionId -> userId=$userId")
-        } else {
-            println("[WARN] No userId found in HTTP session for WebSocket: $webSocketSessionId")
-            httpSession.attributeNames.asIterator().forEach { attrName ->
-                println("[DEBUG] HTTP Session attribute: $attrName = ${httpSession.getAttribute(attrName)}")
+        val snapshot = SessionSnapshot(
+            sessionId = webSocketSessionId,
+            userId = userId,
+            nickname = nickname,
+            httpSessionId = httpSession.id,
+            connectedAt = Instant.now()
+        )
+
+        sessionMap[webSocketSessionId] = snapshot
+        userSessions.computeIfAbsent(userId) { CopyOnWriteArraySet() }.add(webSocketSessionId)
+        logger.debug("Stored WebSocket session {} for user {} (nickname={})", webSocketSessionId, userId, nickname)
+    }
+
+    fun removeSession(webSocketSessionId: String): SessionSnapshot? {
+        val snapshot = sessionMap.remove(webSocketSessionId)
+        if (snapshot != null) {
+            userSessions[snapshot.userId]?.remove(webSocketSessionId)
+            if (userSessions[snapshot.userId]?.isEmpty() == true) {
+                userSessions.remove(snapshot.userId)
             }
-        }
-
-        if (nickname != null) {
-            sessionInfo["nickname"] = nickname
-        }
-
-        if (sessionInfo.isNotEmpty()) {
-            sessionMap[webSocketSessionId] = sessionInfo
-            println("[DEBUG] WebSocket session stored: $webSocketSessionId -> $sessionInfo")
-            printSessionInfo()
+            logger.debug("Removed WebSocket session {} for user {}", webSocketSessionId, snapshot.userId)
         } else {
-            println("[WARN] No session info to store for WebSocket: $webSocketSessionId")
+            logger.debug("Attempted to remove unknown WebSocket session {}", webSocketSessionId)
         }
+        return snapshot
     }
 
+    fun getSession(webSocketSessionId: String): SessionSnapshot? = sessionMap[webSocketSessionId]
 
-    fun getUserId(webSocketSessionId: String): Long? {
-        return sessionMap[webSocketSessionId]?.get("userId") as? Long
-    }
+    fun getSessionsForUser(userId: Long): Set<String> = userSessions[userId]?.toSet() ?: emptySet()
 
+    fun getUserId(webSocketSessionId: String): Long? = sessionMap[webSocketSessionId]?.userId
 
-    fun getNickname(webSocketSessionId: String): String? {
-        return sessionMap[webSocketSessionId]?.get("nickname") as? String
-    }
+    fun getNickname(webSocketSessionId: String): String? = sessionMap[webSocketSessionId]?.nickname
 
     fun injectUserInfo(accessor: SimpMessageHeaderAccessor) {
         val sessionId = accessor.sessionId ?: return
-        val sessionInfo = sessionMap[sessionId] ?: return
+        val snapshot = sessionMap[sessionId] ?: return
 
         accessor.sessionAttributes = accessor.sessionAttributes ?: mutableMapOf()
-
-        sessionInfo.forEach { (key, value) ->
-            accessor.sessionAttributes!![key] = value
-        }
+        accessor.sessionAttributes!!["userId"] = snapshot.userId
+        snapshot.nickname?.let { accessor.sessionAttributes!!["nickname"] = it }
     }
-
 
     fun registerPlayerInGame(userId: Long, gameNumber: Int) {
         playerGameMap[userId] = gameNumber
-        println("[DEBUG] Registered player $userId in game $gameNumber")
+        logger.debug("Registered user {} in game {}", userId, gameNumber)
     }
 
     fun removePlayerFromGame(userId: Long) {
-        val gameNumber = playerGameMap.remove(userId)
-        if (gameNumber != null) {
-            println("[DEBUG] Removed player $userId from game $gameNumber")
+        val removed = playerGameMap.remove(userId)
+        if (removed != null) {
+            logger.debug("Removed user {} from tracked game {}", userId, removed)
         }
     }
 
-    fun getPlayerGame(userId: Long): Int? {
-        return playerGameMap[userId]
-    }
+    fun getPlayerGame(userId: Long): Int? = playerGameMap[userId]
 
-    fun removeSession(webSocketSessionId: String) {
-        val sessionInfo = sessionMap.remove(webSocketSessionId)
-        println("[DEBUG] Removed WebSocket session: $webSocketSessionId")
-        
-        if (sessionInfo != null) {
-            val userId = sessionInfo["userId"] as? Long
-            val nickname = sessionInfo["nickname"] as? String
-            
-            if (userId != null) {
-                val gameNumber = getPlayerGame(userId)
-                if (gameNumber != null) {
-                    handlePlayerDisconnection(gameNumber, userId, nickname)
-                    removePlayerFromGame(userId)
-                }
-            }
-        }
-    }
+    fun refreshSessionInfo(webSocketSessionId: String, httpSession: HttpSession) {
+        val current = sessionMap[webSocketSessionId]
+        val userId = sessionUtil.getUserId(httpSession)
+        val nickname = sessionUtil.getUserNickname(httpSession)
 
-    private fun handlePlayerDisconnection(gameNumber: Int, userId: Long, nickname: String?) {
-        try {
-            val disconnectMessage = mapOf(
-                "type" to "PLAYER_DISCONNECTED",
-                "playerId" to userId,
-                "playerNickname" to nickname,
-                "message" to "${nickname ?: "플레이어"}님의 연결이 끊어졌습니다",
-                "timestamp" to Instant.now()
+        if (current != null && userId != null) {
+            sessionMap[webSocketSessionId] = current.copy(
+                userId = userId,
+                nickname = nickname,
+                lastRefreshedAt = Instant.now()
             )
-            
-            messagingTemplate.convertAndSend(
-                "/topic/game/$gameNumber/player-status",
-                disconnectMessage
-            )
-            
-            checkGameContinuity(gameNumber, userId, nickname)
-            
-            println("[INFO] Notified game $gameNumber about player $userId ($nickname) disconnection")
-            
-        } catch (e: Exception) {
-            println("[ERROR] Failed to handle player disconnection: ${e.message}")
-        }
-    }
-    private fun checkGameContinuity(gameNumber: Int, disconnectedUserId: Long, nickname: String?) {
-        try {
-            val remainingPlayers = playerGameMap.values.count { it == gameNumber }
-            
-            if (remainingPlayers < 3) {
-                val gameEndMessage = mapOf(
-                    "type" to "GAME_INTERRUPTED",
-                    "reason" to "INSUFFICIENT_PLAYERS",
-                    "message" to "플레이어 수가 부족하여 게임이 중단됩니다",
-                    "remainingPlayers" to remainingPlayers,
-                    "timestamp" to Instant.now()
-                )
-                
-                messagingTemplate.convertAndSend(
-                    "/topic/game/$gameNumber/game-status",
-                    gameEndMessage
-                )
-                
-                println("[INFO] Game $gameNumber interrupted due to insufficient players ($remainingPlayers remaining)")
-            }
-            
-        } catch (e: Exception) {
-            println("[ERROR] Failed to check game continuity: ${e.message}")
+            logger.debug("Refreshed WebSocket session {} -> userId={}, nickname={}", webSocketSessionId, userId, nickname)
+        } else {
+            logger.warn("Failed to refresh WebSocket session {} - userId or existing snapshot missing", webSocketSessionId)
         }
     }
 
-    fun printSessionInfo() {
-        println("[DEBUG] Current WebSocket sessions (${sessionMap.size})")
-        sessionMap.forEach { (sessionId, info) ->
-            println("[DEBUG]   - $sessionId: $info")
+    fun getActiveSessionCount(): Int = sessionMap.size
+
+    private fun resolveUserId(httpSession: HttpSession, sessionId: String): Long? {
+        var userId = sessionUtil.getUserId(httpSession)
+        if (userId != null) {
+            return userId
+        }
+
+        logger.warn("Initial session data not found for WebSocket {}, retrying...", sessionId)
+        sleepSafely(50)
+        userId = sessionUtil.getUserId(httpSession)
+        if (userId != null) {
+            return userId
+        }
+
+        sleepSafely(100)
+        userId = sessionUtil.getUserId(httpSession)
+        if (userId == null) {
+            logger.warn("No userId found in HTTP session for WebSocket {} even after retries", sessionId)
+        }
+        return userId
+    }
+
+    private fun sleepSafely(millis: Long) {
+        try {
+            Thread.sleep(millis)
+        } catch (ie: InterruptedException) {
+            Thread.currentThread().interrupt()
         }
     }
+
+    data class SessionSnapshot(
+        val sessionId: String,
+        val userId: Long,
+        val nickname: String?,
+        val httpSessionId: String,
+        val connectedAt: Instant,
+        val lastRefreshedAt: Instant = connectedAt
+    )
 }

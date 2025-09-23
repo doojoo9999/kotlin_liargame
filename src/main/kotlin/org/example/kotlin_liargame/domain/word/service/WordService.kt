@@ -10,6 +10,7 @@ import org.example.kotlin_liargame.domain.word.exception.SubjectNotFoundExceptio
 import org.example.kotlin_liargame.domain.word.exception.WordAlreadyExistsException
 import org.example.kotlin_liargame.domain.word.repository.WordRepository
 import org.slf4j.LoggerFactory
+import org.springframework.data.repository.findByIdOrNull
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.stereotype.Service
 
@@ -18,21 +19,24 @@ class WordService (
     private val wordRepository: WordRepository,
     private val subjectRepository: SubjectRepository,
     private val messagingTemplate: SimpMessagingTemplate,
-    private val contentProperties: ContentProperties
+    private val contentProperties: ContentProperties,
+    private val forbiddenWordService: ForbiddenWordService
 ){
     private val logger = LoggerFactory.getLogger(this::class.java)
 
 
     @Transactional
     fun applyWord(req: ApplyWordRequest) {
+        // 금지된 단어 검증
+        forbiddenWordService.validateWord(req.word)
 
-        val subject = subjectRepository.findByContent(req.subject)
-            ?: throw SubjectNotFoundException("주제 '${req.subject}'를 찾을 수 없습니다.")
+        val subject = subjectRepository.findByIdOrNull(req.subjectId)
+            ?: throw SubjectNotFoundException("주제 '${req.subjectId}'를 찾을 수 없습니다.")
 
         val existingWord = wordRepository.findBySubjectAndContent(subject, req.word)
 
         if (existingWord != null) {
-            throw WordAlreadyExistsException("단어 '${req.word}'는 이미 주제 '${req.subject}'에 존재합니다.")
+            throw WordAlreadyExistsException("단어 '${req.word}'는 이미 주제 '${req.subjectId}'에 존재합니다.")
         }
         val newWordEntity = req.to(subject)
         if (!contentProperties.manualApprovalRequired) {
@@ -42,7 +46,7 @@ class WordService (
         
         messagingTemplate.convertAndSend("/topic/subjects", mapOf(
             "type" to "WORD_ADDED",
-            "subject" to req.subject,
+            "subject" to req.subjectId,
             "word" to req.word
         ))
     }
@@ -66,6 +70,31 @@ class WordService (
         return wordRepository.findAll().map { wordEntity ->
             WordListResponse.from(wordEntity)
         }
+    }
+
+    @Transactional
+    fun approveAllPendingWords(): List<WordListResponse> {
+        val pendingWords = wordRepository.findByStatus(ContentStatus.PENDING)
+
+        val approvedWords = pendingWords.map { word ->
+            word.status = ContentStatus.APPROVED
+            wordRepository.save(word)
+            word
+        }
+
+        // WebSocket으로 승인된 단어들에 대한 알림 전송
+        approvedWords.forEach { word ->
+            messagingTemplate.convertAndSend("/topic/subjects", mapOf(
+                "type" to "WORD_APPROVED",
+                "wordId" to word.id,
+                "subject" to word.subject?.content,
+                "word" to word.content
+            ))
+        }
+
+        logger.info("일괄 승인된 단어 수: ${approvedWords.size}")
+
+        return approvedWords.map { WordListResponse.from(it) }
     }
 
 }

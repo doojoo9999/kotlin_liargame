@@ -19,7 +19,7 @@ class ControllerErrorHandler {
         return ResponseEntity.status(status).body(
             DefenseSubmissionResponse(
                 gameNumber = gameNumber,
-                playerId = 0L,
+                userId = 0L,
                 playerNickname = "",
                 defenseText = "",
                 success = false,
