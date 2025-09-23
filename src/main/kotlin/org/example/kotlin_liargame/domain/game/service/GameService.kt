@@ -26,6 +26,7 @@ import org.example.kotlin_liargame.tools.websocket.WebSocketSessionManager
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.Instant
 
 @Service
 class GameService(
@@ -770,11 +771,18 @@ class GameService(
     fun handlePlayerDisconnection(userId: Long) {
         val player = playerRepository.findByUserIdAndGameActive(userId)
         player?.let {
-            logger.debug("플레이어 연결 해제 처리: userId={}, gameNumber={}, nickname={}",
-                userId, it.game.gameNumber, it.nickname)
+            logger.debug(
+                "플레이어 연결 해제 처리: userId={}, gameNumber={}, nickname={}",
+                userId,
+                it.game.gameNumber,
+                it.nickname
+            )
 
-            // 연결 해제된 플레이어는 게임에서 즉시 제거
-            leaveGameAsSystem(it.game.gameNumber, userId)
+            it.isOnline = false
+            it.lastActiveAt = Instant.now()
+            playerRepository.save(it)
+
+            gameMonitoringService.notifyPlayerConnectionChanged(it.game, it, isConnected = false)
         }
     }
 
@@ -782,9 +790,18 @@ class GameService(
     fun handlePlayerReconnection(userId: Long) {
         val player = playerRepository.findByUserIdAndGameActive(userId)
         player?.let {
-            // DISCONNECTED 상태 체크 제거 - 연결 해제된 플레이어는 이미 게임에서 제거됨
-            // 재연결 시에는 새로 게임에 참여해야 함
-            logger.debug("플레이어 재연결 시도: userId={}, 하지만 연결 해제된 플레이어는 이미 게임에서 제거되었습니다", userId)
+            logger.debug(
+                "플레이어 재연결 처리: userId={}, gameNumber={}, nickname={}",
+                userId,
+                it.game.gameNumber,
+                it.nickname
+            )
+
+            it.isOnline = true
+            it.lastActiveAt = Instant.now()
+            playerRepository.save(it)
+
+            gameMonitoringService.notifyPlayerConnectionChanged(it.game, it, isConnected = true)
         }
     }
 

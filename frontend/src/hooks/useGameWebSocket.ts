@@ -1,4 +1,4 @@
-import {useCallback, useEffect, useState} from 'react';
+import {useCallback, useState} from 'react';
 import {websocketService} from '../services/websocketService';
 import useGameStore from '../stores/gameStore';
 import {toast} from 'sonner';
@@ -106,15 +106,6 @@ export const useGameWebSocket = (): UseGameWebSocketReturn => {
 
   // Auto-connect is handled by App.tsx based on authentication status
   // No automatic connection here to prevent connection timeout on login page
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (isConnected) {
-        websocketService.disconnect();
-      }
-    };
-  }, [isConnected]);
 
   return {
     isConnected,

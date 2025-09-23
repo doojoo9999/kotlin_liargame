@@ -113,8 +113,6 @@ class ChatService(
             println("[ERROR] WebSocket authentication failed. Session attributes available: ${sessionAttributes?.keys}")
             println("[ERROR] WebSocketSessionId: $webSocketSessionId")
             println("[ERROR] HTTP Session userId (JSON): ${httpSession?.let { sessionUtil.getUserId(it) }}")
-            println("[ERROR] WebSocketSessionManager state:")
-            webSocketSessionManager.printSessionInfo()
             throw RuntimeException("Not authenticated via WebSocket")
         }
 

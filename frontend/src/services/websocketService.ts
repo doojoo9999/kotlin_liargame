@@ -40,6 +40,7 @@ class WebSocketService {
   private connectionTimeout = 15000;
   private heartbeatInterval: NodeJS.Timeout | null = null;
   private currentGameId: string | null = null;
+  private lastSubscriptionUserId: string | null = null;
 
   // Callback handlers
   private eventCallbacks: Map<string, EventCallback[]> = new Map();
@@ -56,8 +57,10 @@ class WebSocketService {
   private outboundListeners: ((msg: { destination: string; body: any; sentAt: number }) => void)[] = [];
   private rawListeners: RawListener[] = [];
   private pingInterval: NodeJS.Timeout | null = null;
-  private lastPongReceived = Date.now();
+  private lastHeartbeatAck = Date.now();
   private connectionState: 'connecting' | 'connected' | 'disconnected' | 'reconnecting' = 'disconnected';
+  private readonly userConnectionKey = 'user-connection';
+  private readonly userHeartbeatKey = 'user-heartbeat';
 
   constructor() {
     this.setupClient();
@@ -153,23 +156,43 @@ class WebSocketService {
     this.currentGameId = null;
     this.reconnectAttempts = 0;
     
-    // Clear callbacks and queues
-    this.eventCallbacks.clear();
-    this.chatCallbacks = [];
-    this.connectionCallbacks = [];
-    this.rawListeners = [];
+    // Drop any queued messages; listeners stay registered for future reconnects
     this.messageQueue = [];
     
     console.log('WebSocket service disconnected and cleaned up');
   }
 
   public subscribeToGame(gameId: string, userId?: string): void {
+    this.currentGameId = gameId;
+    if (userId !== undefined) {
+      this.lastSubscriptionUserId = userId;
+    }
+
     if (!this.isConnected || !this.client) {
-      console.warn('Cannot subscribe - WebSocket not connected');
+      console.warn('Cannot subscribe - WebSocket not connected; deferring subscription', { gameId });
       return;
     }
 
-    this.currentGameId = gameId;
+    // Clean up any stale subscriptions for this game before re-subscribing
+    const cleanupKeys = [
+      `game-state-${gameId}`,
+      `game-events-${gameId}`,
+      `player-status-${gameId}`,
+      `game-status-${gameId}`,
+      `chat-${gameId}`,
+      `chat-legacy-${gameId}`
+    ];
+    cleanupKeys.forEach(key => {
+      const existing = this.subscriptions.get(key);
+      if (existing) {
+        try {
+          existing.unsubscribe();
+        } catch (error) {
+          console.warn(`Error unsubscribing stale listener ${key}:`, error);
+        }
+        this.subscriptions.delete(key);
+      }
+    });
 
     // Subscribe to game state changes
     const gameStateSub = this.client.subscribe(
@@ -184,6 +207,18 @@ class WebSocketService {
       this.handleGameEvent.bind(this)
     );
     this.subscriptions.set(`game-events-${gameId}`, gameEventSub);
+
+    const playerStatusSub = this.client.subscribe(
+      `/topic/game/${gameId}/player-status`,
+      this.handleGameEvent.bind(this)
+    );
+    this.subscriptions.set(`player-status-${gameId}`, playerStatusSub);
+
+    const gameStatusSub = this.client.subscribe(
+      `/topic/game/${gameId}/game-status`,
+      this.handleGameEvent.bind(this)
+    );
+    this.subscriptions.set(`game-status-${gameId}`, gameStatusSub);
 
     // Subscribe to chat messages
     const chatTopic = `/topic/chat.${gameId}`;
@@ -203,17 +238,29 @@ class WebSocketService {
 
     // Subscribe to personal notifications if userId provided
     if (userId) {
+      const notificationKey = `notifications-${userId}`;
+      const existingNotificationSub = this.subscriptions.get(notificationKey);
+      if (existingNotificationSub) {
+        try {
+          existingNotificationSub.unsubscribe();
+        } catch (error) {
+          console.warn(`Error unsubscribing stale listener ${notificationKey}:`, error);
+        }
+        this.subscriptions.delete(notificationKey);
+      }
+
       const notificationSub = this.client.subscribe(
         `/topic/user/${userId}/notifications`,
         this.handlePersonalNotification.bind(this)
       );
-      this.subscriptions.set(`notifications-${userId}`, notificationSub);
+      this.subscriptions.set(notificationKey, notificationSub);
     }
 
     console.log(`Subscribed to game: ${gameId}`);
   }
 
   public unsubscribeFromGame(gameId: string, userId?: string): void {
+    const effectiveUserId = userId ?? this.lastSubscriptionUserId ?? undefined;
     // Unsubscribe from game state
     const gameStateSub = this.subscriptions.get(`game-state-${gameId}`);
     if (gameStateSub) {
@@ -226,6 +273,18 @@ class WebSocketService {
     if (gameEventSub) {
       gameEventSub.unsubscribe();
       this.subscriptions.delete(`game-events-${gameId}`);
+    }
+
+    const playerStatusSub = this.subscriptions.get(`player-status-${gameId}`);
+    if (playerStatusSub) {
+      playerStatusSub.unsubscribe();
+      this.subscriptions.delete(`player-status-${gameId}`);
+    }
+
+    const gameStatusSub = this.subscriptions.get(`game-status-${gameId}`);
+    if (gameStatusSub) {
+      gameStatusSub.unsubscribe();
+      this.subscriptions.delete(`game-status-${gameId}`);
     }
 
     // Unsubscribe from chat
@@ -241,16 +300,20 @@ class WebSocketService {
     }
 
     // Unsubscribe from personal notifications
-    if (userId) {
-      const notificationSub = this.subscriptions.get(`notifications-${userId}`);
+    if (effectiveUserId) {
+      const notificationSub = this.subscriptions.get(`notifications-${effectiveUserId}`);
       if (notificationSub) {
         notificationSub.unsubscribe();
-        this.subscriptions.delete(`notifications-${userId}`);
+        this.subscriptions.delete(`notifications-${effectiveUserId}`);
       }
     }
 
     if (this.currentGameId === gameId) {
       this.currentGameId = null;
+    }
+
+    if (!effectiveUserId || this.lastSubscriptionUserId === effectiveUserId) {
+      this.lastSubscriptionUserId = null;
     }
 
     console.log(`Unsubscribed from game: ${gameId}`);
@@ -363,6 +426,10 @@ class WebSocketService {
     const subscription = this.client.subscribe('/topic/lobby', this.handleLobbyMessage.bind(this));
     this.subscriptions.set(this.lobbySubscriptionKey, subscription);
     console.log('Subscribed to lobby updates');
+  }
+
+  public processQueue(): void {
+    this.flushQueue();
   }
 
   public safePublish(destination: string, body: any): string | undefined {
@@ -571,36 +638,36 @@ class WebSocketService {
     return id;
   }
 
-  // Heartbeat and connection monitoring
-  private startHeartbeat(): void {
-    this.stopHeartbeat(); // Clear any existing intervals
-    
-    // Send ping every 30 seconds
-    this.pingInterval = setInterval(() => {
-      if (this.isConnected && this.client) {
-        try {
-          this.client.publish({
-            destination: '/app/ping',
-            body: JSON.stringify({ timestamp: Date.now() })
-          });
-        } catch (error) {
-          console.error('Failed to send ping:', error);
-        }
+  private subscribeToUserQueues(): void {
+    if (!this.client) {
+      return;
+    }
+
+    const existingConnectionSub = this.subscriptions.get(this.userConnectionKey);
+    if (existingConnectionSub) {
+      try {
+        existingConnectionSub.unsubscribe();
+      } catch (error) {
+        console.warn('Error unsubscribing existing user connection listener:', error);
       }
-    }, 30000);
-    
-    // Check for missed pongs every 45 seconds
-    this.heartbeatInterval = setInterval(() => {
-      const now = Date.now();
-      const timeSinceLastPong = now - this.lastPongReceived;
-      
-      if (timeSinceLastPong > 60000) { // 60 seconds without pong
-        console.warn('No pong received for 60 seconds, connection may be dead');
-        if (this.client) {
-          this.client.forceDisconnect();
-        }
+      this.subscriptions.delete(this.userConnectionKey);
+    }
+
+    const connectionSub = this.client.subscribe('/user/queue/connection', this.handleConnectionQueue.bind(this));
+    this.subscriptions.set(this.userConnectionKey, connectionSub);
+
+    const existingHeartbeatSub = this.subscriptions.get(this.userHeartbeatKey);
+    if (existingHeartbeatSub) {
+      try {
+        existingHeartbeatSub.unsubscribe();
+      } catch (error) {
+        console.warn('Error unsubscribing existing user heartbeat listener:', error);
       }
-    }, 45000);
+      this.subscriptions.delete(this.userHeartbeatKey);
+    }
+
+    const heartbeatSub = this.client.subscribe('/user/queue/heartbeat', this.handleHeartbeatQueue.bind(this));
+    this.subscriptions.set(this.userHeartbeatKey, heartbeatSub);
   }
 
   private stopHeartbeat(): void {
@@ -614,13 +681,61 @@ class WebSocketService {
     }
   }
 
+  // Heartbeat and connection monitoring
+  private startHeartbeat(): void {
+    this.stopHeartbeat(); // Clear any existing intervals
+
+    // Send heartbeat every 15 seconds
+    this.pingInterval = setInterval(() => {
+      if (this.isConnected && this.client) {
+        try {
+          this.client.publish({
+            destination: '/app/heartbeat',
+            body: JSON.stringify({ timestamp: Date.now() })
+          });
+        } catch (error) {
+          console.error('Failed to send ping:', error);
+        }
+      }
+    }, 15000);
+
+    // Check for missed acknowledgements every 30 seconds
+    this.heartbeatInterval = setInterval(() => {
+      const now = Date.now();
+      const timeSinceAck = now - this.lastHeartbeatAck;
+
+      if (timeSinceAck > 60000) {
+        console.warn('No heartbeat acknowledgement for 60 seconds, forcing disconnect');
+        if (this.client) {
+          this.client.forceDisconnect();
+        }
+      }
+    }, 30000);
+  }
+
   // Handle pong response
-  private handlePong(): void {
-    this.lastPongReceived = Date.now();
+  private resolveWebSocketUrl(): string {
+    const configuredWs = (import.meta.env.VITE_WS_BASE_URL as string | undefined)?.trim();
+    const configuredApi = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim();
+    if (configuredWs) {
+      return configuredWs.endsWith('/ws') ? configuredWs : `${configuredWs.replace(/\/$/, '')}/ws`;
+    }
+
+    if (configuredApi) {
+      try {
+        const parsed = new URL(configuredApi);
+        return `${parsed.origin}/ws`;
+      } catch (error) {
+        console.warn('Unable to parse VITE_API_BASE_URL as URL, falling back to relative websocket path', error);
+      }
+    }
+
+    return '/ws';
   }
 
   private setupClient(): void {
-    const socket = new SockJS('http://localhost:20021/ws');
+    const socketUrl = this.resolveWebSocketUrl();
+    const socket = new SockJS(socketUrl, undefined, { withCredentials: true });
 
     // 재연결을 위한 헤더 준비
     const connectHeaders: Record<string, string> = {};
@@ -646,55 +761,6 @@ class WebSocketService {
     };
 
     this.client = new Client(stompConfig);
-  }
-
-  private onConnect(frame: any): void {
-    console.log('WebSocket connected', frame);
-    this.isConnected = true;
-    this.connectionState = 'connected';
-    this.reconnectAttempts = 0;
-    this.lastPongReceived = Date.now();
-
-    // 세션 ID 저장 (재연결에 사용)
-    const sessionId = frame.headers?.['session'];
-    if (sessionId) {
-      localStorage.setItem('websocket-session-id', sessionId);
-      console.log('Stored WebSocket session ID:', sessionId);
-    }
-
-    // Start heartbeat monitoring
-    this.startHeartbeat();
-
-    this.subscribeToLobby();
-
-    // Notify connection callbacks
-    this.connectionCallbacks.forEach(callback => {
-      try {
-        callback(true);
-      } catch (error) {
-        console.error('Error in connection callback:', error);
-      }
-    });
-
-    // Re-subscribe to previous subscriptions if any
-    if (this.currentGameId) {
-      console.log('Re-subscribing to game:', this.currentGameId);
-      // Small delay to ensure connection is fully established
-      setTimeout(() => {
-        if (this.currentGameId) {
-          this.subscribeToGame(this.currentGameId);
-        }
-      }, 100);
-    }
-
-    // Flush any queued messages
-    this.flushQueue();
-    
-    if (this.reconnectAttempts > 0) {
-      toast.success('재연결이 성공했습니다!');
-    } else {
-      toast.success('실시간 연결이 성공했습니다');
-    }
   }
 
   private onDisconnect(): void {
@@ -840,6 +906,124 @@ class WebSocketService {
     }
   }
 
+  private onConnect(frame: any): void {
+    console.log('WebSocket connected', frame);
+    this.isConnected = true;
+    this.connectionState = 'connected';
+    this.reconnectAttempts = 0;
+    this.lastHeartbeatAck = Date.now();
+
+    // 세션 ID 저장 (재연결에 사용)
+    const sessionId = frame.headers?.['session'];
+    if (sessionId) {
+      localStorage.setItem('websocket-session-id', sessionId);
+      console.log('Stored WebSocket session ID:', sessionId);
+    }
+
+    // Start heartbeat monitoring
+    this.startHeartbeat();
+
+    this.subscribeToLobby();
+    this.subscribeToUserQueues();
+
+    // Notify connection callbacks
+    this.connectionCallbacks.forEach(callback => {
+      try {
+        callback(true);
+      } catch (error) {
+        console.error('Error in connection callback:', error);
+      }
+    });
+
+    // Re-subscribe to previous subscriptions if any
+    if (this.currentGameId) {
+      const pendingGameId = this.currentGameId;
+      const pendingUserId = this.lastSubscriptionUserId ?? undefined;
+      console.log('Re-subscribing to game:', pendingGameId);
+      // Small delay to ensure connection is fully established
+      setTimeout(() => {
+        if (this.currentGameId === pendingGameId) {
+          this.subscribeToGame(pendingGameId, pendingUserId);
+        }
+      }, 100);
+    }
+
+    // Flush any queued messages
+    this.flushQueue();
+
+    if (this.reconnectAttempts > 0) {
+      toast.success('재연결이 성공했습니다!');
+    }
+  }
+
+  private handleConnectionQueue(message: IMessage): void {
+    try {
+      const payload = JSON.parse(message.body ?? '{}');
+      const type = typeof payload.type === 'string' ? payload.type : 'CONNECTION_EVENT';
+
+      this.notifyRawListeners({
+        type: 'system',
+        data: payload,
+        receivedAt: Date.now(),
+        destination: message.headers?.destination,
+      });
+
+      if (type === 'RECONNECTION_REQUIRED') {
+        this.connectionState = 'reconnecting';
+        this.connectionCallbacks.forEach(callback => {
+          try {
+            callback(false);
+          } catch (error) {
+            console.error('Error in connection callback:', error);
+          }
+        });
+      } else if (type === 'CONNECTION_CLOSED') {
+        this.connectionState = 'disconnected';
+        this.connectionCallbacks.forEach(callback => {
+          try {
+            callback(false);
+          } catch (error) {
+            console.error('Error in connection callback:', error);
+          }
+        });
+      }
+
+      if (type === 'CONNECTION_ESTABLISHED' || type === 'RECONNECTION_SUCCESS') {
+        this.connectionState = 'connected';
+        this.connectionCallbacks.forEach(callback => {
+          try {
+            callback(true);
+          } catch (error) {
+            console.error('Error in connection callback:', error);
+          }
+        });
+      }
+
+      if (type === 'RECONNECTION_REQUIRED') {
+        toast.error(payload.message ?? '연결이 끊어졌습니다. 재연결을 시도합니다.');
+      } else if (type === 'CONNECTION_ESTABLISHED' && this.reconnectAttempts === 0) {
+        toast.success(payload.message ?? '실시간 연결이 성공했습니다');
+      }
+    } catch (error) {
+      console.error('Error handling connection queue message:', error);
+    }
+  }
+
+  private handleHeartbeatQueue(message: IMessage): void {
+    try {
+      const payload = JSON.parse(message.body ?? '{}');
+      this.lastHeartbeatAck = Date.now();
+      this.notifyRawListeners({
+        type: 'system',
+        data: payload,
+        receivedAt: this.lastHeartbeatAck,
+        destination: message.headers?.destination,
+      });
+    } catch (error) {
+      console.error('Error handling heartbeat queue message:', error);
+    }
+  }
+
   private handleGameEvent(message: IMessage): void {
     try {
       const event: GameEvent = JSON.parse(message.body);
@@ -929,24 +1113,14 @@ class WebSocketService {
     }
   }
 
-  private handlePingPong(message: IMessage): void {
-    try {
-      const data = JSON.parse(message.body);
-      if (data.type === 'pong') {
-        this.handlePong();
-        this.notifyRawListeners({
-          type: 'system',
-          data,
-          receivedAt: Date.now(),
-          destination: message.headers?.destination,
-        });
-      }
-    } catch (error) {
-      console.error('Error parsing ping/pong message:', error);
-    }
-  }
 }
 
-// Export singleton instance
-export const websocketService = new WebSocketService();
+// Export singleton instance (guarded so multiple imports share the same underlying connection)
+const globalRef = globalThis as typeof globalThis & { __liarGameWebSocketService?: WebSocketService };
+
+if (!globalRef.__liarGameWebSocketService) {
+  globalRef.__liarGameWebSocketService = new WebSocketService();
+}
+
+export const websocketService = globalRef.__liarGameWebSocketService;
 export default websocketService;

@@ -17,9 +17,10 @@ export function MainGamePage() {
     setGameNumber: state.setGameNumber,
     resetGame: state.resetGame,
     updateFromGameState: state.updateFromGameState,
+    leaveGame: state.leaveGame,
   }));
 
-  const { gameNumber, setGameNumber, resetGame, updateFromGameState } = useGameStore(selectGamePageState)
+  const { gameNumber, setGameNumber, resetGame, updateFromGameState, leaveGame } = useGameStore(selectGamePageState)
   const { hydrateFromSnapshot } = useGameplayStore((state) => state.actions)
   const { toast } = useToast()
   const [isLoading, setIsLoading] = React.useState(true)
@@ -77,8 +78,25 @@ export function MainGamePage() {
   }, [gameId, gameNumber, setGameNumber, updateFromGameState, hydrateFromSnapshot, toast])
 
   const handleReturnToLobby = () => {
-    resetGame()
-    navigate('/lobby')
+    if (!gameNumber) {
+      resetGame()
+      navigate('/lobby')
+      return
+    }
+
+    void (async () => {
+      try {
+        await leaveGame()
+        navigate('/lobby')
+      } catch (error) {
+        const description = error instanceof Error ? error.message : '게임에서 나갈 수 없습니다'
+        toast({
+          title: '게임 나가기 실패',
+          description,
+          variant: 'destructive',
+        })
+      }
+    })()
   }
 
   const handleNextRound = () => {
@@ -110,7 +128,7 @@ export function MainGamePage() {
           <CardContent className="pt-6">
             <div className="text-center py-8">
               <div className="text-lg font-medium mb-4">{error || '게임을 찾을 수 없습니다'}</div>
-              <Button onClick={() => navigate('/lobby')}>
+              <Button onClick={handleReturnToLobby}>
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 로비로 돌아가기
               </Button>

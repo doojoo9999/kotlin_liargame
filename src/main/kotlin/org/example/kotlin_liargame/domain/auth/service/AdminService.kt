@@ -16,6 +16,7 @@ import org.example.kotlin_liargame.domain.user.model.UserEntity
 import org.example.kotlin_liargame.domain.user.model.UserRole
 import org.example.kotlin_liargame.domain.user.repository.UserRepository
 import org.example.kotlin_liargame.domain.word.repository.WordRepository
+import org.example.kotlin_liargame.global.security.SessionManagementService
 import org.slf4j.LoggerFactory
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
@@ -36,7 +37,8 @@ class AdminService(
     private val gameService: GameService,
     private val chatService: ChatService,
     private val meterRegistry: MeterRegistry,
-    private val passwordEncoder: PasswordEncoder
+    private val passwordEncoder: PasswordEncoder,
+    private val sessionManagementService: SessionManagementService
 ) {
     private val logger = LoggerFactory.getLogger(this::class.java)
     private val activeGamesGauge = meterRegistry.gauge("liargame.games.active", AtomicInteger(0))
@@ -241,19 +243,26 @@ class AdminService(
                 val ownerIdentifier = game.gameOwner.trim()
                 val ownerPlayer = players.firstOrNull { it.nickname == ownerIdentifier }
                     ?: players.firstOrNull { it.userId.toString() == ownerIdentifier }
-                val hasOwner = ownerPlayer != null
+                val sessionMap = players.associate { player ->
+                    player.nickname to sessionManagementService.getActiveSessionInfo(player.nickname)
+                }
+                val ownerSessionActive = ownerPlayer?.let { sessionMap[it.nickname] != null } ?: false
+                val activePlayers = players.filter { sessionMap[it.nickname] != null }
+                val activePlayerCount = activePlayers.size
+                val hasOwner = ownerPlayer != null && ownerSessionActive
+                val isRoomEffectivelyEmpty = activePlayerCount == 0
 
                 when (game.gameState) {
                     GameState.WAITING -> {
                         val shouldDelete = when {
-                            // 1. 플레이어가 아무도 없는 경우 즉시 삭제
-                            players.isEmpty() -> {
-                                logger.debug("빈 게임방 발견: gameNumber={}", game.gameNumber)
+                            // 1. 활성 플레이어가 없는 경우 즉시 삭제
+                            players.isEmpty() || isRoomEffectivelyEmpty -> {
+                                logger.debug("빈 게임방 또는 활성 플레이어 없음 감지: gameNumber={}", game.gameNumber)
                                 true
                             }
 
-                            // 2. 방장이 접속해 있지 않고 10분 이상 활동이 없는 경우 (단, 2명 이상 접속시 제외)
-                            !hasOwner && players.size < 2 -> {
+                            // 2. 방장이 접속해 있지 않고 10분 이상 활동이 없는 경우 (단, 활성 플레이어 2명 이상 시 제외)
+                            !hasOwner && activePlayerCount < 2 -> {
                                 val lastActivity = game.lastActivityAt ?: gameCreatedAtInstant
                                 val timeSinceLastActivity = java.time.Duration.between(lastActivity, currentTime)
                                 if (timeSinceLastActivity.toMinutes() >= 10) {
@@ -265,15 +274,15 @@ class AdminService(
                                 }
                             }
 
-                            // 3. 생성 후 20분 이상 미시작 방 (단, 2명 이상 접속시 제외)
-                            players.size < 2 && gameAge.toMinutes() >= 20 -> {
+                            // 3. 생성 후 20분 이상 미시작 방 (단, 활성 플레이어 2명 이상 시 제외)
+                            activePlayerCount < 2 && gameAge.toMinutes() >= 20 -> {
                                 logger.info("장시간 미시작 게임방 삭제: gameNumber={}, 경과시간={}분",
                                     game.gameNumber, gameAge.toMinutes())
                                 true
                             }
 
-                            // 4. 최대 인원 달성했지만 시작하지 않은 방 체크
-                            players.size >= game.gameParticipants -> {
+                            // 4. 최대 인원 달성했지만 시작하지 않은 방 체크 (활성 플레이어 기준)
+                            activePlayerCount >= game.gameParticipants -> {
                                 checkAndHandleFullRoomTimeout(game, players)
                                 false // 이 경우는 별도 처리하므로 여기서는 삭제하지 않음
                             }
@@ -284,13 +293,13 @@ class AdminService(
                         if (shouldDelete) {
                             try {
                                 logger.info("게임방 정리: gameNumber={}, 이유={}",
-                                    game.gameNumber, getCleanupReason(players.isEmpty(), !hasOwner, gameAge))
+                                    game.gameNumber, getCleanupReason(isRoomEffectivelyEmpty, !hasOwner, gameAge))
 
                                 // 플레이어들에게 방 삭제 알림
                                 gameMonitoringService.broadcastGameState(game, mapOf(
                                     "type" to "ROOM_DELETED",
                                     "message" to "게임방이 정리되었습니다.",
-                                    "reason" to getCleanupReason(players.isEmpty(), !hasOwner, gameAge)
+                                    "reason" to getCleanupReason(isRoomEffectivelyEmpty, !hasOwner, gameAge)
                                 ))
 
                                 // 관련 데이터 정리

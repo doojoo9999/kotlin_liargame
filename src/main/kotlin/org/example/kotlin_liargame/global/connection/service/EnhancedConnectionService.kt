@@ -4,11 +4,13 @@ import org.example.kotlin_liargame.domain.game.model.enum.GameState
 import org.example.kotlin_liargame.domain.game.repository.GameRepository
 import org.example.kotlin_liargame.domain.game.repository.PlayerRepository
 import org.example.kotlin_liargame.domain.game.service.GameMonitoringService
+import org.example.kotlin_liargame.domain.game.service.GameService
 import org.example.kotlin_liargame.global.connection.dto.ConnectionStability
 import org.example.kotlin_liargame.global.connection.dto.PlayerConnectionStatus
 import org.example.kotlin_liargame.global.connection.model.ConnectionLogEntity
 import org.example.kotlin_liargame.global.connection.repository.ConnectionLogRepository
 import org.slf4j.LoggerFactory
+import org.springframework.context.annotation.Lazy
 import org.springframework.scheduling.TaskScheduler
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -24,7 +26,8 @@ class EnhancedConnectionService(
     private val gameRepository: GameRepository,
     private val playerRepository: PlayerRepository,
     private val gameMonitoringService: GameMonitoringService,
-    private val taskScheduler: TaskScheduler
+    private val taskScheduler: TaskScheduler,
+    @Lazy private val gameService: GameService
 ) {
     private val logger = LoggerFactory.getLogger(this::class.java)
 
@@ -126,6 +129,9 @@ class EnhancedConnectionService(
             "userId" to userId
         )
         gameMonitoringService.broadcastGameState(game, payload)
+
+        runCatching { gameService.cleanupPlayerByUserId(userId) }
+            .onFailure { logger.error("Failed to clean up player {} after grace period", userId, it) }
     }
 
     fun getConnectionStatus(gameNumber: Int): List<PlayerConnectionStatus> {

@@ -133,4 +133,36 @@ class GameMonitoringService(
         )
         gameMessagingService.sendRoomUpdate(game.gameNumber, payload)
     }
+
+    fun notifyPlayerConnectionChanged(game: GameEntity, player: PlayerEntity, isConnected: Boolean) {
+        val connectionType = if (isConnected) "PLAYER_RECONNECTED" else "PLAYER_DISCONNECTED"
+
+        val roomPayload = mapOf(
+            "type" to connectionType,
+            "gameNumber" to game.gameNumber,
+            "userId" to player.userId,
+            "playerName" to player.nickname,
+            "nickname" to player.nickname,
+            "isConnected" to isConnected,
+            "timestamp" to Instant.now().toString()
+        )
+
+        gameMessagingService.sendRoomUpdate(game.gameNumber, roomPayload)
+
+        val eventPayload = mapOf(
+            "userId" to player.userId,
+            "nickname" to player.nickname,
+            "isConnected" to isConnected,
+            "lastActiveAt" to player.lastActiveAt?.toString()
+        )
+
+        val eventMessage = mapOf(
+            "type" to connectionType,
+            "gameNumber" to game.gameNumber,
+            "timestamp" to Instant.now().toString(),
+            "payload" to eventPayload
+        )
+
+        gameMessagingService.broadcastGameEvent(game.gameNumber, eventMessage)
+    }
 }

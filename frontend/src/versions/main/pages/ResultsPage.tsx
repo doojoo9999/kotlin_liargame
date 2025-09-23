@@ -1,20 +1,13 @@
-import { useState, useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
-import { motion } from 'framer-motion'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import {
-  Trophy,
-  Crown,
-  Target,
-  Home,
-  RotateCcw,
-  Share2,
-  Medal,
-  Star
-} from 'lucide-react'
-import { useToast } from '@/hooks/useToast'
+import {useEffect, useState} from 'react'
+import {useNavigate, useParams} from 'react-router-dom'
+import {motion} from 'framer-motion'
+import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card'
+import {Button} from '@/components/ui/button'
+import {Badge} from '@/components/ui/badge'
+import {Crown, Home, Medal, RotateCcw, Share2, Star, Target, Trophy} from 'lucide-react'
+import {useToast} from '@/hooks/useToast'
+import {useGameStore} from '@/stores'
+import {useShallow} from 'zustand/react/shallow'
 
 interface PlayerScore {
   id: string
@@ -33,6 +26,12 @@ export function MainResultsPage() {
   const { gameId } = useParams<{ gameId: string }>()
   const navigate = useNavigate()
   const { toast } = useToast()
+  const selectGameStore = useShallow((state: ReturnType<typeof useGameStore.getState>) => ({
+    gameNumber: state.gameNumber,
+    leaveGame: state.leaveGame,
+    resetGame: state.resetGame,
+  }))
+  const { gameNumber, leaveGame, resetGame } = useGameStore(selectGameStore)
 
   // Game results state - will be fetched from API
   const [gameResults, setGameResults] = useState<{
@@ -94,12 +93,27 @@ export function MainResultsPage() {
   }
 
   const handleReturnToLobby = () => {
-    // 로비로 돌아가기
-    navigate('/lobby')
-    toast({
-      title: "로비로 돌아갑니다",
-      description: "다른 게임방을 찾거나 새로 만들 수 있습니다",
-    })
+    void (async () => {
+      try {
+        if (gameNumber) {
+          await leaveGame()
+        } else {
+          resetGame()
+        }
+        navigate('/lobby')
+        toast({
+          title: "로비로 돌아갑니다",
+          description: "다른 게임방을 찾거나 새로 만들 수 있습니다",
+        })
+      } catch (error) {
+        const description = error instanceof Error ? error.message : '게임에서 나갈 수 없습니다'
+        toast({
+          title: "게임 나가기 실패",
+          description,
+          variant: 'destructive',
+        })
+      }
+    })()
   }
 
   const handleShareResults = () => {
@@ -171,7 +185,7 @@ export function MainResultsPage() {
       <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
         <div className="text-center space-y-4">
           <p className="text-muted-foreground">Failed to load game results</p>
-          <Button onClick={() => navigate('/lobby')}>
+          <Button onClick={handleReturnToLobby}>
             <Home className="mr-2 h-4 w-4" />
             Return to Lobby
           </Button>

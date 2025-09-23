@@ -1,39 +1,50 @@
 package org.example.kotlin_liargame.tools.websocket
 
 import org.example.kotlin_liargame.domain.game.service.GameService
+import org.example.kotlin_liargame.global.connection.service.EnhancedConnectionService
 import org.example.kotlin_liargame.tools.websocket.dto.ConnectionMessage
 import org.example.kotlin_liargame.tools.websocket.dto.ConnectionState
 import org.example.kotlin_liargame.tools.websocket.dto.ConnectionStats
 import org.example.kotlin_liargame.tools.websocket.dto.HeartbeatMessage
 import org.example.kotlin_liargame.tools.websocket.enum.ConnectionStatus
+import org.slf4j.LoggerFactory
 import org.springframework.context.annotation.Lazy
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.scheduling.TaskScheduler
 import org.springframework.stereotype.Component
+import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ScheduledFuture
-
 
 @Component
 class WebSocketConnectionManager(
     @Lazy private val messagingTemplate: SimpMessagingTemplate,
     private val taskScheduler: TaskScheduler,
     @Lazy private val gameService: GameService,
-    @Lazy private val enhancedConnectionService: org.example.kotlin_liargame.global.connection.service.EnhancedConnectionService
+    @Lazy private val enhancedConnectionService: EnhancedConnectionService
 ) {
-    
+    private val logger = LoggerFactory.getLogger(WebSocketConnectionManager::class.java)
+
     private val connectionStates = ConcurrentHashMap<String, ConnectionState>()
     private val heartbeatTasks = ConcurrentHashMap<String, ScheduledFuture<*>>()
+    private val disconnectFinalizers = ConcurrentHashMap<String, ScheduledFuture<*>>()
     private val reconnectionAttempts = ConcurrentHashMap<String, Int>()
-    
+
     companion object {
-        private const val HEARTBEAT_INTERVAL_SECONDS = 10L // 30초에서 10초로 단축
-        private const val CONNECTION_TIMEOUT_SECONDS = 25L // 90초에서 25초로 단축
-        private const val MAX_RECONNECTION_ATTEMPTS = 3 // 5회에서 3회로 단축
+        private const val HEARTBEAT_INTERVAL_SECONDS = 10L
+        private const val CONNECTION_TIMEOUT_SECONDS = 30L
+        private const val MAX_RECONNECTION_ATTEMPTS = 3
     }
 
     fun registerConnection(sessionId: String, userId: Long?) {
+        if (userId == null) {
+            logger.warn("Ignoring connection registration for {} without resolved userId", sessionId)
+            return
+        }
+
+        cancelFinalizer(sessionId)
+
         val connectionState = ConnectionState(
             sessionId = sessionId,
             userId = userId,
@@ -41,16 +52,13 @@ class WebSocketConnectionManager(
             lastHeartbeat = Instant.now(),
             status = ConnectionStatus.CONNECTED
         )
-        
+
         connectionStates[sessionId] = connectionState
         startHeartbeatMonitoring(sessionId)
-        
-        // 연결 등록 로그 간소화
-        println("[CONNECTION] Registered: $sessionId (userId: $userId)")
 
-        messagingTemplate.convertAndSendToUser(
-            sessionId,
-            "/topic/connection",
+        logger.info("[CONNECTION] Registered session {} for user {}", sessionId, userId)
+        sendConnectionUpdate(
+            userId,
             ConnectionMessage(
                 type = "CONNECTION_ESTABLISHED",
                 message = "연결이 성공적으로 설정되었습니다.",
@@ -61,226 +69,107 @@ class WebSocketConnectionManager(
 
     fun handleDisconnection(sessionId: String) {
         val connectionState = connectionStates[sessionId]
-        if (connectionState != null) {
-            println("[CONNECTION] WebSocket disconnected: $sessionId (userId: ${connectionState.userId})")
+        if (connectionState == null) {
+            logger.debug("Received disconnection for unknown session {}", sessionId)
+            return
+        }
 
-            connectionState.userId?.let { userId ->
-                val player = gameService.findPlayerInActiveGame(userId)
-                player?.let {
-                    // 새 연결: 향상된 연결 로그/알림 서비스 호출
-                    try {
-                        enhancedConnectionService.handleDisconnection(userId, it.game.gameNumber)
-                    } catch (e: Exception) {
-                        println("[CONNECTION] Enhanced disconnection handling failed: ${e.message}")
-                    }
-                    // 기존 게임 서비스 처리 유지
-                    gameService.handlePlayerDisconnection(userId)
+        logger.info(
+            "[CONNECTION] WebSocket disconnected: {} (userId: {})",
+            sessionId,
+            connectionState.userId
+        )
+
+        connectionState.status = ConnectionStatus.DISCONNECTED
+        connectionState.disconnectedAt = Instant.now()
+        heartbeatTasks.remove(sessionId)?.cancel(false)
+
+        connectionState.userId?.let { userId ->
+            runCatching { gameService.handlePlayerDisconnection(userId) }
+                .onFailure { logger.error("Failed to mark user {} as disconnected", userId, it) }
+
+            runCatching {
+                gameService.findPlayerInActiveGame(userId)?.let { player ->
+                    enhancedConnectionService.handleDisconnection(userId, player.game.gameNumber)
                 }
-            }
-
-            // 즉시 정리 (3초 대기 제거)
-            cleanupConnection(sessionId)
-        }
-    }
-
-    private fun cleanupConnection(sessionId: String) {
-        val connectionState = connectionStates[sessionId]
-        connectionState?.userId?.let { userId ->
-            try {
-                // GameService의 cleanupPlayerByUserId 메서드를 직접 호출하여 안전하게 처리
-                gameService.cleanupPlayerByUserId(userId)
-                println("[CONNECTION] Successfully cleaned up player by userId: $userId")
-            } catch (e: Exception) {
-                println("[CONNECTION] Error during connection cleanup for sessionId: $sessionId, userId: $userId - ${e.message}")
-                // 로그만 남기고 계속 진행 (예외로 인한 중단 방지)
-            }
+            }.onFailure { logger.error("Enhanced disconnection handling failed for user {}", userId, it) }
         }
 
-        connectionStates.remove(sessionId)
-        heartbeatTasks[sessionId]?.cancel(false)
-        heartbeatTasks.remove(sessionId)
-        reconnectionAttempts.remove(sessionId)
-        
-        println("[CONNECTION] Cleaned up connection: $sessionId")
+        scheduleFinalization(sessionId)
     }
 
     fun handleHeartbeat(sessionId: String) {
-        val connectionState = connectionStates[sessionId]
-        if (connectionState != null) {
-            connectionState.lastHeartbeat = Instant.now()
-            connectionState.status = ConnectionStatus.CONNECTED
-            reconnectionAttempts.remove(sessionId) // Reset reconnection attempts on successful heartbeat
-            
-            messagingTemplate.convertAndSendToUser(
-                sessionId,
-                "/topic/heartbeat",
-                HeartbeatMessage(
-                    type = "HEARTBEAT_RESPONSE",
-                    timestamp = Instant.now(),
-                    serverTime = Instant.now()
-                )
-            )
+        val connectionState = connectionStates[sessionId] ?: return
+        connectionState.lastHeartbeat = Instant.now()
+        connectionState.status = ConnectionStatus.CONNECTED
+        reconnectionAttempts.remove(sessionId)
+
+        connectionState.userId?.let { userId ->
+            sendHeartbeat(userId, HeartbeatMessage("HEARTBEAT_RESPONSE", Instant.now(), Instant.now()))
         }
     }
 
     fun handleReconnection(oldSessionId: String, newSessionId: String, userId: Long?): Boolean {
+        if (userId == null) {
+            logger.warn("Rejecting reconnection attempt without userId (old={}, new={})", oldSessionId, newSessionId)
+            return false
+        }
+
         val oldConnection = connectionStates[oldSessionId]
-        if (oldConnection != null && oldConnection.userId == userId) {
-            val newConnection = oldConnection.copy(
-                sessionId = newSessionId,
-                reconnectedAt = Instant.now(),
-                status = ConnectionStatus.RECONNECTED
-            )
-            
-            connectionStates.remove(oldSessionId)
-            connectionStates[newSessionId] = newConnection
-            heartbeatTasks[oldSessionId]?.cancel(false)
-            heartbeatTasks.remove(oldSessionId)
-            startHeartbeatMonitoring(newSessionId)
-            
-            reconnectionAttempts.remove(oldSessionId)
-            
-            println("[CONNECTION] Reconnection successful: $oldSessionId -> $newSessionId (userId: $userId)")
-            messagingTemplate.convertAndSendToUser(
-                newSessionId,
-                "/topic/connection",
-                ConnectionMessage(
-                    type = "RECONNECTION_SUCCESS",
-                    message = "연결이 성공적으로 복구되었습니다.",
-                    timestamp = Instant.now()
-                )
-            )
-            
-            userId?.let {
-                gameService.handlePlayerReconnection(it)
-
-                // 새 연결: 향상된 연결 로그/알림 서비스 호출
-                try {
-                    val player = gameService.findPlayerInActiveGame(it)
-                    if (player != null) {
-                        enhancedConnectionService.handleReconnection(it, player.game.gameNumber)
-                    }
-                } catch (e: Exception) {
-                    println("[CONNECTION] Enhanced reconnection handling failed: ${e.message}")
-                }
-            }
-
-            return true
+        if (oldConnection == null || oldConnection.userId != userId) {
+            logger.debug("No matching previous connection for reconnection {} -> {} (userId={})", oldSessionId, newSessionId, userId)
+            return false
         }
-        
-        return false
-    }
 
-    fun getConnectionState(sessionId: String): ConnectionState? {
-        return connectionStates[sessionId]
-    }
+        cancelFinalizer(oldSessionId)
 
-    fun getUserConnections(userId: Long): List<ConnectionState> {
-        return connectionStates.values.filter { 
-            it.userId == userId && it.status != ConnectionStatus.DISCONNECTED 
-        }
-    }
-
-    fun isUserConnected(userId: Long): Boolean {
-        return getUserConnections(userId).isNotEmpty()
-    }
-
-    fun sendToUser(userId: Long, destination: String, message: Any) {
-        val connections = getUserConnections(userId)
-        connections.forEach { connection ->
-            try {
-                messagingTemplate.convertAndSendToUser(
-                    connection.sessionId,
-                    destination,
-                    message
-                )
-            } catch (e: Exception) {
-                println("[ERROR] Failed to send message to user $userId session ${connection.sessionId}: ${e.message}")
-            }
-        }
-    }
-
-    private fun startHeartbeatMonitoring(sessionId: String) {
-        val heartbeatTask = taskScheduler.scheduleAtFixedRate({
-            checkConnectionHealth(sessionId)
-        }, Instant.now().plusSeconds(HEARTBEAT_INTERVAL_SECONDS), 
-           java.time.Duration.ofSeconds(HEARTBEAT_INTERVAL_SECONDS))
-        
-        heartbeatTasks[sessionId] = heartbeatTask
-    }
-
-    private fun checkConnectionHealth(sessionId: String) {
-        val connectionState = connectionStates[sessionId] ?: return
-        
-        val now = Instant.now()
-        val timeSinceLastHeartbeat = java.time.Duration.between(connectionState.lastHeartbeat, now)
-        
-        if (timeSinceLastHeartbeat.seconds > CONNECTION_TIMEOUT_SECONDS) {
-            connectionState.status = ConnectionStatus.TIMEOUT
-            println("[CONNECTION] Connection timeout detected: $sessionId")
-            
-            triggerReconnection(sessionId)
-        } else {
-            try {
-                messagingTemplate.convertAndSendToUser(
-                    sessionId,
-                    "/topic/heartbeat",
-                    HeartbeatMessage(
-                        type = "HEARTBEAT_PING",
-                        timestamp = now,
-                        serverTime = now
-                    )
-                )
-            } catch (e: Exception) {
-                println("[ERROR] Failed to send heartbeat to $sessionId: ${e.message}")
-                connectionState.status = ConnectionStatus.ERROR
-            }
-        }
-    }
-
-    private fun triggerReconnection(sessionId: String) {
-        val connectionState = connectionStates[sessionId] ?: return
-        val attempts = reconnectionAttempts.getOrDefault(sessionId, 0)
-        
-        if (attempts < MAX_RECONNECTION_ATTEMPTS) {
-            reconnectionAttempts[sessionId] = attempts + 1
-            
-            try {
-                messagingTemplate.convertAndSendToUser(
-                    sessionId,
-                    "/topic/connection",
-                    ConnectionMessage(
-                        type = "RECONNECTION_REQUIRED",
-                        message = "연결이 끊어졌습니다. 재연결을 시도합니다...",
-                        timestamp = Instant.now()
-                    )
-                )
-            } catch (e: Exception) {
-                println("[ERROR] Failed to send reconnection request to $sessionId: ${e.message}")
-            }
-        } else {
-            // Max attempts reached, mark as failed
-            connectionState.status = ConnectionStatus.FAILED
-            println("[CONNECTION] Max reconnection attempts reached for $sessionId")
-            cleanupConnection(sessionId)
-        }
-    }
-
-    fun getConnectionStats(): ConnectionStats {
-        val now = Instant.now()
-        val connections = connectionStates.values
-        
-        return ConnectionStats(
-            totalConnections = connections.size,
-            activeConnections = connections.count { it.status == ConnectionStatus.CONNECTED },
-            disconnectedConnections = connections.count { it.status == ConnectionStatus.DISCONNECTED },
-            timeoutConnections = connections.count { it.status == ConnectionStatus.TIMEOUT },
-            failedConnections = connections.count { it.status == ConnectionStatus.FAILED },
-            averageConnectionDuration = connections.mapNotNull { connection ->
-                val endTime = connection.disconnectedAt ?: now
-                java.time.Duration.between(connection.connectedAt, endTime).seconds
-            }.average().takeIf { !it.isNaN() } ?: 0.0
+        val newConnection = oldConnection.copy(
+            sessionId = newSessionId,
+            status = ConnectionStatus.RECONNECTED,
+            reconnectedAt = Instant.now(),
+            lastHeartbeat = Instant.now(),
+            disconnectedAt = null
         )
+
+        connectionStates.remove(oldSessionId)
+        connectionStates[newSessionId] = newConnection
+        heartbeatTasks.remove(oldSessionId)?.cancel(false)
+        startHeartbeatMonitoring(newSessionId)
+
+        reconnectionAttempts.remove(oldSessionId)
+
+        logger.info("[CONNECTION] Reconnection successful: {} -> {} (userId: {})", oldSessionId, newSessionId, userId)
+        sendConnectionUpdate(
+            userId,
+            ConnectionMessage(
+                type = "RECONNECTION_SUCCESS",
+                message = "연결이 성공적으로 복구되었습니다.",
+                timestamp = Instant.now()
+            )
+        )
+
+        runCatching { gameService.handlePlayerReconnection(userId) }
+            .onFailure { logger.error("Failed to mark user {} as reconnected", userId, it) }
+
+        runCatching {
+            gameService.findPlayerInActiveGame(userId)?.let { player ->
+                enhancedConnectionService.handleReconnection(userId, player.game.gameNumber)
+            }
+        }.onFailure { logger.error("Enhanced reconnection handling failed for user {}", userId, it) }
+
+        return true
+    }
+
+    fun getConnectionState(sessionId: String): ConnectionState? = connectionStates[sessionId]
+
+    fun getUserConnections(userId: Long): List<ConnectionState> = connectionStates.values.filter { state ->
+        state.userId == userId && state.status != ConnectionStatus.FAILED
+    }
+
+    fun isUserConnected(userId: Long): Boolean = getUserConnections(userId).any { it.status == ConnectionStatus.CONNECTED }
+
+    fun sendToUser(userId: Long, destination: String, payload: Any) {
+        messagingTemplate.convertAndSendToUser(userId.toString(), destination, payload)
     }
 
     fun updateLastActivity(sessionId: String) {
@@ -288,7 +177,124 @@ class WebSocketConnectionManager(
         if (connectionState != null) {
             connectionState.lastHeartbeat = Instant.now()
             connectionState.status = ConnectionStatus.CONNECTED
-            println("[ACTIVITY] Updated last activity for session: $sessionId")
         }
     }
+
+    fun getConnectionStats(): ConnectionStats {
+        val now = Instant.now()
+        val connections = connectionStates.values
+
+        return ConnectionStats(
+            totalConnections = connections.size,
+            activeConnections = connections.count { it.status == ConnectionStatus.CONNECTED },
+            disconnectedConnections = connections.count { it.status == ConnectionStatus.DISCONNECTED },
+            timeoutConnections = connections.count { it.status == ConnectionStatus.TIMEOUT },
+            failedConnections = connections.count { it.status == ConnectionStatus.FAILED },
+            averageConnectionDuration = connections.mapNotNull { state ->
+                val endTime = state.disconnectedAt ?: now
+                Duration.between(state.connectedAt, endTime).seconds
+            }.takeIf { it.isNotEmpty() }?.average() ?: 0.0
+        )
+    }
+
+    private fun startHeartbeatMonitoring(sessionId: String) {
+        val heartbeatTask = taskScheduler.scheduleAtFixedRate(
+            { checkConnectionHealth(sessionId) },
+            Instant.now().plusSeconds(HEARTBEAT_INTERVAL_SECONDS),
+            Duration.ofSeconds(HEARTBEAT_INTERVAL_SECONDS)
+        )
+        heartbeatTasks[sessionId] = heartbeatTask
+    }
+
+    private fun checkConnectionHealth(sessionId: String) {
+        val connectionState = connectionStates[sessionId] ?: return
+        val userId = connectionState.userId ?: return
+
+        val now = Instant.now()
+        val timeSinceLastHeartbeat = Duration.between(connectionState.lastHeartbeat, now).seconds
+
+        if (timeSinceLastHeartbeat > CONNECTION_TIMEOUT_SECONDS) {
+            connectionState.status = ConnectionStatus.TIMEOUT
+            logger.warn("[CONNECTION] Timeout detected for session {} (userId={})", sessionId, userId)
+            triggerReconnection(sessionId, userId)
+            scheduleFinalization(sessionId)
+        } else {
+            sendHeartbeat(
+                userId,
+                HeartbeatMessage(
+                    type = "HEARTBEAT_PING",
+                    timestamp = now,
+                    serverTime = now
+                )
+            )
+        }
+    }
+
+    private fun triggerReconnection(sessionId: String, userId: Long) {
+        val attempts = reconnectionAttempts.getOrDefault(sessionId, 0)
+        if (attempts >= MAX_RECONNECTION_ATTEMPTS) {
+            logger.warn("[CONNECTION] Max reconnection attempts reached for session {}", sessionId)
+            connectionStates[sessionId]?.status = ConnectionStatus.FAILED
+            scheduleFinalization(sessionId)
+            return
+        }
+
+        reconnectionAttempts[sessionId] = attempts + 1
+        sendConnectionUpdate(
+            userId,
+            ConnectionMessage(
+                type = "RECONNECTION_REQUIRED",
+                message = "연결이 끊어졌습니다. 재연결을 시도합니다...",
+                timestamp = Instant.now()
+            )
+        )
+    }
+
+    private fun scheduleFinalization(sessionId: String) {
+        cancelFinalizer(sessionId)
+        val task = taskScheduler.schedule({ finalizeDisconnection(sessionId) }, Instant.now().plusSeconds(CONNECTION_TIMEOUT_SECONDS))
+        disconnectFinalizers[sessionId] = task
+    }
+
+    private fun finalizeDisconnection(sessionId: String) {
+        val connectionState = connectionStates[sessionId] ?: return
+        if (connectionState.status == ConnectionStatus.RECONNECTED || connectionState.status == ConnectionStatus.CONNECTED) {
+            return
+        }
+
+        val userId = connectionState.userId
+        cleanupConnectionState(sessionId)
+
+        if (userId != null) {
+            logger.info("[CONNECTION] Finalizing disconnection for user {} (session {})", userId, sessionId)
+            sendConnectionUpdate(
+                userId,
+                ConnectionMessage(
+                    type = "CONNECTION_CLOSED",
+                    message = "연결이 종료되었습니다.",
+                    timestamp = Instant.now()
+                )
+            )
+        }
+    }
+
+    private fun cleanupConnectionState(sessionId: String) {
+        connectionStates.remove(sessionId)
+        heartbeatTasks.remove(sessionId)?.cancel(false)
+        cancelFinalizer(sessionId)
+        reconnectionAttempts.remove(sessionId)
+    }
+
+    private fun cancelFinalizer(sessionId: String) {
+        disconnectFinalizers.remove(sessionId)?.cancel(false)
+    }
+
+    private fun sendConnectionUpdate(userId: Long, message: ConnectionMessage) {
+        messagingTemplate.convertAndSendToUser(userId.toString(), "/queue/connection", message)
+    }
+
+    private fun sendHeartbeat(userId: Long, message: HeartbeatMessage) {
+        messagingTemplate.convertAndSendToUser(userId.toString(), "/queue/heartbeat", message)
+    }
 }
+
