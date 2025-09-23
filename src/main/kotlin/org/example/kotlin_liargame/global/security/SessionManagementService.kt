@@ -245,6 +245,11 @@ class SessionManagementService(
     }
     
 
+    fun getSessionInfoById(sessionId: String): SessionInfo? {
+        val nickname = sessionIdToNickname[sessionId] ?: return null
+        return activeSessions[nickname]
+    }
+
     fun getActiveSessionInfo(nickname: String): SessionInfo? {
         return activeSessions[nickname]
     }

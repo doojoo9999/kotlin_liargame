@@ -238,7 +238,10 @@ class AdminService(
                 // LocalDateTime을 Instant로 변환
                 val gameCreatedAtInstant = game.createdAt.atZone(java.time.ZoneId.systemDefault()).toInstant()
                 val gameAge = java.time.Duration.between(gameCreatedAtInstant, currentTime)
-                val hasOwner = players.any { it.userId == game.gameOwner.toLongOrNull() }
+                val ownerIdentifier = game.gameOwner.trim()
+                val ownerPlayer = players.firstOrNull { it.nickname == ownerIdentifier }
+                    ?: players.firstOrNull { it.userId.toString() == ownerIdentifier }
+                val hasOwner = ownerPlayer != null
 
                 when (game.gameState) {
                     GameState.WAITING -> {
