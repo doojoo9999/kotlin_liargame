@@ -387,13 +387,21 @@ class DefenseService(
     fun castFinalVote(gameNumber: Int, voterUserId: Long, voteForExecution: Boolean): FinalVoteResponse {
         val votingStatus = gameStateService.getFinalVotingStatus(gameNumber)
             ?: throw IllegalStateException("No final voting active")
-            
+
+        println("[DEBUG] Final voting status before vote: $votingStatus")
+
         if (!votingStatus.containsKey(voterUserId)) {
             throw IllegalArgumentException("Player not eligible to vote")
         }
-        
-        if (votingStatus[voterUserId] != null) {
-            throw IllegalStateException("Player has already voted")
+
+        votingStatus[voterUserId]?.let { existingVote ->
+            return FinalVoteResponse(
+                gameNumber = gameNumber,
+                voterPlayerId = voterUserId,
+                voterNickname = voterPlayer.nickname,
+                voteForExecution = existingVote,
+                success = true
+            )
         }
         
         if (!gameStateService.getFinalVotingTimer(gameNumber)) {
@@ -546,6 +554,17 @@ class DefenseService(
             ?: throw IllegalArgumentException("Game not found")
         val updatedPlayers = playerRepository.findByGame(updatedGame)
         
+        val finalJudgment = FinalJudgmentResultResponse(
+            gameNumber = gameNumber,
+            accusedPlayerId = defenseStatus.accusedPlayerId,
+            accusedPlayerNickname = accusedPlayer.nickname,
+            isKilled = isExecuted,
+            isLiar = accusedPlayer.role == org.example.kotlin_liargame.domain.game.model.enum.PlayerRole.LIAR,
+            executionVotes = executionVotes,
+            survivalVotes = survivalVotes,
+            totalVotes = totalVotes
+        )
+
         val response = FinalVotingResultResponse(
             gameNumber = gameNumber,
             accusedPlayerId = defenseStatus.accusedPlayerId,
@@ -602,7 +621,10 @@ class DefenseService(
                 val finalVotingRecordMap = votingStatus.mapValues { it.value ?: false }
                 val awardedCitizens = gameProgressService.awardCitizenVictoryPoints(game, finalVotingRecordMap)
                 println("[DefenseService] Awarded points to ${awardedCitizens.size} citizens for executing the liar.")
-                
+
+                // 라이어 추측 페이즈 시작
+                gameResultService.processGameResult(gameNumber, finalJudgment)
+
             } else {
                 // 변론자가 시민이면: 라이어 승리로 즉시 종료
                 sendModeratorMessage(
@@ -618,16 +640,7 @@ class DefenseService(
                 
                 // 게임 즉시 종료 처리 (라이어 승리)
                 taskScheduler.schedule({
-                    gameResultService.processGameResult(gameNumber, FinalJudgmentResultResponse(
-                        gameNumber = gameNumber,
-                        accusedPlayerId = defenseStatus.accusedPlayerId,
-                        accusedPlayerNickname = accusedPlayer.nickname,
-                        isKilled = isExecuted,
-                        isLiar = isLiar,
-                        executionVotes = executionVotes,
-                        survivalVotes = survivalVotes,
-                        totalVotes = totalVotes
-                    ))
+                    gameResultService.processGameResult(gameNumber, finalJudgment)
                 }, Instant.now().plusSeconds(3))
             }
         } else {
