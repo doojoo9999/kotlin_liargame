@@ -23,5 +23,9 @@
         - paragraph [ref=e26]: 같은 닉네임이 이미 접속 중이면 사용할 수 없습니다
   - region "Notifications (F8)":
     - list
+  - generic [ref=e27]:
+    - img [ref=e29]
+    - button "Open Tanstack query devtools" [ref=e77] [cursor=pointer]:
+      - img [ref=e78] [cursor=pointer]
   - region "Notifications alt+T"
 ```

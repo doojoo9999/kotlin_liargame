@@ -313,7 +313,8 @@ class GameResultService(
             ?: throw IllegalArgumentException("Game not found")
         
         val totalDuration = if (game.gameEndTime != null) {
-            java.time.Duration.between(game.createdAt, game.gameEndTime).seconds
+            val startInstant = game.createdAt.atZone(java.time.ZoneId.systemDefault()).toInstant()
+            java.time.Duration.between(startInstant, game.gameEndTime).seconds
         } else 0L
         
         return GameStatistics(

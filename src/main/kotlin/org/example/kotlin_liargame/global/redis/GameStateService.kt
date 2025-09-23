@@ -1,6 +1,7 @@
 package org.example.kotlin_liargame.global.redis
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.node.ObjectNode
 import org.example.kotlin_liargame.global.config.GameStateStorageProperties
 import org.slf4j.LoggerFactory
 import org.springframework.context.annotation.Profile
@@ -88,11 +89,13 @@ class GameStateService(
     }
 
     fun setFinalVotingStatus(gameNumber: Int, status: Map<Long, Boolean?>) {
+        logger.debug("Persisting final voting status for game {} -> {}", gameNumber, status)
         if (useMemory) {
             finalVotingStatusCache[gameNumber] = status.toMutableMap()
         }
+        val json = objectMapper.writeValueAsString(status)
+        logger.debug("Serialized final voting status for game {}: {}", gameNumber, json)
         writeToRedis("finalVotingStatus") {
-            val json = objectMapper.writeValueAsString(status)
             redisTemplate.opsForValue().set(finalVotingKey(gameNumber), json, Duration.ofHours(2))
         }
     }
@@ -100,23 +103,35 @@ class GameStateService(
     fun getFinalVotingStatus(gameNumber: Int): MutableMap<Long, Boolean?> {
         val redisValue = readFromRedis("finalVotingStatus") {
             redisTemplate.opsForValue().get(finalVotingKey(gameNumber))
-        }?.let {
-            val typeRef = objectMapper.typeFactory.constructMapType(
-                MutableMap::class.java,
-                Long::class.java,
-                Boolean::class.java
-            )
-            objectMapper.readValue<MutableMap<Long, Boolean?>>(it, typeRef)
+        }?.let { json ->
+            logger.debug("Raw redis final voting payload for game {}: {}", gameNumber, json)
+            val node = objectMapper.readTree(json)
+            if (node is ObjectNode) {
+                val parsed = mutableMapOf<Long, Boolean?>()
+                node.fields().forEach { (key, value) ->
+                    key.toLongOrNull()?.let { userId ->
+                        parsed[userId] = if (value.isNull) null else value.asBoolean()
+                    }
+                }
+                parsed
+            } else {
+                mutableMapOf()
+            }
         }
         if (redisValue != null) {
             if (useMemory) finalVotingStatusCache[gameNumber] = redisValue.toMutableMap()
+            logger.debug("Final voting status from redis for game {}: {}", gameNumber, redisValue)
             return redisValue
         }
-        return if (useMemory) {
+        val memoryValue = if (useMemory) {
             finalVotingStatusCache[gameNumber]?.toMutableMap() ?: mutableMapOf()
         } else {
             mutableMapOf()
         }
+        if (memoryValue.isNotEmpty()) {
+            logger.debug("Final voting status from memory for game {}: {}", gameNumber, memoryValue)
+        }
+        return memoryValue
     }
 
     fun removeFinalVotingStatus(gameNumber: Int) {
