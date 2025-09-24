@@ -12,7 +12,6 @@ export class EnhancedGameService {
     return EnhancedGameService.instance
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-empty-function
   private constructor() {}
 
   async fetchGameState(): Promise<void> {

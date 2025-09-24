@@ -1,5 +1,4 @@
 import {useCallback, useState} from 'react';
-import {websocketService} from '../services/websocketService';
 import useGameStore from '../stores/gameStore';
 import {toast} from 'sonner';
 import {useShallow} from 'zustand/react/shallow';

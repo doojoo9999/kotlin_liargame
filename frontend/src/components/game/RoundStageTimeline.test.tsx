@@ -5,7 +5,10 @@ import type {GameTimer, RoundUxStage} from '@/stores/unifiedGameStore';
 
 vi.mock('framer-motion', () => ({
   motion: {
-    div: ({children, layout: _layout, ...props}: any) => <div {...props}>{children}</div>,
+    div: ({children, layout: _layout, ...props}: any) => {
+      void _layout;
+      return <div {...props}>{children}</div>;
+    },
   },
 }));
 
