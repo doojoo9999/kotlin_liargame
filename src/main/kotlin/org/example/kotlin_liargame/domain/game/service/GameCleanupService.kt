@@ -68,11 +68,42 @@ class GameCleanupService(
         return cleanedCount
     }
 
-    /**
-     * Force cleanup a specific game by game number
-     * Use with caution - this will delete the game regardless of state
-     */
+
     @Transactional
+    fun cleanupOfflineOnlyGames(): Int {
+        val offlineGames = gameRepository.findActiveGamesWithAllPlayersOffline()
+        if (offlineGames.isEmpty()) {
+            logger.info("No games found where all players are offline.")
+            return 0
+        }
+
+        var cleanedCount = 0
+        offlineGames.forEach { game ->
+            try {
+                logger.warn(
+                    "Cleaning up game {} (state={}) because all players are offline",
+                    game.gameNumber,
+                    game.gameState
+                )
+
+                if (forceCleanupGame(game.gameNumber)) {
+                    cleanedCount++
+                }
+            } catch (e: Exception) {
+                logger.error(
+                    "Failed to clean up offline-only game {}: {}",
+                    game.gameNumber,
+                    e.message,
+                    e
+                )
+            }
+        }
+
+        logger.info("Offline-only cleanup completed. Cleaned {} games.", cleanedCount)
+        return cleanedCount
+    }
+
+
     fun forceCleanupGame(gameNumber: Int): Boolean {
         val game = gameRepository.findByGameNumber(gameNumber)
         if (game == null) {
@@ -132,14 +163,16 @@ class GameCleanupService(
         logger.info("Finished stale game cleanup task.")
     }
 
-    /**
-     * Scheduled task to clean up orphaned games every hour
-     */
     @Scheduled(cron = "0 0 * * * *") // Run every hour
     fun scheduledOrphanedGameCleanup() {
-        val cleanedCount = cleanupOrphanedGames()
-        if (cleanedCount > 0) {
-            logger.info("Scheduled cleanup removed $cleanedCount orphaned games")
+        val orphanedCount = cleanupOrphanedGames()
+        if (orphanedCount > 0) {
+            logger.info("Scheduled cleanup removed $orphanedCount orphaned games")
+        }
+
+        val offlineCount = cleanupOfflineOnlyGames()
+        if (offlineCount > 0) {
+            logger.info("Scheduled cleanup removed $offlineCount offline-only games")
         }
     }
 }
