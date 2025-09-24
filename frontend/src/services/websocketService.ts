@@ -77,6 +77,13 @@ class WebSocketService {
         return;
       }
 
+      if (this.client?.connected) {
+        this.connectionState = 'connected';
+        this.isConnected = true;
+        resolve();
+        return;
+      }
+
       if (this.connectionState === 'connecting') {
         // Wait for current connection attempt
         const checkConnection = () => {
@@ -170,6 +177,10 @@ class WebSocketService {
     }
     
     console.log('WebSocket service disconnected and cleaned up');
+  }
+
+  public onRoomDeleted(callback: (event: GameEvent) => void): () => void {
+    return this.onGameEvent('ROOM_DELETED', callback);
   }
 
   public subscribeToGame(gameId: string, userId?: string): void {
@@ -689,6 +700,27 @@ class WebSocketService {
     return this.onGameEvent('GAME_ENDED', callback);
   }
 
+  private forceDisconnectClient(reason?: string): void {
+    if (!this.client) {
+      return;
+    }
+
+    const isActive = this.client.active || this.client.connected;
+    if (!isActive) {
+      return;
+    }
+
+    try {
+      if (import.meta.env.DEV) {
+        console.log('Forcing STOMP disconnect', reason ? `(${reason})` : '');
+      }
+      this.client.forceDisconnect();
+    } catch (error) {
+      console.warn('Failed to force STOMP disconnect', { reason, error });
+    }
+    // onDisconnect handler will finish the cleanup (stop heartbeat, etc.)
+  }
+
   // 상태 확인 메서드들
   public getConnectionStatus(): boolean {
     return this.isConnected;
@@ -1106,6 +1138,7 @@ class WebSocketService {
 
       if (type === 'RECONNECTION_REQUIRED') {
         this.connectionState = 'reconnecting';
+        this.isConnected = false;
         this.connectionCallbacks.forEach(callback => {
           try {
             callback(false);
@@ -1113,8 +1146,10 @@ class WebSocketService {
             console.error('Error in connection callback:', error);
           }
         });
+        this.forceDisconnectClient('server requested reconnection');
       } else if (type === 'CONNECTION_CLOSED') {
         this.connectionState = 'disconnected';
+        this.isConnected = false;
         this.connectionCallbacks.forEach(callback => {
           try {
             callback(false);
@@ -1122,6 +1157,7 @@ class WebSocketService {
             console.error('Error in connection callback:', error);
           }
         });
+        this.forceDisconnectClient('server closed connection');
       }
 
       if (type === 'CONNECTION_ESTABLISHED' || type === 'RECONNECTION_SUCCESS') {

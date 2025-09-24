@@ -76,12 +76,26 @@ class GameMonitoringService(
         gameMessagingService.broadcastGameEvent(game.gameNumber, eventMessage)
     }
 
-    fun notifyRoomDeleted(gameNumber: Int) {
-        val payload = mapOf(
+    fun notifyRoomDeleted(gameNumber: Int, reason: String? = null) {
+        val timestamp = Instant.now().toString()
+        val lobbyPayload = mapOf(
             "type" to "ROOM_DELETED",
-            "gameNumber" to gameNumber
+            "gameNumber" to gameNumber,
+            "timestamp" to timestamp
         )
-        gameMessagingService.sendLobbyUpdate(payload)
+        gameMessagingService.sendLobbyUpdate(lobbyPayload)
+
+        val eventPayload = mapOf(
+            "type" to "ROOM_DELETED",
+            "gameNumber" to gameNumber,
+            "timestamp" to timestamp,
+            "payload" to mapOf(
+                "reason" to (reason ?: "CLEANUP"),
+                "message" to "방이 정리되었습니다. 로비로 이동해 주세요."
+            )
+        )
+        gameMessagingService.broadcastGameEvent(gameNumber, eventPayload)
+        gameMessagingService.sendRoomUpdate(gameNumber, eventPayload)
     }
 
     fun broadcastGameState(game: GameEntity, gameStateResponse: Any) {

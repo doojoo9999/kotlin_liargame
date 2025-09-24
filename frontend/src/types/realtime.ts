@@ -74,6 +74,7 @@ export type BroadcastMessageType =
   | 'GAME_STATE_UPDATE'
   | 'PLAYER_JOINED'
   | 'PLAYER_LEFT'
+  | 'ROOM_DELETED'
 
 export interface WebSocketMessage<T = any> {
   type: BroadcastMessageType
@@ -262,9 +263,15 @@ export interface PersonalNotificationPayload {
   [key: string]: unknown
 }
 
+export interface RoomDeletedPayload {
+  reason?: string
+  message?: string
+}
+
 export type GameEventPayloadMap = {
   PLAYER_JOINED: PlayerJoinedPayload
   PLAYER_LEFT: PlayerLeftPayload
+  ROOM_DELETED: RoomDeletedPayload
   GAME_STARTED: GameStartedPayload
   ROUND_STARTED: RoundStartedPayload
   HINT_PROVIDED: HintProvidedPayload

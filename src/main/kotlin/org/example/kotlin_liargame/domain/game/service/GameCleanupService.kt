@@ -1,6 +1,8 @@
 package org.example.kotlin_liargame.domain.game.service
 
 import org.example.kotlin_liargame.domain.chat.service.ChatService
+import org.example.kotlin_liargame.domain.game.model.GameEntity
+import org.example.kotlin_liargame.domain.game.model.PlayerEntity
 import org.example.kotlin_liargame.domain.game.model.enum.GameState
 import org.example.kotlin_liargame.domain.game.repository.GameRepository
 import org.example.kotlin_liargame.domain.game.repository.GameSubjectRepository
@@ -9,15 +11,24 @@ import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.Duration
+import java.time.Instant
+import java.time.ZoneId
 
 @Service
 class GameCleanupService(
     private val gameRepository: GameRepository,
     private val playerRepository: PlayerRepository,
     private val gameSubjectRepository: GameSubjectRepository,
-    private val chatService: ChatService
+    private val chatService: ChatService,
+    private val gameMonitoringService: GameMonitoringService
 ) {
     private val logger = LoggerFactory.getLogger(this::class.java)
+
+    companion object {
+        private val OFFLINE_CLEANUP_GRACE: Duration = Duration.ofMinutes(2)
+        private val zoneId: ZoneId = ZoneId.systemDefault()
+    }
 
     /**
      * Clean up orphaned games that are stuck in WAITING state with only one player
@@ -30,37 +41,43 @@ class GameCleanupService(
         val waitingGames = gameRepository.findByGameState(GameState.WAITING)
         var cleanedCount = 0
 
+        val threshold = Instant.now().minus(OFFLINE_CLEANUP_GRACE)
+
         for (game in waitingGames) {
             val players = playerRepository.findByGame(game)
 
-            // Clean up games with only one player (the owner) that are older than 5 minutes
-            if (players.size == 1 && game.createdAt.isBefore(java.time.LocalDateTime.now().minusMinutes(5))) {
-                logger.info("Found orphaned game: gameNumber=${game.gameNumber}, owner=${game.gameOwner}, created=${game.createdAt}")
+            if (players.size != 1) {
+                continue
+            }
 
-                try {
-                    // Delete in correct order to avoid foreign key constraints
-                    // 1. Delete chat messages
-                    chatService.deleteGameChatMessages(game)
+            val owner = players.first()
+            val createdDeadline = game.createdAt.isBefore(java.time.LocalDateTime.now().minusMinutes(5))
+            val recentlyActive = owner.isOnline || wasRecentlyActive(owner, game, threshold)
 
-                    // 2. Delete players
-                    val deletedPlayers = playerRepository.deleteByGame(game)
-                    logger.debug("Deleted $deletedPlayers players from game ${game.gameNumber}")
+            if (!createdDeadline) {
+                continue
+            }
 
-                    // 3. Delete game subjects
-                    val gameSubjects = gameSubjectRepository.findByGame(game)
-                    if (gameSubjects.isNotEmpty()) {
-                        gameSubjectRepository.deleteAll(gameSubjects)
-                        logger.debug("Deleted ${gameSubjects.size} game subjects from game ${game.gameNumber}")
-                    }
+            if (recentlyActive) {
+                logger.debug(
+                    "Skipping orphaned cleanup for game {} because owner {} is still active (online={}, lastActive={})",
+                    game.gameNumber,
+                    owner.nickname,
+                    owner.isOnline,
+                    owner.lastActiveAt
+                )
+                continue
+            }
 
-                    // 4. Delete the game itself
-                    gameRepository.delete(game)
-                    logger.info("Successfully cleaned up orphaned game ${game.gameNumber}")
-                    cleanedCount++
+            logger.info(
+                "Found orphaned game eligible for cleanup: gameNumber={}, owner={}, created={}",
+                game.gameNumber,
+                game.gameOwner,
+                game.createdAt
+            )
 
-                } catch (e: Exception) {
-                    logger.error("Failed to clean up game ${game.gameNumber}: ${e.message}", e)
-                }
+            if (forceCleanupGame(game.gameNumber, reason = "ORPHANED_OWNER_INACTIVE")) {
+                cleanedCount++
             }
         }
 
@@ -77,16 +94,27 @@ class GameCleanupService(
             return 0
         }
 
+        val threshold = Instant.now().minus(OFFLINE_CLEANUP_GRACE)
         var cleanedCount = 0
         offlineGames.forEach { game ->
             try {
+                val players = playerRepository.findByGame(game)
+                val stillActive = players.any { wasRecentlyActive(it, game, threshold) }
+                if (stillActive) {
+                    logger.debug(
+                        "Skipping offline cleanup for game {} because at least one player was active within grace period",
+                        game.gameNumber
+                    )
+                    return@forEach
+                }
+
                 logger.warn(
                     "Cleaning up game {} (state={}) because all players are offline",
                     game.gameNumber,
                     game.gameState
                 )
 
-                if (forceCleanupGame(game.gameNumber)) {
+                if (forceCleanupGame(game.gameNumber, reason = "ALL_PLAYERS_OFFLINE")) {
                     cleanedCount++
                 }
             } catch (e: Exception) {
@@ -104,7 +132,7 @@ class GameCleanupService(
     }
 
 
-    fun forceCleanupGame(gameNumber: Int): Boolean {
+    fun forceCleanupGame(gameNumber: Int, reason: String? = null): Boolean {
         val game = gameRepository.findByGameNumber(gameNumber)
         if (game == null) {
             logger.warn("Game $gameNumber not found for cleanup")
@@ -127,6 +155,7 @@ class GameCleanupService(
             gameSubjectRepository.deleteAll(gameSubjects)
 
             gameRepository.delete(game)
+            gameMonitoringService.notifyRoomDeleted(gameNumber, reason)
             logger.info("Successfully force cleaned up game $gameNumber")
             return true
 
@@ -161,6 +190,14 @@ class GameCleanupService(
         }
 
         logger.info("Finished stale game cleanup task.")
+    }
+
+    private fun wasRecentlyActive(player: PlayerEntity, game: GameEntity, threshold: Instant): Boolean {
+        val lastActive = player.lastActiveAt
+            ?: game.lastActivityAt
+            ?: player.joinedAt
+
+        return lastActive.isAfter(threshold)
     }
 
     @Scheduled(cron = "0 0 * * * *") // Run every hour

@@ -77,8 +77,12 @@ export function MainGamePage() {
     initializeGame()
   }, [gameId, gameNumber, setGameNumber, updateFromGameState, hydrateFromSnapshot, toast])
 
-  const handleReturnToLobby = () => {
-    if (!gameNumber) {
+  const handleReturnToLobby = (options?: { skipServer?: boolean }) => {
+    const shouldSkipServer = options?.skipServer ?? false
+    const currentState = useGameStore.getState()
+    const activeGameNumber = currentState.gameNumber ?? gameNumber
+
+    if (shouldSkipServer || !activeGameNumber) {
       resetGame()
       navigate('/lobby')
       return
@@ -89,6 +93,8 @@ export function MainGamePage() {
         await leaveGame()
         navigate('/lobby')
       } catch (error) {
+        resetGame()
+        navigate('/lobby')
         const description = error instanceof Error ? error.message : '게임에서 나갈 수 없습니다'
         toast({
           title: '게임 나가기 실패',
@@ -97,6 +103,7 @@ export function MainGamePage() {
         })
       }
     })()
+
   }
 
   const handleNextRound = () => {
@@ -128,7 +135,7 @@ export function MainGamePage() {
           <CardContent className="pt-6">
             <div className="text-center py-8">
               <div className="text-lg font-medium mb-4">{error || '게임을 찾을 수 없습니다'}</div>
-              <Button onClick={handleReturnToLobby}>
+              <Button onClick={() => handleReturnToLobby()}>
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 로비로 돌아가기
               </Button>
