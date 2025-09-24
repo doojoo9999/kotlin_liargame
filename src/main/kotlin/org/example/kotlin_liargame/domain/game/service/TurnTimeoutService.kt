@@ -1,7 +1,8 @@
 package org.example.kotlin_liargame.domain.game.service
 
+import org.example.kotlin_liargame.domain.game.model.enum.GamePhase
 import org.example.kotlin_liargame.domain.game.repository.GameRepository
-import org.example.kotlin_liargame.global.config.GameProperties
+import org.springframework.context.annotation.Lazy
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -11,8 +12,9 @@ import java.time.Instant
 class TurnTimeoutService(
     private val gameRepository: GameRepository,
     private val gameProgressService: GameProgressService,
-    private val gameProperties: GameProperties,
-    private val votingService: VotingService
+    private val votingService: VotingService,
+    @Lazy private val defenseService: DefenseService,
+    private val topicGuessService: TopicGuessService
 ) {
 
     @Scheduled(fixedRate = 5000) // Check every 5 seconds for better responsiveness
@@ -26,7 +28,7 @@ class TurnTimeoutService(
                 val now = Instant.now()
                 if (now.isAfter(phaseEndTime)) {
                     when (game.currentPhase) {
-                        org.example.kotlin_liargame.domain.game.model.enum.GamePhase.SPEECH -> {
+                        GamePhase.SPEECH -> {
                             println("[TIMEOUT] Turn timeout detected for game: ${game.gameNumber}, player: ${game.currentPlayerId}, phaseEndTime: $phaseEndTime, currentTime: $now")
                             try {
                                 gameProgressService.forceNextTurn(game.id)
@@ -36,7 +38,7 @@ class TurnTimeoutService(
                                 e.printStackTrace()
                             }
                         }
-                        org.example.kotlin_liargame.domain.game.model.enum.GamePhase.VOTING_FOR_LIAR -> {
+                        GamePhase.VOTING_FOR_LIAR -> {
                             println("[TIMEOUT] Voting timeout detected for game: ${game.gameNumber}, phaseEndTime: $phaseEndTime, currentTime: $now")
                             try {
                                 votingService.forceVotingPhaseEnd(game)
@@ -44,6 +46,34 @@ class TurnTimeoutService(
                             } catch (e: Exception) {
                                 println("[TIMEOUT] Error forcing voting phase end for game: ${game.gameNumber}, error: ${e.message}")
                                 e.printStackTrace()
+                            }
+                        }
+                        GamePhase.DEFENDING -> {
+                            println("[TIMEOUT] Defense timeout detected for game: ${game.gameNumber}")
+                            runCatching { defenseService.handleDefenseTimeout(game.gameNumber) }
+                                .onFailure { ex ->
+                                    println("[TIMEOUT] Error handling defense timeout for game: ${game.gameNumber}, error: ${ex.message}")
+                                    ex.printStackTrace()
+                                }
+                        }
+                        GamePhase.VOTING_FOR_SURVIVAL -> {
+                            println("[TIMEOUT] Final voting timeout detected for game: ${game.gameNumber}")
+                            runCatching { defenseService.handleFinalVotingTimeout(game.gameNumber) }
+                                .onFailure { ex ->
+                                    println("[TIMEOUT] Error handling final voting timeout for game: ${game.gameNumber}, error: ${ex.message}")
+                                    ex.printStackTrace()
+                                }
+                        }
+                        GamePhase.GUESSING_WORD -> {
+                            println("[TIMEOUT] Liar guess timeout detected for game: ${game.gameNumber}")
+                            runCatching {
+                                val handled = topicGuessService.handleGuessTimeout(game.gameNumber)
+                                if (!handled) {
+                                    println("[TIMEOUT] Liar guess timeout skipped for game: ${game.gameNumber} (already resolved)")
+                                }
+                            }.onFailure { ex ->
+                                println("[TIMEOUT] Error handling liar guess timeout for game: ${game.gameNumber}, error: ${ex.message}")
+                                ex.printStackTrace()
                             }
                         }
                         else -> {

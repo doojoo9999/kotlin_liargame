@@ -15,6 +15,7 @@ import org.springframework.context.annotation.Lazy
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.scheduling.TaskScheduler
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ScheduledFuture
@@ -267,7 +268,10 @@ class DefenseService(
         addScheduledTask(gameNumber, task)
     }
     
-    private fun handleDefenseTimeout(gameNumber: Int) {
+    @Transactional
+    fun handleDefenseTimeout(gameNumber: Int) {
+        gameStateService.setDefenseTimer(gameNumber, false)
+
         val defenseStatus = gameStateService.getDefenseStatus(gameNumber) ?: return
 
         if (!defenseStatus.isDefenseSubmitted) {
@@ -467,7 +471,10 @@ class DefenseService(
         addScheduledTask(gameNumber, task)
     }
     
-    private fun handleFinalVotingTimeout(gameNumber: Int) {
+    @Transactional
+    fun handleFinalVotingTimeout(gameNumber: Int) {
+        gameStateService.setFinalVotingTimer(gameNumber, false)
+
         val votingStatus = gameStateService.getFinalVotingStatus(gameNumber)
 
         val updated = votingStatus.entries.filter { it.value == null }.map { entry ->

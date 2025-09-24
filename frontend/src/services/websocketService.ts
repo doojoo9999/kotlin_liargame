@@ -58,6 +58,10 @@ class WebSocketService {
   private rawListeners: RawListener[] = [];
   private pingInterval: NodeJS.Timeout | null = null;
   private lastHeartbeatAck = Date.now();
+  private pendingGameSubscriptions: Map<string, { userId?: string; attempts: number }> = new Map();
+  private lobbySubscriptionPending = false;
+  private pendingSubscriptionFlushTimer: NodeJS.Timeout | null = null;
+  private readonly maxSubscriptionAttempts = 5;
   private connectionState: 'connecting' | 'connected' | 'disconnected' | 'reconnecting' = 'disconnected';
   private readonly userConnectionKey = 'user-connection';
   private readonly userHeartbeatKey = 'user-heartbeat';
@@ -158,6 +162,12 @@ class WebSocketService {
     
     // Drop any queued messages; listeners stay registered for future reconnects
     this.messageQueue = [];
+    this.pendingGameSubscriptions.clear();
+    this.lobbySubscriptionPending = false;
+    if (this.pendingSubscriptionFlushTimer) {
+      clearTimeout(this.pendingSubscriptionFlushTimer);
+      this.pendingSubscriptionFlushTimer = null;
+    }
     
     console.log('WebSocket service disconnected and cleaned up');
   }
@@ -168,99 +178,37 @@ class WebSocketService {
       this.lastSubscriptionUserId = userId;
     }
 
-    if (!this.isConnected || !this.client) {
+    const pending = this.pendingGameSubscriptions.get(gameId);
+    if (pending) {
+      pending.userId = userId ?? pending.userId;
+      pending.attempts = 0;
+      this.pendingGameSubscriptions.set(gameId, pending);
+    } else {
+      this.pendingGameSubscriptions.set(gameId, { userId, attempts: 0 });
+    }
+
+    if (!this.client || !this.isConnected || !this.client.connected) {
       console.warn('Cannot subscribe - WebSocket not connected; deferring subscription', { gameId });
+      this.requestPendingSubscriptionFlush();
       return;
     }
 
-    // Clean up any stale subscriptions for this game before re-subscribing
-    const cleanupKeys = [
-      `game-state-${gameId}`,
-      `game-events-${gameId}`,
-      `player-status-${gameId}`,
-      `game-status-${gameId}`,
-      `chat-${gameId}`,
-      `chat-legacy-${gameId}`
-    ];
-    cleanupKeys.forEach(key => {
-      const existing = this.subscriptions.get(key);
-      if (existing) {
-        try {
-          existing.unsubscribe();
-        } catch (error) {
-          console.warn(`Error unsubscribing stale listener ${key}:`, error);
-        }
-        this.subscriptions.delete(key);
+    try {
+      this.performGameSubscription(gameId, userId);
+      this.pendingGameSubscriptions.delete(gameId);
+    } catch (error) {
+      if (this.isStompConnectionError(error)) {
+        console.warn('STOMP connection not ready, retrying game subscription soon', { gameId });
+        this.requestPendingSubscriptionFlush();
+        return;
       }
-    });
-
-    // Subscribe to game state changes
-    const gameStateSub = this.client.subscribe(
-      `/topic/game/${gameId}/state`,
-      this.handleGameEvent.bind(this)
-    );
-    this.subscriptions.set(`game-state-${gameId}`, gameStateSub);
-
-    // Subscribe to game events (실시간 이벤트)
-    const gameEventSub = this.client.subscribe(
-      `/topic/game/${gameId}/events`,
-      this.handleGameEvent.bind(this)
-    );
-    this.subscriptions.set(`game-events-${gameId}`, gameEventSub);
-
-    const playerStatusSub = this.client.subscribe(
-      `/topic/game/${gameId}/player-status`,
-      this.handleGameEvent.bind(this)
-    );
-    this.subscriptions.set(`player-status-${gameId}`, playerStatusSub);
-
-    const gameStatusSub = this.client.subscribe(
-      `/topic/game/${gameId}/game-status`,
-      this.handleGameEvent.bind(this)
-    );
-    this.subscriptions.set(`game-status-${gameId}`, gameStatusSub);
-
-    // Subscribe to chat messages
-    const chatTopic = `/topic/chat.${gameId}`;
-    const chatSub = this.client.subscribe(
-      chatTopic,
-      this.handleChatMessage.bind(this)
-    );
-    this.subscriptions.set(`chat-${gameId}`, chatSub);
-
-    // Legacy fallback subscription for older broker routes
-    const legacyChatTopic = `/topic/game/${gameId}/chat`;
-    const legacyChatSub = this.client.subscribe(
-      legacyChatTopic,
-      this.handleChatMessage.bind(this)
-    );
-    this.subscriptions.set(`chat-legacy-${gameId}`, legacyChatSub);
-
-    // Subscribe to personal notifications if userId provided
-    if (userId) {
-      const notificationKey = `notifications-${userId}`;
-      const existingNotificationSub = this.subscriptions.get(notificationKey);
-      if (existingNotificationSub) {
-        try {
-          existingNotificationSub.unsubscribe();
-        } catch (error) {
-          console.warn(`Error unsubscribing stale listener ${notificationKey}:`, error);
-        }
-        this.subscriptions.delete(notificationKey);
-      }
-
-      const notificationSub = this.client.subscribe(
-        `/topic/user/${userId}/notifications`,
-        this.handlePersonalNotification.bind(this)
-      );
-      this.subscriptions.set(notificationKey, notificationSub);
+      throw error;
     }
-
-    console.log(`Subscribed to game: ${gameId}`);
   }
 
   public unsubscribeFromGame(gameId: string, userId?: string): void {
     const effectiveUserId = userId ?? this.lastSubscriptionUserId ?? undefined;
+    this.pendingGameSubscriptions.delete(gameId);
     // Unsubscribe from game state
     const gameStateSub = this.subscriptions.get(`game-state-${gameId}`);
     if (gameStateSub) {
@@ -319,6 +267,33 @@ class WebSocketService {
     console.log(`Unsubscribed from game: ${gameId}`);
   }
 
+  public onLobbyUpdate(callback: LobbyUpdateCallback): () => void {
+    this.lobbyCallbacks.push(callback);
+
+    if (this.isConnected) {
+      this.subscribeToLobby();
+    } else {
+      this.lobbySubscriptionPending = true;
+      this.requestPendingSubscriptionFlush();
+    }
+
+    return () => {
+      this.lobbyCallbacks = this.lobbyCallbacks.filter(cb => cb !== callback);
+      if (this.lobbyCallbacks.length === 0) {
+        const subscription = this.subscriptions.get(this.lobbySubscriptionKey);
+        if (subscription) {
+          try {
+            subscription.unsubscribe();
+          } catch (error) {
+            console.warn('Error unsubscribing from lobby updates:', error);
+          }
+          this.subscriptions.delete(this.lobbySubscriptionKey);
+        }
+        this.lobbySubscriptionPending = false;
+      }
+    };
+  }
+
   // Event subscription methods
   public onGameEvent(eventType: string, callback: EventCallback): () => void {
     if (!this.eventCallbacks.has(eventType)) {
@@ -350,33 +325,99 @@ class WebSocketService {
     };
   }
 
-  public onLobbyUpdate(callback: LobbyUpdateCallback): () => void {
-    this.lobbyCallbacks.push(callback);
-
-    if (this.isConnected) {
-      this.subscribeToLobby();
-    }
-
-    return () => {
-      this.lobbyCallbacks = this.lobbyCallbacks.filter(cb => cb !== callback);
-      if (this.lobbyCallbacks.length === 0) {
-        const subscription = this.subscriptions.get(this.lobbySubscriptionKey);
-        if (subscription) {
-          try {
-            subscription.unsubscribe();
-          } catch (error) {
-            console.warn('Error unsubscribing from lobby updates:', error);
-          }
-          this.subscriptions.delete(this.lobbySubscriptionKey);
-        }
-      }
-    };
-  }
-
   public ensureLobbySubscription(): void {
     if (this.isConnected) {
       this.subscribeToLobby();
+    } else if (this.lobbyCallbacks.length > 0) {
+      this.lobbySubscriptionPending = true;
+      this.requestPendingSubscriptionFlush();
     }
+  }
+
+  private performGameSubscription(gameId: string, userId?: string): void {
+    const client = this.client;
+    if (!client) {
+      throw new Error('WebSocket client not ready');
+    }
+
+    const cleanupKeys = [
+      `game-state-${gameId}`,
+      `game-events-${gameId}`,
+      `player-status-${gameId}`,
+      `game-status-${gameId}`,
+      `chat-${gameId}`,
+      `chat-legacy-${gameId}`
+    ];
+    cleanupKeys.forEach(key => {
+      const existing = this.subscriptions.get(key);
+      if (existing) {
+        try {
+          existing.unsubscribe();
+        } catch (error) {
+          console.warn(`Error unsubscribing stale listener ${key}:`, error);
+        }
+        this.subscriptions.delete(key);
+      }
+    });
+
+    const gameStateSub = client.subscribe(
+      `/topic/game/${gameId}/state`,
+      this.handleGameEvent.bind(this)
+    );
+    this.subscriptions.set(`game-state-${gameId}`, gameStateSub);
+
+    const gameEventSub = client.subscribe(
+      `/topic/game/${gameId}/events`,
+      this.handleGameEvent.bind(this)
+    );
+    this.subscriptions.set(`game-events-${gameId}`, gameEventSub);
+
+    const playerStatusSub = client.subscribe(
+      `/topic/game/${gameId}/player-status`,
+      this.handleGameEvent.bind(this)
+    );
+    this.subscriptions.set(`player-status-${gameId}`, playerStatusSub);
+
+    const gameStatusSub = client.subscribe(
+      `/topic/game/${gameId}/game-status`,
+      this.handleGameEvent.bind(this)
+    );
+    this.subscriptions.set(`game-status-${gameId}`, gameStatusSub);
+
+    const chatTopic = `/topic/chat.${gameId}`;
+    const chatSub = client.subscribe(
+      chatTopic,
+      this.handleChatMessage.bind(this)
+    );
+    this.subscriptions.set(`chat-${gameId}`, chatSub);
+
+    const legacyChatTopic = `/topic/game/${gameId}/chat`;
+    const legacyChatSub = client.subscribe(
+      legacyChatTopic,
+      this.handleChatMessage.bind(this)
+    );
+    this.subscriptions.set(`chat-legacy-${gameId}`, legacyChatSub);
+
+    if (userId) {
+      const notificationKey = `notifications-${userId}`;
+      const existingNotificationSub = this.subscriptions.get(notificationKey);
+      if (existingNotificationSub) {
+        try {
+          existingNotificationSub.unsubscribe();
+        } catch (error) {
+          console.warn(`Error unsubscribing stale listener ${notificationKey}:`, error);
+        }
+        this.subscriptions.delete(notificationKey);
+      }
+
+      const notificationSub = client.subscribe(
+        `/topic/user/${userId}/notifications`,
+        this.handlePersonalNotification.bind(this)
+      );
+      this.subscriptions.set(notificationKey, notificationSub);
+    }
+
+    console.log(`Subscribed to game: ${gameId}`);
   }
 
   public addConnectionCallback(callback: ConnectionCallback): void {
@@ -409,8 +450,35 @@ class WebSocketService {
   }
 
   private subscribeToLobby(): void {
-    if (!this.client || this.lobbyCallbacks.length === 0) {
+    if (this.lobbyCallbacks.length === 0) {
+      this.lobbySubscriptionPending = false;
       return;
+    }
+
+    if (!this.client || !this.isConnected || !this.client.connected) {
+      this.lobbySubscriptionPending = true;
+      this.requestPendingSubscriptionFlush();
+      return;
+    }
+
+    try {
+      this.performLobbySubscription();
+      this.lobbySubscriptionPending = false;
+    } catch (error) {
+      if (this.isStompConnectionError(error)) {
+        console.warn('STOMP connection not ready for lobby subscription, retrying shortly', error);
+        this.lobbySubscriptionPending = true;
+        this.requestPendingSubscriptionFlush();
+        return;
+      }
+      throw error;
+    }
+  }
+
+  private performLobbySubscription(): void {
+    const client = this.client;
+    if (!client) {
+      throw new Error('WebSocket client not ready');
     }
 
     const existing = this.subscriptions.get(this.lobbySubscriptionKey);
@@ -423,11 +491,78 @@ class WebSocketService {
       this.subscriptions.delete(this.lobbySubscriptionKey);
     }
 
-    const subscription = this.client.subscribe('/topic/lobby', this.handleLobbyMessage.bind(this));
+    const subscription = client.subscribe('/topic/lobby', this.handleLobbyMessage.bind(this));
     this.subscriptions.set(this.lobbySubscriptionKey, subscription);
     console.log('Subscribed to lobby updates');
   }
+  private requestPendingSubscriptionFlush(delay = 200): void {
+    if (this.pendingSubscriptionFlushTimer) {
+      clearTimeout(this.pendingSubscriptionFlushTimer);
+    }
 
+    this.pendingSubscriptionFlushTimer = setTimeout(() => {
+      this.pendingSubscriptionFlushTimer = null;
+      this.flushPendingSubscriptions();
+    }, delay);
+  }
+
+  private flushPendingSubscriptions(): void {
+    if (!this.client || !this.isConnected || !this.client.connected) {
+      if (this.pendingGameSubscriptions.size > 0 || this.lobbySubscriptionPending) {
+        this.requestPendingSubscriptionFlush();
+      }
+      return;
+    }
+
+    if (this.lobbySubscriptionPending) {
+      try {
+        this.performLobbySubscription();
+        this.lobbySubscriptionPending = false;
+      } catch (error) {
+        if (this.isStompConnectionError(error)) {
+          this.requestPendingSubscriptionFlush();
+        } else {
+          console.error('Failed to subscribe to lobby updates:', error);
+          this.lobbySubscriptionPending = false;
+        }
+      }
+    }
+
+    if (this.pendingGameSubscriptions.size > 0) {
+      for (const [gameId, meta] of [...this.pendingGameSubscriptions.entries()]) {
+        try {
+          this.performGameSubscription(gameId, meta.userId);
+          this.pendingGameSubscriptions.delete(gameId);
+        } catch (error) {
+          if (this.isStompConnectionError(error)) {
+            meta.attempts += 1;
+            if (meta.attempts >= this.maxSubscriptionAttempts) {
+              console.error('Giving up on game subscription after repeated failures', { gameId, error });
+              this.pendingGameSubscriptions.delete(gameId);
+            } else {
+              this.pendingGameSubscriptions.set(gameId, meta);
+              this.requestPendingSubscriptionFlush(Math.min(1000, 200 * meta.attempts));
+            }
+          } else {
+            console.error('Unexpected error subscribing to game channel', { gameId, error });
+            this.pendingGameSubscriptions.delete(gameId);
+          }
+        }
+      }
+    }
+  }
+
+  private isStompConnectionError(error: unknown): boolean {
+    if (!error) {
+      return false;
+    }
+
+    const message = error instanceof Error ? error.message : String(error);
+    return message.includes('There is no underlying STOMP connection')
+      || message.includes('Underlying connection is not open')
+      || message.includes('Lost connection')
+      || message.includes('not connected');
+  }
   public processQueue(): void {
     this.flushQueue();
   }
@@ -925,6 +1060,7 @@ class WebSocketService {
 
     this.subscribeToLobby();
     this.subscribeToUserQueues();
+    this.flushPendingSubscriptions();
 
     // Notify connection callbacks
     this.connectionCallbacks.forEach(callback => {
@@ -1124,3 +1260,4 @@ if (!globalRef.__liarGameWebSocketService) {
 
 export const websocketService = globalRef.__liarGameWebSocketService;
 export default websocketService;
+
