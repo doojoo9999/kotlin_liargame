@@ -17,7 +17,6 @@ export interface UseGameWebSocketReturn {
   leaveGame: () => void;
   sendChatMessage: (message: string, type?: ChatMessageType) => Promise<void>;
   castVote: (targetPlayerId: string) => void;
-  submitDefense: (defense: string) => void;
   startGame: () => void;
 }
 
@@ -29,8 +28,8 @@ export const useGameWebSocket = (): UseGameWebSocketReturn => {
     resetGameData: state.resetGameData,
     sendChatMessage: state.sendChatMessage,
     castVote: state.castVote,
-    submitDefense: state.submitDefense,
     startGame: state.startGame,
+    currentPlayer: state.currentPlayer,
   }));
 
   const {
@@ -40,8 +39,8 @@ export const useGameWebSocket = (): UseGameWebSocketReturn => {
     resetGameData,
     sendChatMessage: sendChatMessageAction,
     castVote: castVoteAction,
-    submitDefense: submitDefenseAction,
     startGame: startGameAction,
+    currentPlayer,
   } = useGameStore(selectGameStore);
 
   const selectConnectionStore = useShallow((state: ReturnType<typeof useConnectionStore.getState>) => ({
@@ -130,16 +129,17 @@ export const useGameWebSocket = (): UseGameWebSocketReturn => {
   }, [resetGameData]);
 
   const sendChatMessage = useCallback((message: string, type: ChatMessageType = 'DISCUSSION') => {
-    void sendChatMessageAction(message, type);
+    return sendChatMessageAction(message, type);
   }, [sendChatMessageAction]);
 
   const castVote = useCallback((targetPlayerId: string) => {
-    castVoteAction(targetPlayerId);
-  }, [castVoteAction]);
-
-  const submitDefense = useCallback((defense: string) => {
-    submitDefenseAction(defense);
-  }, [submitDefenseAction]);
+    const voterId = currentPlayer?.id;
+    if (!voterId) {
+      console.warn('투표할 플레이어 정보를 찾지 못했습니다.');
+      return;
+    }
+    castVoteAction(voterId, targetPlayerId);
+  }, [castVoteAction, currentPlayer]);
 
   const startGame = useCallback(() => {
     startGameAction();
@@ -155,7 +155,6 @@ export const useGameWebSocket = (): UseGameWebSocketReturn => {
     leaveGame,
     sendChatMessage,
     castVote,
-    submitDefense,
     startGame,
   };
 };

@@ -1,12 +1,29 @@
 import {Client} from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
-import type {GameRealtimeEvent, GameRealtimeEventType} from '../types/backendTypes';
+import type {GameRealtimeEvent, GameStateResponse} from '../types/backendTypes';
 
 const WEBSOCKET_SESSION_STORAGE_KEY = 'liargame:websocket-session-id';
 const LEGACY_WEBSOCKET_SESSION_STORAGE_KEY = 'websocket-session-id';
 
+type GameStateUpdateEvent = {
+  type: 'GAME_STATE_UPDATE';
+  gameNumber: number;
+  timestamp: string;
+  gameState: GameStateResponse;
+};
+
+type PersonalNotificationEvent = {
+  type: 'PERSONAL_NOTIFICATION';
+  gameNumber: number;
+  timestamp: string;
+  notification: unknown;
+};
+
+type ExtendedRealtimeEvent = GameRealtimeEvent | GameStateUpdateEvent | PersonalNotificationEvent;
+type ExtendedRealtimeEventType = ExtendedRealtimeEvent['type'];
+
 export interface RealtimeEventHandler {
-  (event: GameRealtimeEvent): void;
+  (event: ExtendedRealtimeEvent): void;
 }
 
 export interface ChatMessageHandler {
@@ -31,7 +48,7 @@ export class RealtimeService {
   private heartbeatInterval: NodeJS.Timeout | null = null;
   
   // Event handlers
-  private eventHandlers = new Map<GameRealtimeEventType | 'ALL', RealtimeEventHandler[]>();
+  private eventHandlers = new Map<ExtendedRealtimeEventType | 'ALL', RealtimeEventHandler[]>();
   private chatHandlers: ChatMessageHandler[] = [];
   private connectionHandlers: ConnectionHandler[] = [];
   
@@ -87,9 +104,10 @@ export class RealtimeService {
 
         // Connection headers for reconnection
         const connectHeaders: Record<string, string> = {};
-        const oldSessionId = this.getStoredSessionId();
-        if (oldSessionId) {
-          connectHeaders['x-old-session-id'] = oldSessionId;
+        const storedSessionId = this.sessionId ?? this.getStoredSessionId();
+        if (storedSessionId) {
+          connectHeaders['x-old-session-id'] = storedSessionId;
+          this.sessionId = storedSessionId;
         }
 
         this.client.onConnect = (frame) => {
@@ -98,10 +116,10 @@ export class RealtimeService {
           this.reconnectAttempts = 0;
           
           // Store session ID for reconnection
-          const sessionId = frame.headers['session'];
-          if (sessionId) {
-            this.sessionId = sessionId;
-            this.storeSessionId(sessionId);
+          const sessionIdHeader = frame.headers['session'];
+          if (sessionIdHeader) {
+            this.sessionId = sessionIdHeader;
+            this.storeSessionId(sessionIdHeader);
           }
 
           // Start heartbeat
@@ -179,13 +197,15 @@ export class RealtimeService {
     // Subscribe to game state updates
     this.client.subscribe(`/topic/game/${gameNumber}/state`, (message) => {
       try {
-        const gameState = JSON.parse(message.body);
-        this.notifyEventHandlers('ALL' as any, {
+        const gameState = JSON.parse(message.body) as GameStateResponse;
+        const event: GameStateUpdateEvent = {
           type: 'GAME_STATE_UPDATE',
           gameNumber,
           timestamp: new Date().toISOString(),
-          gameState
-        });
+          gameState,
+        };
+        this.notifyEventHandlers('GAME_STATE_UPDATE', event);
+        this.notifyEventHandlers('ALL', event);
       } catch (error) {
         console.error('Failed to parse game state:', error);
       }
@@ -204,9 +224,9 @@ export class RealtimeService {
     // Subscribe to real-time events
     this.client.subscribe(`/topic/game/${gameNumber}/events`, (message) => {
       try {
-        const event: GameRealtimeEvent = JSON.parse(message.body);
+        const event = JSON.parse(message.body) as GameRealtimeEvent;
         this.notifyEventHandlers(event.type, event);
-        this.notifyEventHandlers('ALL' as any, event);
+        this.notifyEventHandlers('ALL', event);
       } catch (error) {
         console.error('Failed to parse realtime event:', error);
       }
@@ -217,12 +237,14 @@ export class RealtimeService {
       this.client.subscribe(`/topic/user/${this.currentUserId}/notifications`, (message) => {
         try {
           const notification = JSON.parse(message.body);
-          this.notifyEventHandlers('ALL' as any, {
+          const event: PersonalNotificationEvent = {
             type: 'PERSONAL_NOTIFICATION',
             gameNumber,
             timestamp: new Date().toISOString(),
-            notification
-          });
+            notification,
+          };
+          this.notifyEventHandlers('PERSONAL_NOTIFICATION', event);
+          this.notifyEventHandlers('ALL', event);
         } catch (error) {
           console.error('Failed to parse notification:', error);
         }
@@ -240,7 +262,7 @@ export class RealtimeService {
 
   // ============= Event Handler Management =============
 
-  onRealtimeEvent(eventType: GameRealtimeEventType | 'ALL', handler: RealtimeEventHandler): () => void {
+  onRealtimeEvent(eventType: ExtendedRealtimeEventType | 'ALL', handler: RealtimeEventHandler): () => void {
     if (!this.eventHandlers.has(eventType)) {
       this.eventHandlers.set(eventType, []);
     }
@@ -321,7 +343,7 @@ export class RealtimeService {
     };
   }
 
-  private notifyEventHandlers(eventType: GameRealtimeEventType | 'ALL', event: GameRealtimeEvent): void {
+  private notifyEventHandlers(eventType: ExtendedRealtimeEventType | 'ALL', event: ExtendedRealtimeEvent): void {
     const handlers = this.eventHandlers.get(eventType);
     if (handlers) {
       handlers.forEach(handler => {

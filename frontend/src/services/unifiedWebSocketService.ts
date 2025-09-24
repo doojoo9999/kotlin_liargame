@@ -1,10 +1,9 @@
 import {Client, StompConfig} from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
-import type {RealtimeEventType} from '../types/backendTypes';
 
 // Unified interfaces
 export interface GameEvent {
-  type: RealtimeEventType;
+  type: string;
   gameId?: string;
   gameNumber?: number;
   payload: any;
@@ -52,7 +51,7 @@ export class UnifiedWebSocketService {
   private sessionId: string | null = null;
   
   // Event handlers
-  private eventCallbacks = new Map<RealtimeEventType | 'ALL', EventCallback[]>();
+  private eventCallbacks = new Map<string | 'ALL', EventCallback[]>();
   private chatCallbacks: ChatCallback[] = [];
   private connectionCallbacks: ConnectionCallback[] = [];
   private errorCallbacks: ErrorCallback[] = [];
@@ -324,7 +323,7 @@ export class UnifiedWebSocketService {
     this.sendGameMessage('GUESS', { guess }, gameNumber);
   }
 
-  onGameEvent(eventType: RealtimeEventType | 'ALL', callback: EventCallback): () => void {
+  onGameEvent(eventType: string | 'ALL', callback: EventCallback): () => void {
     const handlers = this.eventCallbacks.get(eventType) || [];
     handlers.push(callback);
     this.eventCallbacks.set(eventType, handlers);

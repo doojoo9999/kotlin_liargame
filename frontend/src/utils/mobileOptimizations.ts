@@ -23,7 +23,7 @@ export function applyPassiveScrollOptimization() {
   if(window.__passivePatched__) return
 
   const original = EventTarget.prototype.addEventListener
-  const patched: typeof original = function(type, listener, options){
+  const patched: typeof original = function(this: EventTarget, type, listener, options){
     let normalized = options
     if(type.startsWith('touch') || type==='wheel' || type==='scroll'){
       if(typeof normalized === 'boolean') normalized = { capture: normalized, passive: true }

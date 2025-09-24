@@ -1,6 +1,6 @@
 // Real-time state synchronization orchestrator
 import {conflictResolver} from './conflictResolver';
-import type {IncomingMessage} from '@/types/websocket';
+import type {GameStateUpdatePayload, IncomingMessage} from '@/types/websocket';
 import {messageHandlers} from './messageHandlers';
 import {websocketService} from './websocketService';
 import {useGameStore} from '@/stores';
@@ -8,7 +8,6 @@ import {useConnectionStore} from '@/stores/connectionStore';
 
 class StateSync {
   private initialized = false;
-  private lastServerStateVersion: number | null = null;
 
   init() {
     if (this.initialized) return;
@@ -32,7 +31,8 @@ class StateSync {
     };
 
     if (msg.type === 'GAME_STATE_UPDATE') {
-      this.mergeServerState(msg.payload?.gameState);
+      const payload = msg.payload as GameStateUpdatePayload;
+      this.mergeServerState(payload?.gameState);
     }
 
     messageHandlers.dispatch(msg);

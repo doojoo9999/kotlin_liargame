@@ -985,9 +985,11 @@ export const useGameStore = create<UnifiedGameStore>()(
 
           set({ isLoading: true, error: null });
           try {
-            const gameState = await gameService.toggleReady(gameNumber);
-            set({ isLoading: false, currentGameState: gameState });
-            get().updateFromGameState(gameState);
+            const readyState = await gameService.toggleReady(gameNumber);
+            set({ isLoading: false });
+
+            const playerId = String(readyState.playerId);
+            get().handlePlayerReady(playerId, readyState.isReady);
           } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Failed to toggle ready state';
             set({ isLoading: false, error: errorMessage });
@@ -1085,7 +1087,8 @@ export const useGameStore = create<UnifiedGameStore>()(
 
           const turnOrder = (gameState.turnOrder ?? []).map((value) => value.toString());
 
-          const currentTurnPlayerId = turnOrder[gameState.currentTurnIndex] ?? undefined;
+          const currentTurnIndex = typeof gameState.currentTurnIndex === 'number' ? gameState.currentTurnIndex : undefined;
+          const currentTurnPlayerId = currentTurnIndex != null ? turnOrder[currentTurnIndex] : undefined;
 
           const currentPlayer =
 
@@ -1196,6 +1199,8 @@ export const useGameStore = create<UnifiedGameStore>()(
                   : Number.parseInt(String(payload.userId ?? rawPlayerId ?? 0), 10) || 0;
               const nickname = payload.playerName ?? payload.nickname ?? ('Player ' + normalizedId);
 
+              const normalizedRole = payload.role === 'CITIZEN' || payload.role === 'LIAR' ? payload.role : undefined;
+
               const newPlayer: Player = {
                 id: normalizedId,
                 userId: parsedUserId,
@@ -1209,7 +1214,7 @@ export const useGameStore = create<UnifiedGameStore>()(
                 isReady: Boolean(payload.isReady),
                 isConnected: true,
                 isOnline: true,
-                role: payload.role ?? undefined,
+                role: normalizedRole,
                 votedFor: undefined,
                 lastActive: Date.now(),
               };

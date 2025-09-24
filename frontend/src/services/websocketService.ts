@@ -1,6 +1,6 @@
 import SockJS from 'sockjs-client';
 import type {IMessage} from '@stomp/stompjs';
-import {Client, StompConfig} from '@stomp/stompjs';
+import {Client as StompClient, StompConfig} from '@stomp/stompjs';
 import {toast} from 'sonner';
 import type {
     ChatCallback,
@@ -31,7 +31,7 @@ interface RawWebSocketPayload {
 type RawListener = (payload: RawWebSocketPayload) => void;
 
 class WebSocketService {
-  private client: Client | null = null;
+  private client: StompClient | null = null;
   private isConnected = false;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 10;
@@ -124,13 +124,12 @@ class WebSocketService {
 
       this.addConnectionCallback(onConnect);
 
-      if (this.client) {
-        this.client.activate();
-      } else {
-        this.setupClient();
-        if (this.client) {
-          this.client.activate();
-        }
+      try {
+        this.ensureClient().activate();
+      } catch (error) {
+        this.connectionState = 'disconnected';
+        reject(error instanceof Error ? error : new Error('Failed to initialize WebSocket client'));
+        return;
       }
     });
   }
@@ -989,7 +988,17 @@ class WebSocketService {
       reconnectDelay: 0, // We handle reconnection manually
     };
 
-    this.client = new Client(stompConfig);
+    this.client = new StompClient(stompConfig);
+  }
+
+  private ensureClient(): StompClient {
+    if (!this.client) {
+      this.setupClient();
+    }
+    if (!this.client) {
+      throw new Error('WebSocket client 초기화에 실패했습니다.');
+    }
+    return this.client;
   }
 
   private onDisconnect(): void {

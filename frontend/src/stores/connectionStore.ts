@@ -13,6 +13,8 @@ import type {
 import {websocketService} from '@/services/websocketService';
 import {useGameStore} from '@/stores';
 
+type GameStoreSnapshot = ReturnType<typeof useGameStore.getState>;
+
 const MAX_LATENCY_SAMPLES = 20;
 const genId = () => (globalThis.crypto?.randomUUID?.() || Math.random().toString(36).slice(2));
 
@@ -76,11 +78,12 @@ export const useConnectionStore = create<ConnectionStoreState & ConnectionStoreA
         // 낙관적 업데이트 처리
         let optimisticId: string | undefined;
         if (opts?.optimisticState) {
-          const gameStoreState = useGameStore.getState() as Record<string, unknown>;
-          const optimisticState = opts.optimisticState as Record<string, unknown>;
-          const original: Record<string, unknown> = {};
-          for (const key of Object.keys(optimisticState)) {
-            original[key] = gameStoreState[key];
+          const gameStoreState = useGameStore.getState();
+          const optimisticState = opts.optimisticState as Partial<GameStoreSnapshot>;
+          const original = {} as Partial<GameStoreSnapshot>;
+          const originalRecord = original as Record<keyof GameStoreSnapshot, GameStoreSnapshot[keyof GameStoreSnapshot] | undefined>;
+          for (const key of Object.keys(optimisticState) as Array<keyof GameStoreSnapshot>) {
+            originalRecord[key] = gameStoreState[key];
           }
           optimisticId = get().addOptimisticUpdate({
             action: destination,
@@ -88,7 +91,7 @@ export const useConnectionStore = create<ConnectionStoreState & ConnectionStoreA
             originalState: original,
           });
           // 적용
-          useGameStore.setState(opts.optimisticState as Record<string, unknown>);
+          useGameStore.setState(optimisticState);
         }
         // 실제 전송 (offline 시 queue)
         const id = websocketService.safePublish(destination, body) || genId();

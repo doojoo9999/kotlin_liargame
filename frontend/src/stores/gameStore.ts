@@ -351,12 +351,26 @@ const useGameStore = create<GameState>()(
 
             case 'GAME_STATE_UPDATED':
               if (state.currentRoom) {
+                const nextState = event.payload.state;
+                const allowedStates: GameRoom['state'][] = [
+                  'WAITING',
+                  'STARTING',
+                  'PROVIDING_HINTS',
+                  'VOTING',
+                  'DEFENDING',
+                  'ROUND_ENDED',
+                  'GAME_ENDED',
+                ];
+                const resolvedState =
+                  typeof nextState === 'string' && allowedStates.includes(nextState as GameRoom['state'])
+                    ? (nextState as GameRoom['state'])
+                    : state.currentRoom.state;
                 set({
                   currentRoom: {
                     ...state.currentRoom,
-                    state: event.payload.state
+                    state: resolvedState
                   },
-                  timeRemaining: event.payload.timeRemaining || state.timeRemaining
+                  timeRemaining: event.payload.timeRemaining ?? state.timeRemaining
                 });
               }
               break;

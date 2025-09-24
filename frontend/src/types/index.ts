@@ -7,7 +7,7 @@ export * from './backendTypes'
 export * from './nemonemo'
 
 // Additional frontend-specific types
-export interface FrontendPlayer extends Omit<import('./backendTypes').BackendPlayer, 'id' | 'userId'> {
+export interface FrontendPlayer extends Omit<import('./backendTypes').BackendPlayer, 'id' | 'userId' | 'isOnline'> {
   id: string // Frontend uses string IDs consistently
   userId: number // Original backend ID
   isOnline?: boolean
