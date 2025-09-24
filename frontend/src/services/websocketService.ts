@@ -65,6 +65,10 @@ class WebSocketService {
   private connectionState: 'connecting' | 'connected' | 'disconnected' | 'reconnecting' = 'disconnected';
   private readonly userConnectionKey = 'user-connection';
   private readonly userHeartbeatKey = 'user-heartbeat';
+  private readonly storageKeys = {
+    session: 'liargame:websocket-session-id',
+    legacy: 'websocket-session-id',
+  } as const;
 
   constructor() {
     this.setupClient();
@@ -133,6 +137,7 @@ class WebSocketService {
 
   public disconnect(): void {
     this.connectionState = 'disconnected';
+    this.clearStoredSessionId();
     
     // Clear heartbeat intervals
     if (this.heartbeatInterval) {
@@ -715,6 +720,7 @@ class WebSocketService {
         console.log('Forcing STOMP disconnect', reason ? `(${reason})` : '');
       }
       this.client.forceDisconnect();
+      this.clearStoredSessionId();
     } catch (error) {
       console.warn('Failed to force STOMP disconnect', { reason, error });
     }
@@ -837,6 +843,49 @@ class WebSocketService {
     this.subscriptions.set(this.userHeartbeatKey, heartbeatSub);
   }
 
+  private getStoredSessionId(): string | null {
+    if (typeof window === 'undefined') {
+      return null;
+    }
+
+    try {
+      const stored = window.localStorage.getItem(this.storageKeys.session);
+      if (stored) {
+        return stored;
+      }
+      return window.localStorage.getItem(this.storageKeys.legacy);
+    } catch (error) {
+      console.warn('Failed to read stored WebSocket session id', error);
+      return null;
+    }
+  }
+
+  private storeSessionId(sessionId: string): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    try {
+      window.localStorage.setItem(this.storageKeys.session, sessionId);
+      window.localStorage.removeItem(this.storageKeys.legacy);
+    } catch (error) {
+      console.warn('Failed to persist WebSocket session id', error);
+    }
+  }
+
+  private clearStoredSessionId(): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    try {
+      window.localStorage.removeItem(this.storageKeys.session);
+      window.localStorage.removeItem(this.storageKeys.legacy);
+    } catch (error) {
+      console.warn('Failed to clear WebSocket session id', error);
+    }
+  }
+
   private stopHeartbeat(): void {
     if (this.pingInterval) {
       clearInterval(this.pingInterval);
@@ -902,11 +951,21 @@ class WebSocketService {
 
   private setupClient(): void {
     const socketUrl = this.resolveWebSocketUrl();
-    const socket = new SockJS(socketUrl, undefined, { withCredentials: true });
+    const socketOptions: SockJS.Options & {
+      transportOptions?: Record<string, { withCredentials: boolean }>;
+    } = {
+      transports: ['websocket', 'xhr-streaming', 'xhr-polling'],
+      // Ensure SockJS XHR fallbacks forward session cookies for cross-origin setups
+      transportOptions: {
+        'xhr-streaming': { withCredentials: true },
+        'xhr-polling': { withCredentials: true },
+      },
+    };
+    const socket = new SockJS(socketUrl, undefined, socketOptions);
 
     // 재연결을 위한 헤더 준비
     const connectHeaders: Record<string, string> = {};
-    const oldSessionId = localStorage.getItem('websocket-session-id');
+    const oldSessionId = this.getStoredSessionId();
     if (oldSessionId) {
       connectHeaders['x-old-session-id'] = oldSessionId;
     }
@@ -933,6 +992,7 @@ class WebSocketService {
   private onDisconnect(): void {
     console.log('WebSocket disconnected');
     this.isConnected = false;
+    this.clearStoredSessionId();
     
     // Stop heartbeat monitoring
     this.stopHeartbeat();
@@ -1083,7 +1143,7 @@ class WebSocketService {
     // 세션 ID 저장 (재연결에 사용)
     const sessionId = frame.headers?.['session'];
     if (sessionId) {
-      localStorage.setItem('websocket-session-id', sessionId);
+      this.storeSessionId(sessionId);
       console.log('Stored WebSocket session ID:', sessionId);
     }
 
@@ -1296,4 +1356,3 @@ if (!globalRef.__liarGameWebSocketService) {
 
 export const websocketService = globalRef.__liarGameWebSocketService;
 export default websocketService;
-

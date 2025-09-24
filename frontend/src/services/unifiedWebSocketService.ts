@@ -103,7 +103,17 @@ export class UnifiedWebSocketService {
 
     try {
       // Create WebSocket connection with SockJS fallback
-      const socket = new SockJS(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}/ws`);
+      const socketOptions: SockJS.Options & {
+        transportOptions?: Record<string, { withCredentials: boolean }>;
+      } = {
+        transports: ['websocket', 'xhr-streaming', 'xhr-polling'],
+        // Ensure SockJS XHR transports include credentials for session-bound auth
+        transportOptions: {
+          'xhr-streaming': { withCredentials: true },
+          'xhr-polling': { withCredentials: true },
+        },
+      };
+      const socket = new SockJS(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}/ws`, undefined, socketOptions);
 
       const stompConfig: StompConfig = {
         webSocketFactory: () => socket,

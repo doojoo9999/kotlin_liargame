@@ -1,3 +1,5 @@
+import {clearClientSessionState} from "@/utils/sessionCleanup"
+
 // API configuration
 export const API_CONFIG = {
   BASE_URL: 'http://localhost:20021',
@@ -304,11 +306,13 @@ class ApiClient {
 
   // Clear authentication state
   private clearAuthState(): void {
-    localStorage.removeItem('auth-token');
-    localStorage.removeItem('auth-storage');
-    
-    // Dispatch custom event to notify auth store
-    window.dispatchEvent(new CustomEvent('auth-session-expired'));
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    void clearClientSessionState({
+      reason: 'session-expired',
+    });
   }
 }
 

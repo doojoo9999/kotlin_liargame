@@ -1,6 +1,7 @@
 import {create} from 'zustand';
 import {devtools} from 'zustand/middleware';
 import {websocketService} from '../services/websocketService';
+import {resetRealtimeSessionTracking} from '@/utils/sessionCleanup';
 import {useAuthStore} from './authStore';
 import type {
     ChatCallback,
@@ -180,6 +181,7 @@ const useGameStore = create<GameState>()(
             websocketService.unsubscribeFromGame(currentRoom.id);
             set({ currentRoom: null });
             get().resetGameState();
+            resetRealtimeSessionTracking();
           }
         },
 

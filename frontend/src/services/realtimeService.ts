@@ -1,9 +1,12 @@
 import {Client} from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
-import type {RealtimeEvent, RealtimeEventType} from '../types/backendTypes';
+import type {GameRealtimeEvent, GameRealtimeEventType} from '../types/backendTypes';
+
+const WEBSOCKET_SESSION_STORAGE_KEY = 'liargame:websocket-session-id';
+const LEGACY_WEBSOCKET_SESSION_STORAGE_KEY = 'websocket-session-id';
 
 export interface RealtimeEventHandler {
-  (event: RealtimeEvent): void;
+  (event: GameRealtimeEvent): void;
 }
 
 export interface ChatMessageHandler {
@@ -28,7 +31,7 @@ export class RealtimeService {
   private heartbeatInterval: NodeJS.Timeout | null = null;
   
   // Event handlers
-  private eventHandlers = new Map<RealtimeEventType | 'ALL', RealtimeEventHandler[]>();
+  private eventHandlers = new Map<GameRealtimeEventType | 'ALL', RealtimeEventHandler[]>();
   private chatHandlers: ChatMessageHandler[] = [];
   private connectionHandlers: ConnectionHandler[] = [];
   
@@ -57,7 +60,17 @@ export class RealtimeService {
     return new Promise((resolve, reject) => {
       try {
         // Create SockJS connection
-        const socket = new SockJS('/ws');
+        const socketOptions: SockJS.Options & {
+          transportOptions?: Record<string, { withCredentials: boolean }>;
+        } = {
+          transports: ['websocket', 'xhr-streaming', 'xhr-polling'],
+          // Ensure SockJS XHR transports forward session cookies
+          transportOptions: {
+            'xhr-streaming': { withCredentials: true },
+            'xhr-polling': { withCredentials: true },
+          },
+        };
+        const socket = new SockJS('/ws', undefined, socketOptions);
         
         // Initialize STOMP client
         this.client = new Client({
@@ -191,7 +204,7 @@ export class RealtimeService {
     // Subscribe to real-time events
     this.client.subscribe(`/topic/game/${gameNumber}/events`, (message) => {
       try {
-        const event: RealtimeEvent = JSON.parse(message.body);
+        const event: GameRealtimeEvent = JSON.parse(message.body);
         this.notifyEventHandlers(event.type, event);
         this.notifyEventHandlers('ALL' as any, event);
       } catch (error) {
@@ -227,7 +240,7 @@ export class RealtimeService {
 
   // ============= Event Handler Management =============
 
-  onRealtimeEvent(eventType: RealtimeEventType | 'ALL', handler: RealtimeEventHandler): () => void {
+  onRealtimeEvent(eventType: GameRealtimeEventType | 'ALL', handler: RealtimeEventHandler): () => void {
     if (!this.eventHandlers.has(eventType)) {
       this.eventHandlers.set(eventType, []);
     }
@@ -308,7 +321,7 @@ export class RealtimeService {
     };
   }
 
-  private notifyEventHandlers(eventType: RealtimeEventType | 'ALL', event: RealtimeEvent): void {
+  private notifyEventHandlers(eventType: GameRealtimeEventType | 'ALL', event: GameRealtimeEvent): void {
     const handlers = this.eventHandlers.get(eventType);
     if (handlers) {
       handlers.forEach(handler => {
@@ -357,7 +370,11 @@ export class RealtimeService {
 
   private getStoredSessionId(): string | null {
     try {
-      return localStorage.getItem('websocket-session-id');
+      const stored = localStorage.getItem(WEBSOCKET_SESSION_STORAGE_KEY);
+      if (stored) {
+        return stored;
+      }
+      return localStorage.getItem(LEGACY_WEBSOCKET_SESSION_STORAGE_KEY);
     } catch {
       return null;
     }
@@ -365,7 +382,8 @@ export class RealtimeService {
 
   private storeSessionId(sessionId: string): void {
     try {
-      localStorage.setItem('websocket-session-id', sessionId);
+      localStorage.setItem(WEBSOCKET_SESSION_STORAGE_KEY, sessionId);
+      localStorage.removeItem(LEGACY_WEBSOCKET_SESSION_STORAGE_KEY);
     } catch (error) {
       console.warn('Failed to store session ID:', error);
     }
@@ -373,7 +391,8 @@ export class RealtimeService {
 
   private clearStoredSessionId(): void {
     try {
-      localStorage.removeItem('websocket-session-id');
+      localStorage.removeItem(WEBSOCKET_SESSION_STORAGE_KEY);
+      localStorage.removeItem(LEGACY_WEBSOCKET_SESSION_STORAGE_KEY);
     } catch (error) {
       console.warn('Failed to clear session ID:', error);
     }

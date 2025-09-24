@@ -217,9 +217,15 @@ class SessionManagementService(
         val userSessionData = sessionDataManager.getUserSession(session)
         if (userSessionData != null) {
             invalidateSession(userSessionData.nickname)
-            sessionDataManager.clearUserSession(session)
-            session.invalidate()
             println("[SECURITY] User logged out: ${userSessionData.nickname}")
+        }
+
+        sessionDataManager.clearUserSession(session)
+
+        try {
+            session.invalidate()
+        } catch (e: IllegalStateException) {
+            println("[SECURITY] Session already invalidated during logout: ${e.message}")
         }
     }
 
@@ -388,4 +394,5 @@ data class SessionStatistics(
     val activeInLast5Minutes: Int,
     val loginsInLastHour: Int
 )
+
 
