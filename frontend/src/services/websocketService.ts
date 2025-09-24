@@ -951,17 +951,20 @@ class WebSocketService {
 
   private setupClient(): void {
     const socketUrl = this.resolveWebSocketUrl();
-    const socketOptions: SockJS.Options & {
+    const socketOptions: (SockJS.Options & {
+      withCredentials?: boolean;
       transportOptions?: Record<string, { withCredentials: boolean }>;
-    } = {
+    }) = {
+      withCredentials: true,
       transports: ['websocket', 'xhr-streaming', 'xhr-polling'],
-      // Ensure SockJS XHR fallbacks forward session cookies for cross-origin setups
+      // Ensure SockJS transports forward session cookies for cross-origin setups
       transportOptions: {
+        websocket: { withCredentials: true },
         'xhr-streaming': { withCredentials: true },
         'xhr-polling': { withCredentials: true },
       },
     };
-    const socket = new SockJS(socketUrl, undefined, socketOptions);
+    const createSocket = () => new SockJS(socketUrl, undefined, socketOptions);
 
     // 재연결을 위한 헤더 준비
     const connectHeaders: Record<string, string> = {};
@@ -971,7 +974,7 @@ class WebSocketService {
     }
 
     const stompConfig: StompConfig = {
-      webSocketFactory: () => socket,
+      webSocketFactory: createSocket,
       connectHeaders,
       debug: (str: string) => {
         if (import.meta.env.DEV) {

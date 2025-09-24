@@ -8,43 +8,43 @@ import {useGameWebSocket} from './hooks/useGameWebSocket';
 
 function App() {
   const [isInitializing, setIsInitializing] = useState(true);
-  const { checkAuth } = useAuthStore();
+  const checkAuth = useAuthStore(state => state.checkAuth);
+  const isAuthenticated = useAuthStore(state => state.isAuthenticated);
 
-  // 세션 자동 갱신 기능 활성화
+  // 세션 유지 및 자동 갱신
   useSessionManager();
 
-  // WebSocket 연결 초기화
+  // WebSocket 연결 훅
   const { connect } = useGameWebSocket();
 
   useEffect(() => {
     const initializeApp = async () => {
       try {
-        // 인증 상태 확인
         await checkAuth();
-        
-        // 로그인 페이지에서는 WebSocket 연결을 시도하지 않음
-        const currentPath = window.location.pathname;
-        const isAuthenticatedUser = localStorage.getItem('isAuthenticated') === 'true';
-        const isLoginPage = currentPath === '/' || currentPath === '/login';
-        
-        // WebSocket 연결 시도 (인증된 사용자이고 로그인 페이지가 아닌 경우만)
-        if (isAuthenticatedUser && !isLoginPage) {
-          try {
-            await connect();
-          } catch (error) {
-            console.warn('WebSocket 연결 실패:', error);
-            // WebSocket 연결 실패는 앱 초기화를 막지 않음
-          }
-        }
       } catch (error) {
-        console.error('앱 초기화 실패:', error);
+        console.error('앱 초기화 중 인증 점검 실패:', error);
       } finally {
         setIsInitializing(false);
       }
     };
 
     initializeApp();
-  }, [checkAuth, connect]);
+  }, [checkAuth]);
+
+  useEffect(() => {
+    if (isInitializing) {
+      return;
+    }
+
+    const currentPath = window.location.pathname;
+    const isLoginPage = currentPath === '/' || currentPath === '/login';
+
+    if (isAuthenticated && !isLoginPage) {
+      connect().catch(error => {
+        console.warn('WebSocket 자동 연결 실패:', error);
+      });
+    }
+  }, [connect, isAuthenticated, isInitializing]);
 
   if (isInitializing) {
     return (
@@ -70,3 +70,4 @@ function App() {
 }
 
 export default App;
+
