@@ -56,7 +56,7 @@ export interface GameLayoutProps {
   onSendChatMessage: (message: string, type?: ChatMessageType) => Promise<void>
   onReportChatMessage?: (message: ChatMessage) => void
   onReloadChat?: () => Promise<void>
-  onReturnToLobby?: () => void
+  onReturnToLobby?: (options?: { skipServer?: boolean }) => void
   onNextRound?: () => void
   onSubmitHint: (hint: string) => Promise<void>
   onVotePlayer: (playerId: string) => Promise<void>
@@ -221,7 +221,7 @@ export function GameLayout({
         <div className="mx-auto flex w-full max-w-screen-2xl flex-wrap items-center gap-3 px-4 py-3 sm:gap-4">
           <div className="flex min-w-0 flex-1 items-center gap-3">
             {onReturnToLobby && (
-              <Button variant="ghost" size="sm" onClick={onReturnToLobby} className="h-8 px-2">
+              <Button variant="ghost" size="sm" onClick={() => onReturnToLobby?.()} className="h-8 px-2">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 로비로 돌아가기
               </Button>

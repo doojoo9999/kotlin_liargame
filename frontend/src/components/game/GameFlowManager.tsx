@@ -1,4 +1,4 @@
-import {useCallback, useEffect, useMemo, useState} from 'react'
+import {useCallback, useEffect, useMemo, useRef, useState} from 'react'
 import {GameLayout} from './GameLayout'
 import {useGameLayoutViewModel} from './useGameLayoutViewModel'
 import {WaitingRoomControls} from './WaitingRoomControls'
@@ -11,7 +11,7 @@ import type {ChatMessage, ChatMessageType, GameEvent} from '@/types/realtime'
 import {useGameStore} from '@/stores'
 
 interface GameFlowManagerProps {
-  onReturnToLobby?: () => void
+  onReturnToLobby?: (options?: { skipServer?: boolean }) => void
   onNextRound?: () => void
 }
 
@@ -75,11 +75,16 @@ export function GameFlowManager({ onReturnToLobby, onNextRound }: GameFlowManage
   const [activities, setActivities] = useState<ActivityEvent[]>([])
   const [isStartingGame, setIsStartingGame] = useState(false)
   const [isTogglingReady, setIsTogglingReady] = useState(false)
+  const roomDeletionHandledRef = useRef(false)
 
   useWebSocket(gameNumber ? gameNumber.toString() : undefined)
 
   useEffect(() => {
     setActivities([])
+  }, [gameNumber])
+
+  useEffect(() => {
+    roomDeletionHandledRef.current = false
   }, [gameNumber])
 
   const appendActivity = useCallback((activity: ActivityEvent) => {
@@ -173,14 +178,26 @@ export function GameFlowManager({ onReturnToLobby, onNextRound }: GameFlowManage
       appendActivity(makeActivity('system', event, '라운드가 종료되었습니다.', true))
     })
 
+    const unsubscribeRoomDeleted = websocketService.onRoomDeleted((event) => {
+      if (event.type !== 'ROOM_DELETED' || roomDeletionHandledRef.current) return
+
+      roomDeletionHandledRef.current = true
+      toast.warning('방이 정리되었습니다.', {
+        description: '로비로 이동합니다.'
+      })
+      useGameStore.getState().resetGame()
+      onReturnToLobby?.({ skipServer: true })
+    })
+
     return () => {
       unsubscribeHint()
       unsubscribeVote()
       unsubscribeDefense()
       unsubscribePhase()
       unsubscribeRound()
+      unsubscribeRoomDeleted()
     }
-  }, [appendActivity, gameNumber, gamePhase])
+  }, [appendActivity, gameNumber, gamePhase, onReturnToLobby])
 
   const suspectedPlayer = useMemo(() => {
     const candidate = voting.targetPlayerId

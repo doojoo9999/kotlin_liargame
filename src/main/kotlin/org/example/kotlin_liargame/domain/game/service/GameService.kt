@@ -754,7 +754,7 @@ class GameService(
             }
 
             gameRepository.delete(game)
-            gameMonitoringService.notifyRoomDeleted(game.gameNumber)
+            gameMonitoringService.notifyRoomDeleted(game.gameNumber, reason = "NO_PLAYERS_REMAIN")
         } else {
             if (game.gameOwner == player.nickname) {
                 val newOwner = remainingPlayers.minByOrNull { it.joinedAt }
