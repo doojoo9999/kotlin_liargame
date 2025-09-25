@@ -5,6 +5,7 @@ import {messageHandlers} from './messageHandlers';
 import {websocketService} from './websocketService';
 import {useGameStore} from '@/stores';
 import {useConnectionStore} from '@/stores/connectionStore';
+import type {GameEvent} from '@/types/realtime';
 
 class StateSync {
   private initialized = false;
@@ -21,7 +22,7 @@ class StateSync {
     this.initialized = true;
   }
 
-  private handleGameEvent(event: any) {
+  private handleGameEvent(event: GameEvent) {
     // Normalize to IncomingMessage shape
     const msg: IncomingMessage = {
       type: (event.type === 'GAME_STATE_UPDATED' ? 'GAME_STATE_UPDATE' : event.type) as any,
@@ -36,6 +37,15 @@ class StateSync {
     }
 
     messageHandlers.dispatch(msg);
+
+    const storeHandle = useGameStore.getState().handleGameEvent;
+    if (typeof storeHandle === 'function') {
+      try {
+        storeHandle(event);
+      } catch (error) {
+        console.error('Failed to apply game event to store:', error);
+      }
+    }
   }
 
   private mergeServerState(serverState: any) {

@@ -658,9 +658,28 @@ export const useGameStore = create<UnifiedGameStore>()(
 
         // Player Management
         updatePlayers: (players) => set({ players }),
-        addPlayer: (player) => set((state) => ({
-          players: [...state.players, player]
-        })),
+        addPlayer: (player) => set((state) => {
+          const existingIndex = state.players.findIndex(existing => {
+            if (existing.id === player.id) {
+              return true;
+            }
+            if (existing.userId != null && player.userId != null && existing.userId === player.userId) {
+              return true;
+            }
+            if (existing.nickname && player.nickname && existing.nickname === player.nickname) {
+              return true;
+            }
+            return false;
+          });
+
+          if (existingIndex >= 0) {
+            const players = [...state.players];
+            players[existingIndex] = { ...players[existingIndex], ...player };
+            return { players };
+          }
+
+          return { players: [...state.players, player] };
+        }),
         removePlayer: (playerId) => set((state) => ({
           players: state.players.filter(p => p.id !== playerId)
         })),
