@@ -11,7 +11,7 @@
     "grepInvert": null,
     "maxFailures": 0,
     "metadata": {
-      "actualWorkers": 4
+      "actualWorkers": 1
     },
     "preserveOutput": "always",
     "reporter": [
@@ -37,7 +37,7 @@
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "actualWorkers": 4
+          "actualWorkers": 1
         },
         "id": "chromium",
         "name": "chromium",
@@ -53,7 +53,7 @@
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "actualWorkers": 4
+          "actualWorkers": 1
         },
         "id": "firefox",
         "name": "firefox",
@@ -69,7 +69,7 @@
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "actualWorkers": 4
+          "actualWorkers": 1
         },
         "id": "webkit",
         "name": "webkit",
@@ -85,7 +85,7 @@
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "actualWorkers": 4
+          "actualWorkers": 1
         },
         "id": "Mobile Chrome",
         "name": "Mobile Chrome",
@@ -110,20 +110,20 @@
   },
   "suites": [
     {
-      "title": "multi-session.spec.ts",
-      "file": "multi-session.spec.ts",
+      "title": "chat-realtime.spec.ts",
+      "file": "chat-realtime.spec.ts",
       "column": 0,
       "line": 0,
       "specs": [],
       "suites": [
         {
-          "title": "Multi-session liar scenario",
-          "file": "multi-session.spec.ts",
-          "line": 161,
+          "title": "Realtime Chat",
+          "file": "chat-realtime.spec.ts",
+          "line": 10,
           "column": 6,
           "specs": [
             {
-              "title": "liar and citizens view coordinated state",
+              "title": "shows realtime connection error after creating a room and sending chat",
               "ok": false,
               "tags": [],
               "tests": [
@@ -138,304 +138,62 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "failed",
-                      "duration": 10691,
+                      "duration": 10086,
                       "error": {
-                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m failed\n\nLocator:  getByText('라이어는 단어를 추측하세요')\nExpected: visible\nReceived: <element(s) not found>\nTimeout:  5000ms\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText('라이어는 단어를 추측하세요')\u001b[22m\n",
-                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m failed\n\nLocator:  getByText('라이어는 단어를 추측하세요')\nExpected: visible\nReceived: <element(s) not found>\nTimeout:  5000ms\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText('라이어는 단어를 추측하세요')\u001b[22m\n\n    at D:\\workspaces\\kotlin_liargame\\frontend\\tests\\e2e\\multi-session.spec.ts:190:56",
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m failed\n\nLocator:  getByRole('button', { name: /\\uAC8C\\uC784\\uBC29\\uB9CC\\uB4E4\\uAE30|\\uCCAB\\uAC8C\\uC784\\uBC29\\uB9CC\\uB4E4\\uAE30/ }).first()\nExpected: visible\nReceived: <element(s) not found>\nTimeout:  5000ms\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('button', { name: /\\uAC8C\\uC784\\uBC29\\uB9CC\\uB4E4\\uAE30|\\uCCAB\\uAC8C\\uC784\\uBC29\\uB9CC\\uB4E4\\uAE30/ }).first()\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m failed\n\nLocator:  getByRole('button', { name: /\\uAC8C\\uC784\\uBC29\\uB9CC\\uB4E4\\uAE30|\\uCCAB\\uAC8C\\uC784\\uBC29\\uB9CC\\uB4E4\\uAE30/ }).first()\nExpected: visible\nReceived: <element(s) not found>\nTimeout:  5000ms\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('button', { name: /\\uAC8C\\uC784\\uBC29\\uB9CC\\uB4E4\\uAE30|\\uCCAB\\uAC8C\\uC784\\uBC29\\uB9CC\\uB4E4\\uAE30/ }).first()\u001b[22m\n\n    at D:\\workspaces\\kotlin_liargame\\frontend\\tests\\e2e\\chat-realtime.spec.ts:28:36",
                         "location": {
-                          "file": "D:\\workspaces\\kotlin_liargame\\frontend\\tests\\e2e\\multi-session.spec.ts",
-                          "column": 56,
-                          "line": 190
+                          "file": "D:\\workspaces\\kotlin_liargame\\frontend\\tests\\e2e\\chat-realtime.spec.ts",
+                          "column": 36,
+                          "line": 28
                         },
-                        "snippet": "\u001b[0m \u001b[90m 188 |\u001b[39m\n \u001b[90m 189 |\u001b[39m     \u001b[36mawait\u001b[39m expect(liarPage\u001b[33m.\u001b[39mgetByText(\u001b[32m'라이어 게임'\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 190 |\u001b[39m     \u001b[36mawait\u001b[39m expect(liarPage\u001b[33m.\u001b[39mgetByText(\u001b[32m'라이어는 단어를 추측하세요'\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                                        \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 191 |\u001b[39m     \u001b[36mawait\u001b[39m expect(liarPage\u001b[33m.\u001b[39mgetByText(\u001b[32m'당신은 라이어입니다'\u001b[39m\u001b[33m,\u001b[39m { exact\u001b[33m:\u001b[39m \u001b[36mfalse\u001b[39m }))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m 192 |\u001b[39m\n \u001b[90m 193 |\u001b[39m     \u001b[36mawait\u001b[39m expect(citizenAPage\u001b[33m.\u001b[39mgetByText(\u001b[32m'라이어 게임'\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\u001b[0m"
+                        "snippet": "\u001b[0m \u001b[90m 26 |\u001b[39m       })\n \u001b[90m 27 |\u001b[39m       \u001b[33m.\u001b[39mfirst()\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 28 |\u001b[39m     \u001b[36mawait\u001b[39m expect(createRoomButton)\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                                    \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 29 |\u001b[39m     \u001b[36mawait\u001b[39m createRoomButton\u001b[33m.\u001b[39mclick()\u001b[33m;\u001b[39m\n \u001b[90m 30 |\u001b[39m\n \u001b[90m 31 |\u001b[39m     \u001b[36mconst\u001b[39m modal \u001b[33m=\u001b[39m page\u001b[33m.\u001b[39mgetByRole(\u001b[32m'dialog'\u001b[39m\u001b[33m,\u001b[39m { name\u001b[33m:\u001b[39m \u001b[32m'\\uC0C8 \\uAC8C\\uC784\\uBC29 \\uC0DD\\uC131'\u001b[39m })\u001b[33m;\u001b[39m\u001b[0m"
                       },
                       "errors": [
                         {
                           "location": {
-                            "file": "D:\\workspaces\\kotlin_liargame\\frontend\\tests\\e2e\\multi-session.spec.ts",
-                            "column": 56,
-                            "line": 190
+                            "file": "D:\\workspaces\\kotlin_liargame\\frontend\\tests\\e2e\\chat-realtime.spec.ts",
+                            "column": 36,
+                            "line": 28
                           },
-                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m failed\n\nLocator:  getByText('라이어는 단어를 추측하세요')\nExpected: visible\nReceived: <element(s) not found>\nTimeout:  5000ms\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText('라이어는 단어를 추측하세요')\u001b[22m\n\n\n  188 |\n  189 |     await expect(liarPage.getByText('라이어 게임')).toBeVisible();\n> 190 |     await expect(liarPage.getByText('라이어는 단어를 추측하세요')).toBeVisible();\n      |                                                        ^\n  191 |     await expect(liarPage.getByText('당신은 라이어입니다', { exact: false })).toBeVisible();\n  192 |\n  193 |     await expect(citizenAPage.getByText('라이어 게임')).toBeVisible();\n    at D:\\workspaces\\kotlin_liargame\\frontend\\tests\\e2e\\multi-session.spec.ts:190:56"
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m failed\n\nLocator:  getByRole('button', { name: /\\uAC8C\\uC784\\uBC29\\uB9CC\\uB4E4\\uAE30|\\uCCAB\\uAC8C\\uC784\\uBC29\\uB9CC\\uB4E4\\uAE30/ }).first()\nExpected: visible\nReceived: <element(s) not found>\nTimeout:  5000ms\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByRole('button', { name: /\\uAC8C\\uC784\\uBC29\\uB9CC\\uB4E4\\uAE30|\\uCCAB\\uAC8C\\uC784\\uBC29\\uB9CC\\uB4E4\\uAE30/ }).first()\u001b[22m\n\n\n  26 |       })\n  27 |       .first();\n> 28 |     await expect(createRoomButton).toBeVisible();\n     |                                    ^\n  29 |     await createRoomButton.click();\n  30 |\n  31 |     const modal = page.getByRole('dialog', { name: '\\uC0C8 \\uAC8C\\uC784\\uBC29 \\uC0DD\\uC131' });\n    at D:\\workspaces\\kotlin_liargame\\frontend\\tests\\e2e\\chat-realtime.spec.ts:28:36"
                         }
                       ],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2025-09-23T05:30:42.159Z",
+                      "startTime": "2025-09-25T01:47:50.532Z",
                       "annotations": [],
                       "attachments": [
                         {
                           "name": "screenshot",
                           "contentType": "image/png",
-                          "path": "D:\\workspaces\\kotlin_liargame\\frontend\\test-results\\multi-session-Multi-sessio-d12fc-zens-view-coordinated-state-chromium\\test-failed-2.png"
+                          "path": "D:\\workspaces\\kotlin_liargame\\frontend\\test-results\\chat-realtime-Realtime-Cha-27ebb-ing-a-room-and-sending-chat-chromium\\test-failed-1.png"
                         },
                         {
-                          "name": "screenshot",
-                          "contentType": "image/png",
-                          "path": "D:\\workspaces\\kotlin_liargame\\frontend\\test-results\\multi-session-Multi-sessio-d12fc-zens-view-coordinated-state-chromium\\test-failed-3.png"
-                        },
-                        {
-                          "name": "screenshot",
-                          "contentType": "image/png",
-                          "path": "D:\\workspaces\\kotlin_liargame\\frontend\\test-results\\multi-session-Multi-sessio-d12fc-zens-view-coordinated-state-chromium\\test-failed-1.png"
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "D:\\workspaces\\kotlin_liargame\\frontend\\test-results\\chat-realtime-Realtime-Cha-27ebb-ing-a-room-and-sending-chat-chromium\\video.webm"
                         },
                         {
                           "name": "error-context",
                           "contentType": "text/markdown",
-                          "path": "D:\\workspaces\\kotlin_liargame\\frontend\\test-results\\multi-session-Multi-sessio-d12fc-zens-view-coordinated-state-chromium\\error-context.md"
+                          "path": "D:\\workspaces\\kotlin_liargame\\frontend\\test-results\\chat-realtime-Realtime-Cha-27ebb-ing-a-room-and-sending-chat-chromium\\error-context.md"
                         }
                       ],
                       "errorLocation": {
-                        "file": "D:\\workspaces\\kotlin_liargame\\frontend\\tests\\e2e\\multi-session.spec.ts",
-                        "column": 56,
-                        "line": 190
+                        "file": "D:\\workspaces\\kotlin_liargame\\frontend\\tests\\e2e\\chat-realtime.spec.ts",
+                        "column": 36,
+                        "line": 28
                       }
                     }
                   ],
                   "status": "unexpected"
                 }
               ],
-              "id": "4bb98aad12546f4b0346-68d8fadf760b027079ea",
-              "file": "multi-session.spec.ts",
-              "line": 162,
-              "column": 3
-            },
-            {
-              "title": "liar and citizens view coordinated state",
-              "ok": false,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "firefox",
-                  "projectName": "firefox",
-                  "results": [
-                    {
-                      "workerIndex": 1,
-                      "parallelIndex": 1,
-                      "status": "failed",
-                      "duration": 11796,
-                      "error": {
-                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m failed\n\nLocator:  getByText('라이어는 단어를 추측하세요')\nExpected: visible\nReceived: <element(s) not found>\nTimeout:  5000ms\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText('라이어는 단어를 추측하세요')\u001b[22m\n",
-                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m failed\n\nLocator:  getByText('라이어는 단어를 추측하세요')\nExpected: visible\nReceived: <element(s) not found>\nTimeout:  5000ms\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText('라이어는 단어를 추측하세요')\u001b[22m\n\n    at D:\\workspaces\\kotlin_liargame\\frontend\\tests\\e2e\\multi-session.spec.ts:190:56",
-                        "location": {
-                          "file": "D:\\workspaces\\kotlin_liargame\\frontend\\tests\\e2e\\multi-session.spec.ts",
-                          "column": 56,
-                          "line": 190
-                        },
-                        "snippet": "\u001b[0m \u001b[90m 188 |\u001b[39m\n \u001b[90m 189 |\u001b[39m     \u001b[36mawait\u001b[39m expect(liarPage\u001b[33m.\u001b[39mgetByText(\u001b[32m'라이어 게임'\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 190 |\u001b[39m     \u001b[36mawait\u001b[39m expect(liarPage\u001b[33m.\u001b[39mgetByText(\u001b[32m'라이어는 단어를 추측하세요'\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                                        \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 191 |\u001b[39m     \u001b[36mawait\u001b[39m expect(liarPage\u001b[33m.\u001b[39mgetByText(\u001b[32m'당신은 라이어입니다'\u001b[39m\u001b[33m,\u001b[39m { exact\u001b[33m:\u001b[39m \u001b[36mfalse\u001b[39m }))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m 192 |\u001b[39m\n \u001b[90m 193 |\u001b[39m     \u001b[36mawait\u001b[39m expect(citizenAPage\u001b[33m.\u001b[39mgetByText(\u001b[32m'라이어 게임'\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\u001b[0m"
-                      },
-                      "errors": [
-                        {
-                          "location": {
-                            "file": "D:\\workspaces\\kotlin_liargame\\frontend\\tests\\e2e\\multi-session.spec.ts",
-                            "column": 56,
-                            "line": 190
-                          },
-                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m failed\n\nLocator:  getByText('라이어는 단어를 추측하세요')\nExpected: visible\nReceived: <element(s) not found>\nTimeout:  5000ms\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText('라이어는 단어를 추측하세요')\u001b[22m\n\n\n  188 |\n  189 |     await expect(liarPage.getByText('라이어 게임')).toBeVisible();\n> 190 |     await expect(liarPage.getByText('라이어는 단어를 추측하세요')).toBeVisible();\n      |                                                        ^\n  191 |     await expect(liarPage.getByText('당신은 라이어입니다', { exact: false })).toBeVisible();\n  192 |\n  193 |     await expect(citizenAPage.getByText('라이어 게임')).toBeVisible();\n    at D:\\workspaces\\kotlin_liargame\\frontend\\tests\\e2e\\multi-session.spec.ts:190:56"
-                        }
-                      ],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-09-23T05:30:42.176Z",
-                      "annotations": [],
-                      "attachments": [
-                        {
-                          "name": "screenshot",
-                          "contentType": "image/png",
-                          "path": "D:\\workspaces\\kotlin_liargame\\frontend\\test-results\\multi-session-Multi-sessio-d12fc-zens-view-coordinated-state-firefox\\test-failed-1.png"
-                        },
-                        {
-                          "name": "screenshot",
-                          "contentType": "image/png",
-                          "path": "D:\\workspaces\\kotlin_liargame\\frontend\\test-results\\multi-session-Multi-sessio-d12fc-zens-view-coordinated-state-firefox\\test-failed-2.png"
-                        },
-                        {
-                          "name": "screenshot",
-                          "contentType": "image/png",
-                          "path": "D:\\workspaces\\kotlin_liargame\\frontend\\test-results\\multi-session-Multi-sessio-d12fc-zens-view-coordinated-state-firefox\\test-failed-3.png"
-                        },
-                        {
-                          "name": "error-context",
-                          "contentType": "text/markdown",
-                          "path": "D:\\workspaces\\kotlin_liargame\\frontend\\test-results\\multi-session-Multi-sessio-d12fc-zens-view-coordinated-state-firefox\\error-context.md"
-                        }
-                      ],
-                      "errorLocation": {
-                        "file": "D:\\workspaces\\kotlin_liargame\\frontend\\tests\\e2e\\multi-session.spec.ts",
-                        "column": 56,
-                        "line": 190
-                      }
-                    }
-                  ],
-                  "status": "unexpected"
-                }
-              ],
-              "id": "4bb98aad12546f4b0346-fc19e885b497a4fc5fd4",
-              "file": "multi-session.spec.ts",
-              "line": 162,
-              "column": 3
-            },
-            {
-              "title": "liar and citizens view coordinated state",
-              "ok": false,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "webkit",
-                  "projectName": "webkit",
-                  "results": [
-                    {
-                      "workerIndex": 2,
-                      "parallelIndex": 2,
-                      "status": "failed",
-                      "duration": 9172,
-                      "error": {
-                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m failed\n\nLocator:  getByText('라이어는 단어를 추측하세요')\nExpected: visible\nReceived: <element(s) not found>\nTimeout:  5000ms\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText('라이어는 단어를 추측하세요')\u001b[22m\n",
-                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m failed\n\nLocator:  getByText('라이어는 단어를 추측하세요')\nExpected: visible\nReceived: <element(s) not found>\nTimeout:  5000ms\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText('라이어는 단어를 추측하세요')\u001b[22m\n\n    at D:\\workspaces\\kotlin_liargame\\frontend\\tests\\e2e\\multi-session.spec.ts:190:56",
-                        "location": {
-                          "file": "D:\\workspaces\\kotlin_liargame\\frontend\\tests\\e2e\\multi-session.spec.ts",
-                          "column": 56,
-                          "line": 190
-                        },
-                        "snippet": "\u001b[0m \u001b[90m 188 |\u001b[39m\n \u001b[90m 189 |\u001b[39m     \u001b[36mawait\u001b[39m expect(liarPage\u001b[33m.\u001b[39mgetByText(\u001b[32m'라이어 게임'\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 190 |\u001b[39m     \u001b[36mawait\u001b[39m expect(liarPage\u001b[33m.\u001b[39mgetByText(\u001b[32m'라이어는 단어를 추측하세요'\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                                        \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 191 |\u001b[39m     \u001b[36mawait\u001b[39m expect(liarPage\u001b[33m.\u001b[39mgetByText(\u001b[32m'당신은 라이어입니다'\u001b[39m\u001b[33m,\u001b[39m { exact\u001b[33m:\u001b[39m \u001b[36mfalse\u001b[39m }))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m 192 |\u001b[39m\n \u001b[90m 193 |\u001b[39m     \u001b[36mawait\u001b[39m expect(citizenAPage\u001b[33m.\u001b[39mgetByText(\u001b[32m'라이어 게임'\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\u001b[0m"
-                      },
-                      "errors": [
-                        {
-                          "location": {
-                            "file": "D:\\workspaces\\kotlin_liargame\\frontend\\tests\\e2e\\multi-session.spec.ts",
-                            "column": 56,
-                            "line": 190
-                          },
-                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m failed\n\nLocator:  getByText('라이어는 단어를 추측하세요')\nExpected: visible\nReceived: <element(s) not found>\nTimeout:  5000ms\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText('라이어는 단어를 추측하세요')\u001b[22m\n\n\n  188 |\n  189 |     await expect(liarPage.getByText('라이어 게임')).toBeVisible();\n> 190 |     await expect(liarPage.getByText('라이어는 단어를 추측하세요')).toBeVisible();\n      |                                                        ^\n  191 |     await expect(liarPage.getByText('당신은 라이어입니다', { exact: false })).toBeVisible();\n  192 |\n  193 |     await expect(citizenAPage.getByText('라이어 게임')).toBeVisible();\n    at D:\\workspaces\\kotlin_liargame\\frontend\\tests\\e2e\\multi-session.spec.ts:190:56"
-                        }
-                      ],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-09-23T05:30:42.176Z",
-                      "annotations": [],
-                      "attachments": [
-                        {
-                          "name": "screenshot",
-                          "contentType": "image/png",
-                          "path": "D:\\workspaces\\kotlin_liargame\\frontend\\test-results\\multi-session-Multi-sessio-d12fc-zens-view-coordinated-state-webkit\\test-failed-3.png"
-                        },
-                        {
-                          "name": "screenshot",
-                          "contentType": "image/png",
-                          "path": "D:\\workspaces\\kotlin_liargame\\frontend\\test-results\\multi-session-Multi-sessio-d12fc-zens-view-coordinated-state-webkit\\test-failed-1.png"
-                        },
-                        {
-                          "name": "screenshot",
-                          "contentType": "image/png",
-                          "path": "D:\\workspaces\\kotlin_liargame\\frontend\\test-results\\multi-session-Multi-sessio-d12fc-zens-view-coordinated-state-webkit\\test-failed-2.png"
-                        },
-                        {
-                          "name": "error-context",
-                          "contentType": "text/markdown",
-                          "path": "D:\\workspaces\\kotlin_liargame\\frontend\\test-results\\multi-session-Multi-sessio-d12fc-zens-view-coordinated-state-webkit\\error-context.md"
-                        }
-                      ],
-                      "errorLocation": {
-                        "file": "D:\\workspaces\\kotlin_liargame\\frontend\\tests\\e2e\\multi-session.spec.ts",
-                        "column": 56,
-                        "line": 190
-                      }
-                    }
-                  ],
-                  "status": "unexpected"
-                }
-              ],
-              "id": "4bb98aad12546f4b0346-209e87264e33a03e7377",
-              "file": "multi-session.spec.ts",
-              "line": 162,
-              "column": 3
-            },
-            {
-              "title": "liar and citizens view coordinated state",
-              "ok": false,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 30000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "Mobile Chrome",
-                  "projectName": "Mobile Chrome",
-                  "results": [
-                    {
-                      "workerIndex": 3,
-                      "parallelIndex": 3,
-                      "status": "failed",
-                      "duration": 11148,
-                      "error": {
-                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m failed\n\nLocator:  getByText('라이어는 단어를 추측하세요')\nExpected: visible\nReceived: <element(s) not found>\nTimeout:  5000ms\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText('라이어는 단어를 추측하세요')\u001b[22m\n",
-                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m failed\n\nLocator:  getByText('라이어는 단어를 추측하세요')\nExpected: visible\nReceived: <element(s) not found>\nTimeout:  5000ms\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText('라이어는 단어를 추측하세요')\u001b[22m\n\n    at D:\\workspaces\\kotlin_liargame\\frontend\\tests\\e2e\\multi-session.spec.ts:190:56",
-                        "location": {
-                          "file": "D:\\workspaces\\kotlin_liargame\\frontend\\tests\\e2e\\multi-session.spec.ts",
-                          "column": 56,
-                          "line": 190
-                        },
-                        "snippet": "\u001b[0m \u001b[90m 188 |\u001b[39m\n \u001b[90m 189 |\u001b[39m     \u001b[36mawait\u001b[39m expect(liarPage\u001b[33m.\u001b[39mgetByText(\u001b[32m'라이어 게임'\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 190 |\u001b[39m     \u001b[36mawait\u001b[39m expect(liarPage\u001b[33m.\u001b[39mgetByText(\u001b[32m'라이어는 단어를 추측하세요'\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                                        \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 191 |\u001b[39m     \u001b[36mawait\u001b[39m expect(liarPage\u001b[33m.\u001b[39mgetByText(\u001b[32m'당신은 라이어입니다'\u001b[39m\u001b[33m,\u001b[39m { exact\u001b[33m:\u001b[39m \u001b[36mfalse\u001b[39m }))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m 192 |\u001b[39m\n \u001b[90m 193 |\u001b[39m     \u001b[36mawait\u001b[39m expect(citizenAPage\u001b[33m.\u001b[39mgetByText(\u001b[32m'라이어 게임'\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\u001b[0m"
-                      },
-                      "errors": [
-                        {
-                          "location": {
-                            "file": "D:\\workspaces\\kotlin_liargame\\frontend\\tests\\e2e\\multi-session.spec.ts",
-                            "column": 56,
-                            "line": 190
-                          },
-                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m failed\n\nLocator:  getByText('라이어는 단어를 추측하세요')\nExpected: visible\nReceived: <element(s) not found>\nTimeout:  5000ms\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByText('라이어는 단어를 추측하세요')\u001b[22m\n\n\n  188 |\n  189 |     await expect(liarPage.getByText('라이어 게임')).toBeVisible();\n> 190 |     await expect(liarPage.getByText('라이어는 단어를 추측하세요')).toBeVisible();\n      |                                                        ^\n  191 |     await expect(liarPage.getByText('당신은 라이어입니다', { exact: false })).toBeVisible();\n  192 |\n  193 |     await expect(citizenAPage.getByText('라이어 게임')).toBeVisible();\n    at D:\\workspaces\\kotlin_liargame\\frontend\\tests\\e2e\\multi-session.spec.ts:190:56"
-                        }
-                      ],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2025-09-23T05:30:42.175Z",
-                      "annotations": [],
-                      "attachments": [
-                        {
-                          "name": "screenshot",
-                          "contentType": "image/png",
-                          "path": "D:\\workspaces\\kotlin_liargame\\frontend\\test-results\\multi-session-Multi-sessio-d12fc-zens-view-coordinated-state-Mobile-Chrome\\test-failed-3.png"
-                        },
-                        {
-                          "name": "screenshot",
-                          "contentType": "image/png",
-                          "path": "D:\\workspaces\\kotlin_liargame\\frontend\\test-results\\multi-session-Multi-sessio-d12fc-zens-view-coordinated-state-Mobile-Chrome\\test-failed-2.png"
-                        },
-                        {
-                          "name": "screenshot",
-                          "contentType": "image/png",
-                          "path": "D:\\workspaces\\kotlin_liargame\\frontend\\test-results\\multi-session-Multi-sessio-d12fc-zens-view-coordinated-state-Mobile-Chrome\\test-failed-1.png"
-                        },
-                        {
-                          "name": "error-context",
-                          "contentType": "text/markdown",
-                          "path": "D:\\workspaces\\kotlin_liargame\\frontend\\test-results\\multi-session-Multi-sessio-d12fc-zens-view-coordinated-state-Mobile-Chrome\\error-context.md"
-                        }
-                      ],
-                      "errorLocation": {
-                        "file": "D:\\workspaces\\kotlin_liargame\\frontend\\tests\\e2e\\multi-session.spec.ts",
-                        "column": 56,
-                        "line": 190
-                      }
-                    }
-                  ],
-                  "status": "unexpected"
-                }
-              ],
-              "id": "4bb98aad12546f4b0346-f6edc99600b321991b4e",
-              "file": "multi-session.spec.ts",
-              "line": 162,
+              "id": "e90ffca0aaa53f7311f1-24ccd6ccd0e02962b5c7",
+              "file": "chat-realtime.spec.ts",
+              "line": 11,
               "column": 3
             }
           ]
@@ -445,11 +203,11 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2025-09-23T05:30:41.232Z",
-    "duration": 15041.313,
+    "startTime": "2025-09-25T01:47:49.606Z",
+    "duration": 13143.003,
     "expected": 0,
     "skipped": 0,
-    "unexpected": 4,
+    "unexpected": 1,
     "flaky": 0
   }
 }

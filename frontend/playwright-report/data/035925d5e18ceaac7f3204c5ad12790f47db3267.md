@@ -1,0 +1,117 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - banner [ref=e5]:
+      - generic [ref=e7]:
+        - generic [ref=e8]:
+          - link "LG Liar Game" [ref=e9] [cursor=pointer]:
+            - /url: /lobby
+            - generic [ref=e11] [cursor=pointer]: LG
+            - generic [ref=e12] [cursor=pointer]: Liar Game
+          - navigation
+        - generic [ref=e13]:
+          - generic [ref=e14]:
+            - img [ref=e15]
+            - generic [ref=e18]: test
+          - button "Toggle theme" [ref=e19] [cursor=pointer]:
+            - img [ref=e20] [cursor=pointer]
+            - generic [ref=e26] [cursor=pointer]: Toggle theme
+          - button "Logout" [ref=e27] [cursor=pointer]:
+            - img [ref=e28] [cursor=pointer]
+            - generic [ref=e31] [cursor=pointer]: Logout
+    - main [ref=e32]:
+      - generic [ref=e36]:
+        - generic [ref=e37]:
+          - generic [ref=e38]:
+            - heading "라이어 게임 로비" [level=1] [ref=e39]
+            - paragraph [ref=e40]: 게임방을 만들거나 참여하고, 주제와 답안을 관리하세요
+          - generic [ref=e41]:
+            - generic [ref=e43]:
+              - img [ref=e45]
+              - generic [ref=e48]:
+                - paragraph [ref=e49]: test
+                - paragraph [ref=e50]: 플레이어
+            - generic [ref=e51]:
+              - button "통계 새로고침" [ref=e52] [cursor=pointer]:
+                - img [ref=e53] [cursor=pointer]
+                - text: 통계 새로고침
+              - button [ref=e58] [cursor=pointer]:
+                - img [ref=e59] [cursor=pointer]
+        - generic [ref=e63]:
+          - tablist [ref=e64]:
+            - tab "게임룸" [selected] [ref=e65] [cursor=pointer]:
+              - img [ref=e66] [cursor=pointer]
+              - text: 게임룸
+            - tab "주제 관리" [ref=e71] [cursor=pointer]:
+              - img [ref=e72] [cursor=pointer]
+              - text: 주제 관리
+            - tab "답안 관리" [ref=e74] [cursor=pointer]:
+              - img [ref=e75] [cursor=pointer]
+              - text: 답안 관리
+          - tabpanel "게임룸" [ref=e79]:
+            - generic [ref=e82]:
+              - generic [ref=e83]:
+                - generic [ref=e84]:
+                  - heading "게임방 목록" [level=3] [ref=e85]:
+                    - img [ref=e86]
+                    - text: 게임방 목록
+                  - paragraph [ref=e91]: 새로운 게임을 생성하거나 대기 중인 게임방에 참여하세요
+                - generic [ref=e92]:
+                  - button "새로고침" [ref=e93] [cursor=pointer]:
+                    - img [ref=e94] [cursor=pointer]
+                    - text: 새로고침
+                  - button "코드로 참여" [ref=e99] [cursor=pointer]
+                  - button "게임방 만들기" [ref=e100] [cursor=pointer]:
+                    - img [ref=e101] [cursor=pointer]
+                    - text: 게임방 만들기
+              - generic [ref=e103]:
+                - img [ref=e104]
+                - generic [ref=e109]:
+                  - paragraph [ref=e110]: 현재 대기 중인 게임방이 없습니다.
+                  - paragraph [ref=e111]: 새로운 게임을 생성하고 친구들을 초대해보세요!
+                - button "첫 게임방 만들기" [ref=e112] [cursor=pointer]:
+                  - img [ref=e113] [cursor=pointer]
+                  - text: 첫 게임방 만들기
+        - generic [ref=e114]:
+          - generic [ref=e115]:
+            - generic [ref=e116]:
+              - heading "활성 게임룸" [level=3] [ref=e117]
+              - img [ref=e118]
+            - generic [ref=e123]:
+              - generic [ref=e124]: "0"
+              - paragraph [ref=e125]: 현재 플레이 가능한 방
+          - generic [ref=e126]:
+            - generic [ref=e127]:
+              - heading "등록된 주제" [level=3] [ref=e128]
+              - img [ref=e129]
+            - generic [ref=e131]:
+              - generic [ref=e132]: "2"
+              - paragraph [ref=e133]: 게임에 사용할 수 있는 주제
+          - generic [ref=e134]:
+            - generic [ref=e135]:
+              - heading "총 답안 수" [level=3] [ref=e136]
+              - img [ref=e137]
+            - generic [ref=e140]:
+              - generic [ref=e141]: "11"
+              - paragraph [ref=e142]: 모든 주제의 답안 합계
+    - contentinfo [ref=e144]:
+      - generic [ref=e146]:
+        - generic [ref=e147]:
+          - generic [ref=e148]: © 2024 Liar Game
+          - generic [ref=e149]: •
+          - generic [ref=e150]: Built with React & TypeScript
+        - generic [ref=e151]:
+          - generic [ref=e152]: Version 1.0.0
+          - generic [ref=e153]: •
+          - link "Source Code" [ref=e154] [cursor=pointer]:
+            - /url: https://github.com
+    - region "Notifications (F8)":
+      - list
+  - generic [ref=e155]:
+    - img [ref=e157]
+    - button "Open Tanstack query devtools" [ref=e205] [cursor=pointer]:
+      - img [ref=e206] [cursor=pointer]
+  - region "Notifications alt+T"
+```

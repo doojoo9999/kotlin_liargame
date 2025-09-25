@@ -1187,7 +1187,29 @@ export const useGameStore = create<UnifiedGameStore>()(
         // Event Handlers
         handleGameEvent: (event: GameEvent) => {
           const state = get();
-          
+
+          const resolvePlayerIdByIdentifier = (identifier: unknown): string | null => {
+            if (identifier == null) {
+              return null;
+            }
+            const normalized = String(identifier);
+            const players = get().players;
+            const match = players.find((player) => {
+              if (player.id === normalized) return true;
+              if (player.userId != null && String(player.userId) === normalized) return true;
+              if (player.nickname === normalized) return true;
+              return false;
+            });
+            return match?.id ?? null;
+          };
+
+          const updatePlayerByIdentifier = (identifier: unknown, updates: Partial<Player>) => {
+            const targetId = resolvePlayerIdByIdentifier(identifier);
+            if (targetId) {
+              get().updatePlayer(targetId, updates);
+            }
+          };
+
           switch (event.type) {
             case 'PLAYER_JOINED': {
               const { payload } = event;
@@ -1227,6 +1249,74 @@ export const useGameStore = create<UnifiedGameStore>()(
               const { playerId } = event.payload;
               if (playerId != null) {
                 get().removePlayer(String(playerId));
+              }
+              break;
+            }
+
+            case 'PLAYER_DISCONNECTED': {
+              const payload = event.payload as any;
+              const identifier = payload?.userId ?? payload?.playerId ?? payload?.nickname ?? payload?.playerName;
+              updatePlayerByIdentifier(identifier, {
+                isConnected: false,
+                isOnline: false,
+                lastActive: Date.now(),
+              });
+              break;
+            }
+
+            case 'PLAYER_RECONNECTED': {
+              const payload = event.payload as any;
+              const identifier = payload?.userId ?? payload?.playerId ?? payload?.nickname ?? payload?.playerName;
+              updatePlayerByIdentifier(identifier, {
+                isConnected: true,
+                isOnline: true,
+                lastActive: Date.now(),
+              });
+              break;
+            }
+
+            case 'GRACE_PERIOD_STARTED': {
+              const payload = event.payload as any;
+              const identifier = payload?.userId ?? payload?.playerId ?? payload?.nickname ?? payload?.playerName;
+              updatePlayerByIdentifier(identifier, {
+                isConnected: false,
+                isOnline: false,
+                lastActive: Date.now(),
+              });
+              break;
+            }
+
+            case 'GRACE_PERIOD_EXPIRED': {
+              const payload = event.payload as any;
+              const identifier = payload?.userId ?? payload?.playerId ?? payload?.nickname ?? payload?.playerName;
+              updatePlayerByIdentifier(identifier, {
+                isConnected: false,
+                isOnline: false,
+                lastActive: Date.now(),
+              });
+              break;
+            }
+
+            case 'PLAYER_READY_CHANGED':
+            case 'PLAYER_READY_UPDATE': {
+              const payload = event.payload as any;
+              const identifier = payload?.userId ?? payload?.playerId ?? payload?.nickname ?? payload?.playerName;
+              updatePlayerByIdentifier(identifier, {
+                isReady: Boolean(payload?.isReady),
+                lastActive: Date.now(),
+              });
+              break;
+            }
+
+            case 'OWNER_KICKED_AND_TRANSFERRED': {
+              const payload = event.payload as any;
+              const kicked = payload?.kickedOwner ?? payload?.kickedPlayer ?? payload?.previousOwner;
+              const promoted = payload?.newOwner ?? payload?.nextOwner ?? payload?.newHost;
+              if (kicked) {
+                updatePlayerByIdentifier(kicked, { isHost: false });
+              }
+              if (promoted) {
+                updatePlayerByIdentifier(promoted, { isHost: true });
               }
               break;
             }

@@ -259,6 +259,40 @@ export interface GameEndedPayload {
   [key: string]: unknown
 }
 
+export interface PlayerConnectionPayload {
+  userId?: PlayerIdentifier
+  playerId?: PlayerIdentifier
+  nickname?: string
+  playerName?: string
+  isConnected?: boolean
+  hasGracePeriod?: boolean
+  seconds?: number
+  lastActiveAt?: string
+  [key: string]: unknown
+}
+
+export interface PlayerReadyChangedPayload {
+  userId?: PlayerIdentifier
+  playerId?: PlayerIdentifier
+  nickname?: string
+  playerName?: string
+  isReady?: boolean
+  allReady?: boolean
+  updatedAt?: string
+  [key: string]: unknown
+}
+
+export interface OwnerTransferPayload {
+  kickedOwner?: string
+  kickedPlayer?: string
+  previousOwner?: string
+  newOwner?: string
+  newHost?: string
+  nextOwner?: string
+  message?: string
+  [key: string]: unknown
+}
+
 export interface PersonalNotificationPayload {
   [key: string]: unknown
 }
@@ -271,6 +305,13 @@ export interface RoomDeletedPayload {
 export type GameEventPayloadMap = {
   PLAYER_JOINED: PlayerJoinedPayload
   PLAYER_LEFT: PlayerLeftPayload
+  PLAYER_DISCONNECTED: PlayerConnectionPayload
+  PLAYER_RECONNECTED: PlayerConnectionPayload
+  GRACE_PERIOD_STARTED: PlayerConnectionPayload
+  GRACE_PERIOD_EXPIRED: PlayerConnectionPayload
+  PLAYER_READY_CHANGED: PlayerReadyChangedPayload
+  PLAYER_READY_UPDATE: PlayerReadyChangedPayload
+  OWNER_KICKED_AND_TRANSFERRED: OwnerTransferPayload
   ROOM_DELETED: RoomDeletedPayload
   GAME_STARTED: GameStartedPayload
   ROUND_STARTED: RoundStartedPayload

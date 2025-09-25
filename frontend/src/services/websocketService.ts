@@ -69,6 +69,7 @@ class WebSocketService {
     session: 'liargame:websocket-session-id',
     legacy: 'websocket-session-id',
   } as const;
+  private readonly connectionNoticeIds = new Set<string>();
 
   constructor() {
     this.setupClient();
@@ -179,8 +180,9 @@ class WebSocketService {
       clearTimeout(this.pendingSubscriptionFlushTimer);
       this.pendingSubscriptionFlushTimer = null;
     }
-    
+
     console.log('WebSocket service disconnected and cleaned up');
+    this.clearConnectionNotices();
   }
 
   public onRoomDeleted(callback: (event: GameEvent) => void): () => void {
@@ -612,22 +614,48 @@ class WebSocketService {
       payload.playerNickname = options.nickname;
     }
 
-    if (!this.isConnected || !this.client) {
-      toast.error('실시간 연결이 필요합니다');
-      this.safePublish('/app/chat.send', payload);
+    const client = this.client;
+    if (!client || !client.connected || !this.isConnected) {
+      const queuedId = this.safePublish('/app/chat.send', payload);
+      if (queuedId) {
+        this.showConnectionNotice('chat');
+        this.ensureConnectionAttempt();
+      }
       return;
     }
 
-    this.client.publish({ destination: '/app/chat.send', body: JSON.stringify(payload) });
+    try {
+      client.publish({ destination: '/app/chat.send', body: JSON.stringify(payload) });
+    } catch (error) {
+      console.warn('Falling back to queued send for chat message', { gameId, error });
+      const queuedId = this.safePublish('/app/chat.send', payload);
+      if (queuedId) {
+        this.showConnectionNotice('chat');
+        this.ensureConnectionAttempt();
+      }
+    }
   }
 
   public sendGameAction(gameId: string, action: string, payload: any = {}): void {
-    if (!this.isConnected || !this.client) {
-      toast.error('실시간 연결이 필요합니다');
-      this.safePublish(`/app/game/${gameId}/${action}`, payload);
+    const client = this.client;
+    if (!client || !client.connected || !this.isConnected) {
+      const queuedId = this.safePublish(`/app/game/${gameId}/${action}`, payload);
+      if (queuedId) {
+        this.showConnectionNotice('action');
+        this.ensureConnectionAttempt();
+      }
       return;
     }
-    this.client.publish({ destination: `/app/game/${gameId}/${action}`, body: JSON.stringify(payload) });
+    try {
+      client.publish({ destination: `/app/game/${gameId}/${action}`, body: JSON.stringify(payload) });
+    } catch (error) {
+      console.warn('Falling back to queued send for game action', { gameId, action, error });
+      const queuedId = this.safePublish(`/app/game/${gameId}/${action}`, payload);
+      if (queuedId) {
+        this.showConnectionNotice('action');
+        this.ensureConnectionAttempt();
+      }
+    }
   }
 
   public sendTopicGuess(gameId: string, guess: string): void {
@@ -808,6 +836,48 @@ class WebSocketService {
 
     console.log(`Queued message ${id} to ${destination}`);
     return id;
+  }
+
+  private showConnectionNotice(context: 'chat' | 'action'): void {
+    const id = context === 'chat' ? 'realtime-queue-chat' : 'realtime-queue-action';
+    if (this.connectionNoticeIds.has(id)) {
+      return;
+    }
+
+    const message = context === 'chat'
+      ? '실시간 연결을 복구 중입니다. 채팅 메시지를 대기열에 저장했습니다.'
+      : '실시간 연결을 복구 중입니다. 요청을 대기열에 저장했습니다.';
+
+    toast.info(message, {
+      id,
+      duration: 4000,
+    });
+
+    this.connectionNoticeIds.add(id);
+  }
+
+  private clearConnectionNotices(): void {
+    if (!this.connectionNoticeIds.size) {
+      return;
+    }
+
+    for (const id of this.connectionNoticeIds) {
+      toast.dismiss(id);
+    }
+
+    this.connectionNoticeIds.clear();
+  }
+
+  private ensureConnectionAttempt(): void {
+    if (this.connectionState === 'connected'
+      || this.connectionState === 'connecting'
+      || this.connectionState === 'reconnecting') {
+      return;
+    }
+
+    void this.connect().catch(error => {
+      console.error('Automatic websocket reconnect failed after queuing message', error);
+    });
   }
 
   private subscribeToUserQueues(): void {
@@ -1005,7 +1075,7 @@ class WebSocketService {
     console.log('WebSocket disconnected');
     this.isConnected = false;
     this.clearStoredSessionId();
-    
+
     // Stop heartbeat monitoring
     this.stopHeartbeat();
 
@@ -1190,6 +1260,7 @@ class WebSocketService {
 
     // Flush any queued messages
     this.flushQueue();
+    this.clearConnectionNotices();
 
     if (this.reconnectAttempts > 0) {
       toast.success('재연결이 성공했습니다!');
@@ -1268,10 +1339,142 @@ class WebSocketService {
     }
   }
 
+  private normalizeGameEvent(raw: unknown, message: IMessage): GameEvent | null {
+    const destination = message.headers?.destination ?? '';
+    const extractGameId = (value: unknown): string | null => {
+      if (value == null) {
+        return null;
+      }
+      if (typeof value === 'string' && value.trim().length > 0) {
+        return value;
+      }
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        return value.toString();
+      }
+      return null;
+    };
+
+    const resolveGameId = (): string => {
+      const rawGameId =
+        (typeof raw === 'object' && raw !== null && extractGameId((raw as Record<string, unknown>)['gameId'])) ??
+        (typeof raw === 'object' && raw !== null && extractGameId((raw as Record<string, unknown>)['gameNumber'])) ??
+        extractGameId(this.currentGameId);
+      return rawGameId ?? '';
+    };
+
+    const extractTimestamp = (value: any): number => {
+      const candidate = value?.timestamp ?? value?.sentAt ?? value?.createdAt ?? value?.time;
+      if (typeof candidate === 'number' && Number.isFinite(candidate)) {
+        return candidate;
+      }
+      if (typeof candidate === 'string') {
+        const parsed = Date.parse(candidate);
+        if (!Number.isNaN(parsed)) {
+          return parsed;
+        }
+      }
+      return Date.now();
+    };
+
+    if (raw == null) {
+      return null;
+    }
+
+    const timestamp = extractTimestamp(raw as any);
+
+    if (typeof raw === 'string') {
+      if (destination.includes('/state')) {
+        return {
+          type: 'GAME_STATE_UPDATED',
+          gameId: resolveGameId(),
+          payload: { state: raw },
+          timestamp,
+        } as unknown as GameEvent;
+      }
+      return null;
+    }
+
+    if (typeof raw !== 'object') {
+      return {
+        type: 'GAME_STATE_UPDATED',
+        gameId: resolveGameId(),
+        payload: { state: raw },
+        timestamp,
+      } as unknown as GameEvent;
+    }
+
+    const record = raw as Record<string, unknown>;
+    const rawType = record['type'] ?? record['eventType'] ?? record['event_type'];
+    const normalizedType = typeof rawType === 'string' ? rawType.toUpperCase() : null;
+
+    const coercePayload = (): any => {
+      if (record['payload'] !== undefined) {
+        return record['payload'];
+      }
+      if (record['data'] !== undefined) {
+        return record['data'];
+      }
+      const clone: Record<string, unknown> = { ...record };
+      delete clone['type'];
+      delete clone['eventType'];
+      delete clone['event_type'];
+      delete clone['gameNumber'];
+      delete clone['gameId'];
+      delete clone['timestamp'];
+      delete clone['payload'];
+      delete clone['data'];
+      return clone;
+    };
+
+    if (normalizedType) {
+      const canonicalType =
+        normalizedType === 'GAME_STATE_UPDATE' || normalizedType === 'STATE'
+          ? 'GAME_STATE_UPDATED'
+          : normalizedType;
+
+      const payload = coercePayload();
+
+      return {
+        type: canonicalType,
+        gameId: resolveGameId(),
+        payload,
+        timestamp,
+      } as unknown as GameEvent;
+    }
+
+    const payload = record['payload'] ?? record;
+
+    if (destination.includes('/state')) {
+      return {
+        type: 'GAME_STATE_UPDATED',
+        gameId: resolveGameId(),
+        payload: { gameState: payload },
+        timestamp,
+      } as unknown as GameEvent;
+    }
+
+    return {
+      type: 'GAME_STATE_UPDATED',
+      gameId: resolveGameId(),
+      payload: { gameState: payload },
+      timestamp,
+    } as unknown as GameEvent;
+  }
+
   private handleGameEvent(message: IMessage): void {
     try {
-      const event: GameEvent = JSON.parse(message.body);
-      console.log('Received game event:', event);
+      const raw = message.body ? JSON.parse(message.body) : null;
+      const event = this.normalizeGameEvent(raw, message);
+      if (!event) {
+        if (import.meta.env.DEV) {
+          console.warn('Ignoring unrecognized game event payload', raw);
+        }
+        return;
+      }
+
+      if (import.meta.env.DEV) {
+        console.log('Received game event:', event);
+      }
 
       this.notifyRawListeners({
         type: 'event',
@@ -1280,14 +1483,11 @@ class WebSocketService {
         destination: message.headers?.destination,
       });
 
-      // Notify specific event type callbacks
       const callbacks = this.eventCallbacks.get(event.type) || [];
       callbacks.forEach(callback => callback(event));
 
-      // Notify all event callbacks
       const allCallbacks = this.eventCallbacks.get('*') || [];
       allCallbacks.forEach(callback => callback(event));
-
     } catch (error) {
       console.error('Error parsing game event:', error);
     }
