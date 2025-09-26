@@ -134,6 +134,8 @@ export const ChatBox: React.FC<ChatBoxProps> = ({
   const [messageInput, setMessageInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const isComposingRef = useRef(false);
+  const pendingSendRef = useRef(false);
 
   const {
     chatMessages,
@@ -159,22 +161,57 @@ export const ChatBox: React.FC<ChatBoxProps> = ({
     }
   }, [compact]);
 
-  const handleSendMessage = () => {
-    if (!messageInput.trim() || !isConnected || !currentRoom) return;
+  const handleSendMessage = async () => {
+    const trimmed = messageInput.trim();
+    if (!trimmed || !isConnected || !currentRoom) {
+      return;
+    }
 
-    sendChatMessage(messageInput.trim());
     setMessageInput('');
+    try {
+      await sendChatMessage(trimmed);
+    } catch (error) {
+      console.error('Failed to send chat message', error);
+      setMessageInput(trimmed);
+    } finally {
+      inputRef.current?.focus({ preventScroll: true });
+    }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
+      if (isComposingRef.current) {
+        pendingSendRef.current = true;
+        return;
+      }
       e.preventDefault();
-      handleSendMessage();
+      handleSendMessage().catch(() => {});
     }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setMessageInput(e.target.value);
+  };
+
+  const handleCompositionStart = () => {
+    isComposingRef.current = true;
+  };
+
+  const handleCompositionEnd = () => {
+    isComposingRef.current = false;
+    if (pendingSendRef.current) {
+      pendingSendRef.current = false;
+      handleSendMessage().catch(() => {});
+    }
+  };
+
+  const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (isComposingRef.current) {
+      pendingSendRef.current = true;
+      return;
+    }
+    handleSendMessage().catch(() => {});
   };
 
   const displayMessages = chatMessages.slice(-maxMessages);
@@ -227,24 +264,26 @@ export const ChatBox: React.FC<ChatBoxProps> = ({
             </div>
           </ScrollArea>
 
-          <div className="flex gap-2 mt-2">
+          <form className="flex gap-2 mt-2" onSubmit={handleFormSubmit}>
             <Input
               ref={inputRef}
               value={messageInput}
               onChange={handleInputChange}
-              onKeyPress={handleKeyPress}
+              onKeyDown={handleKeyDown}
+              onCompositionStart={handleCompositionStart}
+              onCompositionEnd={handleCompositionEnd}
               placeholder={isConnected ? "메시지 입력..." : "연결 대기 중..."}
               disabled={!isConnected || !currentRoom}
               className="flex-1"
             />
             <Button
-              onClick={handleSendMessage}
+              type="submit"
               disabled={!messageInput.trim() || !isConnected || !currentRoom}
               size="sm"
             >
               <Send className="w-4 h-4" />
             </Button>
-          </div>
+          </form>
 
           {connectionError && (
             <div className="text-red-500 text-xs mt-1">
@@ -290,24 +329,26 @@ export const ChatBox: React.FC<ChatBoxProps> = ({
             </div>
           </ScrollArea>
 
-          <div className="flex gap-2 mt-4">
+          <form className="flex gap-2 mt-4" onSubmit={handleFormSubmit}>
             <Input
               ref={inputRef}
               value={messageInput}
               onChange={handleInputChange}
-              onKeyPress={handleKeyPress}
+              onKeyDown={handleKeyDown}
+              onCompositionStart={handleCompositionStart}
+              onCompositionEnd={handleCompositionEnd}
               placeholder={isConnected ? "메시지를 입력하세요..." : "연결 대기 중..."}
               disabled={!isConnected || !currentRoom}
               className="flex-1"
             />
             <Button
-              onClick={handleSendMessage}
+              type="submit"
               disabled={!messageInput.trim() || !isConnected || !currentRoom}
             >
               <Send className="w-4 h-4" />
               전송
             </Button>
-          </div>
+          </form>
 
           {connectionError && (
             <div className="text-red-500 text-sm mt-2">

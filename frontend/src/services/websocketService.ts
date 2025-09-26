@@ -585,7 +585,7 @@ class WebSocketService {
   }
 
   public safePublish(destination: string, body: any): string | undefined {
-    if (!this.isConnected || !this.client) {
+    if (!this.client || !this.client.connected || !this.isConnected) {
       return this.queueMessage(destination, body);
     }
     try {
@@ -774,7 +774,7 @@ class WebSocketService {
 
   // Send methods
   private flushQueue() {
-    if (!this.isConnected || !this.client || this.messageQueue.length === 0) return;
+    if (!this.isConnected || !this.client || !this.client.connected || this.messageQueue.length === 0) return;
 
     console.log(`Flushing ${this.messageQueue.length} queued messages`);
     const toRetry: typeof this.messageQueue = [];
@@ -972,7 +972,7 @@ class WebSocketService {
 
     // Send heartbeat every 15 seconds
     this.pingInterval = setInterval(() => {
-      if (this.isConnected && this.client) {
+      if (this.isConnected && this.client?.connected) {
         try {
           this.client.publish({
             destination: '/app/heartbeat',
@@ -980,7 +980,13 @@ class WebSocketService {
           });
         } catch (error) {
           console.error('Failed to send ping:', error);
+          this.isConnected = false;
+          this.connectionState = 'reconnecting';
+          this.ensureConnectionAttempt();
         }
+      } else if (!this.client?.connected && this.connectionState !== 'connecting') {
+        this.isConnected = false;
+        this.ensureConnectionAttempt();
       }
     }, 15000);
 

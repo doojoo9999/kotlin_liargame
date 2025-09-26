@@ -34,6 +34,7 @@ const typeLabelMap: Record<ChatMessageType, string> = {
   DEFENSE: '변론',
   SYSTEM: '공지',
   POST_ROUND: '라운드 요약',
+  WAITING_ROOM: '대기실',
 }
 
 const formatTimestamp = (timestamp: number) => {
@@ -51,6 +52,7 @@ const messageToneMap: Record<ChatMessageType | 'DEFAULT', string> = {
   DEFENSE: 'border-rose-500/60 bg-rose-50 text-rose-900 shadow-sm dark:bg-rose-500/15 dark:text-rose-100',
   SYSTEM: 'border-primary/60 bg-primary/10 text-primary-900 shadow-sm dark:bg-primary/25 dark:text-primary-50',
   POST_ROUND: 'border-amber-500/60 bg-amber-50 text-amber-900 shadow-sm dark:bg-amber-500/15 dark:text-amber-100',
+  WAITING_ROOM: 'border-border/70 bg-background/95 text-foreground',
   DEFAULT: 'border-border/70 bg-background/95 text-foreground',
 }
 
@@ -550,7 +552,7 @@ export const GameChat: React.FC<GameChatProps> = ({
                     badgeConfigs.push({ label: '나', variant: 'secondary' })
                   }
                   const typeLabel =
-                    message.type === 'DISCUSSION' || message.type === 'GENERAL'
+                    message.type === 'DISCUSSION' || message.type === 'GENERAL' || message.type === 'WAITING_ROOM'
                       ? null
                       : typeLabelMap[message.type]
                   const showReport = !isSelf && message.type !== 'SYSTEM'

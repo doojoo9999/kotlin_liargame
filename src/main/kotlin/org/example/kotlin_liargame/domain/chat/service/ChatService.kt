@@ -447,8 +447,8 @@ class ChatService(
             }
         }
 
-        println("[ChatService] Game not in progress, returning POST_ROUND")
-        return ChatMessageType.POST_ROUND
+        println("[ChatService] Game not in progress, returning WAITING_ROOM")
+        return ChatMessageType.WAITING_ROOM
     }
 
     fun isPostRoundChatAvailable(game: GameEntity): Boolean {

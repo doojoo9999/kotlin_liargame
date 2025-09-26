@@ -207,6 +207,7 @@ export function GameLayout({
 
   const gridContainerStyle = useMemo(() => {
     return {
+      height: 'var(--game-body-height)',
       maxHeight: 'var(--game-body-height)',
     } as CSSProperties
   }, [])
@@ -336,7 +337,7 @@ export function GameLayout({
   )
 
   return (
-    <div className="flex min-h-screen flex-col overflow-x-hidden bg-background" style={layoutStyle}>
+    <div className="flex h-screen min-h-screen flex-col overflow-x-hidden bg-background" style={layoutStyle}>
       <div ref={headerRef} className="sticky top-0 z-20 border-b border-border/60 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/75">
         <div className="mx-auto flex w-full max-w-screen-2xl flex-col gap-3 px-4 py-3">
           <div className="flex flex-wrap items-center gap-3">
@@ -389,9 +390,9 @@ export function GameLayout({
 
       <div className="flex-1 overflow-hidden">
         <div className="mx-auto flex h-full min-h-0 w-full max-w-screen-2xl flex-col gap-6 px-4 py-6">
-          <div className={`grid min-h-0 flex-1 gap-6 transition-[grid-template-columns] motion-safe:duration-200 ${gridTemplateClass}`} style={gridContainerStyle}>
-            <main className="order-1 flex min-h-0 flex-col overflow-hidden" aria-label="게임 채팅 영역">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+          <div className={`grid min-h-0 flex-1 overflow-hidden gap-6 transition-[grid-template-columns] motion-safe:duration-200 ${gridTemplateClass}`} style={gridContainerStyle}>
+            <main className="order-1 flex min-h-0 h-full flex-col overflow-hidden" aria-label="게임 채팅 영역">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground flex-shrink-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <Button
                     variant="outline"
@@ -544,10 +545,6 @@ export function GameLayout({
     </div>
   )
 }
-
-
-
-
 
 
 

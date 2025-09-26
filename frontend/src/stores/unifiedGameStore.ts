@@ -92,7 +92,7 @@ export interface Defense {
 
 
 const CHAT_MESSAGE_LIMIT = 200;
-const CHAT_TYPES: readonly ChatMessageType[] = ['DISCUSSION', 'HINT', 'DEFENSE', 'SYSTEM', 'POST_ROUND', 'GENERAL'] as const;
+const CHAT_TYPES: readonly ChatMessageType[] = ['DISCUSSION', 'HINT', 'DEFENSE', 'SYSTEM', 'POST_ROUND', 'WAITING_ROOM', 'GENERAL'] as const;
 
 const normalizeChatType = (value: unknown): ChatMessageType => {
   if (typeof value === 'string') {
@@ -1616,3 +1616,4 @@ export const useGameStore = create<UnifiedGameStore>()(
     }
   )
 );
+

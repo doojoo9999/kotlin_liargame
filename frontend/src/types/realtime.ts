@@ -133,7 +133,7 @@ export interface GameEndResponse {
 
 export type GameEndCondition = 'LIAR_VICTORY' | 'CITIZEN_VICTORY' | 'NEXT_ROUND'
 
-export type ChatMessageType = 'DISCUSSION' | 'HINT' | 'DEFENSE' | 'SYSTEM' | 'POST_ROUND' | 'GENERAL'
+export type ChatMessageType = 'DISCUSSION' | 'HINT' | 'DEFENSE' | 'SYSTEM' | 'POST_ROUND' | 'WAITING_ROOM' | 'GENERAL'
 
 export interface ChatMessage {
   id: string
@@ -342,4 +342,5 @@ export type GameEvent = {
 export type EventCallback = (event: GameEvent) => void
 
 export type ConnectionCallback = (connected: boolean) => void
+
 

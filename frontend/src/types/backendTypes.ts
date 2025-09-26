@@ -125,7 +125,7 @@ export type {
   GameRealtimeEventType
 }
 
-export type ChatMessageType = 'HINT' | 'DISCUSSION' | 'DEFENSE' | 'POST_ROUND' | 'SYSTEM'
+export type ChatMessageType = 'HINT' | 'DISCUSSION' | 'DEFENSE' | 'POST_ROUND' | 'WAITING_ROOM' | 'SYSTEM'
 export type ConnectionStability = 'STABLE' | 'UNSTABLE' | 'POOR'
 
 export interface CreateGameRequest {
@@ -197,3 +197,4 @@ export const normalizeConnectionStatus = (players: PlayerConnectionStatus[]): Co
 }
 export type CastVoteResponse = VoteResponse
 export type WordGuessResponse = LiarGuessResultResponse
+
