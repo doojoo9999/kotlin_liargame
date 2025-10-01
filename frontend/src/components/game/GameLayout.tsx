@@ -251,6 +251,20 @@ export function GameLayout({
       ? '라이어는 제시어를 볼 수 없습니다.'
       : '제시어가 곧 공개됩니다.'
 
+  const summaryForPanel = useMemo(() => {
+    if (currentRoundSummary) {
+      return currentRoundSummary
+    }
+    return roundSummaries.length > 0 ? roundSummaries[0] : null
+  }, [currentRoundSummary, roundSummaries])
+
+  const roundSummaryHistory = useMemo(() => {
+    if (!summaryForPanel) {
+      return roundSummaries
+    }
+    return roundSummaries.filter((entry) => entry.concludedAt !== summaryForPanel.concludedAt)
+  }, [roundSummaries, summaryForPanel])
+
   const showContextColumn = !isChatFocused && !isContextPanelCollapsed
 
   const gridTemplateClass = isChatFocused
@@ -489,14 +503,10 @@ export function GameLayout({
                   <GameplayScoreboard entries={scoreboardEntries} />
                 </CardContent>
               </Card>
-              {(currentRoundSummary || roundSummaries.length > 0) && (
+              {summaryForPanel && (
                 <Card className="border-border/60 shadow-sm">
                   <CardContent className="pt-4">
-                    <RoundSummaryPanel
-                      summary={currentRoundSummary ?? undefined}
-                      history={roundSummaries.filter((entry) => !currentRoundSummary || entry.concludedAt !== currentRoundSummary.concludedAt)}
-                      players={players}
-                    />
+                    <RoundSummaryPanel summary={summaryForPanel} history={roundSummaryHistory} players={players} />
                   </CardContent>
                 </Card>
               )}

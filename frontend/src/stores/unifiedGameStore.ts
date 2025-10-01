@@ -164,7 +164,12 @@ const normalizeChatMessage = (
 
   const userId = toFiniteNumber(candidate['userId'] ?? candidate['playerUserId'] ?? candidate['senderUserId']) ?? undefined;
   const rawPlayerId = toOptionalString(candidate['playerId'] ?? candidate['playerID'] ?? candidate['playerUuid'] ?? candidate['senderId']);
-  const rawNickname = toOptionalString(candidate['playerNickname'] ?? candidate['playerName'] ?? candidate['nickname']);
+  const rawNickname = toOptionalString(
+    candidate['playerNickname']
+    ?? candidate['playerNicknameSnapshot']
+    ?? candidate['playerName']
+    ?? candidate['nickname']
+  );
   const content = toOptionalString(candidate['content'] ?? candidate['message'] ?? candidate['body'] ?? '') ?? '';
 
   const fallbackIdPart = rawPlayerId ?? (typeof userId === 'number' ? userId.toString() : type);

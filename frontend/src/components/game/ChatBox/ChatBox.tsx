@@ -168,12 +168,13 @@ export const ChatBox: React.FC<ChatBoxProps> = ({
     }
 
     setMessageInput('');
+    inputRef.current?.focus({ preventScroll: true });
+
     try {
       await sendChatMessage(trimmed);
     } catch (error) {
       console.error('Failed to send chat message', error);
       setMessageInput(trimmed);
-    } finally {
       inputRef.current?.focus({ preventScroll: true });
     }
   };

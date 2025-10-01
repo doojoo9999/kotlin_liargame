@@ -238,9 +238,11 @@ export const GameChat: React.FC<GameChatProps> = ({
       setIsSending(true)
       setAutoScroll(true)
       setHasUnread(false)
+      setDraft('')
+      inputRef.current?.focus({ preventScroll: true })
+
       try {
         await onSendMessage(trimmed, selectedType)
-        setDraft('')
         setSendError(null)
         const pulseDuration = prefersReducedMotion ? 200 : 700
         setJustSent(true)
@@ -253,6 +255,7 @@ export const GameChat: React.FC<GameChatProps> = ({
         setSendError('메시지 전송에 실패했습니다. 다시 시도해 주세요.')
         toast.error('메시지 전송에 실패했습니다. 다시 시도해 주세요.')
         setDraft(trimmed)
+        inputRef.current?.focus({ preventScroll: true })
         throw err
       } finally {
         setIsSending(false)
@@ -260,7 +263,7 @@ export const GameChat: React.FC<GameChatProps> = ({
           clearTimeout(inputFocusTimeoutRef.current)
         }
         inputFocusTimeoutRef.current = setTimeout(() => {
-          inputRef.current?.focus()
+          inputRef.current?.focus({ preventScroll: true })
           inputFocusTimeoutRef.current = null
         }, 0)
       }
@@ -283,7 +286,7 @@ export const GameChat: React.FC<GameChatProps> = ({
     (event: React.KeyboardEvent<HTMLInputElement>) => {
       if (event.key === 'Enter' && !event.shiftKey) {
         const nativeEvent = event.nativeEvent as KeyboardEvent & { isComposing?: boolean }
-        if (event.isComposing || nativeEvent.isComposing) {
+        if (nativeEvent.isComposing) {
           return
         }
         event.preventDefault()
@@ -628,7 +631,7 @@ export const GameChat: React.FC<GameChatProps> = ({
               onKeyDown={handleKeyDown}
               onFocus={() => setIsInputFocused(true)}
               onBlur={() => setIsInputFocused(false)}
-              disabled={!canSendMessage || isSending}
+              disabled={!canSendMessage}
               maxLength={MAX_MESSAGE_LENGTH}
               aria-invalid={sendError ? true : undefined}
               aria-describedby={sendErrorId}

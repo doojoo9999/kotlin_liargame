@@ -15,8 +15,8 @@ class ChatMessageEntity(
     val game: GameEntity,
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "player_id", foreignKey = ForeignKey(ConstraintMode.CONSTRAINT))
-    val player: PlayerEntity?, // 시스템 메시지의 경우 null 가능
+    @JoinColumn(name = "player_id", foreignKey = ForeignKey(ConstraintMode.CONSTRAINT), nullable = true)
+    var player: PlayerEntity?, // 시스템 메시지의 경우 null 가능
 
     @Column(nullable = false)
     val content: String,
@@ -26,7 +26,13 @@ class ChatMessageEntity(
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    val type: ChatMessageType
+    val type: ChatMessageType,
+
+    @Column(name = "player_user_id")
+    var playerUserId: Long? = player?.userId,
+
+    @Column(name = "player_nickname_snapshot", length = 100)
+    var playerNicknameSnapshot: String? = player?.nickname
 ) : BaseEntity() {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

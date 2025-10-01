@@ -147,7 +147,7 @@ class GameCleanupService(
 
             val players = playerRepository.findByGame(game)
             for (player in players) {
-                chatService.deletePlayerChatMessages(player.userId)
+                chatService.archivePlayerChatMessages(player.userId, player.nickname)
             }
             playerRepository.deleteAll(players)
 

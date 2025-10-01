@@ -1006,18 +1006,102 @@ class WebSocketService {
 
   // Handle pong response
   private resolveWebSocketUrl(): string {
-    const configuredWs = (import.meta.env.VITE_WS_BASE_URL as string | undefined)?.trim();
-    const configuredApi = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim();
-    if (configuredWs) {
-      return configuredWs.endsWith('/ws') ? configuredWs : `${configuredWs.replace(/\/$/, '')}/ws`;
+    const normalizeCandidate = (raw?: string | null): string | null => {
+      if (!raw) {
+        return null;
+      }
+      const trimmed = raw.trim();
+      if (!trimmed.length) {
+        return null;
+      }
+
+      let working = trimmed;
+
+      if (/^ws(s)?:\/\//i.test(working)) {
+        working = working.replace(/^ws(s)?:\/\//i, (_match, secure) => (secure ? 'https://' : 'http://'));
+      } else if (/^\/\//.test(working)) {
+        working = `http:${working}`;
+      }
+
+      if (!/^https?:\/\//i.test(working) && !working.startsWith('/')) {
+        working = `http://${working}`;
+      }
+
+      if (working.startsWith('/')) {
+        const path = working.replace(/\/+$/, '');
+        if (!path.length) {
+          return '/ws';
+        }
+        return path.endsWith('/ws') ? path : `${path}/ws`;
+      }
+
+      try {
+        const url = new URL(working);
+        const basePath = url.pathname?.trim() ?? '';
+        const normalizedPath = basePath.length > 0 && basePath !== '/'
+          ? basePath.replace(/\/+$/, '')
+          : '';
+        url.pathname = normalizedPath.endsWith('/ws')
+          ? normalizedPath
+          : `${normalizedPath}/ws`.replace(/^\/?/, '/');
+        url.search = '';
+        url.hash = '';
+        return url.toString();
+      } catch (error) {
+        if (import.meta.env.DEV) {
+          console.warn('Invalid websocket URL candidate:', working, error);
+        }
+        return null;
+      }
+    };
+
+    const envCandidates = [
+      normalizeCandidate(import.meta.env.VITE_WS_BASE_URL as string | undefined),
+      normalizeCandidate(import.meta.env.VITE_WS_URL as string | undefined),
+    ].filter((value): value is string => Boolean(value));
+
+    for (const candidate of envCandidates) {
+      if (candidate) {
+        return candidate;
+      }
     }
 
-    if (configuredApi) {
-      try {
-        const parsed = new URL(configuredApi);
-        return `${parsed.origin}/ws`;
-      } catch (error) {
-        console.warn('Unable to parse VITE_API_BASE_URL as URL, falling back to relative websocket path', error);
+    const apiCandidate = normalizeCandidate(import.meta.env.VITE_API_BASE_URL as string | undefined);
+    if (apiCandidate) {
+      return apiCandidate;
+    }
+
+    if (typeof window !== 'undefined') {
+      const { protocol, hostname, port } = window.location;
+      const fallbackPortMap: Record<string, string> = {
+        '5173': '20021',
+        '3000': '8080',
+      };
+      const derivedPort = fallbackPortMap[port];
+      if (derivedPort) {
+        const derivedCandidate = `${protocol === 'https:' ? 'https' : 'http'}://${hostname}:${derivedPort}`;
+        const normalizedDerived = normalizeCandidate(derivedCandidate);
+        if (normalizedDerived) {
+          return normalizedDerived;
+        }
+      }
+    }
+
+    const defaultCandidates = [
+      normalizeCandidate('http://localhost:20021'),
+      normalizeCandidate('http://localhost:8080'),
+    ].filter((value): value is string => Boolean(value));
+
+    for (const candidate of defaultCandidates) {
+      if (candidate) {
+        return candidate;
+      }
+    }
+
+    if (typeof window !== 'undefined') {
+      const originFallback = normalizeCandidate(window.location.origin);
+      if (originFallback) {
+        return originFallback;
       }
     }
 
@@ -1361,10 +1445,10 @@ class WebSocketService {
     };
 
     const resolveGameId = (): string => {
-      const rawGameId =
-        (typeof raw === 'object' && raw !== null && extractGameId((raw as Record<string, unknown>)['gameId'])) ??
-        (typeof raw === 'object' && raw !== null && extractGameId((raw as Record<string, unknown>)['gameNumber'])) ??
-        extractGameId(this.currentGameId);
+      const record = typeof raw === 'object' && raw !== null ? (raw as Record<string, unknown>) : null;
+      const fromExplicitGameId = record ? extractGameId(record['gameId']) : null;
+      const fromAlternateGameNumber = record ? extractGameId(record['gameNumber']) : null;
+      const rawGameId = fromExplicitGameId ?? fromAlternateGameNumber ?? extractGameId(this.currentGameId);
       return rawGameId ?? '';
     };
 
@@ -1502,15 +1586,24 @@ class WebSocketService {
   private handleChatMessage(message: IMessage): void {
     try {
       const raw = JSON.parse(message.body);
+      const fallbackNickname = raw.playerNicknameSnapshot ?? raw.playerNickname ?? raw.playerName ?? raw.nickname;
+      const resolvedNickname = fallbackNickname ?? 'SYSTEM';
+      const resolvedUserId = typeof raw.userId === 'number'
+        ? raw.userId
+        : (typeof raw.playerUserId === 'number' ? raw.playerUserId : undefined);
+
       const chatMessage: ChatMessage = {
         id: String(raw.id ?? `${raw.gameNumber}-${raw.timestamp}`),
         gameNumber: raw.gameNumber ?? (raw.gameId ? Number(raw.gameId) : 0),
         playerId: raw.playerId ? String(raw.playerId) : undefined,
-        userId: typeof raw.userId === 'number' ? raw.userId : undefined,
-        playerNickname: raw.playerNickname ?? raw.playerName ?? 'SYSTEM',
-        playerName: raw.playerName ?? raw.playerNickname ?? undefined,
+        userId: resolvedUserId,
+        playerNickname: resolvedNickname,
+        nickname: raw.nickname ?? undefined,
+        playerName: raw.playerName ?? raw.playerNickname ?? raw.playerNicknameSnapshot ?? undefined,
         content: raw.content ?? raw.message ?? '',
         message: raw.message ?? raw.content ?? undefined,
+        gameId: raw.gameId != null ? String(raw.gameId) : undefined,
+        roomId: raw.roomId != null ? String(raw.roomId) : undefined,
         timestamp: typeof raw.timestamp === 'string' ? Date.parse(raw.timestamp) : Number(raw.timestamp ?? Date.now()),
         type: (raw.type || 'DISCUSSION') as ChatMessage['type']
       };

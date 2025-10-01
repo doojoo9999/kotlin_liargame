@@ -378,12 +378,11 @@ class GameService(
 
         // 플레이어의 채팅 메시지를 먼저 삭제하여 외래키 제약 조건 위반 방지
         try {
-            // chatService.deletePlayerChatMessages는 userId 기반으로 동작함
-            val deletedChatCount = chatService.deletePlayerChatMessages(player.userId)
-            logger.debug("Deleted $deletedChatCount chat messages for player userId=${player.userId} (pk=${player.id}) in game ${game.gameNumber}")
+            val archivedCount = chatService.archivePlayerChatMessages(player.userId, player.nickname)
+            logger.debug("Archived $archivedCount chat messages for player userId=${player.userId} (pk=${player.id}) in game ${game.gameNumber}")
         } catch (e: Exception) {
-            logger.error("Failed to delete chat messages for player userId=${player.userId} (pk=${player.id}): ${e.message}", e)
-            throw RuntimeException("채팅 메시지 삭제 중 오류가 발생했습니다: ${e.message}")
+            logger.error("Failed to archive chat messages for player userId=${player.userId} (pk=${player.id}): ${e.message}", e)
+            throw RuntimeException("채팅 기록 보관 중 오류가 발생했습니다: ${e.message}")
         }
 
         // 이제 플레이어를 안전하게 삭제
@@ -732,10 +731,9 @@ class GameService(
         val game = gameRepository.findByGameNumberWithLock(gameNumber) ?: return
         val player = playerRepository.findByGameAndUserId(game, userId) ?: return
 
-        // 플레이어 삭제 전에 해당 플레이어의 채팅 메시지들을 먼저 삭제
+        // 플레이어 삭제 전에 해당 플레이어의 채팅 메시지들을 먼저 정리
         logger.debug("플레이어 삭제 전 채팅 메시지 정리: userId={}, nickname={}, pk={}", player.userId, player.nickname, player.id)
-        // 삭제 대상 플레이어의 userId로 채팅 메시지 삭제
-        chatService.deletePlayerChatMessages(player.userId)
+        chatService.archivePlayerChatMessages(player.userId, player.nickname)
 
         playerRepository.delete(player)
 
@@ -844,8 +842,7 @@ class GameService(
         gameRepository.save(game)
 
         // 기존 방장 플레이어 삭제
-        // 현재 owner의 userId로 채팅 메시지 삭제
-        chatService.deletePlayerChatMessages(currentOwner.userId)
+        chatService.archivePlayerChatMessages(currentOwner.userId, currentOwner.nickname)
         playerRepository.delete(currentOwner)
 
         // 모든 플레이어에게 알림
