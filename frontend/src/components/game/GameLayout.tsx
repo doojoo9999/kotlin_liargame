@@ -448,7 +448,7 @@ export function GameLayout({
                 onSendMessage={onSendChatMessage}
                 onReportMessage={onReportChatMessage}
                 onReloadHistory={onReloadChat}
-                className={`flex h-full min-h-[28rem] flex-col rounded-3xl border border-border/60 bg-card/70 shadow-sm ${isChatFocused ? 'lg:rounded-3xl' : ''}`}
+                className={`rounded-3xl border border-border/60 bg-card/70 shadow-sm ${isChatFocused ? 'lg:rounded-3xl' : ''}`}
               />
             </main>
 
