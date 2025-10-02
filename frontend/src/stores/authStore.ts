@@ -8,6 +8,25 @@ type LogoutOptions = { reason?: 'logout' | 'session-expired'; skipApi?: boolean 
 
 let storeInstance: { logout: (options?: LogoutOptions) => Promise<void> } | null = null;
 
+async function leaveActiveGameIfNeeded(): Promise<void> {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    const {useGameStore} = await import('./unifiedGameStore');
+    const {leaveGame, resetGame} = useGameStore.getState();
+
+    if (typeof leaveGame === 'function') {
+      await leaveGame();
+    } else if (typeof resetGame === 'function') {
+      resetGame();
+    }
+  } catch (error) {
+    console.warn('[authStore] Failed to leave active game during logout', error);
+  }
+}
+
 const handleSessionExpired = () => {
   if (storeInstance) {
     console.log('Session expired event received, clearing auth state');
@@ -26,6 +45,8 @@ export const useAuthStore = create<AuthState>()(
         const { reason = 'logout', skipApi = false } = options;
 
         try {
+          await leaveActiveGameIfNeeded();
+
           if (!skipApi) {
             await authService.logout();
           }

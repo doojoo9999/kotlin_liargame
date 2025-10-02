@@ -688,11 +688,20 @@ export const useGameStore = create<UnifiedGameStore>()(
         removePlayer: (playerId) => set((state) => ({
           players: state.players.filter(p => p.id !== playerId)
         })),
-        updatePlayer: (playerId, updates) => set((state) => ({
-          players: state.players.map(p =>
-            p.id === playerId ? { ...p, ...updates } : p
-          )
-        })),
+        updatePlayer: (playerId, updates) => set((state) => {
+          const players = state.players.map((player) =>
+            player.id === playerId ? { ...player, ...updates } : player
+          );
+
+          const currentPlayer = state.currentPlayer?.id === playerId
+            ? { ...state.currentPlayer, ...updates }
+            : state.currentPlayer;
+
+          return {
+            players,
+            currentPlayer,
+          };
+        }),
 
         // Game Flow
         setGamePhase: (gamePhase) => {
@@ -1040,59 +1049,45 @@ export const useGameStore = create<UnifiedGameStore>()(
           if (!gameState) return;
 
           const scoreboard = new Map<number, number>(
-
             (gameState.scoreboard ?? []).map((entry) => [entry.userId, entry.score])
-
           );
 
-
+          const existingPlayers = get().players;
+          const isWaitingRoom = gameState.gameState === 'WAITING';
 
           const mappedPlayers = gameState.players.map<Player>((player) => {
-
             const score = scoreboard.get(player.userId) ?? scoreboard.get(player.id) ?? 0;
-
-            const isDisconnected = player.state === 'DISCONNECTED';
-
+            const isDisconnectedState = player.state === 'DISCONNECTED';
+            const isOnline = Boolean(player.isOnline);
             const normalizedId = player.id.toString();
 
+            const existingPlayer = existingPlayers.find((candidate) => {
+              if (candidate.id === normalizedId) return true;
+              if (candidate.userId != null && candidate.userId === player.userId) return true;
+              if (candidate.nickname === player.nickname) return true;
+              return false;
+            });
 
+            const readyState = isWaitingRoom ? (existingPlayer?.isReady ?? false) : false;
 
             return {
-
               id: normalizedId,
-
               userId: player.userId,
-
               nickname: player.nickname,
-
               isAlive: player.isAlive,
-
               state: player.state,
-
               hint: player.hint,
-
               defense: player.defense,
-
               votesReceived: player.votesReceived,
-
               hasVoted: player.hasVoted,
-
               score,
-
               isHost: player.nickname === gameState.gameOwner,
-
-              isReady: !isDisconnected && player.state !== 'WAITING_FOR_HINT',
-
-              isConnected: !isDisconnected,
-
-              isOnline: !isDisconnected,
-
-              role: undefined,
-
-              votedFor: undefined,
-
-              lastActive: Date.now(),
-
+              isReady: readyState,
+              isConnected: isOnline && !isDisconnectedState,
+              isOnline,
+              role: existingPlayer?.role,
+              votedFor: existingPlayer?.votedFor,
+              lastActive: existingPlayer?.lastActive ?? Date.now(),
             };
 
           });
@@ -1114,31 +1109,23 @@ export const useGameStore = create<UnifiedGameStore>()(
           const currentTurnIndex = typeof gameState.currentTurnIndex === 'number' ? gameState.currentTurnIndex : undefined;
           const currentTurnPlayerId = currentTurnIndex != null ? turnOrder[currentTurnIndex] : undefined;
 
-          const currentPlayer =
-
+          const currentTurnPlayer =
             currentTurnPlayerId != null
-
               ? mappedPlayers.find(
-
                   (player) =>
-
                     player.id === currentTurnPlayerId ||
-
                     player.userId.toString() === currentTurnPlayerId ||
-
                     player.nickname === currentTurnPlayerId,
-
                 ) ?? null
-
               : null;
-
-
 
           const mappedPhase = mapGamePhase(gameState.currentPhase);
 
           const auth = getAuthIdentifiers();
 
           const selfPlayer = findSelfPlayer(mappedPlayers, auth);
+
+          const currentPlayer = selfPlayer ?? currentTurnPlayer;
 
           const isSelfLiar = gameState.yourRole === 'LIAR';
 

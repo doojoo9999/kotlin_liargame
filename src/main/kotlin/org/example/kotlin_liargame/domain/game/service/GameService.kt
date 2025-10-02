@@ -13,6 +13,7 @@ import org.example.kotlin_liargame.domain.game.model.PlayerEntity
 import org.example.kotlin_liargame.domain.game.model.enum.*
 import org.example.kotlin_liargame.domain.game.repository.GameRepository
 import org.example.kotlin_liargame.domain.game.repository.GameSubjectRepository
+import org.example.kotlin_liargame.domain.game.repository.PlayerReadinessRepository
 import org.example.kotlin_liargame.domain.game.repository.PlayerRepository
 import org.example.kotlin_liargame.domain.subject.model.SubjectEntity
 import org.example.kotlin_liargame.domain.subject.repository.SubjectRepository
@@ -43,7 +44,8 @@ class GameService(
     private val webSocketSessionManager: WebSocketSessionManager,
     private val gameProperties: org.example.kotlin_liargame.global.config.GameProperties,
     private val sessionService: org.example.kotlin_liargame.global.session.SessionService,
-    private val sessionManagementService: org.example.kotlin_liargame.global.security.SessionManagementService
+    private val sessionManagementService: org.example.kotlin_liargame.global.security.SessionManagementService,
+    private val playerReadinessRepository: PlayerReadinessRepository
 ) {
     private val logger = LoggerFactory.getLogger(this::class.java)
 
@@ -387,6 +389,13 @@ class GameService(
 
         // 이제 플레이어를 안전하게 삭제
         val deletedCount = playerRepository.deleteByGameIdAndUserId(game.id, userId)
+
+        if (deletedCount > 0) {
+            val readinessDeleted = playerReadinessRepository.deleteByGameAndUserId(game, userId)
+            if (readinessDeleted > 0) {
+                logger.debug("Removed {} readiness records for player {} in game {}", readinessDeleted, userId, game.gameNumber)
+            }
+        }
 
         if (deletedCount > 0) {
             // 🔧 게임 나가기 후 세션 갱신: 게임 관련 세션 데이터 정리
@@ -736,6 +745,10 @@ class GameService(
         chatService.archivePlayerChatMessages(player.userId, player.nickname)
 
         playerRepository.delete(player)
+        val readinessDeleted = playerReadinessRepository.deleteByGameAndUserId(game, userId)
+        if (readinessDeleted > 0) {
+            logger.debug("System cleanup removed {} readiness records for user {} in game {}", readinessDeleted, userId, game.gameNumber)
+        }
 
         val remainingPlayers = playerRepository.findByGame(game)
         if (remainingPlayers.isEmpty()) {

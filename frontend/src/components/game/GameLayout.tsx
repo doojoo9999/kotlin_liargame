@@ -212,6 +212,20 @@ export function GameLayout({
     } as CSSProperties
   }, [])
 
+  const summaryForPanel = useMemo(() => {
+    if (currentRoundSummary) {
+      return currentRoundSummary
+    }
+    return roundSummaries.length > 0 ? roundSummaries[0] : null
+  }, [currentRoundSummary, roundSummaries])
+
+  const roundSummaryHistory = useMemo(() => {
+    if (!summaryForPanel) {
+      return roundSummaries
+    }
+    return roundSummaries.filter((entry) => entry.concludedAt !== summaryForPanel.concludedAt)
+  }, [roundSummaries, summaryForPanel])
+
   if (isLoading) {
     return (
       <div className="flex min-h-[480px] items-center justify-center">
@@ -250,21 +264,6 @@ export function GameLayout({
     : isLiar
       ? '라이어는 제시어를 볼 수 없습니다.'
       : '제시어가 곧 공개됩니다.'
-
-  const summaryForPanel = useMemo(() => {
-    if (currentRoundSummary) {
-      return currentRoundSummary
-    }
-    return roundSummaries.length > 0 ? roundSummaries[0] : null
-  }, [currentRoundSummary, roundSummaries])
-
-  const roundSummaryHistory = useMemo(() => {
-    if (!summaryForPanel) {
-      return roundSummaries
-    }
-    return roundSummaries.filter((entry) => entry.concludedAt !== summaryForPanel.concludedAt)
-  }, [roundSummaries, summaryForPanel])
-
   const showContextColumn = !isChatFocused && !isContextPanelCollapsed
 
   const gridTemplateClass = isChatFocused

@@ -117,16 +117,28 @@ class GameMonitoringService(
         gameMessagingService.broadcastGameEvent(gameNumber, event)
     }
 
-    fun notifyPlayerReadyStateChanged(game: GameEntity, readiness: PlayerReadinessEntity, allReady: Boolean) {
+    fun notifyPlayerReadyStateChanged(
+        game: GameEntity,
+        playerId: Long,
+        readiness: PlayerReadinessEntity,
+        allReady: Boolean,
+        readyCount: Int,
+        totalPlayers: Int
+    ) {
         val payload = mapOf(
             "type" to "PLAYER_READY_CHANGED",
             "gameNumber" to game.gameNumber,
             "userId" to readiness.userId,
+            "playerId" to playerId,
             "nickname" to readiness.nickname,
             "isReady" to readiness.isReady,
             "allReady" to allReady,
+            "readyCount" to readyCount,
+            "totalPlayers" to totalPlayers,
             "updatedAt" to readiness.updatedAt.toString()
         )
+
+        gameMessagingService.broadcastGameEvent(game.gameNumber, payload)
         gameMessagingService.sendRoomUpdate(game.gameNumber, payload)
     }
 
