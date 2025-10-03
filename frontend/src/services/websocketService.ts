@@ -1403,7 +1403,7 @@ class WebSocketService {
           }
         });
       }
-
+            //재현 필요
       if (type === 'RECONNECTION_REQUIRED') {
         toast.error(payload.message ?? '연결이 끊어졌습니다. 재연결을 시도합니다.');
       } else if (type === 'CONNECTION_ESTABLISHED' && this.reconnectAttempts === 0) {
