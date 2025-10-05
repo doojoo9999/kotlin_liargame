@@ -485,14 +485,21 @@ class GameService(
         }
 
         val players = playerRepository.findByGame(game)
-        val liars = players.filter { it.role == PlayerRole.LIAR }
-
-        val liarsWin = liars.any { it.isAlive }
+        val winningTeam = game.winningTeam
+            ?: when {
+                players.any { it.isWinner && it.role == PlayerRole.LIAR } -> WinningTeam.LIARS
+                players.any { it.isWinner && it.role == PlayerRole.CITIZEN } -> WinningTeam.CITIZENS
+                else -> {
+                    val liarsAlive = players.any { it.role == PlayerRole.LIAR && it.isAlive }
+                    if (liarsAlive) WinningTeam.LIARS else WinningTeam.CITIZENS
+                }
+            }
 
         return GameResultResponse.from(
             game = game,
             players = players,
-            winningTeam = if (liarsWin) WinningTeam.LIARS else WinningTeam.CITIZENS
+            winningTeam = winningTeam,
+            correctGuess = game.liarGuessCorrect
         )
     }
 
@@ -689,7 +696,10 @@ class GameService(
             isChatAvailable = isChatAvailable,
             turnOrder = turnOrder,
             currentTurnIndex = currentTurnIndex,
-            phaseEndTime = game.phaseEndTime?.toString()
+            phaseEndTime = game.phaseEndTime?.toString(),
+            winner = game.winningTeam?.name,
+            winningTeam = game.winningTeam?.name,
+            reason = game.winnerReason
         )
     }
 

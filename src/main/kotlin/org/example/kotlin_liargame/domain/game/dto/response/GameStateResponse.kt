@@ -30,6 +30,7 @@ data class GameStateResponse(
     val currentTurnIndex: Int? = null,
     val phaseEndTime: String? = null,
     val winner: String? = null,
+    val winningTeam: String? = null,
     val reason: String? = null,
     val targetPoints: Int = 0,
     val scoreboard: List<ScoreboardEntry> = emptyList(),
@@ -47,10 +48,14 @@ data class GameStateResponse(
             currentTurnIndex: Int? = null,
             phaseEndTime: String? = null,
             winner: String? = null,
+            winningTeam: String? = null,
             reason: String? = null,
             finalVotingRecord: List<Map<String, Any>>? = null
         ): GameStateResponse {
             val currentPlayer = players.find { it.userId == currentUserId }
+            val resolvedWinningTeam = winningTeam ?: game.winningTeam?.name
+            val resolvedWinner = winner ?: resolvedWinningTeam
+            val resolvedReason = reason ?: game.winnerReason
             
             return GameStateResponse(
                 gameNumber = game.gameNumber,
@@ -99,10 +104,12 @@ data class GameStateResponse(
                 turnOrder = turnOrder,
                 currentTurnIndex = currentTurnIndex,
                 phaseEndTime = phaseEndTime,
-                winner = winner,
-                reason = reason,
+                winner = resolvedWinner,
+                winningTeam = resolvedWinningTeam,
+                reason = resolvedReason,
                 targetPoints = game.targetPoints,
-                scoreboard = players.map { ScoreboardEntry.from(it) },
+                scoreboard = players.map { ScoreboardEntry.from(it) }
+                    .sortedByDescending { it.score },
                 finalVotingRecord = finalVotingRecord
             )
         }

@@ -82,28 +82,20 @@ export function MainGamePage() {
     const currentState = useGameStore.getState()
     const activeGameNumber = currentState.gameNumber ?? gameNumber
 
-    if (shouldSkipServer || !activeGameNumber) {
-      resetGame()
-      navigate('/lobby')
-      return
-    }
-
-    void (async () => {
-      try {
-        await leaveGame()
-        navigate('/lobby')
-      } catch (error) {
-        resetGame()
-        navigate('/lobby')
+    if (!shouldSkipServer && activeGameNumber) {
+      void leaveGame().catch((error) => {
+        console.error('Failed to leave game in background:', error)
         const description = error instanceof Error ? error.message : '게임에서 나갈 수 없습니다'
         toast({
           title: '게임 나가기 실패',
           description,
           variant: 'destructive',
         })
-      }
-    })()
+      })
+    }
 
+    resetGame()
+    navigate('/lobby', { replace: true })
   }
 
   const handleNextRound = () => {

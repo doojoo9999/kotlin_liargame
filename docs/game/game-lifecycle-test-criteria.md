@@ -79,7 +79,7 @@
 
 ## 4. 2025-10-04 수동 테스트 실행 결과
 - 실행 도구: `scripts/manual-game-lifecycle.js` (Playwright 3세션 자동화)
-- 백엔드 빌드: `post-redis-fallback` 패치 적용 (게임 번호 재할당 + Redis optional)
+- 백엔드 빌드: Redis 연동 선택형 + 방 번호 중복 방지 수정 적용본
 - 프론트엔드 접속지: `http://172.26.180.125:5173`
 - 테스트 계정: `TESTONE`, `TESTTWO`, `TESTTHREE`
 - 게임 진행 요약:
@@ -89,3 +89,10 @@
   - 각 세션에서 `/results/1` 및 로비 복귀(`POST /game/leave`) 정상 동작, 새로고침 시 세션 유지 확인
 - 캡처: `playwright-report/manual-*.png` 7종 (waiting, joined, phase별 UI, 결과, 로비)
 - 체크리스트: 파일 상단 3.항 전체 충족 ✅
+
+### 4.1 2025-10-05 재검증 (UTF-8 스트림)
+- 두 차례 실행으로 라이어 추측 실패/성공 모두 검증 (`LIAR_GUESS_MODE=incorrect` ↔ `LIAR_GUESS_MODE=correct`).
+- 실패 케이스: `guessResult.isCorrect=false`, `winner=CITIZENS` 로그 확인, 게임 종료 후 시민 승리 유지.
+- 성공 케이스: `guessResult.isCorrect=true`, `winner=LIARS` 반환으로 라이어 정답 처리 확인(최종 스코어는 기존 규칙에 따라 0점이지만 API 응답이 승리 팀을 명시).
+- 로그 예시: `playwright-report/manual-guess-phase.png`, `Guess evaluation {"liarGuessMode":"correct","isCorrect":true,"winner":"LIARS"}`.
+- 모든 실행에서 플레이어 세션 UTF-8 로케일 유지, 한글 힌트/토스트/로그에 깨짐 없음.
