@@ -130,7 +130,7 @@
     "workers": 11,
     "webServer": {
       "command": "cd frontend && npm run dev",
-      "url": "http://localhost:5173",
+      "url": "http://172.26.180.125:5173",
       "reuseExistingServer": true,
       "timeout": 120000
     }

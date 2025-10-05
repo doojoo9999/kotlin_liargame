@@ -1088,8 +1088,8 @@ class WebSocketService {
     }
 
     const defaultCandidates = [
-      normalizeCandidate('http://localhost:20021'),
-      normalizeCandidate('http://localhost:8080'),
+      normalizeCandidate('http://172.26.180.125:20021'),
+      normalizeCandidate('http://172.26.180.125:8080'),
     ].filter((value): value is string => Boolean(value));
 
     for (const candidate of defaultCandidates) {

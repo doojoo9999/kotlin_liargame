@@ -112,7 +112,7 @@ export class UnifiedWebSocketService {
           'xhr-polling': { withCredentials: true },
         },
       };
-      const socket = new SockJS(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}/ws`, undefined, socketOptions);
+      const socket = new SockJS(`${import.meta.env.VITE_API_BASE_URL || 'http://172.26.180.125:8080'}/ws`, undefined, socketOptions);
 
       const stompConfig: StompConfig = {
         webSocketFactory: () => socket,

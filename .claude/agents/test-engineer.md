@@ -218,7 +218,7 @@ class TestSuiteManager {
     
     while (Date.now() - startTime < timeout) {
       try {
-        execSync('pg_isready -h localhost -p 5433', { stdio: 'pipe' });
+        execSync('pg_isready -h 172.26.180.125 -p 5433', { stdio: 'pipe' });
         execSync('redis-cli -p 6380 ping', { stdio: 'pipe' });
         return; // Services are ready
       } catch (error) {
@@ -460,7 +460,7 @@ module.exports = defineConfig({
     ['junit', { outputFile: 'test-results/e2e-results.xml' }]
   ],
   use: {
-    baseURL: process.env.BASE_URL || 'http://localhost:3000',
+    baseURL: process.env.BASE_URL || 'http://172.26.180.125:3000',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure'
@@ -819,13 +819,13 @@ jobs:
     - name: Run database migrations
       run: npm run db:migrate
       env:
-        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+        DATABASE_URL: postgresql://postgres:postgres@172.26.180.125:5432/test_db
     
     - name: Run integration tests
       run: npm run test:integration
       env:
-        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
-        REDIS_URL: redis://localhost:6379
+        DATABASE_URL: postgresql://postgres:postgres@172.26.180.125:5432/test_db
+        REDIS_URL: redis://172.26.180.125:6379
 
   e2e-tests:
     runs-on: ubuntu-latest

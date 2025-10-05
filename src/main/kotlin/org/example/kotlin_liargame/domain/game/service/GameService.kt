@@ -135,13 +135,19 @@ class GameService(
     }
 
     private fun findNextAvailableRoomNumber(): Int {
-        val activeGames = gameRepository.findAllActiveGames()
-        val usedNumbers = activeGames.map { it.gameNumber }.toSet()
+        val usedNumbers = gameRepository.findAllGameNumbers().toSet()
+
         for (number in 1..999) {
             if (!usedNumbers.contains(number)) {
                 return number
             }
         }
+
+        val nextNumber = (usedNumbers.maxOrNull() ?: 0) + 1
+        if (nextNumber <= 999) {
+            return nextNumber
+        }
+
         throw RuntimeException("모든 방 번호(1-999)가 모두 사용중입니다. 나중에 다시 시도해주세요.")
     }
 

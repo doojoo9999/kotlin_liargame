@@ -13,7 +13,7 @@
 //
 //
 //class ChatGameSimulation {
-//    private val baseUrl = "http://localhost:8080"
+//    private val baseUrl = "http://172.26.180.125:8080"
 //    private val users = mutableListOf<UserInfo>()
 //    private var gameNumber: Int = 0
 //    private val subjectContent = "동물"

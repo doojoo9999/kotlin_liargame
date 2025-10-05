@@ -2,8 +2,8 @@ const { chromium } = require('playwright')
 
 async function run() {
   const port = process.argv[2] || '4173'
-  const url = `http://localhost:${port}/`
-  const loginUrl = `http://localhost:${port}/login`
+  const url = `http://172.26.180.125:${port}/`
+  const loginUrl = `http://172.26.180.125:${port}/login`
   const outPath = 'docs/upgrade_5/login-screenshot.png'
 
   const browser = await chromium.launch({ headless: true })

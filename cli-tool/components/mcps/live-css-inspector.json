@@ -7,7 +7,7 @@
         "live-css-debugger@latest"
       ],
       "env": {
-        "TARGET_URL": "http://localhost:5175",
+        "TARGET_URL": "http://172.26.180.125:5175",
         "LIVE_RELOAD": "true",
         "WATCH_CSS_CHANGES": "true",
         "AUTO_SCREENSHOT": "true",
