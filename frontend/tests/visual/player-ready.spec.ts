@@ -1,7 +1,7 @@
 import {expect, request, test} from '@playwright/test';
 
-const FRONTEND_ORIGIN = 'http://172.26.180.125:5173';
-const BACKEND_ORIGIN = 'http://172.26.180.125:20021';
+const FRONTEND_ORIGIN = 'http://218.150.3.77:5173';
+const BACKEND_ORIGIN = 'http://218.150.3.77:20021';
 
 async function loginAndGetState(nickname: string) {
   const apiContext = await request.newContext({ baseURL: BACKEND_ORIGIN });

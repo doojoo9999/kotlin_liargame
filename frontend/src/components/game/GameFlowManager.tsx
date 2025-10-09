@@ -228,14 +228,28 @@ export function GameFlowManager({ onReturnToLobby, onNextRound }: GameFlowManage
   const handleVotePlayer = useCallback(async (playerId: string) => {
     if (!gameNumber || !currentPlayer) return
 
-    castVote(currentPlayer.id, playerId)
-    setUserVote(playerId)
+    const targetPlayer = players.find((player) => {
+      if (player.id === playerId) return true
+      if (player.userId != null && String(player.userId) === playerId) return true
+      if (player.nickname === playerId) return true
+      return false
+    })
+    const resolvedTargetId = targetPlayer?.id ?? playerId
+    const resolvedTargetUserId = targetPlayer?.userId ?? Number.parseInt(playerId, 10)
+
+    if (!Number.isFinite(resolvedTargetUserId)) {
+      console.warn('Unable to resolve target user id for vote', { playerId })
+      return
+    }
+
+    castVote(currentPlayer.id, resolvedTargetId)
+    setUserVote(resolvedTargetId)
     try {
-      websocketService.sendGameAction(gameNumber.toString(), 'vote', { targetUserId: playerId })
+      websocketService.sendGameAction(gameNumber.toString(), 'vote', { targetUserId: resolvedTargetUserId })
     } catch (error) {
       console.error('Failed to send vote action:', error)
     }
-  }, [castVote, currentPlayer, gameNumber, setUserVote])
+  }, [castVote, currentPlayer, gameNumber, players, setUserVote])
 
   const handleSubmitDefense = useCallback(async (defense: string) => {
     if (!gameNumber || !currentPlayer) return

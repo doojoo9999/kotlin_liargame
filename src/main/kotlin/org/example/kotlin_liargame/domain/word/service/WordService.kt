@@ -26,7 +26,7 @@ class WordService (
 
 
     @Transactional
-    fun applyWord(req: ApplyWordRequest) {
+    fun applyWord(req: ApplyWordRequest): WordListResponse {
         // 금지된 단어 검증
         forbiddenWordService.validateWord(req.word)
 
@@ -42,13 +42,15 @@ class WordService (
         if (!contentProperties.manualApprovalRequired) {
             newWordEntity.status = ContentStatus.APPROVED
         }
-        wordRepository.save(newWordEntity)
+        val savedWord = wordRepository.save(newWordEntity)
         
         messagingTemplate.convertAndSend("/topic/subjects", mapOf(
             "type" to "WORD_ADDED",
             "subject" to req.subjectId,
             "word" to req.word
         ))
+
+        return WordListResponse.from(savedWord)
     }
 
     @Transactional

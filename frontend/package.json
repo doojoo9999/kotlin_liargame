@@ -17,7 +17,7 @@
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:report": "playwright show-report",
     "build:analyze": "cross-env ANALYZE=true npm run build",
-    "lighthouse": "npx lighthouse http://172.26.180.125:5173 --output=html --output-path=./lighthouse-report.html",
+    "lighthouse": "npx lighthouse http://218.150.3.77:5173 --output=html --output-path=./lighthouse-report.html",
     "typecheck": "tsc --noEmit",
     "test:all": "npm run typecheck && npm run test:run && npm run test:e2e"
   },

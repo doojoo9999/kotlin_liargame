@@ -12,7 +12,7 @@ export default defineConfig({
     ['junit', { outputFile: 'test-results/junit.xml' }]
   ],
   use: {
-    baseURL: 'http://172.26.180.125:5173',
+    baseURL: 'http://218.150.3.77:5173',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -47,7 +47,7 @@ export default defineConfig({
   ],
   webServer: {
     command: 'cd frontend && npm run dev',
-    url: 'http://172.26.180.125:5173',
+    url: 'http://218.150.3.77:5173',
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,
   },

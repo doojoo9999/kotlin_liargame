@@ -122,6 +122,15 @@ class WebSocketSessionManager(
         }
     }
 
+    fun refreshSessionsForUser(userId: Long, httpSession: HttpSession) {
+        val sessionIds = getSessionsForUser(userId)
+        if (sessionIds.isEmpty()) {
+            logger.debug("No active WebSocket sessions found to refresh for user {}", userId)
+            return
+        }
+        sessionIds.forEach { refreshSessionInfo(it, httpSession) }
+    }
+
     fun getActiveSessionCount(): Int = sessionMap.size
 
     private fun resolveUserId(httpSession: HttpSession, sessionId: String): Long? {

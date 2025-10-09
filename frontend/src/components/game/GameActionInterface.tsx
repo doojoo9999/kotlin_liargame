@@ -224,8 +224,8 @@ export const GameActionInterface: React.FC<GameActionInterfaceProps> = ({
   };
 
   const config = getActionConfig();
-  const canSubmit = (isMyTurn || canVote) && !isSubmitting;
-  const showInput = gamePhase === 'SPEECH' || gamePhase === 'DEFENDING' || gamePhase === 'GUESSING_WORD';
+  const canInteract = (isMyTurn || canVote) && !isSubmitting;
+  const showInput = gamePhase === 'DEFENDING' || gamePhase === 'GUESSING_WORD';
   const showVoting = gamePhase === 'VOTING_FOR_LIAR';
   const showFinalVote = gamePhase === 'VOTING_FOR_SURVIVAL';
   const helperId = `game-action-helper-${gamePhase}`;
@@ -302,7 +302,22 @@ export const GameActionInterface: React.FC<GameActionInterfaceProps> = ({
               )}
 
               {/* Action Interface */}
-              {canSubmit && (
+              {gamePhase === 'SPEECH' && isMyTurn && (
+                <div className="space-y-3 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800" role="note">
+                  <div className="flex items-center gap-2 font-semibold text-blue-700">
+                    <MessageSquare className="h-4 w-4" />
+                    메인 채팅 입력창을 사용해 힌트를 보내주세요
+                  </div>
+                  <p>
+                    채팅 패널 하단의 입력창에서 메시지 유형을 <strong>힌트</strong>로 선택한 뒤 내용을 입력하면 차례가 진행됩니다.
+                  </p>
+                  <p className="text-xs text-blue-600/80">
+                    Shift+Enter로 줄바꿈을 사용할 수 있으며, 전송이 완료되면 자동으로 다음 플레이어에게 차례가 넘어갑니다.
+                  </p>
+                </div>
+              )}
+
+              {canInteract && gamePhase !== 'SPEECH' && (
                 <div className="space-y-3">
                   {/* Text Input */}
                   {showInput && (
@@ -465,7 +480,7 @@ export const GameActionInterface: React.FC<GameActionInterfaceProps> = ({
               )}
 
               {/* Waiting State */}
-              {!canSubmit && gamePhase !== 'WAITING_FOR_PLAYERS' && gamePhase !== 'GAME_OVER' && (
+              {!canInteract && gamePhase !== 'WAITING_FOR_PLAYERS' && gamePhase !== 'GAME_OVER' && (
                 <div className="text-center py-6 text-gray-500">
                   <Clock className="mx-auto h-8 w-8 mb-2 opacity-50" />
                   <div className="text-sm">

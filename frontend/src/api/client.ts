@@ -2,8 +2,8 @@ import {clearClientSessionState} from "@/utils/sessionCleanup"
 
 // API configuration
 export const API_CONFIG = {
-  BASE_URL: 'http://172.26.180.125:20021',
-  WS_URL: 'ws://172.26.180.125:20021/ws', // ✅ 올바른 WebSocket 엔드포인트
+  BASE_URL: 'http://218.150.3.77:20021',
+  WS_URL: 'ws://218.150.3.77:20021/ws', // ✅ 올바른 WebSocket 엔드포인트
   ENDPOINTS: {
     // Authentication
     AUTH: {

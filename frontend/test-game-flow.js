@@ -7,7 +7,7 @@ async function testGameFlow() {
   try {
     // Test 1: Create a game
     console.log('\n1. Creating a game...');
-    const createResponse = await fetch('http://172.26.180.125:20021/api/v1/game/create', {
+    const createResponse = await fetch('http://218.150.3.77:20021/api/v1/game/create', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -33,7 +33,7 @@ async function testGameFlow() {
 
     // Test 2: Get game state
     console.log(`\n2. Getting game state for game ${gameNumber}...`);
-    const stateResponse = await fetch(`http://172.26.180.125:20021/api/v1/game/${gameNumber}`, {
+    const stateResponse = await fetch(`http://218.150.3.77:20021/api/v1/game/${gameNumber}`, {
       method: 'GET',
       credentials: 'include',
     });
@@ -64,7 +64,7 @@ async function testGameFlow() {
 
     // Test 5: Join game test
     console.log(`\n5. Testing join game for game ${gameNumber}...`);
-    const joinResponse = await fetch('http://172.26.180.125:20021/api/v1/game/join', {
+    const joinResponse = await fetch('http://218.150.3.77:20021/api/v1/game/join', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

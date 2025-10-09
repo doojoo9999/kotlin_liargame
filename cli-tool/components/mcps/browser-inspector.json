@@ -7,7 +7,7 @@
         "browser-inspection-mcp@latest"
       ],
       "env": {
-        "TARGET_URL": "http://172.26.180.125:5175",
+        "TARGET_URL": "http://218.150.3.77:5175",
         "BROWSER_TYPE": "chromium",
         "HEADLESS": "false",
         "VIEWPORT_WIDTH": "1920",

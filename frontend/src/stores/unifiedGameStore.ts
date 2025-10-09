@@ -1054,6 +1054,10 @@ export const useGameStore = create<UnifiedGameStore>()(
 
           const existingPlayers = get().players;
           const isWaitingRoom = gameState.gameState === 'WAITING';
+          const auth = getAuthIdentifiers();
+          const normalizedYourRole = gameState.yourRole === 'LIAR' || gameState.yourRole === 'CITIZEN'
+            ? gameState.yourRole
+            : undefined;
 
           const mappedPlayers = gameState.players.map<Player>((player) => {
             const score = scoreboard.get(player.userId) ?? scoreboard.get(player.id) ?? 0;
@@ -1069,6 +1073,16 @@ export const useGameStore = create<UnifiedGameStore>()(
             });
 
             const readyState = isWaitingRoom ? (existingPlayer?.isReady ?? false) : false;
+            const isSelfPlayer = (
+              (auth.userId != null && auth.userId === String(player.userId)) ||
+              (auth.nickname != null && auth.nickname === player.nickname)
+            );
+            const existingRole = existingPlayer?.role;
+            const resolvedRole = isSelfPlayer
+              ? normalizedYourRole ?? existingRole
+              : (existingRole === 'LIAR' || existingRole === 'CITIZEN')
+                ? existingRole
+                : undefined;
 
             return {
               id: normalizedId,
@@ -1085,7 +1099,7 @@ export const useGameStore = create<UnifiedGameStore>()(
               isReady: readyState,
               isConnected: isOnline && !isDisconnectedState,
               isOnline,
-              role: existingPlayer?.role,
+              role: resolvedRole,
               votedFor: existingPlayer?.votedFor,
               lastActive: existingPlayer?.lastActive ?? Date.now(),
             };
@@ -1120,8 +1134,6 @@ export const useGameStore = create<UnifiedGameStore>()(
               : null;
 
           const mappedPhase = mapGamePhase(gameState.currentPhase);
-
-          const auth = getAuthIdentifiers();
 
           const selfPlayer = findSelfPlayer(mappedPlayers, auth);
 

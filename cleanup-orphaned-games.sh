@@ -3,7 +3,7 @@
 # Script to clean up orphaned games
 # Usage: ./cleanup-orphaned-games.sh [game_number]
 
-API_BASE_URL="http://172.26.180.125:20021/api/v1/game"
+API_BASE_URL="http://218.150.3.77:20021/api/v1/game"
 
 # Check if game number is provided for specific cleanup
 if [ ! -z "$1" ]; then

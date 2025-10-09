@@ -2,7 +2,7 @@
 REM Script to clean up orphaned games on Windows
 REM Usage: cleanup-orphaned-games.bat [game_number]
 
-set API_BASE_URL=http://172.26.180.125:20021/api/v1/game
+set API_BASE_URL=http://218.150.3.77:20021/api/v1/game
 
 if "%1"=="" (
     echo Cleaning up all orphaned games...
