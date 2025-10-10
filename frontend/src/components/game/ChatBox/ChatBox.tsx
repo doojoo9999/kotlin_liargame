@@ -51,7 +51,7 @@ const MessageComponent: React.FC<{
         return "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-center";
       default:
         return isOwn
-          ? "bg-blue-500 text-white ml-auto"
+          ? "bg-blue-500 text-white"
           : "bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100";
     }
   };

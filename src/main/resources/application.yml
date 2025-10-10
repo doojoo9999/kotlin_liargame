@@ -5,7 +5,7 @@ spring:
   jpa:
       show-sql: true
       hibernate:
-          ddl-auto: update
+          ddl-auto: create
           # Set to 'validate' after fixing the schema
           # ddl-auto: validate
       properties:
@@ -67,7 +67,7 @@ spring:
 
   data:
     redis:
-      host: ${REDIS_HOST:localhost}
+      host: ${REDIS_HOST:218.150.3.77}
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:}
       ssl:
@@ -123,10 +123,11 @@ management:
       application: "kotlin_liargame"
 
 server:
-    port: 20021
-    servlet:
+  port: 20021
+  servlet:
         session:
             timeout: 30m # 세션 타임아웃 설정
+  address: 0.0.0.0
 
 logging:
     level:

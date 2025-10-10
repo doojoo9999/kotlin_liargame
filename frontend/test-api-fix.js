@@ -7,7 +7,7 @@ async function testGameListAPI() {
   try {
     // Test the raw backend response
     console.log('1️⃣ Testing raw backend response...');
-    const rawResponse = await fetch('http://localhost:20021/api/v1/game/rooms?page=0&size=10', {
+    const rawResponse = await fetch('http://218.150.3.77:20021/api/v1/game/rooms?page=0&size=10', {
       credentials: 'include'
     });
     

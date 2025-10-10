@@ -31,7 +31,18 @@ export const VotingPhase: React.FC<VotingPhaseProps> = ({
   const handleVote = async () => {
     try {
       if (votingPhase === 'LIAR_VOTE' && selectedPlayer) {
-        await voteForLiar(parseInt(selectedPlayer));
+        const targetPlayer = players.find(player => {
+          if (player.id === selectedPlayer) return true;
+          if (player.userId != null && String(player.userId) === selectedPlayer) return true;
+          if (player.nickname === selectedPlayer) return true;
+          return false;
+        });
+        const targetUserId = targetPlayer?.userId ?? Number.parseInt(selectedPlayer, 10);
+        if (!Number.isFinite(targetUserId)) {
+          console.warn('투표 대상 플레이어를 결정할 수 없습니다.', { selectedPlayer });
+          return;
+        }
+        await voteForLiar(targetUserId);
       } else if (votingPhase === 'SURVIVAL_VOTE') {
         await castFinalVote(selectedPlayer === 'execute');
       }

@@ -531,13 +531,8 @@ class GameController(
         try {
             val userId = sessionUtil.getUserId(httpSession)
             if (userId != null) {
-                // WebSocketSessionManager에서 해당 사용자의 모든 세션을 찾아서 갱신
-                // 현재는 세션 ID로 직접 매핑되어 있으므로, 향후 개선 시 사용자 ID 기반 검색 추가 가능
                 println("[DEBUG] Attempting to refresh WebSocket sessions for userId: $userId")
-
-                // 임시로 현재 HTTP 세션 ID로 WebSocket 세션을 찾아서 갱신
-                val sessionId = httpSession.id
-                webSocketSessionManager.refreshSessionInfo(sessionId, httpSession)
+                webSocketSessionManager.refreshSessionsForUser(userId, httpSession)
             }
         } catch (e: Exception) {
             println("[WARN] Failed to refresh WebSocket sessions: ${e.message}")

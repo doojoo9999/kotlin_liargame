@@ -19,7 +19,7 @@ export function convertBackendPlayer(backendPlayer: BackendPlayer, isHost = fals
     id: backendPlayer.userId.toString(), // Convert number to string for frontend
     userId: backendPlayer.userId,
     nickname: backendPlayer.nickname,
-    role: backendPlayer.id % 2 === 0 ? 'CITIZEN' : 'LIAR', // Temporary logic - replace with actual role
+    role: undefined,
     isAlive: backendPlayer.isAlive,
     isHost,
     isOnline: backendPlayer.isOnline,

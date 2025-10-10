@@ -9,7 +9,7 @@ from typing import Any, Dict
 
 import requests
 
-BASE_URL = "http://localhost:20021/api/v1"
+BASE_URL = "http://218.150.3.77:20021/api/v1"
 
 
 def random_suffix(length: int = 5) -> str:

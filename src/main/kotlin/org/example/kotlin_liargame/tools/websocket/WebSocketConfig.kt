@@ -146,12 +146,12 @@ class WebSocketConfig(
             )
             "staging" -> arrayOf(
                 "https://staging.liargame.com",
-                "http://localhost:3000",
-                "http://localhost:5173"
+                "http://218.150.3.77:3000",
+                "http://218.150.3.77:5173"
             )
             else -> arrayOf(
-                "http://localhost:3000",
-                "http://localhost:5173",
+                "http://218.150.3.77:3000",
+                "http://218.150.3.77:5173",
                 "http://127.0.0.1:3000",
                 "http://127.0.0.1:5173"
             )

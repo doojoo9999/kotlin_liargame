@@ -756,7 +756,7 @@ import {
   ApiResponse 
 } from '../types/api';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://218.150.3.77:3001/api';
 
 // Create axios instance
 const api = axios.create({

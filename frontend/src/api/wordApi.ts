@@ -20,9 +20,17 @@ interface BackendWordCreateRequest {
   word: string;       // 답안 내용 (String)
 }
 
-export interface WordListResponse {
+export interface WordCollectionResponse {
   words: Word[];
   totalCount?: number;
+}
+
+interface WordDetailResponse {
+  id: number;
+  subjectId: number;
+  subjectContent: string;
+  content: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
 }
 
 export class WordService {
@@ -36,16 +44,16 @@ export class WordService {
   }
 
   // 답안 목록 조회
-  async getWords(): Promise<WordListResponse> {
+  async getWords(): Promise<WordCollectionResponse> {
     try {
-      const response = await apiClient.get<any[]>('/api/v1/words/wlist');
+      const response = await apiClient.get<WordDetailResponse[]>('/api/v1/words/wlist');
       // 백엔드에서 배열을 직접 반환하므로 감싸서 반환하고 필드 매핑
       const words = Array.isArray(response) ? response.map(item => ({
         id: item.id,
         content: item.content,
         subjectId: item.subjectId,
-        subjectName: item.subjectContent, // 백엔드의 subjectContent를 subjectName으로 매핑
-        status: 'APPROVED' as const // 백엔드에서 승인된 것만 반환하므로
+        subjectName: item.subjectContent,
+        status: item.status
       })) : [];
       
       return {
@@ -59,7 +67,7 @@ export class WordService {
   }
 
   // 특정 주제의 답안 목록 조회
-  async getWordsBySubject(subjectId: number): Promise<WordListResponse> {
+  async getWordsBySubject(subjectId: number): Promise<WordCollectionResponse> {
     try {
       const allWords = await this.getWords();
       const filteredWords = allWords.words.filter(word => word.subjectId === subjectId);
@@ -92,17 +100,16 @@ export class WordService {
       console.log('Request URL: /api/v1/words/applyw');
       console.log('=============================');
 
-      // 백엔드는 {message: string} 형식으로 응답
-      const response = await apiClient.post<{message: string}>('/api/v1/words/applyw', backendRequest);
+      const response = await apiClient.post<WordDetailResponse>('/api/v1/words/applyw', backendRequest);
       
       console.log('Word creation successful:', response);
       
-      // Word 형식으로 변환하여 반환 (실제 ID는 백엔드에서 제공하지 않으므로 임시 값 사용)
       return {
-        id: Date.now(), // 임시 ID (실제로는 목록을 다시 가져와야 함)
-        content: wordData.content,
-        subjectId: wordData.subjectId,
-        status: 'PENDING'
+        id: response.id,
+        content: response.content,
+        subjectId: response.subjectId,
+        subjectName: response.subjectContent,
+        status: response.status
       };
     } catch (error) {
       console.error('Failed to create word:', error);

@@ -1088,8 +1088,8 @@ class WebSocketService {
     }
 
     const defaultCandidates = [
-      normalizeCandidate('http://localhost:20021'),
-      normalizeCandidate('http://localhost:8080'),
+      normalizeCandidate('http://218.150.3.77:20021'),
+      normalizeCandidate('http://218.150.3.77:8080'),
     ].filter((value): value is string => Boolean(value));
 
     for (const candidate of defaultCandidates) {
@@ -1403,7 +1403,7 @@ class WebSocketService {
           }
         });
       }
-
+            //재현 필요
       if (type === 'RECONNECTION_REQUIRED') {
         toast.error(payload.message ?? '연결이 끊어졌습니다. 재연결을 시도합니다.');
       } else if (type === 'CONNECTION_ESTABLISHED' && this.reconnectAttempts === 0) {

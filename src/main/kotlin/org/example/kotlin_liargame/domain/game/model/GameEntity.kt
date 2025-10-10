@@ -4,6 +4,7 @@ import jakarta.persistence.*
 import org.example.kotlin_liargame.domain.game.model.enum.GameMode
 import org.example.kotlin_liargame.domain.game.model.enum.GamePhase
 import org.example.kotlin_liargame.domain.game.model.enum.GameState
+import org.example.kotlin_liargame.domain.game.model.enum.WinningTeam
 import org.example.kotlin_liargame.domain.subject.model.SubjectEntity
 import org.example.kotlin_liargame.global.base.BaseEntity
 import java.time.Instant
@@ -48,6 +49,16 @@ class GameEntity(
     var turnOrder: String? = null,
     var currentTurnIndex: Int = 0,
     var phaseEndTime: Instant? = null,
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "winning_team")
+    var winningTeam: WinningTeam? = null,
+
+    @Column(name = "winner_reason", columnDefinition = "TEXT")
+    var winnerReason: String? = null,
+
+    @Column(name = "liar_guess_correct")
+    var liarGuessCorrect: Boolean? = null,
 
     var gameStartDeadline: Instant? = null,
 

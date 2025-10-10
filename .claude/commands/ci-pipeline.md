@@ -144,7 +144,7 @@ jobs:
           npm run build
           npm run start:test &
           sleep 10
-          npx lighthouse http://localhost:3000 --output=json --output-path=./lighthouse.json
+          npx lighthouse http://218.150.3.77:3000 --output=json --output-path=./lighthouse.json
       
       - name: Comment PR
         uses: actions/github-script@v6

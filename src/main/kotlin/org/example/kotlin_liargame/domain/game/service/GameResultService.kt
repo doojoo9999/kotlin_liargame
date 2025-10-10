@@ -40,7 +40,10 @@ class GameResultService(
                 if (endCondition == GameEndCondition.NEXT_ROUND) {
                     startNextRound(gameNumber)
                 } else {
-                    endGameWithLiarVictory(gameNumber)
+                    endGameWithLiarVictory(
+                        gameNumber = gameNumber,
+                        reasonOverride = "시민이 처형되어 라이어가 승리했습니다."
+                    )
                 }
             }
             // 처형되지 않은 경우 (과반수 실패) -> 다음 라운드
@@ -58,118 +61,157 @@ class GameResultService(
         val response = topicGuessService.submitLiarGuess(gameNumber, liarPlayerId, guess)
         
         if (response.isCorrect) {
-            endGameWithLiarVictory(gameNumber)
+            endGameWithLiarVictory(
+                gameNumber = gameNumber,
+                reasonOverride = "라이어가 제시어를 맞혔습니다.",
+                liarGuessCorrect = true
+            )
         } else {
-            endGameWithCitizenVictory(gameNumber)
+            endGameWithCitizenVictory(
+                gameNumber = gameNumber,
+                reasonOverride = "라이어가 제시어를 맞추지 못했습니다.",
+                liarGuessCorrect = false
+            )
         }
         
         return response
     }
     
-    fun endGameWithCitizenVictory(gameNumber: Int): GameEndResponse {
+    fun endGameWithCitizenVictory(
+        gameNumber: Int,
+        reasonOverride: String? = null,
+        liarGuessCorrect: Boolean? = null
+    ): GameEndResponse {
         val game = gameRepository.findByGameNumber(gameNumber)
             ?: throw IllegalArgumentException("Game not found")
-        val players = playerRepository.findByGame(game)
-        
-        // 시민 승리 시 "사망 표"를 던진 시민들에게 +1점 부여
-        try {
-            val finalVotingStatus = gameStateService.getFinalVotingStatus(gameNumber)
-            if (finalVotingStatus.isNotEmpty()) {
+
+        val reason = reasonOverride ?: "라이어를 모두 찾아냈습니다."
+        val finalVotingStatus = try {
+            gameStateService.getFinalVotingStatus(gameNumber)
+        } catch (e: Exception) {
+            println("[GameResultService] Failed to retrieve final voting status: ${e.message}")
+            mutableMapOf<Long, Boolean?>()
+        }
+
+        if (finalVotingStatus.isNotEmpty()) {
+            runCatching {
                 val finalVotingRecordMap = finalVotingStatus.mapValues { it.value ?: false }
                 val awardedPlayers = gameProgressService.awardCitizenVictoryPoints(game, finalVotingRecordMap)
                 println("[GameResultService] Awarded points to ${awardedPlayers.size} citizens for voting liar execution")
+            }.onFailure { ex ->
+                println("[GameResultService] Failed to award citizen victory points: ${ex.message}")
             }
-        } catch (e: Exception) {
-            println("[GameResultService] Failed to award citizen victory points: ${e.message}")
         }
-        
-        game.endGame()
-        game.gameState = org.example.kotlin_liargame.domain.game.model.enum.GameState.ENDED
-        gameRepository.save(game)
-        
-        recordGameHistory(game, players, WinningTeam.CITIZENS)
 
+        val updatedPlayers = finalizeGameOutcome(
+            game = game,
+            winningTeam = WinningTeam.CITIZENS,
+            reason = reason,
+            liarGuessCorrect = liarGuessCorrect ?: game.liarGuessCorrect
+        )
+
+        recordGameHistory(game, updatedPlayers, WinningTeam.CITIZENS)
         sendModeratorMessage(gameNumber, "시민팀이 승리했습니다!")
-        
+
+        val finalVotingRecord = finalVotingStatus.takeIf { it.isNotEmpty() }?.map { (playerId, voteForExecution) ->
+            val player = updatedPlayers.find { it.userId == playerId }
+            mapOf(
+                "voterUserId" to playerId,
+                "voterNickname" to (player?.nickname ?: "Unknown"),
+                "voteForExecution" to (voteForExecution ?: false)
+            )
+        }
+
         val gameStateResponse = GameStateResponse.from(
             game = game,
-            players = players,
+            players = updatedPlayers,
             currentUserId = null,
             currentPhase = org.example.kotlin_liargame.domain.game.model.enum.GamePhase.GAME_OVER,
-            winner = "CITIZEN",
-            reason = "라이어를 모두 찾아냈습니다."
+            winner = WinningTeam.CITIZENS.name,
+            winningTeam = WinningTeam.CITIZENS.name,
+            reason = reason,
+            finalVotingRecord = finalVotingRecord
         )
         gameMonitoringService.broadcastGameState(game, gameStateResponse)
 
-        val citizens = players.filter { it.role == org.example.kotlin_liargame.domain.game.model.enum.PlayerRole.CITIZEN }
-        val liars = players.filter { it.role == org.example.kotlin_liargame.domain.game.model.enum.PlayerRole.LIAR }
+        val citizens = updatedPlayers.filter { it.role == org.example.kotlin_liargame.domain.game.model.enum.PlayerRole.CITIZEN }
+        val liars = updatedPlayers.filter { it.role == org.example.kotlin_liargame.domain.game.model.enum.PlayerRole.LIAR }
 
         val response = GameEndResponse(
             gameNumber = gameNumber,
-            winner = "CITIZENS",
+            winner = WinningTeam.CITIZENS.name,
             citizens = citizens.map { PlayerResultInfo.from(it) },
             liars = liars.map { PlayerResultInfo.from(it) },
             citizenSubject = game.citizenSubject?.content,
             liarSubject = game.liarSubject?.content,
             gameStatistics = calculateGameStatistics(gameNumber)
         )
-        
+
         messagingTemplate.convertAndSend(
             "/topic/game/$gameNumber/game-end",
             response
         )
-        
+
         topicGuessService.cleanupGuessStatus(gameNumber)
-        
+
         return response
     }
     
-    fun endGameWithLiarVictory(gameNumber: Int): GameEndResponse {
+    fun endGameWithLiarVictory(
+        gameNumber: Int,
+        reasonOverride: String? = null,
+        liarGuessCorrect: Boolean? = null
+    ): GameEndResponse {
         val game = gameRepository.findByGameNumber(gameNumber)
             ?: throw IllegalArgumentException("Game not found")
-        val players = playerRepository.findByGame(game)
-        
-        // 라이어 승리 시 라이어에게 +2점 부여
-        gameProgressService.awardLiarVictoryPoints(game, "단어 추측 정답으로 라이어 승리")
-        
-        game.endGame()
-        game.gameState = org.example.kotlin_liargame.domain.game.model.enum.GameState.ENDED
-        gameRepository.save(game)
 
-        recordGameHistory(game, players, WinningTeam.LIARS)
-        
+        val reason = reasonOverride ?: "라이어가 단어를 맞혔거나, 시민이 라이어를 모두 찾아내지 못했습니다."
+
+        // 라이어 승리 시 라이어에게 +2점 부여
+        gameProgressService.awardLiarVictoryPoints(game, reason)
+
+        val updatedPlayers = finalizeGameOutcome(
+            game = game,
+            winningTeam = WinningTeam.LIARS,
+            reason = reason,
+            liarGuessCorrect = liarGuessCorrect ?: game.liarGuessCorrect
+        )
+
+        recordGameHistory(game, updatedPlayers, WinningTeam.LIARS)
+
         sendModeratorMessage(gameNumber, "라이어팀이 승리했습니다!")
-        
+
         val gameStateResponse = GameStateResponse.from(
             game = game,
-            players = players,
+            players = updatedPlayers,
             currentUserId = null,
             currentPhase = org.example.kotlin_liargame.domain.game.model.enum.GamePhase.GAME_OVER,
-            winner = "LIAR",
-            reason = "라이어가 단어를 맞혔거나, 시민이 라이어를 모두 찾아내지 못했습니다."
+            winner = WinningTeam.LIARS.name,
+            winningTeam = WinningTeam.LIARS.name,
+            reason = reason
         )
         gameMonitoringService.broadcastGameState(game, gameStateResponse)
 
-        val citizens = players.filter { it.role == org.example.kotlin_liargame.domain.game.model.enum.PlayerRole.CITIZEN }
-        val liars = players.filter { it.role == org.example.kotlin_liargame.domain.game.model.enum.PlayerRole.LIAR }
+        val citizens = updatedPlayers.filter { it.role == org.example.kotlin_liargame.domain.game.model.enum.PlayerRole.CITIZEN }
+        val liars = updatedPlayers.filter { it.role == org.example.kotlin_liargame.domain.game.model.enum.PlayerRole.LIAR }
 
         val response = GameEndResponse(
             gameNumber = gameNumber,
-            winner = "LIARS",
+            winner = WinningTeam.LIARS.name,
             citizens = citizens.map { PlayerResultInfo.from(it) },
             liars = liars.map { PlayerResultInfo.from(it) },
             citizenSubject = game.citizenSubject?.content,
             liarSubject = game.liarSubject?.content,
             gameStatistics = calculateGameStatistics(gameNumber)
         )
-        
+
         messagingTemplate.convertAndSend(
             "/topic/game/$gameNumber/game-end",
             response
         )
-        
+
         topicGuessService.cleanupGuessStatus(gameNumber)
-        
+
         return response
     }
     
@@ -306,6 +348,32 @@ class GameResultService(
             return true
         }
         return false
+    }
+    
+    private fun finalizeGameOutcome(
+        game: org.example.kotlin_liargame.domain.game.model.GameEntity,
+        winningTeam: WinningTeam,
+        reason: String,
+        liarGuessCorrect: Boolean?
+    ): List<org.example.kotlin_liargame.domain.game.model.PlayerEntity> {
+        val players = playerRepository.findByGame(game)
+        players.forEach { player ->
+            val isWinner = when (winningTeam) {
+                WinningTeam.CITIZENS -> player.role == org.example.kotlin_liargame.domain.game.model.enum.PlayerRole.CITIZEN
+                WinningTeam.LIARS -> player.role == org.example.kotlin_liargame.domain.game.model.enum.PlayerRole.LIAR
+            }
+            player.isWinner = isWinner
+        }
+        playerRepository.saveAll(players)
+
+        game.endGame()
+        game.currentPhase = org.example.kotlin_liargame.domain.game.model.enum.GamePhase.GAME_OVER
+        game.winningTeam = winningTeam
+        game.winnerReason = reason
+        game.liarGuessCorrect = liarGuessCorrect
+        gameRepository.save(game)
+
+        return players
     }
     
     private fun calculateGameStatistics(gameNumber: Int): GameStatistics {

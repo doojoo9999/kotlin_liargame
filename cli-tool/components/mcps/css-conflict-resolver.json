@@ -7,7 +7,7 @@
         "css-conflict-resolver@latest"
       ],
       "env": {
-        "TARGET_URL": "http://localhost:5175",
+        "TARGET_URL": "http://218.150.3.77:5175",
         "RESOLVE_WHITE_BORDERS": "true",
         "FIX_COMPONENT_CONFLICTS": "true",
         "TAILWIND_CONFLICT_DETECTION": "true",

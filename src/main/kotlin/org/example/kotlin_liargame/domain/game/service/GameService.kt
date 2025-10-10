@@ -135,13 +135,19 @@ class GameService(
     }
 
     private fun findNextAvailableRoomNumber(): Int {
-        val activeGames = gameRepository.findAllActiveGames()
-        val usedNumbers = activeGames.map { it.gameNumber }.toSet()
+        val usedNumbers = gameRepository.findAllGameNumbers().toSet()
+
         for (number in 1..999) {
             if (!usedNumbers.contains(number)) {
                 return number
             }
         }
+
+        val nextNumber = (usedNumbers.maxOrNull() ?: 0) + 1
+        if (nextNumber <= 999) {
+            return nextNumber
+        }
+
         throw RuntimeException("모든 방 번호(1-999)가 모두 사용중입니다. 나중에 다시 시도해주세요.")
     }
 
@@ -479,14 +485,21 @@ class GameService(
         }
 
         val players = playerRepository.findByGame(game)
-        val liars = players.filter { it.role == PlayerRole.LIAR }
-
-        val liarsWin = liars.any { it.isAlive }
+        val winningTeam = game.winningTeam
+            ?: when {
+                players.any { it.isWinner && it.role == PlayerRole.LIAR } -> WinningTeam.LIARS
+                players.any { it.isWinner && it.role == PlayerRole.CITIZEN } -> WinningTeam.CITIZENS
+                else -> {
+                    val liarsAlive = players.any { it.role == PlayerRole.LIAR && it.isAlive }
+                    if (liarsAlive) WinningTeam.LIARS else WinningTeam.CITIZENS
+                }
+            }
 
         return GameResultResponse.from(
             game = game,
             players = players,
-            winningTeam = if (liarsWin) WinningTeam.LIARS else WinningTeam.CITIZENS
+            winningTeam = winningTeam,
+            correctGuess = game.liarGuessCorrect
         )
     }
 
@@ -683,7 +696,10 @@ class GameService(
             isChatAvailable = isChatAvailable,
             turnOrder = turnOrder,
             currentTurnIndex = currentTurnIndex,
-            phaseEndTime = game.phaseEndTime?.toString()
+            phaseEndTime = game.phaseEndTime?.toString(),
+            winner = game.winningTeam?.name,
+            winningTeam = game.winningTeam?.name,
+            reason = game.winnerReason
         )
     }
 

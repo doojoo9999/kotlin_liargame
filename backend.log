@@ -47,7 +47,7 @@
 2025-09-25 10:47:38.105 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-20021"]
 2025-09-25 10:47:38.106 [main] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
 2025-09-25 10:47:38.106 [main] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.16]
-2025-09-25 10:47:38.164 [main] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+2025-09-25 10:47:38.164 [main] INFO  o.a.c.c.C.[Tomcat].[218.150.3.77].[/] - Initializing Spring embedded WebApplicationContext
 2025-09-25 10:47:38.164 [main] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 2038 ms
 2025-09-25 10:47:38.279 [main] INFO  com.zaxxer.hikari.HikariDataSource - LiarGameHikariCP - Starting...
 2025-09-25 10:47:38.402 [main] INFO  com.zaxxer.hikari.pool.HikariPool - LiarGameHikariCP - Added connection conn0: url=jdbc:h2:mem:testdb user=SA
@@ -115,8 +115,8 @@ Hibernate: alter table if exists vote_records add constraint FKof4g9eydans3i0r39
 Hibernate: alter table if exists word add constraint FK9yg7pi6bligj2ay6jggsdlkrm foreign key (subject_id) references subject
 2025-09-25 10:47:40.063 [main] INFO  o.s.o.j.LocalContainerEntityManagerFactoryBean - Initialized JPA EntityManagerFactory for persistence unit 'default'
 2025-09-25 10:47:40.556 [main] INFO  o.s.d.j.r.query.QueryEnhancerFactory - Hibernate is in classpath; If applicable, HQL parser will be used.
-? .env ÆÄÀÏ ·Îµå ¿Ï·á
-? ·ÎµåµÈ È¯°æº¯¼ö: 101°³
+? .env ï¿½ï¿½ï¿½ï¿½ ï¿½Îµï¿½ ï¿½Ï·ï¿½
+? ï¿½Îµï¿½ï¿½ È¯ï¿½æº¯ï¿½ï¿½: 101ï¿½ï¿½
 2025-09-25 10:47:42.250 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
 2025-09-25 10:47:42.278 [main] WARN  o.s.b.a.s.s.UserDetailsServiceAutoConfiguration - 
 
