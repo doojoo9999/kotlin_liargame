@@ -57,8 +57,9 @@ node_modules
 *.log
 
 ## ai ##
-.junie/
-.aiassistant/
+**/.junie/
+**/.aiassistant/
+**/.claude/
 prompt.md
 .cursor
 AGENTS.md
