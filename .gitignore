@@ -53,8 +53,13 @@ node_modules
 ## db ##
 /firebaseaccoutkey.json
 
+### logs ###
+*.log
+
 ## ai ##
 .junie/
 .aiassistant/
 prompt.md
 .cursor
+cli-tool/*
+docs/*

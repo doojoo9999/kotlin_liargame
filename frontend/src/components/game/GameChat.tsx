@@ -24,7 +24,6 @@ interface GameChatProps {
 }
 
 const restrictedPhases = new Set<string>(['VOTING_FOR_LIAR', 'VOTING_FOR_SURVIVAL'])
-const MAX_PINNED = 5
 const MAX_MESSAGE_LENGTH = 240
 
 const typeLabelMap: Record<ChatMessageType, string> = {
@@ -34,6 +33,7 @@ const typeLabelMap: Record<ChatMessageType, string> = {
   DEFENSE: '변론',
   SYSTEM: '공지',
   POST_ROUND: '라운드 요약',
+  WAITING_ROOM: '대기실',
 }
 
 const formatTimestamp = (timestamp: number) => {
@@ -49,8 +49,9 @@ const messageToneMap: Record<ChatMessageType | 'DEFAULT', string> = {
   GENERAL: 'border-border/70 bg-background/95 text-foreground',
   HINT: 'border-sky-500/50 bg-sky-50 text-sky-900 shadow-sm dark:bg-sky-500/15 dark:text-sky-100',
   DEFENSE: 'border-rose-500/60 bg-rose-50 text-rose-900 shadow-sm dark:bg-rose-500/15 dark:text-rose-100',
-  SYSTEM: 'border-primary/60 bg-primary/10 text-primary-900 shadow-sm dark:bg-primary/25 dark:text-primary-50',
+  SYSTEM: 'border-red-500/60 bg-red-50 text-red-900 shadow-sm dark:bg-red-500/20 dark:text-red-100',
   POST_ROUND: 'border-amber-500/60 bg-amber-50 text-amber-900 shadow-sm dark:bg-amber-500/15 dark:text-amber-100',
+  WAITING_ROOM: 'border-border/70 bg-background/95 text-foreground',
   DEFAULT: 'border-border/70 bg-background/95 text-foreground',
 }
 
@@ -101,6 +102,7 @@ export const GameChat: React.FC<GameChatProps> = ({
   const [isExpanded, setIsExpanded] = useState(false)
   const [isSending, setIsSending] = useState(false)
   const listEndRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   const [isInputFocused, setIsInputFocused] = useState(false)
   const [sendError, setSendError] = useState<string | null>(null)
@@ -109,13 +111,12 @@ export const GameChat: React.FC<GameChatProps> = ({
   const [autoScroll, setAutoScroll] = useState(true)
   const [hasUnread, setHasUnread] = useState(false)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
-  const composerRef = useRef<HTMLDivElement>(null)
-  const [composerHeight, setComposerHeight] = useState<number | null>(null)
   const [selectedType, setSelectedType] = useState<ChatMessageType>('DISCUSSION')
   const prefersReducedMotion = usePrefersReducedMotion()
   const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const sendPulseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const lastRegularMessageIdRef = useRef<string | null>(null)
+  const lastMessageIdRef = useRef<string | null>(null)
+  const inputFocusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const hasHydratedRef = useRef(false)
 
   const accessibilityId = useId()
@@ -156,30 +157,6 @@ export const GameChat: React.FC<GameChatProps> = ({
     [playersByKey],
   )
 
-  const pinnedMessages = useMemo(() => {
-    const pinned = messages
-      .filter((message) => {
-        if (message.type === 'SYSTEM') {
-          return true
-        }
-        const player = resolvePlayer(message)
-        return player?.isHost === true
-      })
-      .sort((a, b) => a.timestamp - b.timestamp)
-
-    if (pinned.length > MAX_PINNED) {
-      return pinned.slice(-MAX_PINNED)
-    }
-    return pinned
-  }, [messages, resolvePlayer])
-
-  const pinnedIds = useMemo(() => new Set(pinnedMessages.map((message) => message.id)), [pinnedMessages])
-
-  const regularMessages = useMemo(
-    () => messages.filter((message) => !pinnedIds.has(message.id)),
-    [messages, pinnedIds],
-  )
-
   useEffect(() => {
     if (!autoScroll) {
       return
@@ -189,24 +166,24 @@ export const GameChat: React.FC<GameChatProps> = ({
       return
     }
     container.scrollTo({ top: container.scrollHeight, behavior: prefersReducedMotion ? 'auto' : 'smooth' })
-  }, [autoScroll, regularMessages, pinnedMessages, prefersReducedMotion])
+  }, [autoScroll, messages, prefersReducedMotion])
 
   useEffect(() => {
-    const latest = regularMessages[regularMessages.length - 1]
+    const latest = messages[messages.length - 1]
     if (!latest) {
-      lastRegularMessageIdRef.current = null
+      lastMessageIdRef.current = null
       setHighlightedMessageId(null)
       return
     }
     if (!hasHydratedRef.current) {
       hasHydratedRef.current = true
-      lastRegularMessageIdRef.current = latest.id
+      lastMessageIdRef.current = latest.id
       return
     }
-    if (latest.id === lastRegularMessageIdRef.current) {
+    if (latest.id === lastMessageIdRef.current) {
       return
     }
-    lastRegularMessageIdRef.current = latest.id
+    lastMessageIdRef.current = latest.id
     setHighlightedMessageId(latest.id)
     if (!autoScroll) {
       setHasUnread(true)
@@ -215,7 +192,7 @@ export const GameChat: React.FC<GameChatProps> = ({
       clearTimeout(highlightTimeoutRef.current)
     }
     highlightTimeoutRef.current = setTimeout(() => setHighlightedMessageId(null), 1800)
-  }, [regularMessages, autoScroll])
+  }, [messages, autoScroll])
 
   const typingNames = useMemo(() => {
     if (!typingPlayers) {
@@ -236,11 +213,6 @@ export const GameChat: React.FC<GameChatProps> = ({
     [],
   )
 
-  const composerStyle = useMemo(
-    () => ({ '--composer-height': composerHeight != null ? `${composerHeight}px` : '6.5rem' }) as React.CSSProperties,
-    [composerHeight],
-  )
-
   const messageCount = messages.length
   const remainingCharacters = MAX_MESSAGE_LENGTH - draft.length
   const characterWarningThreshold = Math.round(MAX_MESSAGE_LENGTH * 0.4)
@@ -256,23 +228,6 @@ export const GameChat: React.FC<GameChatProps> = ({
     [players],
   )
 
-  useEffect(() => {
-    if (typeof window === 'undefined' || !('ResizeObserver' in window)) {
-      return
-    }
-    const node = composerRef.current
-    if (!node) {
-      return
-    }
-    const updateHeight = () => {
-      setComposerHeight(node.offsetHeight)
-    }
-    updateHeight()
-    const observer = new ResizeObserver(() => updateHeight())
-    observer.observe(node)
-    return () => observer.disconnect()
-  }, [isExpanded])
-
   const sendMessage = useCallback(
     async (override?: string) => {
       const source = override ?? draft
@@ -283,9 +238,11 @@ export const GameChat: React.FC<GameChatProps> = ({
       setIsSending(true)
       setAutoScroll(true)
       setHasUnread(false)
+      setDraft('')
+      inputRef.current?.focus({ preventScroll: true })
+
       try {
         await onSendMessage(trimmed, selectedType)
-        setDraft('')
         setSendError(null)
         const pulseDuration = prefersReducedMotion ? 200 : 700
         setJustSent(true)
@@ -298,9 +255,17 @@ export const GameChat: React.FC<GameChatProps> = ({
         setSendError('메시지 전송에 실패했습니다. 다시 시도해 주세요.')
         toast.error('메시지 전송에 실패했습니다. 다시 시도해 주세요.')
         setDraft(trimmed)
+        inputRef.current?.focus({ preventScroll: true })
         throw err
       } finally {
         setIsSending(false)
+        if (inputFocusTimeoutRef.current) {
+          clearTimeout(inputFocusTimeoutRef.current)
+        }
+        inputFocusTimeoutRef.current = setTimeout(() => {
+          inputRef.current?.focus({ preventScroll: true })
+          inputFocusTimeoutRef.current = null
+        }, 0)
       }
     },
     [draft, isSending, onSendMessage, prefersReducedMotion, selectedType],
@@ -320,9 +285,21 @@ export const GameChat: React.FC<GameChatProps> = ({
   const handleKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLInputElement>) => {
       if (event.key === 'Enter' && !event.shiftKey) {
+        const nativeEvent = event.nativeEvent as KeyboardEvent & { isComposing?: boolean }
+        if (nativeEvent.isComposing) {
+          return
+        }
         event.preventDefault()
         handleSubmit()
       }
+    },
+    [handleSubmit],
+  )
+
+  const handleComposerSubmit = useCallback(
+    (event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault()
+      handleSubmit()
     },
     [handleSubmit],
   )
@@ -374,10 +351,10 @@ export const GameChat: React.FC<GameChatProps> = ({
   }, [])
 
   const containerClasses = [
-    'flex flex-1 flex-col overflow-hidden rounded-xl border border-border/70 shadow-lg motion-safe:transition-all motion-safe:duration-200',
+    'flex w-full max-w-full flex-col overflow-hidden rounded-xl border border-border/70 shadow-lg motion-safe:transition-all motion-safe:duration-200',
     isExpanded
-      ? 'fixed inset-4 z-50 bg-background/95 backdrop-blur-md'
-      : 'relative h-full min-h-[26rem] sm:min-h-[28rem] xl:min-h-[32rem] 2xl:min-h-[36rem]',
+      ? 'fixed left-1/2 top-1/2 z-50 w-[min(1200px,95vw)] h-[74vh] -translate-x-1/2 -translate-y-1/2 bg-background/95 backdrop-blur-md'
+      : 'relative mx-auto w-full max-w-[1120px] h-[46vh] min-h-[18rem] sm:h-[52vh] sm:min-h-[20rem]',
     className,
   ]
     .filter(Boolean)
@@ -399,8 +376,6 @@ export const GameChat: React.FC<GameChatProps> = ({
     .join(' ')
 
   const hasMessages = messageCount > 0
-  const hasRegularMessages = regularMessages.length > 0
-
   useEffect(() => {
     return () => {
       if (highlightTimeoutRef.current) {
@@ -408,6 +383,9 @@ export const GameChat: React.FC<GameChatProps> = ({
       }
       if (sendPulseTimeoutRef.current) {
         clearTimeout(sendPulseTimeoutRef.current)
+      }
+      if (inputFocusTimeoutRef.current) {
+        clearTimeout(inputFocusTimeoutRef.current)
       }
     }
   }, [])
@@ -446,220 +424,199 @@ export const GameChat: React.FC<GameChatProps> = ({
         </CardTitle>
       </CardHeader>
 
-      <CardContent className="flex h-full flex-col gap-4" style={composerStyle}>
-        {error && (
-          <div className="flex items-center justify-between gap-3 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-            <span className="truncate">{error}</span>
-            {onReloadHistory && (
-              <Button variant="outline" size="xs" onClick={handleReloadHistory} className="h-7">
-                <RefreshCw className="mr-1 h-3 w-3" /> 다시 시도
-              </Button>
-            )}
-          </div>
-        )}
-
-        {pinnedMessages.length > 0 && (
-          <div className="space-y-2">
-            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">공지</div>
-            {pinnedMessages.map((message) => {
-              const player = resolvePlayer(message)
-              const isSystemMessage =
-                message.type === 'SYSTEM' || message.playerNickname?.toUpperCase() === 'SYSTEM'
-              const displayName = isSystemMessage ? '시스템' : player?.nickname ?? message.playerNickname ?? '플레이어'
-              const accentLabel = isSystemMessage ? '시스템' : '방장'
-              const accentVariant = isSystemMessage ? 'default' : 'secondary'
-              const containerTone = isSystemMessage
-                ? 'border border-primary/40 border-l-4 bg-primary/10 text-primary-900 shadow-sm dark:bg-primary/20 dark:text-primary-50'
-                : 'border border-amber-400/50 border-l-4 bg-amber-50 text-amber-900 shadow-sm dark:bg-amber-500/15 dark:text-amber-100'
-              const typeLabel = typeLabelMap[message.type]
-
-              return (
-                <div
-                  key={message.id}
-                  className={`flex items-start justify-between gap-3 rounded-md px-3 py-2 text-xs ${containerTone}`}
-                >
-                  <div className="flex-1 whitespace-pre-wrap break-words text-left">
-                    <div className="mb-1 flex flex-wrap items-center gap-2">
-                      <Badge variant={accentVariant} className="rounded-full px-2.5 py-0.5 text-[11px] uppercase tracking-wide">
-                        {accentLabel}
-                      </Badge>
-                      {typeLabel && (
-                        <Badge variant="outline" className="rounded-full px-2.5 py-0.5 text-[11px] uppercase tracking-wide">
-                          {typeLabel}
-                        </Badge>
-                      )}
-                      <span className="text-sm font-semibold leading-none">{displayName}</span>
-                    </div>
-                    <div className="text-sm leading-relaxed">
-                      {message.content}
-                    </div>
-                  </div>
-                  <span className="whitespace-nowrap text-[11px] opacity-80">
-                    {formatTimestamp(message.timestamp)}
-                  </span>
-                </div>
-              )
-            })}
-          </div>
-        )}
-
-        <div
-          ref={scrollContainerRef}
-          onScroll={handleScroll}
-          role="region"
-          aria-label="채팅 메시지 영역"
-          tabIndex={0}
-          className={`relative flex-1 overflow-y-auto rounded-2xl border border-border/60 bg-muted/40 px-4 py-4 shadow-inner transition-colors scroll-smooth chat-scroll-area ${isExpanded ? 'max-h-[calc(100vh-8rem)]' : 'max-h-[calc(100%-var(--composer-height,6.5rem))] min-h-[18rem]'}`}
-        >
-          {!hasMessages ? (
-            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-              아직 메시지가 없습니다
+      <CardContent className="flex h-full min-h-0 flex-1 flex-col gap-3">
+        <div className="flex h-full min-h-0 flex-1 flex-col gap-3 overflow-hidden">
+          {error && (
+            <div className="flex items-center justify-between gap-3 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              <span className="truncate">{error}</span>
+              {onReloadHistory && (
+                <Button variant="outline" size="xs" onClick={handleReloadHistory} className="h-7">
+                  <RefreshCw className="mr-1 h-3 w-3" /> 다시 시도
+                </Button>
+              )}
             </div>
-          ) : !hasRegularMessages ? (
-            <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
-              현재 고정된 공지를 제외한 메시지가 없습니다
-            </div>
-          ) : (
-            <div
-              className="space-y-3 sm:space-y-4"
-              role="log"
-              aria-live="polite"
-              aria-relevant="additions text"
-            >
-              {regularMessages.map((message) => {
-                const player = resolvePlayer(message)
-                const isSelf =
-                  !!currentPlayer &&
-                  (message.playerId === currentPlayer.id ||
-                    (message.userId != null && currentPlayer.userId === message.userId) ||
-                    message.playerNickname === currentPlayer.nickname)
-                const displayName = player?.nickname ?? message.playerNickname ?? '플레이어'
-                const badgeConfigs: Array<{ label: string; variant: 'default' | 'secondary' | 'outline' }> = []
-                if (player?.isHost) {
-                  badgeConfigs.push({ label: '방장', variant: 'default' })
-                }
-                const isViewerSamePlayer = currentPlayer?.id === player?.id
-                if (isViewerSamePlayer && player?.role === 'LIAR') {
-                  badgeConfigs.push({ label: '라이어', variant: 'outline' })
-                }
-                if (isViewerSamePlayer && player?.role === 'CITIZEN') {
-                  badgeConfigs.push({ label: '시민', variant: 'outline' })
-                }
-                if (isSelf) {
-                  badgeConfigs.push({ label: '나', variant: 'secondary' })
-                }
-                const typeLabel =
-                  message.type === 'DISCUSSION' || message.type === 'GENERAL'
-                    ? null
-                    : typeLabelMap[message.type]
-                const showReport = !isSelf && message.type !== 'SYSTEM'
-                const avatarInitial = displayName.charAt(0).toUpperCase()
-                const bubbleTone = isSelf
-                  ? 'border-primary/70 bg-primary text-primary-foreground shadow-lg shadow-primary/20'
-                  : messageToneMap[message.type] ?? messageToneMap.DEFAULT
-                const justifyClass = isSelf ? 'justify-end' : 'justify-start'
-                const alignmentClasses = isSelf ? 'items-end text-right' : 'items-start text-left'
-                const contentTone = isSelf ? 'text-primary-foreground/95' : 'text-foreground/90'
-                const typeBadgeTone = (() => {
-                  switch (message.type) {
-                    case 'HINT':
-                      return 'border-sky-500 text-sky-700 dark:border-sky-400 dark:text-sky-200'
-                    case 'DEFENSE':
-                      return 'border-rose-500 text-rose-600 dark:border-rose-400 dark:text-rose-200'
-                    case 'SYSTEM':
-                      return 'border-primary text-primary-700 dark:border-primary/80 dark:text-primary-200'
-                    case 'POST_ROUND':
-                      return 'border-amber-500 text-amber-700 dark:border-amber-400 dark:text-amber-200'
-                    default:
-                      return 'border-muted-foreground/40 text-muted-foreground'
+          )}
+          <div
+            ref={scrollContainerRef}
+            onScroll={handleScroll}
+            role="region"
+            aria-label="채팅 메시지 영역"
+            tabIndex={0}
+            className={`relative flex h-full flex-1 overflow-y-auto rounded-2xl border border-border/60 bg-muted/40 px-4 py-4 shadow-inner transition-colors scroll-smooth chat-scroll-area ${
+            isExpanded ? 'max-h-[74vh]' : ''
+          }`}
+          >
+            {!hasMessages ? (
+              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                아직 메시지가 없습니다
+              </div>
+            ) : (
+              <div
+                className="space-y-2.5 sm:space-y-3"
+                role="log"
+                aria-live="polite"
+                aria-relevant="additions text"
+              >
+                {messages.map((message) => {
+                  const player = resolvePlayer(message)
+                  const isSelf =
+                    !!currentPlayer &&
+                    (message.playerId === currentPlayer.id ||
+                      (message.userId != null && currentPlayer.userId === message.userId) ||
+                      message.playerNickname === currentPlayer.nickname)
+                  const isSystemMessage =
+                    message.type === 'SYSTEM' || message.playerNickname?.toUpperCase() === 'SYSTEM'
+                  const isHostMessage = !isSystemMessage && player?.isHost === true
+                  const displayName = isSystemMessage
+                    ? '시스템'
+                    : player?.nickname ?? message.playerNickname ?? '플레이어'
+                  const badgeConfigs: Array<{ label: string; variant: 'default' | 'secondary' | 'outline' }> = []
+                  if (isSystemMessage) {
+                    badgeConfigs.push({ label: '시스템', variant: 'outline' })
+                  } else {
+                    if (player?.isHost) {
+                      badgeConfigs.push({ label: '방장', variant: 'default' })
+                    }
+                    const isViewerSamePlayer = currentPlayer?.id === player?.id
+                    if (isViewerSamePlayer && player?.role === 'LIAR') {
+                      badgeConfigs.push({ label: '라이어', variant: 'outline' })
+                    }
+                    if (isViewerSamePlayer && player?.role === 'CITIZEN') {
+                      badgeConfigs.push({ label: '시민', variant: 'outline' })
+                    }
                   }
-                })()
-                const isHighlighted = highlightedMessageId === message.id
-                const highlightClasses = isHighlighted ? 'ring-2 ring-primary/50 shadow-[0_0_0_4px_rgba(59,130,246,0.18)]' : ''
+                  if (isSelf) {
+                    badgeConfigs.push({ label: '나', variant: 'secondary' })
+                  }
+                  const typeLabel =
+                    message.type === 'DISCUSSION' || message.type === 'GENERAL' || message.type === 'WAITING_ROOM'
+                      ? null
+                      : typeLabelMap[message.type]
+                  const showReport = !isSelf && message.type !== 'SYSTEM'
+                  const avatarInitial = displayName.charAt(0).toUpperCase()
+                  const bubbleTone = (() => {
+                    if (isSystemMessage) {
+                      return 'border-red-500/70 bg-red-50 text-red-900 shadow-sm dark:bg-red-500/20 dark:text-red-100'
+                    }
+                    if (isHostMessage) {
+                      return 'border-red-400/60 bg-red-50 text-red-900 shadow-sm dark:bg-red-500/15 dark:text-red-100'
+                    }
+                    if (isSelf) {
+                      return 'border-primary/70 bg-primary text-primary-foreground shadow-lg shadow-primary/20'
+                    }
+                    return messageToneMap[message.type] ?? messageToneMap.DEFAULT
+                  })()
+                  const justifyClass = isSelf ? 'justify-end' : 'justify-start'
+                  const alignmentClasses = isSelf ? 'items-end text-right' : 'items-start text-left'
+                  const contentTone = (() => {
+                    if (isSystemMessage || isHostMessage) {
+                      return 'text-red-900 dark:text-red-100'
+                    }
+                    if (isSelf) {
+                      return 'text-primary-foreground/95'
+                    }
+                    return 'text-foreground/90'
+                  })()
+                  const typeBadgeTone = (() => {
+                    switch (message.type) {
+                      case 'HINT':
+                        return 'border-sky-500 text-sky-700 dark:border-sky-400 dark:text-sky-200'
+                      case 'DEFENSE':
+                        return 'border-rose-500 text-rose-600 dark:border-rose-400 dark:text-rose-200'
+                      case 'SYSTEM':
+                        return 'border-red-500 text-red-600 dark:border-red-400 dark:text-red-200'
+                      case 'POST_ROUND':
+                        return 'border-amber-500 text-amber-700 dark:border-amber-400 dark:text-amber-200'
+                      default:
+                        return 'border-muted-foreground/40 text-muted-foreground'
+                    }
+                  })()
+                  const isHighlighted = highlightedMessageId === message.id
+                  const highlightClasses = isHighlighted ? 'ring-2 ring-primary/50 shadow-[0_0_0_4px_rgba(59,130,246,0.18)]' : ''
 
-                return (
-                  <div key={message.id} className={`flex ${justifyClass}`}>
-                    <div className={`flex max-w-[88%] flex-col gap-1.5 ${alignmentClasses} 2xl:max-w-[75%]`}>
-                      <div
-                        className={`rounded-2xl border px-4 py-3 transition-all duration-150 ${bubbleTone} ${highlightClasses}`}
-                        data-message-type={message.type}
-                        data-highlighted={isHighlighted}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex items-center gap-3">
-                            <Avatar className="h-8 w-8 shadow-sm ring-1 ring-border/40">
+                  return (
+                    <div key={message.id} className={`flex ${justifyClass}`}>
+                      <div className={`flex w-full flex-col gap-1.5 ${alignmentClasses}`}>
+                        <div
+                          className={`rounded-2xl border px-3.5 py-1.5 transition-all duration-150 ${bubbleTone} ${highlightClasses}`}
+                          data-message-type={message.type}
+                          data-highlighted={isHighlighted}
+                        >
+                          <div className="flex w-full items-start gap-2">
+                            <Avatar className="h-6 w-6 shrink-0 shadow-sm ring-1 ring-border/40">
                               <AvatarFallback className="text-xs uppercase">{avatarInitial}</AvatarFallback>
                             </Avatar>
-                            <div className="text-left">
-                              <div className="flex flex-wrap items-center gap-2">
+                            <div className="flex min-w-0 flex-1 items-center gap-2">
+                              <div className="flex items-center gap-1.5">
                                 <span className="text-sm font-semibold leading-none tracking-tight">{displayName}</span>
                                 {badgeConfigs.map(({ label, variant }) => (
-                                  <Badge key={label} variant={variant} className="rounded-full px-2.5 py-0.5 text-[10px] uppercase tracking-wide">
+                                  <Badge key={label} variant={variant} className="rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wide">
                                     {label}
                                   </Badge>
                                 ))}
                                 {typeLabel && (
                                   <Badge
                                     variant="outline"
-                                    className={`rounded-full px-2.5 py-0.5 text-[10px] uppercase tracking-wide ${typeBadgeTone}`}
+                                    className={`rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wide ${typeBadgeTone}`}
                                   >
                                     {typeLabel}
                                   </Badge>
                                 )}
                               </div>
-                              <div className="mt-1 text-[11px] text-muted-foreground">
+                              <p className={`min-w-0 flex-1 whitespace-pre-wrap break-words text-[13.5px] leading-tight sm:text-[14px] ${contentTone}`}>
+                                {message.content}
+                              </p>
+                              <span className="shrink-0 text-[11px] text-muted-foreground">
                                 {formatTimestamp(message.timestamp)}
-                              </div>
+                              </span>
                             </div>
+                            {showReport && (
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-6 w-6 text-muted-foreground transition-colors hover:text-foreground"
+                                onClick={() => handleReport(message)}
+                                aria-label="신고"
+                                title="메시지 신고"
+                              >
+                                <Flag className="h-3 w-3" />
+                              </Button>
+                            )}
                           </div>
-                          {showReport && (
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-6 w-6 text-muted-foreground transition-colors hover:text-foreground"
-                              onClick={() => handleReport(message)}
-                              aria-label="신고"
-                              title="메시지 신고"
-                            >
-                              <Flag className="h-3 w-3" />
-                            </Button>
-                          )}
-                        </div>
-                        <div className={`mt-2.5 whitespace-pre-wrap text-[15px] leading-relaxed ${contentTone}`}>
-                          {message.content}
                         </div>
                       </div>
                     </div>
-                  </div>
-                )
-              })}
-              <div ref={listEndRef} />
-            </div>
-          )}
+                  )
+                })}
+                <div ref={listEndRef} />
+              </div>
+            )}
 
-          <button
-            type="button"
-            className={unreadButtonClasses}
-            onClick={handleScrollToLatest}
-            aria-live="polite"
-          >
-            <ArrowDown className="h-3.5 w-3.5" />
-            새 메시지
-          </button>
+            <button
+              type="button"
+              className={unreadButtonClasses}
+              onClick={handleScrollToLatest}
+              aria-live="polite"
+            >
+              <ArrowDown className="h-3.5 w-3.5" />
+              새 메시지
+            </button>
+          </div>
         </div>
 
         {typingNames.length > 0 && (
-          <div className="mt-2 text-xs italic text-muted-foreground">
+          <div className="text-xs italic text-muted-foreground">
             {typingNames.join(', ')} 님이 입력 중...
           </div>
         )}
 
-        <div className="mt-3" ref={composerRef}>
+        <form className="flex flex-col gap-1.5" onSubmit={handleComposerSubmit} noValidate>
           <div
-            className={`group flex items-center gap-2 rounded-2xl border border-border/60 bg-background/90 px-3 py-2 motion-safe:transition-all motion-safe:duration-200 ${isInputFocused ? 'border-primary/70 shadow-[0_0_0_3px_rgba(59,130,246,0.18)]' : ''} ${justSent ? 'border-emerald-500/60 shadow-[0_0_0_3px_rgba(16,185,129,0.18)]' : ''}`}
+            className={`group flex items-center gap-2 rounded-2xl border border-border/60 bg-background/90 px-3 py-1.5 motion-safe:transition-all motion-safe:duration-200 ${isInputFocused ? 'border-primary/70 shadow-[0_0_0_3px_rgba(59,130,246,0.18)]' : ''} ${justSent ? 'border-emerald-500/60 shadow-[0_0_0_3px_rgba(16,185,129,0.18)]' : ''}`}
           >
             <Input
-              className="h-11 flex-1 border-none bg-transparent text-base shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+              ref={inputRef}
+              className="h-10 flex-1 border-none bg-transparent text-base shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
               placeholder={
                 canSendMessage ? '메시지를 입력해 주세요...' : '투표 중에는 채팅을 보낼 수 없어요'
               }
@@ -674,16 +631,16 @@ export const GameChat: React.FC<GameChatProps> = ({
               onKeyDown={handleKeyDown}
               onFocus={() => setIsInputFocused(true)}
               onBlur={() => setIsInputFocused(false)}
-              disabled={!canSendMessage || isSending}
+              disabled={!canSendMessage}
               maxLength={MAX_MESSAGE_LENGTH}
               aria-invalid={sendError ? true : undefined}
               aria-describedby={sendErrorId}
             />
             <Button
-              onClick={handleSubmit}
+              type="submit"
               disabled={!canSendMessage || isSending || draft.trim().length === 0}
               size="sm"
-              className={`relative h-11 px-4 motion-safe:transition-all motion-safe:duration-200 ${justSent ? 'bg-emerald-500 text-emerald-50 hover:bg-emerald-500' : ''}`}
+              className={`relative h-10 px-4 motion-safe:transition-all motion-safe:duration-200 ${justSent ? 'bg-emerald-500 text-emerald-50 hover:bg-emerald-500' : ''}`}
             >
               {isSending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -694,7 +651,7 @@ export const GameChat: React.FC<GameChatProps> = ({
               )}
             </Button>
           </div>
-          <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground">
+          <div className="flex flex-wrap items-center justify-between gap-1.5 text-[10.5px] text-muted-foreground">
             <div className="flex items-center gap-2">
               <span className="whitespace-nowrap">Shift+Enter로 줄바꿈</span>
               <span className={`whitespace-nowrap transition-colors ${characterCountTone}`} aria-live="polite">
@@ -721,7 +678,7 @@ export const GameChat: React.FC<GameChatProps> = ({
               })}
             </div>
           </div>
-          <div className="mt-2 min-h-[1.5rem]" aria-live="assertive">
+          <div className="min-h-[1.25rem]" aria-live="assertive">
             {sendError && (
               <div id={sendErrorId} role="alert" className="flex items-center justify-between gap-3 rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-1.5 text-xs text-destructive">
                 <span className="truncate">{sendError}</span>
@@ -731,14 +688,14 @@ export const GameChat: React.FC<GameChatProps> = ({
               </div>
             )}
           </div>
-          <span className="sr-only" role="status" aria-live="polite">
-            {justSent ? '메시지가 전송되었습니다.' : ''}
-          </span>
-        </div>
+        </form>
+        <span className="sr-only" role="status" aria-live="polite">
+          {justSent ? '메시지가 전송되었습니다.' : ''}
+        </span>
 
         {!canSendMessage && (
-          <div className="mt-2 text-center text-xs text-muted-foreground">
-            투표 단계에서는 채팅이 제한됩니다
+          <div className="text-center text-xs text-muted-foreground">
+            투표 단계에서는 채팅을 보낼 수 없어요
           </div>
         )}
       </CardContent>

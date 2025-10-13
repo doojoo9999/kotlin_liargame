@@ -17,7 +17,7 @@
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:report": "playwright show-report",
     "build:analyze": "cross-env ANALYZE=true npm run build",
-    "lighthouse": "npx lighthouse http://localhost:5173 --output=html --output-path=./lighthouse-report.html",
+    "lighthouse": "npx lighthouse http://218.150.3.77:5173 --output=html --output-path=./lighthouse-report.html",
     "typecheck": "tsc --noEmit",
     "test:all": "npm run typecheck && npm run test:run && npm run test:e2e"
   },
@@ -76,7 +76,7 @@
     "@vitejs/plugin-react": "^5.0.0",
     "@vitest/coverage-v8": "^3.2.4",
     "autoprefixer": "^10.4.21",
-    "axe-core": "^4.10.3",
+    "axe-core": " ^4.10.3",
     "cross-env": "^10.0.0",
     "eslint": "^9.33.0",
     "eslint-plugin-react-hooks": "^5.2.0",

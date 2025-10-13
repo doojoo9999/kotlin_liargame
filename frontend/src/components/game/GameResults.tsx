@@ -12,7 +12,7 @@ interface GameResultsProps {
   currentRound: number;
   totalRounds: number;
   onNextRound?: () => void;
-  onReturnToLobby?: () => void;
+  onReturnToLobby?: (options?: { skipServer?: boolean }) => void;
 }
 
 export const GameResults: React.FC<GameResultsProps> = ({
@@ -200,7 +200,7 @@ export const GameResults: React.FC<GameResultsProps> = ({
 
         {onReturnToLobby && (
           <Button
-            onClick={onReturnToLobby}
+            onClick={() => onReturnToLobby?.()}
             variant={isGameComplete ? "default" : "outline"}
             size="lg"
             className="min-w-[120px]"

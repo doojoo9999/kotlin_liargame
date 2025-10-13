@@ -117,6 +117,14 @@ export function MainResultsPage() {
   }
 
   const handleShareResults = () => {
+    if (!gameResults) {
+      toast({
+        title: '공유할 결과가 없습니다',
+        description: '게임 결과를 불러오지 못했습니다.',
+        variant: 'destructive',
+      })
+      return
+    }
     // 결과 공유 기능
     const resultText = `라이어 게임 결과!\n🏆 우승자: ${gameResults.winner}\n📊 총 ${gameResults.totalRounds}라운드`
 

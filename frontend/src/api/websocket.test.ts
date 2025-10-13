@@ -46,7 +46,7 @@ describe('GameWebSocketClient', () => {
     global.WebSocket = MockWebSocketConstructor as any;
     
     client = new GameWebSocketClient({
-      url: 'ws://localhost:8080/ws',
+      url: 'ws://218.150.3.77:8080/ws',
       reconnectAttempts: 3,
       reconnectDelay: 100,
       heartbeatInterval: 1000,

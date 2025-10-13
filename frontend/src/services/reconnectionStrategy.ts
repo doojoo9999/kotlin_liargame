@@ -8,7 +8,11 @@ export interface ReconnectOptions {
 
 export class ReconnectStrategy {
   private attempts = 0;
-  constructor(private opts: ReconnectOptions = {}) {}
+  private readonly opts: ReconnectOptions;
+
+  constructor(opts: ReconnectOptions = {}) {
+    this.opts = opts;
+  }
   nextDelay(): number {
     const base = this.opts.baseDelay ?? 1000;
     const factor = this.opts.factor ?? 2;

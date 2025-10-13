@@ -1,58 +1,120 @@
-API Response: {status: 200, statusText: '', headers: {…}, ok: true}
-client.ts:188 API Request: {method: 'GET', url: 'http://localhost:20021/api/v1/chat/history?gameNumber=11&limit=50', headers: {…}, body: undefined, credentials: 'include'}
-client.ts:252 API Response Data: {success: true, userId: 32, nickname: '재현', message: '세션이 갱신되었습니다.'}
-authService.ts:48 Session refresh successful: 재현
-authStore.ts:106 Auth state updated after refresh: 재현
-client.ts:200 API Response: {status: 200, statusText: '', headers: {…}, ok: true}
-client.ts:252 API Response Data: []
-websocketService.ts:667 STOMP Debug: >>> SEND
-destination:/app/chat.send
-content-length:103
-
-
-websocketService.ts:667 STOMP Debug: Received data
-websocketService.ts:667 STOMP Debug: <<< MESSAGE
-content-length:156
-message-id:kxfmcjox-12
-subscription:sub-2
-content-type:application/json
-destination:/topic/chat.11
-content-length:156
-
-
-websocketService.ts:915 Received chat message: {id: '15', gameNumber: 11, playerId: undefined, userId: undefined, playerNickname: '재현', …}
-websocketService.ts:667 STOMP Debug: >>> SEND
-destination:/app/chat.send
-content-length:100
-
-
-websocketService.ts:667 STOMP Debug: Received data
-websocketService.ts:667 STOMP Debug: <<< MESSAGE
-content-length:153
-message-id:kxfmcjox-13
-subscription:sub-2
-content-type:application/json
-destination:/topic/chat.11
-content-length:153
-
-
-websocketService.ts:915 Received chat message: {id: '16', gameNumber: 11, playerId: undefined, userId: undefined, playerNickname: '재현', …}content: "ㅁㄴㄻㄹㄴㅇㅁㄹ"gameNumber: 11id: "16"message: "ㅁㄴㄻㄹㄴㅇㅁㄹ"playerId: undefinedplayerName: "재현"playerNickname: "재현"timestamp: 1758595476867type: "POST_ROUND"userId: undefined[[Prototype]]: Object
-websocketService.ts:667 STOMP Debug: >>> SEND
-destination:/app/chat.send
-content-length:109
-
-
-websocketService.ts:667 STOMP Debug: Received data
-websocketService.ts:667 STOMP Debug: <<< MESSAGE
-content-length:159
-message-id:kxfmcjox-14
-subscription:sub-2
-content-type:application/json
-destination:/topic/chat.11
-content-length:159
-
-
-websocketService.ts:915 Received chat message: {id: '17', gameNumber: 11, playerId: undefined, userId: undefined, playerNickname: '재현', …}content: "ㄴㄻㅇㄹㄴㅁㄹㄴㄹㄴㅁ"gameNumber: 11id: "17"message: "ㄴㄻㅇㄹㄴㅁㄹㄴㄹㄴㅁ"playerId: undefinedplayerName: "재현"playerNickname: "재현"timestamp: 1758595500246type: "POST_ROUND"userId: undefined[[Prototype]]: Object
-2websocketService.ts:667 STOMP Debug: >>> SEND
-destination:/app/ping
-content-length:27
+org.springframework.dao.DataIntegrityViolationException: could not execute statement [오류: 새 자료가 "chat_message" 릴레이션의 "chat_message_type_check" 체크 제약 조건을 위반했습니다
+Detail: 실패한 자료: (2025-10-01 14:00:54.478469, 26, 128, 2025-10-01 14:00:54.478469, 28, 2025-10-01 14:00:54.477462+09, null, null, asdf, WAITING_ROOM)] [insert into chat_message (content,created_at,game_id,ip_address,modified_at,player_id,session_id,timestamp,type) values (?,?,?,?,?,?,?,?,?)]; SQL [insert into chat_message (content,created_at,game_id,ip_address,modified_at,player_id,session_id,timestamp,type) values (?,?,?,?,?,?,?,?,?)]; constraint [null]
+at org.springframework.orm.jpa.vendor.HibernateJpaDialect.convertHibernateAccessException(HibernateJpaDialect.java:290)
+at org.springframework.orm.jpa.vendor.HibernateJpaDialect.translateExceptionIfPossible(HibernateJpaDialect.java:241)
+at org.springframework.orm.jpa.AbstractEntityManagerFactoryBean.translateExceptionIfPossible(AbstractEntityManagerFactoryBean.java:550)
+at org.springframework.dao.support.ChainedPersistenceExceptionTranslator.translateExceptionIfPossible(ChainedPersistenceExceptionTranslator.java:61)
+at org.springframework.dao.support.DataAccessUtils.translateIfNecessary(DataAccessUtils.java:335)
+at org.springframework.dao.support.PersistenceExceptionTranslationInterceptor.invoke(PersistenceExceptionTranslationInterceptor.java:152)
+at org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:184)
+at org.springframework.data.jpa.repository.support.CrudMethodMetadataPostProcessor$CrudMethodMetadataPopulatingMethodInterceptor.invoke(CrudMethodMetadataPostProcessor.java:164)
+at org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:184)
+at org.springframework.aop.interceptor.ExposeInvocationInterceptor.invoke(ExposeInvocationInterceptor.java:97)
+at org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:184)
+at org.springframework.data.repository.core.support.MethodInvocationValidator.invoke(MethodInvocationValidator.java:95)
+at org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:184)
+at org.springframework.aop.framework.JdkDynamicAopProxy.invoke(JdkDynamicAopProxy.java:249)
+at jdk.proxy2/jdk.proxy2.$Proxy190.save(Unknown Source)
+at org.example.kotlin_liargame.domain.chat.service.ChatService.sendMessageWithUserId(ChatService.kt:194)
+at org.example.kotlin_liargame.domain.chat.service.ChatService.sendMessageViaWebSocket(ChatService.kt:134)
+at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
+at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+at java.base/java.lang.reflect.Method.invoke(Method.java:569)
+at org.springframework.aop.support.AopUtils.invokeJoinpointUsingReflection(AopUtils.java:352)
+at org.springframework.aop.framework.ReflectiveMethodInvocation.invokeJoinpoint(ReflectiveMethodInvocation.java:196)
+at org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:163)
+at org.springframework.aop.framework.CglibAopProxy$CglibMethodInvocation.proceed(CglibAopProxy.java:765)
+at org.springframework.transaction.interceptor.TransactionInterceptor$1.proceedWithInvocation(TransactionInterceptor.java:123)
+at org.springframework.transaction.interceptor.TransactionAspectSupport.invokeWithinTransaction(TransactionAspectSupport.java:385)
+at org.springframework.transaction.interceptor.TransactionInterceptor.invoke(TransactionInterceptor.java:119)
+at org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:184)
+at org.springframework.aop.framework.CglibAopProxy$CglibMethodInvocation.proceed(CglibAopProxy.java:765)
+at org.springframework.aop.framework.CglibAopProxy$DynamicAdvisedInterceptor.intercept(CglibAopProxy.java:717)
+at org.example.kotlin_liargame.domain.chat.service.ChatService$$SpringCGLIB$$0.sendMessageViaWebSocket(<generated>)
+at org.example.kotlin_liargame.domain.chat.controller.ChatController.handleChatMessage(ChatController.kt:50)
+at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
+at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+at java.base/java.lang.reflect.Method.invoke(Method.java:569)
+at org.springframework.messaging.handler.invocation.InvocableHandlerMethod.doInvoke(InvocableHandlerMethod.java:169)
+at org.springframework.messaging.handler.invocation.InvocableHandlerMethod.invoke(InvocableHandlerMethod.java:119)
+at org.springframework.messaging.handler.invocation.AbstractMethodMessageHandler.handleMatch(AbstractMethodMessageHandler.java:567)
+at org.springframework.messaging.simp.annotation.support.SimpAnnotationMethodMessageHandler.handleMatch(SimpAnnotationMethodMessageHandler.java:511)
+at org.springframework.messaging.simp.annotation.support.SimpAnnotationMethodMessageHandler.handleMatch(SimpAnnotationMethodMessageHandler.java:93)
+at org.springframework.messaging.handler.invocation.AbstractMethodMessageHandler.handleMessageInternal(AbstractMethodMessageHandler.java:522)
+at org.springframework.messaging.handler.invocation.AbstractMethodMessageHandler.handleMessage(AbstractMethodMessageHandler.java:457)
+at org.springframework.messaging.support.ExecutorSubscribableChannel$SendTask.run(ExecutorSubscribableChannel.java:144)
+at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+at java.base/java.lang.Thread.run(Thread.java:840)
+Caused by: org.hibernate.exception.ConstraintViolationException: could not execute statement [오류: 새 자료가 "chat_message" 릴레이션의 "chat_message_type_check" 체크 제약 조건을 위반했습니다
+Detail: 실패한 자료: (2025-10-01 14:00:54.478469, 26, 128, 2025-10-01 14:00:54.478469, 28, 2025-10-01 14:00:54.477462+09, null, null, asdf, WAITING_ROOM)] [insert into chat_message (content,created_at,game_id,ip_address,modified_at,player_id,session_id,timestamp,type) values (?,?,?,?,?,?,?,?,?)]
+at org.hibernate.exception.internal.SQLStateConversionDelegate.convert(SQLStateConversionDelegate.java:97)
+at org.hibernate.exception.internal.StandardSQLExceptionConverter.convert(StandardSQLExceptionConverter.java:58)
+at org.hibernate.engine.jdbc.spi.SqlExceptionHelper.convert(SqlExceptionHelper.java:108)
+at org.hibernate.engine.jdbc.internal.ResultSetReturnImpl.executeUpdate(ResultSetReturnImpl.java:283)
+at org.hibernate.id.insert.GetGeneratedKeysDelegate.performInsert(GetGeneratedKeysDelegate.java:107)
+at org.hibernate.engine.jdbc.mutation.internal.MutationExecutorPostInsertSingleTable.execute(MutationExecutorPostInsertSingleTable.java:100)
+at org.hibernate.persister.entity.mutation.InsertCoordinator.doStaticInserts(InsertCoordinator.java:171)
+at org.hibernate.persister.entity.mutation.InsertCoordinator.coordinateInsert(InsertCoordinator.java:112)
+at org.hibernate.persister.entity.AbstractEntityPersister.insert(AbstractEntityPersister.java:2860)
+at org.hibernate.action.internal.EntityIdentityInsertAction.execute(EntityIdentityInsertAction.java:81)
+at org.hibernate.engine.spi.ActionQueue.execute(ActionQueue.java:667)
+at org.hibernate.engine.spi.ActionQueue.addResolvedEntityInsertAction(ActionQueue.java:290)
+at org.hibernate.engine.spi.ActionQueue.addInsertAction(ActionQueue.java:271)
+at org.hibernate.engine.spi.ActionQueue.addAction(ActionQueue.java:321)
+at org.hibernate.event.internal.AbstractSaveEventListener.addInsertAction(AbstractSaveEventListener.java:386)
+at org.hibernate.event.internal.AbstractSaveEventListener.performSaveOrReplicate(AbstractSaveEventListener.java:300)
+at org.hibernate.event.internal.AbstractSaveEventListener.performSave(AbstractSaveEventListener.java:219)
+at org.hibernate.event.internal.AbstractSaveEventListener.saveWithGeneratedId(AbstractSaveEventListener.java:134)
+at org.hibernate.event.internal.DefaultPersistEventListener.entityIsTransient(DefaultPersistEventListener.java:175)
+at org.hibernate.event.internal.DefaultPersistEventListener.persist(DefaultPersistEventListener.java:93)
+at org.hibernate.event.internal.DefaultPersistEventListener.onPersist(DefaultPersistEventListener.java:77)
+at org.hibernate.event.internal.DefaultPersistEventListener.onPersist(DefaultPersistEventListener.java:54)
+at org.hibernate.event.service.internal.EventListenerGroupImpl.fireEventOnEachListener(EventListenerGroupImpl.java:127)
+at org.hibernate.internal.SessionImpl.firePersist(SessionImpl.java:766)
+at org.hibernate.internal.SessionImpl.persist(SessionImpl.java:750)
+at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
+at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+at java.base/java.lang.reflect.Method.invoke(Method.java:569)
+at org.springframework.orm.jpa.SharedEntityManagerCreator$SharedEntityManagerInvocationHandler.invoke(SharedEntityManagerCreator.java:311)
+at jdk.proxy2/jdk.proxy2.$Proxy177.persist(Unknown Source)
+at org.springframework.data.jpa.repository.support.SimpleJpaRepository.save(SimpleJpaRepository.java:618)
+at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
+at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+at java.base/java.lang.reflect.Method.invoke(Method.java:569)
+at org.springframework.aop.support.AopUtils.invokeJoinpointUsingReflection(AopUtils.java:352)
+at org.springframework.data.repository.core.support.RepositoryMethodInvoker$RepositoryFragmentMethodInvoker.lambda$new$0(RepositoryMethodInvoker.java:277)
+at org.springframework.data.repository.core.support.RepositoryMethodInvoker.doInvoke(RepositoryMethodInvoker.java:170)
+at org.springframework.data.repository.core.support.RepositoryMethodInvoker.invoke(RepositoryMethodInvoker.java:158)
+at org.springframework.data.repository.core.support.RepositoryComposition$RepositoryFragments.invoke(RepositoryComposition.java:516)
+at org.springframework.data.repository.core.support.RepositoryComposition.invoke(RepositoryComposition.java:285)
+at org.springframework.data.repository.core.support.RepositoryFactorySupport$ImplementationMethodExecutionInterceptor.invoke(RepositoryFactorySupport.java:628)
+at org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:184)
+at org.springframework.data.repository.core.support.QueryExecutorMethodInterceptor.doInvoke(QueryExecutorMethodInterceptor.java:168)
+at org.springframework.data.repository.core.support.QueryExecutorMethodInterceptor.invoke(QueryExecutorMethodInterceptor.java:143)
+at org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:184)
+at org.springframework.data.projection.DefaultMethodInvokingMethodInterceptor.invoke(DefaultMethodInvokingMethodInterceptor.java:70)
+at org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:184)
+at org.springframework.transaction.interceptor.TransactionInterceptor$1.proceedWithInvocation(TransactionInterceptor.java:123)
+at org.springframework.transaction.interceptor.TransactionAspectSupport.invokeWithinTransaction(TransactionAspectSupport.java:385)
+at org.springframework.transaction.interceptor.TransactionInterceptor.invoke(TransactionInterceptor.java:119)
+at org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:184)
+at org.springframework.dao.support.PersistenceExceptionTranslationInterceptor.invoke(PersistenceExceptionTranslationInterceptor.java:137)
+... 42 more
+Caused by: org.postgresql.util.PSQLException: 오류: 새 자료가 "chat_message" 릴레이션의 "chat_message_type_check" 체크 제약 조건을 위반했습니다
+Detail: 실패한 자료: (2025-10-01 14:00:54.478469, 26, 128, 2025-10-01 14:00:54.478469, 28, 2025-10-01 14:00:54.477462+09, null, null, asdf, WAITING_ROOM)
+at org.postgresql.core.v3.QueryExecutorImpl.receiveErrorResponse(QueryExecutorImpl.java:2713)
+at org.postgresql.core.v3.QueryExecutorImpl.processResults(QueryExecutorImpl.java:2401)
+at org.postgresql.core.v3.QueryExecutorImpl.execute(QueryExecutorImpl.java:368)
+at org.postgresql.jdbc.PgStatement.executeInternal(PgStatement.java:498)
+at org.postgresql.jdbc.PgStatement.execute(PgStatement.java:415)
+at org.postgresql.jdbc.PgPreparedStatement.executeWithFlags(PgPreparedStatement.java:190)
+at org.postgresql.jdbc.PgPreparedStatement.executeUpdate(PgPreparedStatement.java:152)
+at com.zaxxer.hikari.pool.ProxyPreparedStatement.executeUpdate(ProxyPreparedStatement.java:61)
+at com.zaxxer.hikari.pool.HikariProxyPreparedStatement.executeUpdate(HikariProxyPreparedStatement.java)
+at org.hibernate.engine.jdbc.internal.ResultSetReturnImpl.executeUpdate(ResultSetReturnImpl.java:280)
+... 92 more

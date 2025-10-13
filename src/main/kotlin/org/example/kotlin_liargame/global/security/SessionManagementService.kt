@@ -217,9 +217,15 @@ class SessionManagementService(
         val userSessionData = sessionDataManager.getUserSession(session)
         if (userSessionData != null) {
             invalidateSession(userSessionData.nickname)
-            sessionDataManager.clearUserSession(session)
-            session.invalidate()
             println("[SECURITY] User logged out: ${userSessionData.nickname}")
+        }
+
+        sessionDataManager.clearUserSession(session)
+
+        try {
+            session.invalidate()
+        } catch (e: IllegalStateException) {
+            println("[SECURITY] Session already invalidated during logout: ${e.message}")
         }
     }
 
@@ -244,6 +250,46 @@ class SessionManagementService(
         }
     }
     
+
+    fun rehydrateSession(session: HttpSession, existingInfo: SessionInfo? = null): Boolean {
+        var sessionInfo = existingInfo ?: getSessionInfoById(session.id) ?: return false
+
+        return try {
+            if (sessionInfo.sessionId != session.id) {
+                sessionIdToNickname.remove(sessionInfo.sessionId)
+                sessionIdToNickname[session.id] = sessionInfo.nickname
+                sessionInfo = sessionInfo.copy(sessionId = session.id)
+                activeSessions[sessionInfo.nickname] = sessionInfo
+            }
+
+            val now = LocalDateTime.now()
+            sessionInfo.lastActivity = now
+
+            val userSessionData = UserSessionData(
+                userId = sessionInfo.userId,
+                nickname = sessionInfo.nickname,
+                loginTime = sessionInfo.loginTime,
+                lastActivity = sessionInfo.lastActivity,
+                ipAddress = sessionInfo.ipAddress
+            )
+            sessionDataManager.setUserSession(session, userSessionData)
+
+            sessionDataManager.setSessionMetadata(
+                session,
+                SessionMetadata(
+                    sessionId = sessionInfo.sessionId,
+                    userAgent = extractUserAgent(session),
+                    ipAddress = sessionInfo.ipAddress,
+                    createdAt = sessionInfo.loginTime,
+                    expiresAt = now.plusMinutes(30)
+                )
+            )
+            true
+        } catch (e: Exception) {
+            println("[WARN] Failed to rehydrate session ${session.id}: ${e.message}")
+            false
+        }
+    }
 
     fun getSessionInfoById(sessionId: String): SessionInfo? {
         val nickname = sessionIdToNickname[sessionId] ?: return null
@@ -348,4 +394,5 @@ data class SessionStatistics(
     val activeInLast5Minutes: Int,
     val loginsInLastHour: Int
 )
+
 

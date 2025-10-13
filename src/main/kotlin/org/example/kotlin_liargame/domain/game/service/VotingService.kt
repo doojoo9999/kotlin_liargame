@@ -3,11 +3,13 @@ package org.example.kotlin_liargame.domain.game.service
 import jakarta.servlet.http.HttpSession
 import org.example.kotlin_liargame.domain.game.dto.request.FinalVotingRequest
 import org.example.kotlin_liargame.domain.game.dto.request.VoteRequest
-import org.example.kotlin_liargame.domain.game.dto.response.FinalJudgmentResultResponse
 import org.example.kotlin_liargame.domain.game.dto.response.GameStateResponse
 import org.example.kotlin_liargame.domain.game.dto.response.VoteResponse
 import org.example.kotlin_liargame.domain.game.model.GameEntity
-import org.example.kotlin_liargame.domain.game.model.enum.*
+import org.example.kotlin_liargame.domain.game.model.enum.GamePhase
+import org.example.kotlin_liargame.domain.game.model.enum.GameState
+import org.example.kotlin_liargame.domain.game.model.enum.PlayerState
+import org.example.kotlin_liargame.domain.game.model.enum.VotingPhase
 import org.example.kotlin_liargame.domain.game.repository.GameRepository
 import org.example.kotlin_liargame.domain.game.repository.PlayerRepository
 import org.example.kotlin_liargame.global.config.GameProperties
@@ -32,7 +34,8 @@ class VotingService(
     private val gameProperties: GameProperties,
     @Lazy private val gameProgressService: GameProgressService,
     private val sessionService: org.example.kotlin_liargame.global.session.SessionService,
-    @Lazy private val chatService: org.example.kotlin_liargame.domain.chat.service.ChatService
+    @Lazy private val chatService: org.example.kotlin_liargame.domain.chat.service.ChatService,
+    private val gameStateService: org.example.kotlin_liargame.global.redis.GameStateService
 ) {
 
     fun startVotingPhase(game: GameEntity) {
@@ -276,49 +279,11 @@ class VotingService(
     fun finalVote(req: FinalVotingRequest, session: HttpSession): GameStateResponse {
         val userId = sessionService.getCurrentUserId(session)
             ?: throw RuntimeException("Not authenticated")
-        val game = gameRepository.findByGameNumberWithLock(req.gameNumber)
+        defenseService.castFinalVote(req.gameNumber, userId, req.voteForExecution)
+
+        val game = gameRepository.findByGameNumber(req.gameNumber)
             ?: throw RuntimeException("Game not found")
 
-        val voter = playerRepository.findByGameAndUserId(game, userId)
-            ?: throw RuntimeException("You are not in this game")
-
-        // 최종 투표는 변론이 끝난 플레이어들만 가능
-        if (!voter.isAlive || voter.state != PlayerState.DEFENDED) {
-            throw IllegalStateException("It's not the time for a final vote.")
-        }
-
-        voter.finalVote = req.voteForExecution
-        voter.state = PlayerState.FINAL_VOTED
-        playerRepository.save(voter)
-
-        val players = playerRepository.findByGame(game)
-        // findByGameAndIsAlive 사용으로 성능 개선 및 코드 간소화
-        val alivePlayers = playerRepository.findByGameAndIsAlive(game, true)
-        val allVoted = alivePlayers.none { it.state == PlayerState.DEFENDED }
-
-        if (allVoted) {
-            val accusedPlayer = players.find { it.state == PlayerState.ACCUSED || it.state == PlayerState.DEFENDED }
-                ?: throw IllegalStateException("No accused player found.")
-
-            val votesForExecution = alivePlayers.count { it.finalVote == true }
-            val votesAgainstExecution = alivePlayers.count { it.finalVote == false }
-            val isExecuted = votesForExecution > votesAgainstExecution
-
-            val judgmentResult = FinalJudgmentResultResponse(
-                gameNumber = game.gameNumber,
-                // accusedPlayerId는 userId를 저장해야 함
-                accusedPlayerId = accusedPlayer.userId,
-                accusedPlayerNickname = accusedPlayer.nickname,
-                isKilled = isExecuted,
-                isLiar = accusedPlayer.role == PlayerRole.LIAR,
-                executionVotes = votesForExecution,
-                survivalVotes = votesAgainstExecution,
-                totalVotes = alivePlayers.size
-            )
-            
-            gameResultService.processGameResult(game.gameNumber, judgmentResult)
-        }
-        
         val gameStateResponse = getGameState(game, session)
         gameMonitoringService.broadcastGameState(game, gameStateResponse)
         return gameStateResponse

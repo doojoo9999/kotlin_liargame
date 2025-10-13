@@ -7,7 +7,7 @@ require('dotenv').config({
     : path.join(__dirname, '.env')
 });
 
-const DEFAULT_BASE = 'http://localhost:5173';
+const DEFAULT_BASE = 'http://218.150.3.77:5173';
 const BASE_URL = (process.env.VITE_BASE_URL || DEFAULT_BASE).replace(/\/$/, '');
 
 const GAME_FLOW_SCHEMA_VERSION = 'game-flow/2024-09-18';
@@ -20,7 +20,7 @@ function url(p = '') {
 }
 
 function baseHost() {
-  try { return new URL(BASE_URL).host; } catch { return 'localhost:5173'; }
+  try { return new URL(BASE_URL).host; } catch { return '218.150.3.77:5173'; }
 }
 
 module.exports = { BASE_URL, url, baseHost, GAME_FLOW_SCHEMA_VERSION, REALTIME_SCHEMA_VERSION };

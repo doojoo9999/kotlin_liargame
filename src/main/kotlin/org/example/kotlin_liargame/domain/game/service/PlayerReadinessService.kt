@@ -35,6 +35,9 @@ class PlayerReadinessService(
         val userId = sessionService.getCurrentUserId(session)
         val nickname = sessionService.getCurrentUserNickname(session)
 
+        val player = playerRepository.findByGameAndUserId(game, userId)
+            ?: throw IllegalStateException("플레이어 정보를 찾을 수 없습니다.")
+
         val readiness = playerReadinessRepository.findByGameAndUserId(game, userId)
             ?: PlayerReadinessEntity(
                 game = game,
@@ -57,6 +60,7 @@ class PlayerReadinessService(
             "type" to "PLAYER_READY_CHANGED",
             "gameNumber" to game.gameNumber,
             "userId" to readiness.userId,
+            "playerId" to player.id,
             "nickname" to readiness.nickname,
             "isReady" to readiness.isReady,
             "allReady" to allReady,
@@ -64,10 +68,17 @@ class PlayerReadinessService(
             "totalPlayers" to totalPlayers,
             "updatedAt" to readiness.updatedAt.toString()
         )
-        gameMonitoringService.broadcastGameState(game, payload)
+        gameMonitoringService.notifyPlayerReadyStateChanged(
+            game = game,
+            playerId = player.id,
+            readiness = readiness,
+            allReady = allReady,
+            readyCount = readyCount,
+            totalPlayers = totalPlayers
+        )
 
         return PlayerReadyResponse(
-            playerId = userId,
+            playerId = player.id,
             nickname = nickname,
             isReady = readiness.isReady,
             allPlayersReady = allReady,
@@ -80,12 +91,15 @@ class PlayerReadinessService(
         val game = gameRepository.findByGameNumber(gameNumber)
             ?: throw GameNotFoundException(gameNumber)
 
-        val totalPlayers = playerRepository.countByGame(game)
+        val players = playerRepository.findByGame(game)
+        val totalPlayers = players.size
         val readyCount = playerReadinessRepository.countByGameAndIsReady(game, true)
+        val playersByUserId = players.associateBy { it.userId }
 
         return playerReadinessRepository.findByGame(game).map { readiness ->
+            val playerId = playersByUserId[readiness.userId]?.id ?: readiness.userId
             PlayerReadyResponse(
-                playerId = readiness.userId,
+                playerId = playerId,
                 nickname = readiness.nickname,
                 isReady = readiness.isReady,
                 allPlayersReady = readyCount == totalPlayers && totalPlayers >= gameProperties.minPlayers,

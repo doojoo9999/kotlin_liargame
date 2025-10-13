@@ -74,6 +74,7 @@ export type BroadcastMessageType =
   | 'GAME_STATE_UPDATE'
   | 'PLAYER_JOINED'
   | 'PLAYER_LEFT'
+  | 'ROOM_DELETED'
 
 export interface WebSocketMessage<T = any> {
   type: BroadcastMessageType
@@ -132,7 +133,7 @@ export interface GameEndResponse {
 
 export type GameEndCondition = 'LIAR_VICTORY' | 'CITIZEN_VICTORY' | 'NEXT_ROUND'
 
-export type ChatMessageType = 'DISCUSSION' | 'HINT' | 'DEFENSE' | 'SYSTEM' | 'POST_ROUND' | 'GENERAL'
+export type ChatMessageType = 'DISCUSSION' | 'HINT' | 'DEFENSE' | 'SYSTEM' | 'POST_ROUND' | 'WAITING_ROOM' | 'GENERAL'
 
 export interface ChatMessage {
   id: string
@@ -258,13 +259,60 @@ export interface GameEndedPayload {
   [key: string]: unknown
 }
 
+export interface PlayerConnectionPayload {
+  userId?: PlayerIdentifier
+  playerId?: PlayerIdentifier
+  nickname?: string
+  playerName?: string
+  isConnected?: boolean
+  hasGracePeriod?: boolean
+  seconds?: number
+  lastActiveAt?: string
+  [key: string]: unknown
+}
+
+export interface PlayerReadyChangedPayload {
+  userId?: PlayerIdentifier
+  playerId?: PlayerIdentifier
+  nickname?: string
+  playerName?: string
+  isReady?: boolean
+  allReady?: boolean
+  updatedAt?: string
+  [key: string]: unknown
+}
+
+export interface OwnerTransferPayload {
+  kickedOwner?: string
+  kickedPlayer?: string
+  previousOwner?: string
+  newOwner?: string
+  newHost?: string
+  nextOwner?: string
+  message?: string
+  [key: string]: unknown
+}
+
 export interface PersonalNotificationPayload {
   [key: string]: unknown
+}
+
+export interface RoomDeletedPayload {
+  reason?: string
+  message?: string
 }
 
 export type GameEventPayloadMap = {
   PLAYER_JOINED: PlayerJoinedPayload
   PLAYER_LEFT: PlayerLeftPayload
+  PLAYER_DISCONNECTED: PlayerConnectionPayload
+  PLAYER_RECONNECTED: PlayerConnectionPayload
+  GRACE_PERIOD_STARTED: PlayerConnectionPayload
+  GRACE_PERIOD_EXPIRED: PlayerConnectionPayload
+  PLAYER_READY_CHANGED: PlayerReadyChangedPayload
+  PLAYER_READY_UPDATE: PlayerReadyChangedPayload
+  OWNER_KICKED_AND_TRANSFERRED: OwnerTransferPayload
+  ROOM_DELETED: RoomDeletedPayload
   GAME_STARTED: GameStartedPayload
   ROUND_STARTED: RoundStartedPayload
   HINT_PROVIDED: HintProvidedPayload
@@ -294,4 +342,5 @@ export type GameEvent = {
 export type EventCallback = (event: GameEvent) => void
 
 export type ConnectionCallback = (connected: boolean) => void
+
 

@@ -10,10 +10,12 @@ import org.example.kotlin_liargame.domain.game.repository.PlayerRepository
 import org.example.kotlin_liargame.global.config.GameProperties
 import org.example.kotlin_liargame.global.redis.DefenseStatus
 import org.example.kotlin_liargame.global.redis.GameStateService
+import org.slf4j.LoggerFactory
 import org.springframework.context.annotation.Lazy
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.scheduling.TaskScheduler
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ScheduledFuture
@@ -32,6 +34,8 @@ class DefenseService(
     @Lazy private val votingService: VotingService,
     @Lazy private val gameProgressService: GameProgressService
 ) {
+
+    private val logger = LoggerFactory.getLogger(DefenseService::class.java)
 
     // ScheduledFuture는 직렬화가 어려우므로 로컬에서 관리
     private val scheduledTasksMap = ConcurrentHashMap<Int, MutableList<ScheduledFuture<*>>>()
@@ -264,7 +268,10 @@ class DefenseService(
         addScheduledTask(gameNumber, task)
     }
     
-    private fun handleDefenseTimeout(gameNumber: Int) {
+    @Transactional
+    fun handleDefenseTimeout(gameNumber: Int) {
+        gameStateService.setDefenseTimer(gameNumber, false)
+
         val defenseStatus = gameStateService.getDefenseStatus(gameNumber) ?: return
 
         if (!defenseStatus.isDefenseSubmitted) {
@@ -352,6 +359,7 @@ class DefenseService(
 
         gameStateService.setFinalVotingStatus(gameNumber, votingStatus)
         gameStateService.setFinalVotingTimer(gameNumber, true)
+        logger.debug("Initial final voting status for game {}: {}", gameNumber, votingStatus)
 
         val finalVotingMessage = FinalVotingStartMessage(
             gameNumber = gameNumber,
@@ -385,36 +393,64 @@ class DefenseService(
     }
     
     fun castFinalVote(gameNumber: Int, voterUserId: Long, voteForExecution: Boolean): FinalVoteResponse {
-        val votingStatus = gameStateService.getFinalVotingStatus(gameNumber)
-            ?: throw IllegalStateException("No final voting active")
-            
+        val game = gameRepository.findByGameNumber(gameNumber)
+            ?: throw IllegalArgumentException("Game not found")
+
+        var votingStatus = gameStateService.getFinalVotingStatus(gameNumber)
+        logger.debug("Raw final voting status for game {}: {}", gameNumber, votingStatus)
+        val timerActive = gameStateService.getFinalVotingTimer(gameNumber)
+
+        val alivePlayers = playerRepository.findByGame(game).filter { it.isAlive }
+        val expectedVoterIds = alivePlayers.map { it.userId }.toSet()
+
+        val hasStatusMismatch = votingStatus.keys.toSet() != expectedVoterIds
+        val allVotesAlreadyRecorded = votingStatus.isNotEmpty() && votingStatus.values.all { it != null }
+
+        if (hasStatusMismatch || (timerActive && allVotesAlreadyRecorded)) {
+            val resetStatus = expectedVoterIds.associateWith { null as Boolean? }.toMutableMap()
+            logger.debug("Rebuilt final voting status base map for game {}: {}", gameNumber, resetStatus)
+            gameStateService.setFinalVotingStatus(gameNumber, resetStatus)
+            votingStatus = resetStatus
+            logger.debug(
+                "Reset final voting status for game {} (mismatch={}, allVotesRecorded={})",
+                gameNumber,
+                hasStatusMismatch,
+                allVotesAlreadyRecorded
+            )
+        }
+
         if (!votingStatus.containsKey(voterUserId)) {
             throw IllegalArgumentException("Player not eligible to vote")
         }
-        
-        if (votingStatus[voterUserId] != null) {
-            throw IllegalStateException("Player has already voted")
+
+        val voterPlayer = alivePlayers.find { it.userId == voterUserId }
+            ?: throw IllegalArgumentException("Voter player not found")
+
+        votingStatus[voterUserId]?.let { existingVote ->
+            return FinalVoteResponse(
+                gameNumber = gameNumber,
+                voterPlayerId = voterUserId,
+                voterNickname = voterPlayer.nickname,
+                voteForExecution = existingVote,
+                success = true,
+                message = "ALREADY_VOTED"
+            )
         }
-        
+
         if (!gameStateService.getFinalVotingTimer(gameNumber)) {
             throw IllegalStateException("Final voting time has expired")
         }
-        
-        val game = gameRepository.findByGameNumber(gameNumber)
-            ?: throw IllegalArgumentException("Game not found")
-        val voterPlayer = playerRepository.findByGameAndUserId(game, voterUserId)
-            ?: throw IllegalArgumentException("Voter player not found")
 
         votingStatus[voterUserId] = voteForExecution
         gameStateService.setFinalVotingStatus(gameNumber, votingStatus)
 
         broadcastFinalVotingProgress(gameNumber)
-        
+
         if (checkAllPlayersFinalVoted(gameNumber)) {
             gameStateService.setFinalVotingTimer(gameNumber, false)
             processFinalVotingResults(gameNumber)
         }
-        
+
         return FinalVoteResponse(
             gameNumber = gameNumber,
             voterPlayerId = voterUserId,
@@ -435,14 +471,24 @@ class DefenseService(
         addScheduledTask(gameNumber, task)
     }
     
-    private fun handleFinalVotingTimeout(gameNumber: Int) {
-        val votingStatus = gameStateService.getFinalVotingStatus(gameNumber) ?: return
+    @Transactional
+    fun handleFinalVotingTimeout(gameNumber: Int) {
+        gameStateService.setFinalVotingTimer(gameNumber, false)
 
-        votingStatus.entries.filter { it.value == null }.forEach { entry ->
+        val votingStatus = gameStateService.getFinalVotingStatus(gameNumber)
+
+        val updated = votingStatus.entries.filter { it.value == null }.map { entry ->
             val randomVote = Random.nextBoolean()
-            votingStatus[entry.key] = randomVote
+            entry.key to randomVote
         }
-        
+
+        if (updated.isNotEmpty()) {
+            updated.forEach { (playerId, randomVote) ->
+                votingStatus[playerId] = randomVote
+            }
+            gameStateService.setFinalVotingStatus(gameNumber, votingStatus)
+        }
+
         sendModeratorMessage(
             gameNumber,
             "최종 투표 시간이 종료되었습니다. 투표하지 않은 플레이어는 랜덤으로 처리됩니다."
@@ -452,8 +498,12 @@ class DefenseService(
     }
     
     private fun checkAllPlayersFinalVoted(gameNumber: Int): Boolean {
-        val votingStatus = gameStateService.getFinalVotingStatus(gameNumber) ?: return false
-        return votingStatus.values.all { it != null }
+        val votingStatus = gameStateService.getFinalVotingStatus(gameNumber)
+        val allVoted = votingStatus.values.all { it != null }
+        if (allVoted) {
+            logger.debug("All players have final votes recorded for game {}: {}", gameNumber, votingStatus)
+        }
+        return allVoted
     }
     
     private fun broadcastFinalVotingProgress(gameNumber: Int) {
@@ -490,6 +540,14 @@ class DefenseService(
         val executionVotes = votingStatus.values.count { it == true }
         val survivalVotes = votingStatus.values.count { it == false }
         val totalVotes = votingStatus.size
+        logger.debug(
+            "Final voting tally for game {} => votes={}, executionVotes={}, survivalVotes={}, totalVotes={}",
+            gameNumber,
+            votingStatus,
+            executionVotes,
+            survivalVotes,
+            totalVotes
+        )
         
         // 최종 투표 판정 로직을 별도 메서드로 분리하여 테스트 가능하게 구현
         val isExecuted = calculateFinalVotingResult(executionVotes, survivalVotes, totalVotes)
@@ -546,6 +604,17 @@ class DefenseService(
             ?: throw IllegalArgumentException("Game not found")
         val updatedPlayers = playerRepository.findByGame(updatedGame)
         
+        val finalJudgment = FinalJudgmentResultResponse(
+            gameNumber = gameNumber,
+            accusedPlayerId = defenseStatus.accusedPlayerId,
+            accusedPlayerNickname = accusedPlayer.nickname,
+            isKilled = isExecuted,
+            isLiar = accusedPlayer.role == org.example.kotlin_liargame.domain.game.model.enum.PlayerRole.LIAR,
+            executionVotes = executionVotes,
+            survivalVotes = survivalVotes,
+            totalVotes = totalVotes
+        )
+
         val response = FinalVotingResultResponse(
             gameNumber = gameNumber,
             accusedPlayerId = defenseStatus.accusedPlayerId,
@@ -602,7 +671,10 @@ class DefenseService(
                 val finalVotingRecordMap = votingStatus.mapValues { it.value ?: false }
                 val awardedCitizens = gameProgressService.awardCitizenVictoryPoints(game, finalVotingRecordMap)
                 println("[DefenseService] Awarded points to ${awardedCitizens.size} citizens for executing the liar.")
-                
+
+                // 라이어 추측 페이즈 시작
+                gameResultService.processGameResult(gameNumber, finalJudgment)
+
             } else {
                 // 변론자가 시민이면: 라이어 승리로 즉시 종료
                 sendModeratorMessage(
@@ -618,16 +690,7 @@ class DefenseService(
                 
                 // 게임 즉시 종료 처리 (라이어 승리)
                 taskScheduler.schedule({
-                    gameResultService.processGameResult(gameNumber, FinalJudgmentResultResponse(
-                        gameNumber = gameNumber,
-                        accusedPlayerId = defenseStatus.accusedPlayerId,
-                        accusedPlayerNickname = accusedPlayer.nickname,
-                        isKilled = isExecuted,
-                        isLiar = isLiar,
-                        executionVotes = executionVotes,
-                        survivalVotes = survivalVotes,
-                        totalVotes = totalVotes
-                    ))
+                    gameResultService.processGameResult(gameNumber, finalJudgment)
                 }, Instant.now().plusSeconds(3))
             }
         } else {

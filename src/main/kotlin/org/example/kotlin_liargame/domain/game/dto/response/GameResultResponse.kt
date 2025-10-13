@@ -15,7 +15,8 @@ data class GameResultResponse(
     val citizens: List<PlayerResponse>,
     val liars: List<PlayerResponse>,
     val rounds: Int,
-    val correctGuess: Boolean? = null
+    val correctGuess: Boolean? = null,
+    val reason: String? = null
 ) : GameFlowPayload {
     companion object {
         fun from(
@@ -36,7 +37,8 @@ data class GameResultResponse(
                 citizens = citizens.map { PlayerResponse.from(it) },
                 liars = liars.map { PlayerResponse.from(it) },
                 rounds = game.gameCurrentRound,
-                correctGuess = correctGuess
+                correctGuess = correctGuess,
+                reason = game.winnerReason
             )
         }
     }

@@ -1,6 +1,8 @@
 package org.example.kotlin_liargame.tools.websocket
 
 import jakarta.servlet.http.HttpSession
+import org.example.kotlin_liargame.global.security.SessionInfo
+import org.example.kotlin_liargame.global.security.SessionManagementService
 import org.example.kotlin_liargame.global.util.SessionUtil
 import org.slf4j.LoggerFactory
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor
@@ -11,7 +13,8 @@ import java.util.concurrent.CopyOnWriteArraySet
 
 @Component
 class WebSocketSessionManager(
-    private val sessionUtil: SessionUtil
+    private val sessionUtil: SessionUtil,
+    private val sessionManagementService: SessionManagementService
 ) {
     private val logger = LoggerFactory.getLogger(WebSocketSessionManager::class.java)
 
@@ -21,13 +24,34 @@ class WebSocketSessionManager(
 
     fun storeSession(webSocketSessionId: String, httpSession: HttpSession) {
         val userId = resolveUserId(httpSession, webSocketSessionId) ?: return
-        val nickname = sessionUtil.getUserNickname(httpSession)
+        storeSnapshot(
+            webSocketSessionId = webSocketSessionId,
+            userId = userId,
+            nickname = sessionUtil.getUserNickname(httpSession),
+            httpSessionId = httpSession.id
+        )
+    }
 
+    fun storeSession(webSocketSessionId: String, sessionInfo: SessionInfo) {
+        storeSnapshot(
+            webSocketSessionId = webSocketSessionId,
+            userId = sessionInfo.userId,
+            nickname = sessionInfo.nickname,
+            httpSessionId = sessionInfo.sessionId
+        )
+    }
+
+    private fun storeSnapshot(
+        webSocketSessionId: String,
+        userId: Long,
+        nickname: String?,
+        httpSessionId: String
+    ) {
         val snapshot = SessionSnapshot(
             sessionId = webSocketSessionId,
             userId = userId,
             nickname = nickname,
-            httpSessionId = httpSession.id,
+            httpSessionId = httpSessionId,
             connectedAt = Instant.now()
         )
 
@@ -98,6 +122,15 @@ class WebSocketSessionManager(
         }
     }
 
+    fun refreshSessionsForUser(userId: Long, httpSession: HttpSession) {
+        val sessionIds = getSessionsForUser(userId)
+        if (sessionIds.isEmpty()) {
+            logger.debug("No active WebSocket sessions found to refresh for user {}", userId)
+            return
+        }
+        sessionIds.forEach { refreshSessionInfo(it, httpSession) }
+    }
+
     fun getActiveSessionCount(): Int = sessionMap.size
 
     private fun resolveUserId(httpSession: HttpSession, sessionId: String): Long? {
@@ -115,10 +148,18 @@ class WebSocketSessionManager(
 
         sleepSafely(100)
         userId = sessionUtil.getUserId(httpSession)
-        if (userId == null) {
-            logger.warn("No userId found in HTTP session for WebSocket {} even after retries", sessionId)
+        if (userId != null) {
+            return userId
         }
-        return userId
+
+        sessionManagementService.getSessionInfoById(httpSession.id)?.let { info ->
+            if (sessionManagementService.rehydrateSession(httpSession, info)) {
+                return info.userId
+            }
+        }
+
+        logger.warn("No userId found in HTTP session for WebSocket {} even after retries", sessionId)
+        return null
     }
 
     private fun sleepSafely(millis: Long) {

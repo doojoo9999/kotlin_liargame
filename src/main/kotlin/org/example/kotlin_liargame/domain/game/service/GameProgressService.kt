@@ -372,21 +372,22 @@ class GameProgressService(
     @Transactional
     fun awardLiarVictoryPoints(game: GameEntity, reason: String): PlayerEntity? {
          val players = playerRepository.findByGame(game)
-         val liar = players.find { it.role == PlayerRole.LIAR && it.isAlive }
+         val liars = players.filter { it.role == PlayerRole.LIAR }
 
-         if (liar != null) {
-            // awardPointsAndCheckWin는 이제 userId를 받음
-            val targetReached = awardPointsAndCheckWin(liar.userId, 2, game)
+         if (liars.isEmpty()) {
+             return null
+         }
+
+         liars.forEach { liar ->
+             val targetReached = awardPointsAndCheckWin(liar.userId, 2, game)
              println("[GameProgressService] Liar victory: ${liar.nickname} +2 points. Reason: $reason")
 
              if (targetReached) {
                  endGameWithWinner(game, liar, "목표 점수 달성")
              }
-
-             return liar
          }
 
-         return null
+         return liars.first()
      }
 
      /**

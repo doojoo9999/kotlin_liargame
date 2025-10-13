@@ -1,10 +1,9 @@
 import {Client, StompConfig} from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
-import type {RealtimeEventType} from '../types/backendTypes';
 
 // Unified interfaces
 export interface GameEvent {
-  type: RealtimeEventType;
+  type: string;
   gameId?: string;
   gameNumber?: number;
   payload: any;
@@ -52,7 +51,7 @@ export class UnifiedWebSocketService {
   private sessionId: string | null = null;
   
   // Event handlers
-  private eventCallbacks = new Map<RealtimeEventType | 'ALL', EventCallback[]>();
+  private eventCallbacks = new Map<string | 'ALL', EventCallback[]>();
   private chatCallbacks: ChatCallback[] = [];
   private connectionCallbacks: ConnectionCallback[] = [];
   private errorCallbacks: ErrorCallback[] = [];
@@ -103,7 +102,17 @@ export class UnifiedWebSocketService {
 
     try {
       // Create WebSocket connection with SockJS fallback
-      const socket = new SockJS(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}/ws`);
+      const socketOptions: SockJS.Options & {
+        transportOptions?: Record<string, { withCredentials: boolean }>;
+      } = {
+        transports: ['websocket', 'xhr-streaming', 'xhr-polling'],
+        // Ensure SockJS XHR transports include credentials for session-bound auth
+        transportOptions: {
+          'xhr-streaming': { withCredentials: true },
+          'xhr-polling': { withCredentials: true },
+        },
+      };
+      const socket = new SockJS(`${import.meta.env.VITE_API_BASE_URL || 'http://218.150.3.77:8080'}/ws`, undefined, socketOptions);
 
       const stompConfig: StompConfig = {
         webSocketFactory: () => socket,
@@ -314,7 +323,7 @@ export class UnifiedWebSocketService {
     this.sendGameMessage('GUESS', { guess }, gameNumber);
   }
 
-  onGameEvent(eventType: RealtimeEventType | 'ALL', callback: EventCallback): () => void {
+  onGameEvent(eventType: string | 'ALL', callback: EventCallback): () => void {
     const handlers = this.eventCallbacks.get(eventType) || [];
     handlers.push(callback);
     this.eventCallbacks.set(eventType, handlers);

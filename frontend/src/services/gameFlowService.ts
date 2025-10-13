@@ -97,17 +97,22 @@ export class GameFlowService {
         ? Date.parse(message.timestamp)
         : Number(message.timestamp ?? Date.now())
 
-      const playerNickname = message.playerNickname ?? message.nickname ?? 'SYSTEM'
+      const playerNickname = message.playerNickname
+        ?? message.playerNicknameSnapshot
+        ?? message.nickname
+        ?? 'SYSTEM'
       const content = message.content ?? message.message ?? ''
+      const playerUserId = typeof message.playerUserId === 'number' ? message.playerUserId : undefined
+      const resolvedUserId = typeof message.userId === 'number' ? message.userId : playerUserId
 
       return {
         id: String(message.id ?? `${gameNumberParsed}-${timestamp}`),
         gameNumber: Number.isNaN(gameNumberParsed) ? 0 : gameNumberParsed,
         playerId: message.playerId != null ? String(message.playerId) : undefined,
-        userId: typeof message.userId === 'number' ? message.userId : undefined,
+        userId: resolvedUserId,
         playerNickname,
         nickname: message.nickname ?? undefined,
-        playerName: message.playerName ?? undefined,
+        playerName: message.playerName ?? message.playerNicknameSnapshot ?? undefined,
         content,
         message: content,
         gameId: message.gameId != null ? String(message.gameId) : undefined,

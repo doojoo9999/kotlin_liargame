@@ -92,7 +92,7 @@ export interface Defense {
 
 
 const CHAT_MESSAGE_LIMIT = 200;
-const CHAT_TYPES: readonly ChatMessageType[] = ['DISCUSSION', 'HINT', 'DEFENSE', 'SYSTEM', 'POST_ROUND', 'GENERAL'] as const;
+const CHAT_TYPES: readonly ChatMessageType[] = ['DISCUSSION', 'HINT', 'DEFENSE', 'SYSTEM', 'POST_ROUND', 'WAITING_ROOM', 'GENERAL'] as const;
 
 const normalizeChatType = (value: unknown): ChatMessageType => {
   if (typeof value === 'string') {
@@ -164,7 +164,12 @@ const normalizeChatMessage = (
 
   const userId = toFiniteNumber(candidate['userId'] ?? candidate['playerUserId'] ?? candidate['senderUserId']) ?? undefined;
   const rawPlayerId = toOptionalString(candidate['playerId'] ?? candidate['playerID'] ?? candidate['playerUuid'] ?? candidate['senderId']);
-  const rawNickname = toOptionalString(candidate['playerNickname'] ?? candidate['playerName'] ?? candidate['nickname']);
+  const rawNickname = toOptionalString(
+    candidate['playerNickname']
+    ?? candidate['playerNicknameSnapshot']
+    ?? candidate['playerName']
+    ?? candidate['nickname']
+  );
   const content = toOptionalString(candidate['content'] ?? candidate['message'] ?? candidate['body'] ?? '') ?? '';
 
   const fallbackIdPart = rawPlayerId ?? (typeof userId === 'number' ? userId.toString() : type);
@@ -658,17 +663,45 @@ export const useGameStore = create<UnifiedGameStore>()(
 
         // Player Management
         updatePlayers: (players) => set({ players }),
-        addPlayer: (player) => set((state) => ({
-          players: [...state.players, player]
-        })),
+        addPlayer: (player) => set((state) => {
+          const existingIndex = state.players.findIndex(existing => {
+            if (existing.id === player.id) {
+              return true;
+            }
+            if (existing.userId != null && player.userId != null && existing.userId === player.userId) {
+              return true;
+            }
+            if (existing.nickname && player.nickname && existing.nickname === player.nickname) {
+              return true;
+            }
+            return false;
+          });
+
+          if (existingIndex >= 0) {
+            const players = [...state.players];
+            players[existingIndex] = { ...players[existingIndex], ...player };
+            return { players };
+          }
+
+          return { players: [...state.players, player] };
+        }),
         removePlayer: (playerId) => set((state) => ({
           players: state.players.filter(p => p.id !== playerId)
         })),
-        updatePlayer: (playerId, updates) => set((state) => ({
-          players: state.players.map(p =>
-            p.id === playerId ? { ...p, ...updates } : p
-          )
-        })),
+        updatePlayer: (playerId, updates) => set((state) => {
+          const players = state.players.map((player) =>
+            player.id === playerId ? { ...player, ...updates } : player
+          );
+
+          const currentPlayer = state.currentPlayer?.id === playerId
+            ? { ...state.currentPlayer, ...updates }
+            : state.currentPlayer;
+
+          return {
+            players,
+            currentPlayer,
+          };
+        }),
 
         // Game Flow
         setGamePhase: (gamePhase) => {
@@ -985,9 +1018,11 @@ export const useGameStore = create<UnifiedGameStore>()(
 
           set({ isLoading: true, error: null });
           try {
-            const gameState = await gameService.toggleReady(gameNumber);
-            set({ isLoading: false, currentGameState: gameState });
-            get().updateFromGameState(gameState);
+            const readyState = await gameService.toggleReady(gameNumber);
+            set({ isLoading: false });
+
+            const playerId = String(readyState.playerId);
+            get().handlePlayerReady(playerId, readyState.isReady);
           } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Failed to toggle ready state';
             set({ isLoading: false, error: errorMessage });
@@ -1014,59 +1049,59 @@ export const useGameStore = create<UnifiedGameStore>()(
           if (!gameState) return;
 
           const scoreboard = new Map<number, number>(
-
             (gameState.scoreboard ?? []).map((entry) => [entry.userId, entry.score])
-
           );
 
-
+          const existingPlayers = get().players;
+          const isWaitingRoom = gameState.gameState === 'WAITING';
+          const auth = getAuthIdentifiers();
+          const normalizedYourRole = gameState.yourRole === 'LIAR' || gameState.yourRole === 'CITIZEN'
+            ? gameState.yourRole
+            : undefined;
 
           const mappedPlayers = gameState.players.map<Player>((player) => {
-
             const score = scoreboard.get(player.userId) ?? scoreboard.get(player.id) ?? 0;
-
-            const isDisconnected = player.state === 'DISCONNECTED';
-
+            const isDisconnectedState = player.state === 'DISCONNECTED';
+            const isOnline = Boolean(player.isOnline);
             const normalizedId = player.id.toString();
 
+            const existingPlayer = existingPlayers.find((candidate) => {
+              if (candidate.id === normalizedId) return true;
+              if (candidate.userId != null && candidate.userId === player.userId) return true;
+              if (candidate.nickname === player.nickname) return true;
+              return false;
+            });
 
+            const readyState = isWaitingRoom ? (existingPlayer?.isReady ?? false) : false;
+            const isSelfPlayer = (
+              (auth.userId != null && auth.userId === String(player.userId)) ||
+              (auth.nickname != null && auth.nickname === player.nickname)
+            );
+            const existingRole = existingPlayer?.role;
+            const resolvedRole = isSelfPlayer
+              ? normalizedYourRole ?? existingRole
+              : (existingRole === 'LIAR' || existingRole === 'CITIZEN')
+                ? existingRole
+                : undefined;
 
             return {
-
               id: normalizedId,
-
               userId: player.userId,
-
               nickname: player.nickname,
-
               isAlive: player.isAlive,
-
               state: player.state,
-
               hint: player.hint,
-
               defense: player.defense,
-
               votesReceived: player.votesReceived,
-
               hasVoted: player.hasVoted,
-
               score,
-
               isHost: player.nickname === gameState.gameOwner,
-
-              isReady: !isDisconnected && player.state !== 'WAITING_FOR_HINT',
-
-              isConnected: !isDisconnected,
-
-              isOnline: !isDisconnected,
-
-              role: undefined,
-
-              votedFor: undefined,
-
-              lastActive: Date.now(),
-
+              isReady: readyState,
+              isConnected: isOnline && !isDisconnectedState,
+              isOnline,
+              role: resolvedRole,
+              votedFor: existingPlayer?.votedFor,
+              lastActive: existingPlayer?.lastActive ?? Date.now(),
             };
 
           });
@@ -1085,33 +1120,24 @@ export const useGameStore = create<UnifiedGameStore>()(
 
           const turnOrder = (gameState.turnOrder ?? []).map((value) => value.toString());
 
-          const currentTurnPlayerId = turnOrder[gameState.currentTurnIndex] ?? undefined;
+          const currentTurnIndex = typeof gameState.currentTurnIndex === 'number' ? gameState.currentTurnIndex : undefined;
+          const currentTurnPlayerId = currentTurnIndex != null ? turnOrder[currentTurnIndex] : undefined;
 
-          const currentPlayer =
-
+          const currentTurnPlayer =
             currentTurnPlayerId != null
-
               ? mappedPlayers.find(
-
                   (player) =>
-
                     player.id === currentTurnPlayerId ||
-
                     player.userId.toString() === currentTurnPlayerId ||
-
                     player.nickname === currentTurnPlayerId,
-
                 ) ?? null
-
               : null;
-
-
 
           const mappedPhase = mapGamePhase(gameState.currentPhase);
 
-          const auth = getAuthIdentifiers();
-
           const selfPlayer = findSelfPlayer(mappedPlayers, auth);
+
+          const currentPlayer = selfPlayer ?? currentTurnPlayer;
 
           const isSelfLiar = gameState.yourRole === 'LIAR';
 
@@ -1184,7 +1210,29 @@ export const useGameStore = create<UnifiedGameStore>()(
         // Event Handlers
         handleGameEvent: (event: GameEvent) => {
           const state = get();
-          
+
+          const resolvePlayerIdByIdentifier = (identifier: unknown): string | null => {
+            if (identifier == null) {
+              return null;
+            }
+            const normalized = String(identifier);
+            const players = get().players;
+            const match = players.find((player) => {
+              if (player.id === normalized) return true;
+              if (player.userId != null && String(player.userId) === normalized) return true;
+              if (player.nickname === normalized) return true;
+              return false;
+            });
+            return match?.id ?? null;
+          };
+
+          const updatePlayerByIdentifier = (identifier: unknown, updates: Partial<Player>) => {
+            const targetId = resolvePlayerIdByIdentifier(identifier);
+            if (targetId) {
+              get().updatePlayer(targetId, updates);
+            }
+          };
+
           switch (event.type) {
             case 'PLAYER_JOINED': {
               const { payload } = event;
@@ -1195,6 +1243,8 @@ export const useGameStore = create<UnifiedGameStore>()(
                   ? payload.userId
                   : Number.parseInt(String(payload.userId ?? rawPlayerId ?? 0), 10) || 0;
               const nickname = payload.playerName ?? payload.nickname ?? ('Player ' + normalizedId);
+
+              const normalizedRole = payload.role === 'CITIZEN' || payload.role === 'LIAR' ? payload.role : undefined;
 
               const newPlayer: Player = {
                 id: normalizedId,
@@ -1209,7 +1259,7 @@ export const useGameStore = create<UnifiedGameStore>()(
                 isReady: Boolean(payload.isReady),
                 isConnected: true,
                 isOnline: true,
-                role: payload.role ?? undefined,
+                role: normalizedRole,
                 votedFor: undefined,
                 lastActive: Date.now(),
               };
@@ -1222,6 +1272,74 @@ export const useGameStore = create<UnifiedGameStore>()(
               const { playerId } = event.payload;
               if (playerId != null) {
                 get().removePlayer(String(playerId));
+              }
+              break;
+            }
+
+            case 'PLAYER_DISCONNECTED': {
+              const payload = event.payload as any;
+              const identifier = payload?.userId ?? payload?.playerId ?? payload?.nickname ?? payload?.playerName;
+              updatePlayerByIdentifier(identifier, {
+                isConnected: false,
+                isOnline: false,
+                lastActive: Date.now(),
+              });
+              break;
+            }
+
+            case 'PLAYER_RECONNECTED': {
+              const payload = event.payload as any;
+              const identifier = payload?.userId ?? payload?.playerId ?? payload?.nickname ?? payload?.playerName;
+              updatePlayerByIdentifier(identifier, {
+                isConnected: true,
+                isOnline: true,
+                lastActive: Date.now(),
+              });
+              break;
+            }
+
+            case 'GRACE_PERIOD_STARTED': {
+              const payload = event.payload as any;
+              const identifier = payload?.userId ?? payload?.playerId ?? payload?.nickname ?? payload?.playerName;
+              updatePlayerByIdentifier(identifier, {
+                isConnected: false,
+                isOnline: false,
+                lastActive: Date.now(),
+              });
+              break;
+            }
+
+            case 'GRACE_PERIOD_EXPIRED': {
+              const payload = event.payload as any;
+              const identifier = payload?.userId ?? payload?.playerId ?? payload?.nickname ?? payload?.playerName;
+              updatePlayerByIdentifier(identifier, {
+                isConnected: false,
+                isOnline: false,
+                lastActive: Date.now(),
+              });
+              break;
+            }
+
+            case 'PLAYER_READY_CHANGED':
+            case 'PLAYER_READY_UPDATE': {
+              const payload = event.payload as any;
+              const identifier = payload?.userId ?? payload?.playerId ?? payload?.nickname ?? payload?.playerName;
+              updatePlayerByIdentifier(identifier, {
+                isReady: Boolean(payload?.isReady),
+                lastActive: Date.now(),
+              });
+              break;
+            }
+
+            case 'OWNER_KICKED_AND_TRANSFERRED': {
+              const payload = event.payload as any;
+              const kicked = payload?.kickedOwner ?? payload?.kickedPlayer ?? payload?.previousOwner;
+              const promoted = payload?.newOwner ?? payload?.nextOwner ?? payload?.newHost;
+              if (kicked) {
+                updatePlayerByIdentifier(kicked, { isHost: false });
+              }
+              if (promoted) {
+                updatePlayerByIdentifier(promoted, { isHost: true });
               }
               break;
             }
@@ -1502,3 +1620,4 @@ export const useGameStore = create<UnifiedGameStore>()(
     }
   )
 );
+

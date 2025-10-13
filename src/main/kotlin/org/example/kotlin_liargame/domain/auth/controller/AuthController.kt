@@ -1,5 +1,6 @@
 package org.example.kotlin_liargame.domain.auth.controller
 
+import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpSession
 import jakarta.validation.Valid
 import org.example.kotlin_liargame.domain.auth.dto.request.LoginRequest
@@ -7,6 +8,8 @@ import org.example.kotlin_liargame.domain.auth.dto.response.LoginResponse
 import org.example.kotlin_liargame.domain.user.service.UserService
 import org.example.kotlin_liargame.global.security.SessionManagementService
 import org.example.kotlin_liargame.global.security.SessionRegistrationResult
+import org.springframework.http.HttpHeaders
+import org.springframework.http.ResponseCookie
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 
@@ -59,10 +62,22 @@ class AuthController(
     }
 
     @PostMapping("/logout")
-    fun logout(session: HttpSession): ResponseEntity<Map<String, Boolean>> {
-        // JSON 세션 데이터 완전 삭제
+    fun logout(
+        session: HttpSession,
+        request: HttpServletRequest
+    ): ResponseEntity<Map<String, Boolean>> {
+        // Ensure session data is removed before issuing cookie cleanup
         sessionManagementService.logout(session)
-        return ResponseEntity.ok(mapOf("success" to true))
+
+        val secureRequest = request.isSecure ||
+            request.getHeader("X-Forwarded-Proto")?.equals("https", ignoreCase = true) == true
+
+        val responseBuilder = ResponseEntity.ok()
+        SESSION_COOKIE_NAMES
+            .map { buildExpiredSessionCookie(it, secureRequest) }
+            .forEach { cookie -> responseBuilder.header(HttpHeaders.SET_COOKIE, cookie.toString()) }
+
+        return responseBuilder.body(mapOf("success" to true))
     }
 
     @PostMapping("/refresh-session")
@@ -115,4 +130,20 @@ class AuthController(
             ))
         }
     }
+    companion object {
+        private val SESSION_COOKIE_NAMES = listOf("SESSION", "JSESSIONID")
+
+        private fun buildExpiredSessionCookie(name: String, secure: Boolean): ResponseCookie {
+            return ResponseCookie.from(name, "")
+                .path("/")
+                .httpOnly(true)
+                .secure(secure)
+                .sameSite("Lax")
+                .maxAge(java.time.Duration.ZERO)
+                .build()
+        }
+    }
+
 }
+
+

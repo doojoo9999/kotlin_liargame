@@ -13,6 +13,7 @@ import org.example.kotlin_liargame.domain.game.model.PlayerEntity
 import org.example.kotlin_liargame.domain.game.model.enum.*
 import org.example.kotlin_liargame.domain.game.repository.GameRepository
 import org.example.kotlin_liargame.domain.game.repository.GameSubjectRepository
+import org.example.kotlin_liargame.domain.game.repository.PlayerReadinessRepository
 import org.example.kotlin_liargame.domain.game.repository.PlayerRepository
 import org.example.kotlin_liargame.domain.subject.model.SubjectEntity
 import org.example.kotlin_liargame.domain.subject.repository.SubjectRepository
@@ -43,7 +44,8 @@ class GameService(
     private val webSocketSessionManager: WebSocketSessionManager,
     private val gameProperties: org.example.kotlin_liargame.global.config.GameProperties,
     private val sessionService: org.example.kotlin_liargame.global.session.SessionService,
-    private val sessionManagementService: org.example.kotlin_liargame.global.security.SessionManagementService
+    private val sessionManagementService: org.example.kotlin_liargame.global.security.SessionManagementService,
+    private val playerReadinessRepository: PlayerReadinessRepository
 ) {
     private val logger = LoggerFactory.getLogger(this::class.java)
 
@@ -133,13 +135,19 @@ class GameService(
     }
 
     private fun findNextAvailableRoomNumber(): Int {
-        val activeGames = gameRepository.findAllActiveGames()
-        val usedNumbers = activeGames.map { it.gameNumber }.toSet()
+        val usedNumbers = gameRepository.findAllGameNumbers().toSet()
+
         for (number in 1..999) {
             if (!usedNumbers.contains(number)) {
                 return number
             }
         }
+
+        val nextNumber = (usedNumbers.maxOrNull() ?: 0) + 1
+        if (nextNumber <= 999) {
+            return nextNumber
+        }
+
         throw RuntimeException("모든 방 번호(1-999)가 모두 사용중입니다. 나중에 다시 시도해주세요.")
     }
 
@@ -378,16 +386,22 @@ class GameService(
 
         // 플레이어의 채팅 메시지를 먼저 삭제하여 외래키 제약 조건 위반 방지
         try {
-            // chatService.deletePlayerChatMessages는 userId 기반으로 동작함
-            val deletedChatCount = chatService.deletePlayerChatMessages(player.userId)
-            logger.debug("Deleted $deletedChatCount chat messages for player userId=${player.userId} (pk=${player.id}) in game ${game.gameNumber}")
+            val archivedCount = chatService.archivePlayerChatMessages(player.userId, player.nickname)
+            logger.debug("Archived $archivedCount chat messages for player userId=${player.userId} (pk=${player.id}) in game ${game.gameNumber}")
         } catch (e: Exception) {
-            logger.error("Failed to delete chat messages for player userId=${player.userId} (pk=${player.id}): ${e.message}", e)
-            throw RuntimeException("채팅 메시지 삭제 중 오류가 발생했습니다: ${e.message}")
+            logger.error("Failed to archive chat messages for player userId=${player.userId} (pk=${player.id}): ${e.message}", e)
+            throw RuntimeException("채팅 기록 보관 중 오류가 발생했습니다: ${e.message}")
         }
 
         // 이제 플레이어를 안전하게 삭제
         val deletedCount = playerRepository.deleteByGameIdAndUserId(game.id, userId)
+
+        if (deletedCount > 0) {
+            val readinessDeleted = playerReadinessRepository.deleteByGameAndUserId(game, userId)
+            if (readinessDeleted > 0) {
+                logger.debug("Removed {} readiness records for player {} in game {}", readinessDeleted, userId, game.gameNumber)
+            }
+        }
 
         if (deletedCount > 0) {
             // 🔧 게임 나가기 후 세션 갱신: 게임 관련 세션 데이터 정리
@@ -471,14 +485,21 @@ class GameService(
         }
 
         val players = playerRepository.findByGame(game)
-        val liars = players.filter { it.role == PlayerRole.LIAR }
-
-        val liarsWin = liars.any { it.isAlive }
+        val winningTeam = game.winningTeam
+            ?: when {
+                players.any { it.isWinner && it.role == PlayerRole.LIAR } -> WinningTeam.LIARS
+                players.any { it.isWinner && it.role == PlayerRole.CITIZEN } -> WinningTeam.CITIZENS
+                else -> {
+                    val liarsAlive = players.any { it.role == PlayerRole.LIAR && it.isAlive }
+                    if (liarsAlive) WinningTeam.LIARS else WinningTeam.CITIZENS
+                }
+            }
 
         return GameResultResponse.from(
             game = game,
             players = players,
-            winningTeam = if (liarsWin) WinningTeam.LIARS else WinningTeam.CITIZENS
+            winningTeam = winningTeam,
+            correctGuess = game.liarGuessCorrect
         )
     }
 
@@ -675,7 +696,10 @@ class GameService(
             isChatAvailable = isChatAvailable,
             turnOrder = turnOrder,
             currentTurnIndex = currentTurnIndex,
-            phaseEndTime = game.phaseEndTime?.toString()
+            phaseEndTime = game.phaseEndTime?.toString(),
+            winner = game.winningTeam?.name,
+            winningTeam = game.winningTeam?.name,
+            reason = game.winnerReason
         )
     }
 
@@ -732,12 +756,15 @@ class GameService(
         val game = gameRepository.findByGameNumberWithLock(gameNumber) ?: return
         val player = playerRepository.findByGameAndUserId(game, userId) ?: return
 
-        // 플레이어 삭제 전에 해당 플레이어의 채팅 메시지들을 먼저 삭제
+        // 플레이어 삭제 전에 해당 플레이어의 채팅 메시지들을 먼저 정리
         logger.debug("플레이어 삭제 전 채팅 메시지 정리: userId={}, nickname={}, pk={}", player.userId, player.nickname, player.id)
-        // 삭제 대상 플레이어의 userId로 채팅 메시지 삭제
-        chatService.deletePlayerChatMessages(player.userId)
+        chatService.archivePlayerChatMessages(player.userId, player.nickname)
 
         playerRepository.delete(player)
+        val readinessDeleted = playerReadinessRepository.deleteByGameAndUserId(game, userId)
+        if (readinessDeleted > 0) {
+            logger.debug("System cleanup removed {} readiness records for user {} in game {}", readinessDeleted, userId, game.gameNumber)
+        }
 
         val remainingPlayers = playerRepository.findByGame(game)
         if (remainingPlayers.isEmpty()) {
@@ -754,7 +781,7 @@ class GameService(
             }
 
             gameRepository.delete(game)
-            gameMonitoringService.notifyRoomDeleted(game.gameNumber)
+            gameMonitoringService.notifyRoomDeleted(game.gameNumber, reason = "NO_PLAYERS_REMAIN")
         } else {
             if (game.gameOwner == player.nickname) {
                 val newOwner = remainingPlayers.minByOrNull { it.joinedAt }
@@ -844,8 +871,7 @@ class GameService(
         gameRepository.save(game)
 
         // 기존 방장 플레이어 삭제
-        // 현재 owner의 userId로 채팅 메시지 삭제
-        chatService.deletePlayerChatMessages(currentOwner.userId)
+        chatService.archivePlayerChatMessages(currentOwner.userId, currentOwner.nickname)
         playerRepository.delete(currentOwner)
 
         // 모든 플레이어에게 알림

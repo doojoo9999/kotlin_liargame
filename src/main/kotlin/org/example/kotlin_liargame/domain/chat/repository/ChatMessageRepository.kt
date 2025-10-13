@@ -25,16 +25,22 @@ interface ChatMessageRepository : JpaRepository<ChatMessageEntity, Long> {
 
     // 플레이어별 채팅 메시지 삭제를 위한 메서드 추가
     @Modifying
-    @Query("DELETE FROM ChatMessageEntity c WHERE c.player.userId = :userId")
-    fun deleteByPlayerUserId(@Param("userId") userId: Long): Int
-
-    // Fetch IDs for batched deletion to avoid long-running locks
-    @Query("SELECT c.id FROM ChatMessageEntity c WHERE c.player.userId = :userId")
-    fun findIdsByPlayerUserId(@Param("userId") userId: Long): List<Long>
-
-    @Modifying
     @Query("DELETE FROM ChatMessageEntity c WHERE c.game = :game")
     fun deleteByGame(@Param("game") game: GameEntity): Int
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(
+        "UPDATE ChatMessageEntity c SET c.playerNicknameSnapshot = :nickname, c.playerUserId = :userId " +
+            "WHERE c.player.userId = :userId AND (c.playerNicknameSnapshot IS NULL OR c.playerNicknameSnapshot = '' OR c.playerUserId IS NULL)"
+    )
+    fun snapshotPlayerMetadata(
+        @Param("userId") userId: Long,
+        @Param("nickname") nickname: String
+    ): Int
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("UPDATE ChatMessageEntity c SET c.player = null WHERE c.player.userId = :userId")
+    fun detachPlayerByUserId(@Param("userId") userId: Long): Int
 
     // 특정 플레이어의 특정 타입 메시지 중 가장 최근 메시지 조회
     fun findTopByGameAndPlayerAndTypeOrderByTimestampDesc(

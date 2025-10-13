@@ -7,7 +7,7 @@
         "css-debugging-mcp@latest"
       ],
       "env": {
-        "TARGET_URL": "http://localhost:5175",
+        "TARGET_URL": "http://218.150.3.77:5175",
         "DEBUG_MODE": "true",
         "SCREENSHOT_PATH": "./screenshots",
         "INSPECT_WHITE_BORDERS": "true",

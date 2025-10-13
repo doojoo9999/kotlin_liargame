@@ -1,8 +1,11 @@
-import {useCallback, useState} from 'react';
-import {websocketService} from '../services/websocketService';
-import useGameStore from '../stores/gameStore';
+import {useCallback, useEffect, useMemo, useState} from 'react';
 import {toast} from 'sonner';
 import {useShallow} from 'zustand/react/shallow';
+import {useConnectionStore} from '@/stores/connectionStore';
+import {useGameStore} from '@/stores';
+import {websocketService} from '@/services/websocketService';
+import {resetRealtimeSessionTracking} from '@/utils/sessionCleanup';
+import type {ChatMessageType} from '@/types/realtime';
 
 export interface UseGameWebSocketReturn {
   isConnected: boolean;
@@ -12,104 +15,139 @@ export interface UseGameWebSocketReturn {
   retry: () => Promise<void>;
   joinGame: (gameId: string) => void;
   leaveGame: () => void;
-  sendChatMessage: (message: string) => void;
+  sendChatMessage: (message: string, type?: ChatMessageType) => Promise<void>;
   castVote: (targetPlayerId: string) => void;
-  submitDefense: (defense: string) => void;
   startGame: () => void;
 }
 
 export const useGameWebSocket = (): UseGameWebSocketReturn => {
-  const selectWebSocketState = useShallow((state: ReturnType<typeof useGameStore.getState>) => ({
-    isConnected: state.isConnected,
+  const selectGameStore = useShallow((state: ReturnType<typeof useGameStore.getState>) => ({
     connectionError: state.connectionError,
     setConnectionError: state.setConnectionError,
-    connectWebSocket: state.connectWebSocket,
-    disconnectWebSocket: state.disconnectWebSocket,
-    joinGame: state.joinGame,
-    leaveGame: state.leaveGame,
+    setConnectionState: state.setConnectionState,
+    resetGameData: state.resetGameData,
     sendChatMessage: state.sendChatMessage,
     castVote: state.castVote,
-    submitDefense: state.submitDefense,
     startGame: state.startGame,
+    currentPlayer: state.currentPlayer,
   }));
 
   const {
-    isConnected,
     connectionError,
     setConnectionError,
-    connectWebSocket,
-    disconnectWebSocket,
-    joinGame: joinGameAction,
-    leaveGame: leaveGameAction,
+    setConnectionState,
+    resetGameData,
     sendChatMessage: sendChatMessageAction,
     castVote: castVoteAction,
-    submitDefense: submitDefenseAction,
     startGame: startGameAction,
-  } = useGameStore(selectWebSocketState);
+    currentPlayer,
+  } = useGameStore(selectGameStore);
+
+  const selectConnectionStore = useShallow((state: ReturnType<typeof useConnectionStore.getState>) => ({
+    status: state.status,
+    connect: state.connect,
+    disconnect: state.disconnect,
+  }));
+
+  const {
+    status: connectionStatus,
+    connect: connectConnection,
+    disconnect: disconnectConnection,
+  } = useConnectionStore(selectConnectionStore);
+
   const [isConnecting, setIsConnecting] = useState(false);
 
+  const isConnected = connectionStatus === 'connected';
+  const derivedError = useMemo(() => {
+    if (connectionStatus === 'error' && !connectionError) {
+      return '웹소켓 연결에 실패했습니다';
+    }
+    return connectionError;
+  }, [connectionStatus, connectionError]);
+
+  useEffect(() => {
+    setConnectionState(connectionStatus === 'connected');
+    if (connectionStatus === 'connected') {
+      setConnectionError(null);
+    }
+  }, [connectionStatus, setConnectionError, setConnectionState]);
+
   const connect = useCallback(async () => {
-    if (isConnecting || isConnected) return;
+    if (isConnecting || isConnected) {
+      return;
+    }
 
     setIsConnecting(true);
     setConnectionError(null);
 
     try {
-      await connectWebSocket();
-      toast.success('실시간 연결이 성공했습니다');
+      await connectConnection();
+      toast.success('웹소켓 연결이 완료되었습니다');
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : '연결에 실패했습니다';
-      setConnectionError(errorMessage);
-      toast.error(errorMessage);
+      const message = error instanceof Error ? error.message : '연결에 실패했습니다';
+      setConnectionError(message);
+      toast.error(message);
       throw error;
     } finally {
       setIsConnecting(false);
     }
-  }, [isConnecting, isConnected, connectWebSocket, setConnectionError]);
+  }, [connectConnection, isConnected, isConnecting, setConnectionError]);
 
   const disconnect = useCallback(() => {
-    disconnectWebSocket();
-    toast.info('실시간 연결이 종료되었습니다');
-  }, [disconnectWebSocket]);
+    disconnectConnection();
+  }, [disconnectConnection]);
 
   const retry = useCallback(async () => {
-    if (isConnected) {
-      disconnect();
-      await new Promise(resolve => setTimeout(resolve, 1000));
-    }
+    disconnectConnection();
+    await new Promise(resolve => setTimeout(resolve, 500));
     return connect();
-  }, [isConnected, connect, disconnect]);
+  }, [connect, disconnectConnection]);
 
   const joinGame = useCallback((gameId: string) => {
-    joinGameAction(gameId);
-  }, [joinGameAction]);
+    if (!gameId) {
+      return;
+    }
+
+    if (!isConnected) {
+      const message = '웹소켓 연결이 필요합니다';
+      setConnectionError(message);
+      toast.error(message);
+      return;
+    }
+
+    websocketService.subscribeToGame(gameId);
+    resetGameData();
+  }, [isConnected, resetGameData, setConnectionError]);
 
   const leaveGame = useCallback(() => {
-    leaveGameAction();
-  }, [leaveGameAction]);
+    const { gameNumber } = useGameStore.getState();
+    if (gameNumber != null) {
+      websocketService.unsubscribeFromGame(gameNumber.toString());
+    }
+    resetGameData();
+    resetRealtimeSessionTracking();
+  }, [resetGameData]);
 
-  const sendChatMessage = useCallback((message: string) => {
-    sendChatMessageAction(message);
+  const sendChatMessage = useCallback((message: string, type: ChatMessageType = 'DISCUSSION') => {
+    return sendChatMessageAction(message, type);
   }, [sendChatMessageAction]);
 
   const castVote = useCallback((targetPlayerId: string) => {
-    castVoteAction(targetPlayerId);
-  }, [castVoteAction]);
-
-  const submitDefense = useCallback((defense: string) => {
-    submitDefenseAction(defense);
-  }, [submitDefenseAction]);
+    const voterId = currentPlayer?.id;
+    if (!voterId) {
+      console.warn('투표할 플레이어 정보를 찾지 못했습니다.');
+      return;
+    }
+    castVoteAction(voterId, targetPlayerId);
+  }, [castVoteAction, currentPlayer]);
 
   const startGame = useCallback(() => {
     startGameAction();
   }, [startGameAction]);
 
-  // Auto-connect is handled by App.tsx based on authentication status
-  // No automatic connection here to prevent connection timeout on login page
-
   return {
     isConnected,
-    connectionError,
+    connectionError: derivedError,
     connect,
     disconnect,
     retry,
@@ -117,7 +155,6 @@ export const useGameWebSocket = (): UseGameWebSocketReturn => {
     leaveGame,
     sendChatMessage,
     castVote,
-    submitDefense,
-    startGame
+    startGame,
   };
 };

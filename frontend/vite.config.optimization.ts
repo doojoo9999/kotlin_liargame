@@ -108,11 +108,11 @@ export default defineConfig({
     // Proxy for API calls (if needed)
     proxy: {
       '/api': {
-        target: 'http://localhost:8080',
+        target: 'http://218.150.3.77:8080',
         changeOrigin: true,
       },
       '/ws': {
-        target: 'ws://localhost:8080',
+        target: 'ws://218.150.3.77:8080',
         ws: true,
       },
     },

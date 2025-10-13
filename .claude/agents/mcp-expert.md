@@ -115,7 +115,7 @@ When creating a new MCP integration:
         "postgresql-mcp@latest"
       ],
       "env": {
-        "DATABASE_URL": "postgresql://user:pass@localhost:5432/db",
+        "DATABASE_URL": "postgresql://user:pass@218.150.3.77:5432/db",
         "MAX_CONNECTIONS": "10",
         "CONNECTION_TIMEOUT": "30000",
         "ENABLE_SSL": "true"

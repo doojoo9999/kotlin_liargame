@@ -8,6 +8,7 @@ data class ChatMessageResponse(
     val id: Long?,
     val gameNumber: Int,
     val playerNickname: String?, // 시스템 메시지의 경우 null
+    val playerUserId: Long?,
     val content: String,
     val timestamp: Instant,
     val type: ChatMessageType
@@ -17,7 +18,8 @@ data class ChatMessageResponse(
             return ChatMessageResponse(
                 id = entity.id,
                 gameNumber = entity.game.gameNumber,
-                playerNickname = entity.player?.nickname, // 시스템 메시지의 경우 null
+                playerNickname = entity.playerNicknameSnapshot ?: entity.player?.nickname, // 시스템 메시지의 경우 null
+                playerUserId = entity.playerUserId ?: entity.player?.userId,
                 content = entity.content,
                 timestamp = entity.timestamp,
                 type = entity.type

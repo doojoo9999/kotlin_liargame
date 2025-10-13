@@ -108,6 +108,9 @@ class TopicGuessService(
             // Redis에 상태 업데이트
             gameStateService.setLiarGuessStatus(gameNumber, guessStatus)
 
+            game.liarGuessCorrect = isCorrect
+            gameRepository.save(game)
+
             val winner = if (isCorrect) "LIARS" else "CITIZENS"
             
             val response = LiarGuessResultResponse(

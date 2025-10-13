@@ -447,8 +447,8 @@ class ChatService(
             }
         }
 
-        println("[ChatService] Game not in progress, returning POST_ROUND")
-        return ChatMessageType.POST_ROUND
+        println("[ChatService] Game not in progress, returning WAITING_ROOM")
+        return ChatMessageType.WAITING_ROOM
     }
 
     fun isPostRoundChatAvailable(game: GameEntity): Boolean {
@@ -488,7 +488,9 @@ class ChatService(
             game = game,
             player = null, // 시스템 메시지는 플레이어가 없음
             content = message,
-            type = ChatMessageType.SYSTEM
+            type = ChatMessageType.SYSTEM,
+            playerUserId = null,
+            playerNicknameSnapshot = "SYSTEM"
         )
 
         val savedMessage = chatMessageRepository.save(systemMessage)
@@ -531,44 +533,19 @@ class ChatService(
     }
 
     @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
-    fun deletePlayerChatMessages(userId: Long): Int {
-        // Use batched deletion with a small retry loop to handle transient deadlocks.
-        val ids = chatMessageRepository.findIdsByPlayerUserId(userId)
-        if (ids.isEmpty()) {
-            println("[CHAT] No chat messages found for player userId: $userId")
-            return 0
+    fun archivePlayerChatMessages(userId: Long, nickname: String?): Int {
+        val snapshotName = nickname?.takeIf { it.isNotBlank() } ?: "퇴장한 플레이어"
+
+        // Ensure we retain identifying metadata before detaching the relation
+        chatMessageRepository.snapshotPlayerMetadata(userId, snapshotName)
+
+        val updated = chatMessageRepository.detachPlayerByUserId(userId)
+        if (updated == 0) {
+            println("[CHAT] No chat messages required archiving for player userId: $userId")
+        } else {
+            println("[CHAT] Archived $updated chat messages for player userId: $userId")
         }
-
-        val batchSize = 200
-        val maxAttempts = 3
-        var attempt = 0
-
-        while (attempt < maxAttempts) {
-            attempt += 1
-            try {
-                var deletedThisAttempt = 0
-                ids.chunked(batchSize).forEach { batch ->
-                    chatMessageRepository.deleteAllByIdInBatch(batch)
-                    deletedThisAttempt += batch.size
-                }
-                println("[CHAT] Deleted $deletedThisAttempt chat messages for player userId: $userId in ${ids.size / batchSize + 1} batches (attempt $attempt)")
-                return deletedThisAttempt
-            } catch (e: Exception) {
-                if (e is org.springframework.dao.CannotAcquireLockException || e.cause is java.sql.SQLException || e.message?.contains("deadlock", ignoreCase = true) == true) {
-                    println("[WARN] Deadlock when deleting chat messages for userId=$userId on attempt $attempt: ${e.message}")
-                    if (attempt >= maxAttempts) {
-                        println("[ERROR] Max retries reached while deleting chat messages for userId=$userId")
-                        throw e
-                    }
-                    try { Thread.sleep((attempt * 150).toLong()) } catch (ie: InterruptedException) { Thread.currentThread().interrupt() }
-                    continue
-                }
-                println("[ERROR] Failed to delete chat messages for player userId: $userId - ${e.message}")
-                throw e
-            }
-        }
-
-        return 0
+        return updated
     }
 
     @Transactional

@@ -1,0 +1,175 @@
+> Task :compileKotlin UP-TO-DATE
+> Task :compileJava NO-SOURCE
+> Task :processResources UP-TO-DATE
+> Task :classes UP-TO-DATE
+> Task :resolveMainClassName UP-TO-DATE
+
+> Task :bootRun
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+ :: Spring Boot ::                (v3.2.0)
+
+2025-09-25 10:47:36.053 [background-preinit] INFO  o.h.validator.internal.util.Version - HV000001: Hibernate Validator 8.0.1.Final
+2025-09-25 10:47:36.085 [main] INFO  o.e.k.KotlinLiargameApplicationKt - Starting KotlinLiargameApplicationKt using Java 17.0.12 with PID 27808 (D:\workspaces\kotlin_liargame\build\classes\kotlin\main started by allm in D:\workspaces\kotlin_liargame)
+2025-09-25 10:47:36.085 [main] DEBUG o.e.k.KotlinLiargameApplicationKt - Running with Spring Boot v3.2.0, Spring v6.1.1
+2025-09-25 10:47:36.085 [main] INFO  o.e.k.KotlinLiargameApplicationKt - The following 1 profile is active: "dev"
+2025-09-25 10:47:37.259 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+2025-09-25 10:47:37.262 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2025-09-25 10:47:37.416 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 148 ms. Found 19 JPA repository interfaces.
+2025-09-25 10:47:37.424 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+2025-09-25 10:47:37.425 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data Redis repositories in DEFAULT mode.
+2025-09-25 10:47:37.442 [main] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface org.example.kotlin_liargame.domain.chat.repository.ChatMessageRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+2025-09-25 10:47:37.442 [main] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface org.example.kotlin_liargame.domain.game.repository.GameHistorySummaryRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+2025-09-25 10:47:37.442 [main] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface org.example.kotlin_liargame.domain.game.repository.GameRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+2025-09-25 10:47:37.442 [main] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface org.example.kotlin_liargame.domain.game.repository.GameSubjectRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+2025-09-25 10:47:37.442 [main] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface org.example.kotlin_liargame.domain.game.repository.PlayerReadinessRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+2025-09-25 10:47:37.443 [main] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface org.example.kotlin_liargame.domain.game.repository.PlayerRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+2025-09-25 10:47:37.443 [main] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface org.example.kotlin_liargame.domain.nemonemo.repository.NemonemoLeaderboardEntryRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+2025-09-25 10:47:37.443 [main] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface org.example.kotlin_liargame.domain.nemonemo.repository.NemonemoPuzzleHintRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+2025-09-25 10:47:37.443 [main] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface org.example.kotlin_liargame.domain.nemonemo.repository.NemonemoPuzzleReleaseRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+2025-09-25 10:47:37.443 [main] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface org.example.kotlin_liargame.domain.nemonemo.repository.NemonemoPuzzleRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+2025-09-25 10:47:37.443 [main] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface org.example.kotlin_liargame.domain.nemonemo.repository.NemonemoSessionRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+2025-09-25 10:47:37.443 [main] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface org.example.kotlin_liargame.domain.nemonemo.repository.NemonemoSessionSnapshotRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+2025-09-25 10:47:37.443 [main] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface org.example.kotlin_liargame.domain.profanity.repository.ProfanityRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+2025-09-25 10:47:37.444 [main] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface org.example.kotlin_liargame.domain.profanity.repository.ProfanityRequestRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+2025-09-25 10:47:37.444 [main] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface org.example.kotlin_liargame.domain.subject.repository.SubjectRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+2025-09-25 10:47:37.444 [main] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface org.example.kotlin_liargame.domain.user.repository.UserRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+2025-09-25 10:47:37.444 [main] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface org.example.kotlin_liargame.domain.user.repository.UserTokenRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+2025-09-25 10:47:37.445 [main] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface org.example.kotlin_liargame.domain.word.repository.WordRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+2025-09-25 10:47:37.445 [main] INFO  o.s.d.r.c.RepositoryConfigurationExtensionSupport - Spring Data Redis - Could not safely identify store assignment for repository candidate interface org.example.kotlin_liargame.global.connection.repository.ConnectionLogRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+2025-09-25 10:47:37.445 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 15 ms. Found 0 Redis repository interfaces.
+2025-09-25 10:47:38.098 [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat initialized with port 20021 (http)
+2025-09-25 10:47:38.105 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-20021"]
+2025-09-25 10:47:38.106 [main] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+2025-09-25 10:47:38.106 [main] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.16]
+2025-09-25 10:47:38.164 [main] INFO  o.a.c.c.C.[Tomcat].[218.150.3.77].[/] - Initializing Spring embedded WebApplicationContext
+2025-09-25 10:47:38.164 [main] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 2038 ms
+2025-09-25 10:47:38.279 [main] INFO  com.zaxxer.hikari.HikariDataSource - LiarGameHikariCP - Starting...
+2025-09-25 10:47:38.402 [main] INFO  com.zaxxer.hikari.pool.HikariPool - LiarGameHikariCP - Added connection conn0: url=jdbc:h2:mem:testdb user=SA
+2025-09-25 10:47:38.403 [main] INFO  com.zaxxer.hikari.HikariDataSource - LiarGameHikariCP - Start completed.
+2025-09-25 10:47:38.410 [main] INFO  o.s.b.a.h.H2ConsoleAutoConfiguration - H2 console available at '/h2-console'. Database available at 'jdbc:h2:mem:testdb'
+2025-09-25 10:47:38.807 [main] INFO  o.h.jpa.internal.util.LogHelper - HHH000204: Processing PersistenceUnitInfo [name: default]
+2025-09-25 10:47:38.845 [main] INFO  org.hibernate.Version - HHH000412: Hibernate ORM core version 6.3.1.Final
+2025-09-25 10:47:38.875 [main] INFO  o.h.c.i.RegionFactoryInitiator - HHH000026: Second-level cache disabled
+2025-09-25 10:47:39.044 [main] INFO  o.s.o.j.p.SpringPersistenceUnitInfo - No LoadTimeWeaver setup: ignoring JPA class transformer
+2025-09-25 10:47:39.974 [main] INFO  o.h.e.t.j.p.i.JtaPlatformInitiator - HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+Hibernate: create table chat_message (id bigint generated by default as identity, created_at timestamp(6) not null, ip_address varchar(40), modified_at timestamp(6) not null, session_id varchar(100), content varchar(255) not null, timestamp timestamp(6) with time zone not null, type varchar(255) not null check (type in ('HINT','DISCUSSION','DEFENSE','POST_ROUND','SYSTEM')), game_id bigint, player_id bigint, primary key (id))
+Hibernate: create table connection_logs (id bigint generated by default as identity, action varchar(255) not null check (action in ('CONNECT','DISCONNECT','RECONNECT','GRACE_PERIOD_STARTED','GRACE_PERIOD_EXPIRED')), game_id bigint, grace_period_seconds integer, session_id varchar(255), timestamp timestamp(6) with time zone not null, user_id bigint not null, primary key (id))
+Hibernate: create table game (id bigint generated by default as identity, created_at timestamp(6) not null, ip_address varchar(40), modified_at timestamp(6) not null, session_id varchar(100), accused_player_id bigint, active_players_count integer, countdown_duration_seconds integer, countdown_end_time timestamp(6) with time zone, countdown_started_at timestamp(6) with time zone, g_phase varchar(255) check (g_phase in ('WAITING_FOR_PLAYERS','SPEECH','VOTING_FOR_LIAR','DEFENDING','VOTING_FOR_SURVIVAL','GUESSING_WORD','GAME_OVER')), current_player_id bigint, current_turn_index integer not null, current_votes integer, game_current_round integer not null, game_end_time timestamp(6) with time zone, game_liar_count integer not null, g_game_mode varchar(255) check (g_game_mode in ('LIARS_KNOW','LIARS_DIFFERENT_WORD')), game_name varchar(255), game_number integer not null, game_owner varchar(255), game_participants integer not null, game_password varchar(255), game_start_deadline timestamp(6) with time zone, g_state varchar(255) check (g_state in ('WAITING','IN_PROGRESS','ENDED')), game_total_rounds integer not null, last_activity_at timestamp(6) with time zone, phase_end_time timestamp(6) with time zone, required_votes integer, target_points integer not null, time_extension_count integer, turn_order TEXT, turn_started_at timestamp(6) with time zone, version bigint not null, voting_phase varchar(255) check (voting_phase in ('LIAR_ELIMINATION','SURVIVAL_VOTE','TIE_BREAKER')), citizen_subject_id bigint, liar_subject_id bigint, primary key (id))
+Hibernate: create table game_history (id bigint generated by default as identity, created_at timestamp(6) not null, ip_address varchar(40), modified_at timestamp(6) not null, session_id varchar(100), game_mode varchar(255) not null check (game_mode in ('LIARS_KNOW','LIARS_DIFFERENT_WORD')), game_number integer not null, game_rounds integer not null, liar_nickname varchar(255) not null, winning_team varchar(255) not null check (winning_team in ('CITIZENS','LIARS')), primary key (id))
+Hibernate: create table game_history_players (game_history_id bigint not null, player_nickname varchar(255))
+Hibernate: create table game_subject (id bigint generated by default as identity, created_at timestamp(6) not null, ip_address varchar(40), modified_at timestamp(6) not null, session_id varchar(100), game_id bigint, subject_id bigint, primary key (id))
+Hibernate: create table nemonemo_announcement (id bigint generated by default as identity, created_at timestamp(6) not null, ip_address varchar(40), modified_at timestamp(6) not null, session_id varchar(100), body TEXT not null, created_by bigint not null, cta_url varchar(255), title varchar(120) not null, visible_from timestamp(6) not null, visible_until timestamp(6), primary key (id))
+Hibernate: create table nemonemo_creator_submission (id bigint generated by default as identity, created_at timestamp(6) not null, ip_address varchar(40), modified_at timestamp(6) not null, session_id varchar(100), creator_user_id bigint not null, puzzle_payload TEXT not null, review_notes TEXT, reviewer_user_id bigint, status varchar(20) not null check (status in ('DRAFT','REVIEW','REJECTED','APPROVED')), primary key (id))
+Hibernate: create table nemonemo_leaderboard_entry (id bigint generated by default as identity, created_at timestamp(6) not null, ip_address varchar(40), modified_at timestamp(6) not null, session_id varchar(100), accuracy float(53) not null, duration_seconds integer not null, rank integer not null, score integer not null, user_id bigint not null, release_id bigint not null, primary key (id))
+Hibernate: create table nemonemo_puzzle (id bigint generated by default as identity, created_at timestamp(6) not null, ip_address varchar(40), modified_at timestamp(6) not null, session_id varchar(100), code varchar(24) not null, creator_user_id bigint, description TEXT, difficulty varchar(20) not null check (difficulty in ('EASY','MEDIUM','HARD','EXPERT')), difficulty_score float(53), estimated_minutes integer not null, height integer not null, solution_blob blob not null, source_type varchar(20) not null check (source_type in ('OFFICIAL','CREATOR','IMPORT')), status varchar(20) not null check (status in ('DRAFT','REVIEW','APPROVED','PUBLISHED','RETIRED')), title varchar(120) not null, validation_checksum varchar(64), width integer not null, primary key (id))
+Hibernate: create table nemonemo_puzzle_hint (id bigint generated by default as identity, axis varchar(10) not null check (axis in ('ROW','COLUMN')), hint_values TEXT not null, position_index integer not null, puzzle_id bigint not null, primary key (id))
+Hibernate: create table nemonemo_puzzle_release (id bigint generated by default as identity, created_at timestamp(6) not null, ip_address varchar(40), modified_at timestamp(6) not null, session_id varchar(100), display_order integer, expires_at timestamp(6), is_featured boolean not null, release_at timestamp(6) not null, release_pack varchar(40) not null, puzzle_id bigint not null, primary key (id))
+Hibernate: create table nemonemo_session (id bigint generated by default as identity, created_at timestamp(6) not null, ip_address varchar(40), modified_at timestamp(6) not null, session_id varchar(100), client_version varchar(40), completed_at timestamp(6), duration_seconds integer, final_score integer, hint_used integer not null, mistake_count integer not null, started_at timestamp(6) not null, status varchar(20) not null check (status in ('IN_PROGRESS','COMPLETED','ABANDONED')), user_id bigint not null, puzzle_id bigint not null, release_id bigint, primary key (id))
+Hibernate: create table nemonemo_session_snapshot (id bigint generated by default as identity, captured_at timestamp(6) not null, cell_states TEXT not null, session_id bigint not null, primary key (id))
+Hibernate: create table player (id bigint generated by default as identity, assigned_word varchar(255), created_at timestamp(6) with time zone not null, cumulative_score integer not null, defense varchar(255), final_vote boolean, hint varchar(255), is_alive boolean not null, is_liar boolean not null, is_online boolean not null, is_winner boolean not null, joined_at timestamp(6) with time zone not null, last_active_at timestamp(6) with time zone, nickname varchar(255) not null, play_time_minutes bigint not null, role varchar(255) not null check (role in ('CITIZEN','LIAR')), state varchar(255) not null check (state in ('WAITING_FOR_HINT','GAVE_HINT','WAITING_FOR_VOTE','VOTED','ACCUSED','DEFENDED','WAITING_FOR_FINAL_VOTE','FINAL_VOTED','SURVIVED','ELIMINATED','DISCONNECTED')), user_id bigint not null, vote_start_time timestamp(6) with time zone, voted_for bigint, votes_received integer not null, was_detected boolean default false not null, game_id bigint, subject_id bigint, primary key (id))
+Hibernate: create table player_actions (id bigint generated by default as identity, created_at timestamp(6) not null, ip_address varchar(40), modified_at timestamp(6) not null, session_id varchar(100), action_time timestamp(6) not null, action_type varchar(255) not null check (action_type in ('SPEAK','VOTE','GUESS_WORD','JOIN_GAME','LEAVE_GAME')), content TEXT, nickname varchar(50) not null, round_number integer not null, user_id bigint not null, game_history_id bigint not null, primary key (id))
+Hibernate: create table player_readiness (id bigint generated by default as identity, is_ready boolean not null, nickname varchar(255) not null, ready_at timestamp(6) with time zone, updated_at timestamp(6) with time zone not null, user_id bigint not null, game_id bigint, primary key (id))
+Hibernate: create table profanity (id bigint generated by default as identity, created_at timestamp(6) not null, ip_address varchar(40), modified_at timestamp(6) not null, session_id varchar(100), word varchar(255) not null, primary key (id))
+Hibernate: create table profanity_request (id bigint generated by default as identity, created_at timestamp(6) not null, ip_address varchar(40), modified_at timestamp(6) not null, session_id varchar(100), status varchar(255) not null check (status in ('PENDING','APPROVED','REJECTED')), word varchar(255) not null, suggester_id bigint not null, primary key (id))
+Hibernate: create table subject (id bigint generated by default as identity, created_at timestamp(6) not null, ip_address varchar(40), modified_at timestamp(6) not null, session_id varchar(100), content varchar(255), status varchar(255) check (status in ('PENDING','APPROVED','REJECTED')), primary key (id))
+Hibernate: create table user_tokens (id bigint generated by default as identity, created_at timestamp(6) not null, ip_address varchar(40), modified_at timestamp(6) not null, session_id varchar(100), expires_at timestamp(6) not null, token varchar(255) not null, user_id bigint, primary key (id))
+Hibernate: create table users (id bigint generated by default as identity, created_at timestamp(6) not null, ip_address varchar(40), modified_at timestamp(6) not null, session_id varchar(100), citizen_games integer not null, citizen_wins integer not null, has_token_issued boolean not null, highest_ranking_points integer not null, is_active boolean not null, is_authenticated boolean not null, last_login_at timestamp(6), liar_games integer not null, liar_wins integer not null, nickname varchar(255), password varchar(255), profile_img_url varchar(255), ranking_points integer not null, role varchar(255) not null check (role in ('USER','ADMIN')), total_games integer not null, total_losses integer not null, total_playtime_seconds bigint not null, total_wins integer not null, primary key (id))
+Hibernate: create table vote_records (id bigint generated by default as identity, created_at timestamp(6) not null, ip_address varchar(40), modified_at timestamp(6) not null, session_id varchar(100), vote_time timestamp(6) not null, voted_nickname varchar(50) not null, voted_user_id bigint not null, voter_nickname varchar(50) not null, voter_user_id bigint not null, game_history_id bigint not null, primary key (id))
+Hibernate: create table word (id bigint generated by default as identity, created_at timestamp(6) not null, ip_address varchar(40), modified_at timestamp(6) not null, session_id varchar(100), content varchar(255), status varchar(255) check (status in ('PENDING','APPROVED','REJECTED')), subject_id bigint, primary key (id))
+Hibernate: alter table if exists nemonemo_puzzle drop constraint if exists UK_tei5c4r56eq07hx15noc20x54
+Hibernate: alter table if exists nemonemo_puzzle add constraint UK_tei5c4r56eq07hx15noc20x54 unique (code)
+Hibernate: alter table if exists profanity drop constraint if exists UK_mx9uss80yoj10ehd89jb8elv2
+Hibernate: alter table if exists profanity add constraint UK_mx9uss80yoj10ehd89jb8elv2 unique (word)
+Hibernate: alter table if exists profanity_request drop constraint if exists UK_o6yic7c6ip28tu5lbj02ce31p
+Hibernate: alter table if exists profanity_request add constraint UK_o6yic7c6ip28tu5lbj02ce31p unique (word)
+Hibernate: alter table if exists user_tokens drop constraint if exists UK_fvl6k04x11pern525noiw5k6v
+Hibernate: alter table if exists user_tokens add constraint UK_fvl6k04x11pern525noiw5k6v unique (token)
+Hibernate: alter table if exists word drop constraint if exists UKjqx3227des21howvh0y1yds8
+Hibernate: alter table if exists word add constraint UKjqx3227des21howvh0y1yds8 unique (subject_id, content)
+Hibernate: alter table if exists chat_message add constraint FKflnceky94wjmw0wwxx431oso2 foreign key (game_id) references game
+Hibernate: alter table if exists chat_message add constraint FKme5n7vo6ptyu8uvib8aijqpew foreign key (player_id) references player
+Hibernate: alter table if exists game add constraint FKhrw66qg7u0wrsskr7knantfdj foreign key (citizen_subject_id) references subject
+Hibernate: alter table if exists game add constraint FK28wsm204vr7itnqu45g940584 foreign key (liar_subject_id) references subject
+Hibernate: alter table if exists game_history_players add constraint FKifeiyprsdl4ntvqxdwlk5rvp foreign key (game_history_id) references game_history
+Hibernate: alter table if exists game_subject add constraint FKn4jawmh1cfjliio9whmvjp7hx foreign key (game_id) references game
+Hibernate: alter table if exists game_subject add constraint FKppflk0xlfiumnrawdmg9n0bi8 foreign key (subject_id) references subject
+Hibernate: alter table if exists nemonemo_leaderboard_entry add constraint FK96g3ev0xxaiwe36v4glo6cnq2 foreign key (release_id) references nemonemo_puzzle_release
+Hibernate: alter table if exists nemonemo_puzzle_hint add constraint FKd2o4ngt5fya7lssccqpar6e0d foreign key (puzzle_id) references nemonemo_puzzle
+Hibernate: alter table if exists nemonemo_puzzle_release add constraint FKrqesubnuoe9n9vibfxcnnr02t foreign key (puzzle_id) references nemonemo_puzzle
+Hibernate: alter table if exists nemonemo_session add constraint FK949ydqo7q2v1g5goauujud14i foreign key (puzzle_id) references nemonemo_puzzle
+Hibernate: alter table if exists nemonemo_session add constraint FK6yb8nvdcjgftfe3knlo2d7k51 foreign key (release_id) references nemonemo_puzzle_release
+Hibernate: alter table if exists nemonemo_session_snapshot add constraint FK3mca62koxbqkwwuqgp33gcon foreign key (session_id) references nemonemo_session
+Hibernate: alter table if exists player add constraint FK8095bt0vv5capccv9870ln2n foreign key (game_id) references game
+Hibernate: alter table if exists player add constraint FK6vr72ou8cseqnjrybl3yusscf foreign key (subject_id) references subject
+Hibernate: alter table if exists player_actions add constraint FKonhimcpd9i26lwv2g7s35ko7q foreign key (game_history_id) references game_history
+Hibernate: alter table if exists player_readiness add constraint FKkkx4lplsv3d7ms4aw5mkw5b7a foreign key (game_id) references game
+Hibernate: alter table if exists profanity_request add constraint FK2gg26q0vaonwmdagpnsn0eul0 foreign key (suggester_id) references users
+Hibernate: alter table if exists user_tokens add constraint FK61iiu6gfevpvo2v3yl76sar7r foreign key (user_id) references users
+Hibernate: alter table if exists vote_records add constraint FKof4g9eydans3i0r3985h5c2qv foreign key (game_history_id) references game_history
+Hibernate: alter table if exists word add constraint FK9yg7pi6bligj2ay6jggsdlkrm foreign key (subject_id) references subject
+2025-09-25 10:47:40.063 [main] INFO  o.s.o.j.LocalContainerEntityManagerFactoryBean - Initialized JPA EntityManagerFactory for persistence unit 'default'
+2025-09-25 10:47:40.556 [main] INFO  o.s.d.j.r.query.QueryEnhancerFactory - Hibernate is in classpath; If applicable, HQL parser will be used.
+? .env ���� �ε� �Ϸ�
+? �ε�� ȯ�溯��: 101��
+2025-09-25 10:47:42.250 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-09-25 10:47:42.278 [main] WARN  o.s.b.a.s.s.UserDetailsServiceAutoConfiguration - 
+
+Using generated security password: ce2a3459-f01b-4b03-b2ee-bf36002492e2
+
+This generated password is for development use only. Your security configuration must be updated before running your application in production.
+
+2025-09-25 10:47:42.393 [main] INFO  o.s.s.web.DefaultSecurityFilterChain - Will secure any request with [org.springframework.security.web.session.DisableEncodeUrlFilter@60683b1c, org.springframework.security.web.context.request.async.WebAsyncManagerIntegrationFilter@3e898d36, org.springframework.security.web.context.SecurityContextHolderFilter@47d91a2d, org.springframework.security.web.header.HeaderWriterFilter@75d64780, org.springframework.web.filter.CorsFilter@360d4124, org.springframework.security.web.authentication.logout.LogoutFilter@539f34df, org.springframework.security.web.session.ConcurrentSessionFilter@58165fa3, org.springframework.security.web.savedrequest.RequestCacheAwareFilter@5addd523, org.springframework.security.web.servletapi.SecurityContextHolderAwareRequestFilter@4bc502be, org.springframework.security.web.authentication.AnonymousAuthenticationFilter@27de2eda, org.springframework.security.web.session.SessionManagementFilter@61dd6f70, org.springframework.security.web.access.ExceptionTranslationFilter@1c074b4f, org.springframework.security.web.access.intercept.AuthorizationFilter@4300ccf8]
+2025-09-25 10:47:43.180 [main] INFO  o.s.b.a.e.web.EndpointLinksResolver - Exposing 2 endpoint(s) beneath base path '/actuator'
+2025-09-25 10:47:43.232 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Starting ProtocolHandler ["http-nio-20021"]
+2025-09-25 10:47:43.244 [main] WARN  o.s.b.w.s.c.AnnotationConfigServletWebServerApplicationContext - Exception encountered during context initialization - cancelling refresh attempt: org.springframework.context.ApplicationContextException: Failed to start bean 'webServerStartStop'
+2025-09-25 10:47:43.252 [main] INFO  o.s.o.j.LocalContainerEntityManagerFactoryBean - Closing JPA EntityManagerFactory for persistence unit 'default'
+2025-09-25 10:47:43.259 [main] INFO  com.zaxxer.hikari.HikariDataSource - LiarGameHikariCP - Shutdown initiated...
+2025-09-25 10:47:43.260 [main] INFO  com.zaxxer.hikari.HikariDataSource - LiarGameHikariCP - Shutdown completed.
+2025-09-25 10:47:43.274 [main] INFO  o.s.b.a.l.ConditionEvaluationReportLogger - 
+
+Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
+2025-09-25 10:47:43.287 [main] ERROR o.s.b.d.LoggingFailureAnalysisReporter - 
+
+***************************
+APPLICATION FAILED TO START
+***************************
+
+Description:
+
+Web server failed to start. Port 20021 was already in use.
+
+Action:
+
+Identify and stop the process that's listening on port 20021 or configure this application to listen on another port.
+
+
+> Task :bootRun FAILED
+
+[Incubating] Problems report is available at: file:///D:/workspaces/kotlin_liargame/build/reports/problems/problems-report.html
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':bootRun'.
+> Process 'command 'C:\Program Files\Java\jdk-17\bin\java.exe'' finished with non-zero exit value 1
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/8.13/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD FAILED in 11s
+4 actionable tasks: 1 executed, 3 up-to-date

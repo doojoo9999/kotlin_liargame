@@ -1,7 +1,46 @@
+import {clearClientSessionState} from "@/utils/sessionCleanup"
+
+const DEFAULT_API_BASE_URL = 'http://localhost:20021'
+const DEFAULT_WS_PATH = '/ws'
+
+function normalizeBaseUrl(url: string | undefined, fallback: string): string {
+  const candidate = url?.trim()
+  if (!candidate) {
+    return fallback
+  }
+  return candidate.replace(/\/$/, '')
+}
+
+function resolveWebSocketUrl(explicitUrl: string | undefined, baseHttpUrl: string): string {
+  const sanitizedBase = baseHttpUrl.replace(/\/$/, '')
+
+  const candidate = explicitUrl?.trim()
+  if (candidate) {
+    const sanitizedCandidate = candidate.replace(/\/$/, '')
+
+    if (sanitizedCandidate.startsWith('ws://') || sanitizedCandidate.startsWith('wss://')) {
+      return sanitizedCandidate
+    }
+
+    if (sanitizedCandidate.startsWith('http://') || sanitizedCandidate.startsWith('https://')) {
+      const wsBase = sanitizedCandidate.replace(/^http/, 'ws')
+      return wsBase.endsWith(DEFAULT_WS_PATH) ? wsBase : `${wsBase}${DEFAULT_WS_PATH}`
+    }
+
+    return sanitizedCandidate
+  }
+
+  const wsBase = sanitizedBase.replace(/^http/, 'ws')
+  return `${wsBase}${DEFAULT_WS_PATH}`
+}
+
+const baseURL = normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL, DEFAULT_API_BASE_URL)
+const wsURL = resolveWebSocketUrl(import.meta.env.VITE_WEBSOCKET_URL, baseURL)
+
 // API configuration
 export const API_CONFIG = {
-  BASE_URL: 'http://localhost:20021',
-  WS_URL: 'ws://localhost:20021/ws', // ✅ 올바른 WebSocket 엔드포인트
+  BASE_URL: baseURL,
+  WS_URL: wsURL, // ✅ 올바른 WebSocket 엔드포인트
   ENDPOINTS: {
     // Authentication
     AUTH: {
@@ -304,11 +343,13 @@ class ApiClient {
 
   // Clear authentication state
   private clearAuthState(): void {
-    localStorage.removeItem('auth-token');
-    localStorage.removeItem('auth-storage');
-    
-    // Dispatch custom event to notify auth store
-    window.dispatchEvent(new CustomEvent('auth-session-expired'));
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    void clearClientSessionState({
+      reason: 'session-expired',
+    });
   }
 }
 

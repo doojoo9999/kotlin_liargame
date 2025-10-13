@@ -6,20 +6,29 @@ import type {FrontendGameState, FrontendPlayer} from '@/types'
  * Converts backend player data to frontend player format
  */
 export function convertBackendPlayer(backendPlayer: BackendPlayer, isHost = false): FrontendPlayer {
+  let lastActiveTimestamp: number | undefined
+
+  if (backendPlayer.lastActiveAt) {
+    const parsed = new Date(backendPlayer.lastActiveAt).getTime()
+    if (!Number.isNaN(parsed)) {
+      lastActiveTimestamp = parsed
+    }
+  }
+
   return {
     id: backendPlayer.userId.toString(), // Convert number to string for frontend
     userId: backendPlayer.userId,
     nickname: backendPlayer.nickname,
-    role: backendPlayer.id % 2 === 0 ? 'CITIZEN' : 'LIAR', // Temporary logic - replace with actual role
+    role: undefined,
     isAlive: backendPlayer.isAlive,
     isHost,
-    isOnline: true, // Default to online - update with real connection status
+    isOnline: backendPlayer.isOnline,
     state: backendPlayer.state,
     hint: backendPlayer.hint,
     defense: backendPlayer.defense,
     votesReceived: backendPlayer.votesReceived,
     hasVoted: backendPlayer.hasVoted,
-    lastActive: Date.now()
+    lastActive: lastActiveTimestamp
   }
 }
 

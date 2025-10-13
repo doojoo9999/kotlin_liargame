@@ -9,6 +9,21 @@ import {
     type PlayerInfo,
     type ProfanityRequest
 } from '../api/adminApi';
+import type {APIResponse} from '@/types';
+
+const ensureSuccess = (response: APIResponse<unknown>, fallbackMessage: string): void => {
+  if (!response.success) {
+    throw new Error(response.error?.message ?? fallbackMessage);
+  }
+};
+
+const extractData = <T>(response: APIResponse<T>, fallbackMessage: string): T => {
+  ensureSuccess(response, fallbackMessage);
+  if (response.data === undefined) {
+    throw new Error(fallbackMessage);
+  }
+  return response.data;
+};
 
 interface AdminState {
   // Authentication
@@ -129,9 +144,10 @@ export const useAdminStore = create<AdminStore>()(
         set({ isLoading: true, error: null });
         try {
           const response = await adminApi.login(credentials);
+          const data = extractData(response, 'Login failed');
           set({
             isAuthenticated: true,
-            adminNickname: response.nickname,
+            adminNickname: data.nickname,
             isLoading: false,
           });
         } catch (error) {
@@ -156,7 +172,7 @@ export const useAdminStore = create<AdminStore>()(
       fetchStatistics: async () => {
         set({ statisticsLoading: true, statisticsError: null });
         try {
-          const statistics = await adminApi.getGameStatistics();
+          const statistics = extractData(await adminApi.getGameStatistics(), 'Failed to fetch statistics');
           set({
             statistics,
             statisticsLoading: false,
@@ -175,7 +191,7 @@ export const useAdminStore = create<AdminStore>()(
       fetchActiveGames: async () => {
         set({ gamesLoading: true, gamesError: null });
         try {
-          const games = await adminApi.getAllActiveGames();
+          const games = extractData(await adminApi.getAllActiveGames(), 'Failed to fetch games');
           set({
             activeGames: games,
             gamesLoading: false,
@@ -193,7 +209,7 @@ export const useAdminStore = create<AdminStore>()(
       terminateGame: async (gameNumber) => {
         set({ isLoading: true, error: null });
         try {
-          await adminApi.terminateRoom(gameNumber);
+          ensureSuccess(await adminApi.terminateRoom(gameNumber), 'Failed to terminate game');
           // Remove the terminated game from the list
           set((state) => ({
             activeGames: state.activeGames.filter(game => game.gameNumber !== gameNumber),
@@ -212,7 +228,7 @@ export const useAdminStore = create<AdminStore>()(
       kickPlayer: async (gameNumber, userId) => {
         set({ isLoading: true, error: null });
         try {
-          await adminApi.kickPlayer(gameNumber, userId);
+          ensureSuccess(await adminApi.kickPlayer(gameNumber, userId), 'Failed to kick player');
           set({ isLoading: false });
           // Optionally refresh games list
           get().fetchActiveGames();
@@ -230,7 +246,7 @@ export const useAdminStore = create<AdminStore>()(
       fetchPlayers: async () => {
         set({ playersLoading: true, playersError: null });
         try {
-          const players = await adminApi.getAllPlayers();
+          const players = extractData(await adminApi.getAllPlayers(), 'Failed to fetch players');
           set({
             players,
             playersLoading: false,
@@ -248,7 +264,7 @@ export const useAdminStore = create<AdminStore>()(
       grantAdminRole: async (userId) => {
         set({ isLoading: true, error: null });
         try {
-          await adminApi.grantAdminRole(userId);
+          ensureSuccess(await adminApi.grantAdminRole(userId), 'Failed to grant admin role');
           set({ isLoading: false });
           // Optionally refresh players list
           get().fetchPlayers();
@@ -266,7 +282,7 @@ export const useAdminStore = create<AdminStore>()(
       fetchProfanityRequests: async () => {
         set({ profanityLoading: true, profanityError: null });
         try {
-          const requests = await adminApi.getPendingProfanityRequests();
+          const requests = extractData(await adminApi.getPendingProfanityRequests(), 'Failed to fetch profanity requests');
           set({
             profanityRequests: requests,
             profanityLoading: false,
@@ -284,7 +300,7 @@ export const useAdminStore = create<AdminStore>()(
       approveProfanityRequest: async (requestId) => {
         set({ profanityLoading: true, profanityError: null });
         try {
-          await adminApi.approveProfanityRequest(requestId);
+          ensureSuccess(await adminApi.approveProfanityRequest(requestId), 'Failed to approve request');
           // Remove the approved request from the list
           set((state) => ({
             profanityRequests: state.profanityRequests.filter(req => req.id !== requestId),
@@ -303,7 +319,7 @@ export const useAdminStore = create<AdminStore>()(
       rejectProfanityRequest: async (requestId) => {
         set({ profanityLoading: true, profanityError: null });
         try {
-          await adminApi.rejectProfanityRequest(requestId);
+          ensureSuccess(await adminApi.rejectProfanityRequest(requestId), 'Failed to reject request');
           // Remove the rejected request from the list
           set((state) => ({
             profanityRequests: state.profanityRequests.filter(req => req.id !== requestId),
@@ -323,7 +339,7 @@ export const useAdminStore = create<AdminStore>()(
       fetchPendingContent: async () => {
         set({ contentLoading: true, contentError: null });
         try {
-          const content = await adminApi.getPendingContents();
+          const content = extractData(await adminApi.getPendingContents(), 'Failed to fetch pending content');
           set({
             pendingContent: content,
             contentLoading: false,
@@ -341,7 +357,7 @@ export const useAdminStore = create<AdminStore>()(
       approveAllContent: async () => {
         set({ contentLoading: true, contentError: null });
         try {
-          await adminApi.approveAllPendingContents();
+          ensureSuccess(await adminApi.approveAllPendingContents(), 'Failed to approve all content');
           set({
             pendingContent: [],
             contentLoading: false,
@@ -360,7 +376,7 @@ export const useAdminStore = create<AdminStore>()(
       cleanupStaleGames: async () => {
         set({ isLoading: true, error: null });
         try {
-          const result = await adminApi.cleanupStaleGames();
+          const result = extractData(await adminApi.cleanupStaleGames(), 'Failed to cleanup stale games');
           set({ isLoading: false });
           // Refresh games list after cleanup
           get().fetchActiveGames();
@@ -378,7 +394,7 @@ export const useAdminStore = create<AdminStore>()(
       cleanupDisconnectedPlayers: async () => {
         set({ isLoading: true, error: null });
         try {
-          const result = await adminApi.cleanupDisconnectedPlayers();
+          const result = extractData(await adminApi.cleanupDisconnectedPlayers(), 'Failed to cleanup disconnected players');
           set({ isLoading: false });
           // Refresh players list after cleanup
           get().fetchPlayers();
@@ -396,7 +412,7 @@ export const useAdminStore = create<AdminStore>()(
       cleanupEmptyGames: async () => {
         set({ isLoading: true, error: null });
         try {
-          const result = await adminApi.cleanupEmptyGames();
+          const result = extractData(await adminApi.cleanupEmptyGames(), 'Failed to cleanup empty games');
           set({ isLoading: false });
           // Refresh games list after cleanup
           get().fetchActiveGames();

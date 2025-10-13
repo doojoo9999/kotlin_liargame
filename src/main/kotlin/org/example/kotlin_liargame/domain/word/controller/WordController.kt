@@ -18,7 +18,7 @@ class WordController (
     @PostMapping("/applyw")
     fun applyWord(
         @RequestBody req : ApplyWordRequest
-    ): ResponseEntity<Map<String, String>> {
+    ): ResponseEntity<WordListResponse> {
         // 디버깅을 위한 요청 데이터 로깅
         println("=== Word Apply Request ===")
         println("Request data: $req")
@@ -26,8 +26,8 @@ class WordController (
         println("Word: ${req.word}")
         println("========================")
         
-        wordService.applyWord(req)
-        return ResponseEntity.ok(mapOf("message" to "단어가 성공적으로 추가되었습니다."))
+        val createdWord = wordService.applyWord(req)
+        return ResponseEntity.ok(createdWord)
     }
 
     @DeleteMapping("/delw/{id}")

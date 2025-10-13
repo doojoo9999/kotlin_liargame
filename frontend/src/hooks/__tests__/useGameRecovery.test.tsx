@@ -70,6 +70,8 @@ describe('useGameRecovery', () => {
           userId: 1,
           nickname: '플레이어1',
           isAlive: true,
+          isOnline: true,
+          lastActiveAt: new Date().toISOString(),
           state: 'WAITING_FOR_HINT',
           hasVoted: false,
         },
