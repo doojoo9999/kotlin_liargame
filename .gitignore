@@ -76,5 +76,8 @@ frontend/node_modules/
 frontend/playwright-report/
 frontend/test-results/
 frontend/ts_errors*.log
-cli-tool/*
-docs/*
+**/.assistant/
+.cursorignore
+.mcp.json
+playwright-report/
+test-results/
