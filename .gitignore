@@ -61,3 +61,5 @@ node_modules
 .aiassistant/
 prompt.md
 .cursor
+cli-tool/*
+docs/*
