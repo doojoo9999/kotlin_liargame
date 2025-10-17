@@ -87,7 +87,7 @@
 아래 프롬프트를 Codex CLI에 전달해 단계별 작업을 지시한다. 필요 시 세부 목표/산출물을 수정 후 사용한다.
 
 ```
-You are Codex CLI collaborating on the Nemonemo puzzle project at https://domain.com/nemonemo. Follow repository conventions (Kotlin backend under src/main/kotlin/org/example/kotlin_liargame, React frontend in frontend/). For each task:
+You are Codex CLI collaborating on the Nemonemo puzzle project at https://domain.com/nemonemo. Follow repository conventions (Kotlin backend under src/main/kotlin/org/example/kotlin_liargame, React frontend workspaces inside apps/ such as apps/nemonemo/). For each task:
 1. Restate the goal and outline a short plan before coding.
 2. Read relevant files with minimal commands (prefer rg, sed, cat). Avoid reverting unrelated changes.
 3. Implement changes using Kotlin/React best practices, add concise comments only when logic is non-obvious.

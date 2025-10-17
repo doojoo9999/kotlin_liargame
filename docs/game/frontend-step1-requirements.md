@@ -65,9 +65,9 @@ stateDiagram-v2
 - Voting uses `VOTING_PROGRESS`, `PLAYER_VOTED`, and terminal events `FINAL_VOTING_RESULT` or `GAME_END`.
 
 ## Shared DTO & Event Contract Notes
-- Mirror Kotlin `GameStateResponse`, `VotingStatusResponse`, `DefenseSubmissionResponse`, `GameResultResponse`, `GameRecoveryResponse` with strict typing in `frontend/src/types/contracts/gameplay.ts`.
+- Mirror Kotlin `GameStateResponse`, `VotingStatusResponse`, `DefenseSubmissionResponse`, `GameResultResponse`, `GameRecoveryResponse` with strict typing in `apps/liar-game/src/types/contracts/gameplay.ts`.
 - Include discriminated union for realtime events keyed by `type` and schema version guards.
-- Promote `GameContractVersions.GAME_FLOW` & `GameContractVersions.REALTIME_EVENTS` as constants exported from `frontend/src/types/contracts/versioning.ts`.
+- Promote `GameContractVersions.GAME_FLOW` & `GameContractVersions.REALTIME_EVENTS` as constants exported from `apps/liar-game/src/types/contracts/versioning.ts`.
 - Maintain mapping tables for `GamePhase`, `PlayerState`, `GameState`, and `ModeratorMessage.type` for UI copy.
 
 ## Client State Management Strategy
@@ -77,7 +77,7 @@ stateDiagram-v2
 - **Event Bus**: small utility to register WebSocket handlers -> dispatch typed actions into the Zustand store.
 
 ```ts
-// frontend/src/stores/gameplayStore.ts (sketch)
+// apps/liar-game/src/stores/gameplayStore.ts (sketch)
 export interface GameplayState {
   meta: { gameNumber: number | null; schemaVersion: string | null }
   phase: { current: GamePhase; endsAt?: string; turnOrder: string[]; activePlayerId?: number }

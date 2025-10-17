@@ -1,7 +1,7 @@
 # Project Overview
 
 ## System Architecture
-- Monorepo with a Kotlin/Spring Boot backend under `src/main/kotlin/org/example/kotlin_liargame` and a React client in `frontend/`.
+- Monorepo with a Kotlin/Spring Boot backend under `src/main/kotlin/org/example/kotlin_liargame` and frontend workspaces under `apps/` (legacy Liar Game client in `apps/liar-game/`).
 - Domain packages (`auth`, `chat`, `game`, `subject`, `user`, `word`, `profanity`) expose REST controllers, DTOs, repositories, and services; cross-cutting helpers live in `global/` (exception handling, session, messaging, security) and `tools/` (Swagger, schedulers, WebSocket).
 - Persistence uses Postgres in production with HikariCP, Testcontainers for integration tests, and H2 for local bootstrapping. Redis (`spring-session-data-redis`) stores sessions and hot game state recovery via `GameStateService`.
 - Real-time traffic flows through STOMP over WebSocket on `/ws`, with `/app` as the application prefix and `/topic` broker destinations managed by `GameMessagingService`.
@@ -20,13 +20,13 @@
 - STOMP destinations broadcast to `/topic/game/{gameNumber}/state`, `/events`, `/moderator`, and per-user `/topic/game/{gameNumber}/*` channels. Clients publish via `/app/game/{gameNumber}/vote`, `/app/game/{gameNumber}/guess-topic`, and related mappings and must refresh sessions through `/ws` heartbeats.
 
 ## Frontend Experience & Design
-- React 19 + Vite with Zustand stores (`frontend/src/stores`) and feature-driven directories under `src/components`, `src/pages`, and `src/services`.
+- React 19 + Vite with Zustand stores (`apps/liar-game/src/stores`) and feature-driven directories under `src/components`, `src/pages`, and `src/services`.
 - UI design prioritises accessibility (keyboard navigation, screen-reader labels), progressive disclosure of hints, and responsive layouts at 768px, 1024px, and 1280px breakpoints.
 - Moderator commentary, game actions, player status, and activity feed components follow a clear visual hierarchy and reuse shared tokens from `src/lib`.
 
 ## Testing & Operations
 - `./gradlew test` runs JUnit 5 suites with MockK and selective Testcontainers support. Use slice tests (`@WebMvcTest`, `@DataJpaTest`) for fast feedback before full-context simulations like `LiarGameFullFlowSimulationTest`.
-- Frontend quality gates include `npm run lint`, `npm run test:run`, and `npm run test:coverage` (~80% statement baseline). Playwright journeys live in `frontend/tests` with reports from `npm run test:e2e:report`.
+- Frontend quality gates include `npm run lint`, `npm run test:run`, and `npm run test:coverage` (~80% statement baseline). Playwright journeys live in `apps/liar-game/tests` with reports from `npm run test:e2e:report`.
 - Observability uses Spring Actuator, Prometheus metrics, and structured logging via Logstash encoder; keep dashboards aligned when adding new endpoints.
 
 ## Environment & Configuration

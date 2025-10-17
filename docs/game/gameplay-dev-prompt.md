@@ -72,7 +72,7 @@
 - 백엔드는 Kotlin + Spring 기반으로, WebSocket/STOMP 엔드포인트와 이벤트 퍼블리셔를 구성한다.
 - 상태 저장은 Redis 또는 in-memory + DB 하이브리드를 고려하며, 단일 장애 지점을 피하기 위한 분산 키 전략을 마련한다.
 - 프런트엔드는 React Query 또는 Zustand/Redux를 이용해 서버 상태를 관리하고, optimistic update 대신 서버 푸시를 우선한다.
-- DTO/도메인 모델은 공용 `frontend/src/api` 스키마와 `src/main/kotlin/.../dto`를 동기화해 타입 불일치를 방지한다.
+- DTO/도메인 모델은 공용 `apps/liar-game/src/api` 스키마와 `src/main/kotlin/.../dto`를 동기화해 타입 불일치를 방지한다.
 - 보안: 역할 노출, 라이어 비밀 정보 전달 시 HTTPS·권한 체크를 재검토하고 서버 측에서도 잘못된 구독을 차단한다.
 
 ## 개발 산출물 체크리스트

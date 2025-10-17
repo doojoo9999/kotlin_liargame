@@ -2,8 +2,8 @@
 const path = require('path');
 const fs = require('fs');
 require('dotenv').config({
-  path: fs.existsSync(path.join(__dirname, 'frontend', '.env'))
-    ? path.join(__dirname, 'frontend', '.env')
+  path: fs.existsSync(path.join(__dirname, 'apps', 'liar-game', '.env'))
+    ? path.join(__dirname, 'apps', 'liar-game', '.env')
     : path.join(__dirname, '.env')
 });
 

@@ -59,38 +59,21 @@
 
 ```
 kotlin_liargame/
-├── frontend/             # React 프론트엔드 애플리케이션
-│   ├── public/           # 정적 자원
-│   ├── src/              # React 소스 코드
-│   │   ├── components/   # React 컴포넌트
-│   │   ├── pages/        # 페이지별 컴포넌트
-│   │   │   ├── LoginPage.jsx
-│   │   │   ├── LobbyPage.jsx
-│   │   │   ├── GameRoomPage.jsx
-│   │   │   ├── AdminLoginPage.jsx
-│   │   │   ├── AdminDashboard.jsx
-│   │   │   └── SubjectWordPage.jsx
-│   │   ├── stores/       # Zustand 상태 관리 스토어
-│   │   ├── App.jsx       # 메인 React 컴포넌트
-│   │   └── main.jsx      # React 애플리케이션 진입점
-│   ├── package.json      # 프론트엔드 의존성
-│   └── vite.config.js    # Vite 설정
-├── src/                  # Kotlin 백엔드 소스 코드
-│   ├── main/             # 메인 소스 코드
-│   │   ├── kotlin/       # Kotlin 코드
-│   │   │   └── org/example/kotlin_liargame/
-│   │   │       ├── domain/   # 도메인별 코드 (게임, 채팅, 사용자 등)
-│   │   │       │   ├── auth/     # 인증 관련
-│   │   │       │   ├── chat/     # 채팅 기능
-│   │   │       │   ├── game/     # 게임 로직
-│   │   │       │   ├── subject/  # 주제 관리
-│   │   │       │   ├── user/     # 사용자 관리
-│   │   │       │   └── word/     # 단어 관리
-│   │   │       └── config/   # 애플리케이션 설정
-│   │   └── resources/    # 리소스 파일
-│   └── test/             # 테스트 코드
-├── build.gradle.kts      # Gradle 빌드 설정
-└── settings.gradle.kts   # Gradle 설정
+├── apps/                       # 프론트엔드 멀티앱 워크스페이스
+│   ├── main/                   # 메인 랜딩 페이지 SPA
+│   ├── liar-game/              # 기존 라이어 게임 React 애플리케이션
+│   ├── nemonemo/               # 네모네모 로직 프로젝트 스캐폴드
+│   ├── roulette/               # 파티 룰렛 프로젝트 스캐폴드
+│   └── sadari-game/            # 사다리 게임 프로젝트 스캐폴드
+├── src/                        # Kotlin 백엔드 소스 코드
+│   ├── main/
+│   │   ├── kotlin/             # 도메인 및 어댑터 레이어
+│   │   └── resources/          # 설정 및 리소스
+│   └── test/                   # 테스트 코드
+├── docs/                       # 문서 및 운영 가이드
+├── scripts/                    # 보조 스크립트
+├── build.gradle.kts            # Gradle 빌드 설정
+└── settings.gradle.kts         # Gradle 설정
 ```
 
 ## 기술 스택
@@ -106,14 +89,13 @@ kotlin_liargame/
 - **MockK** - 테스트 프레임워크
 
 ### 프론트엔드
-- **React** 18.2.0
-- **Material-UI (MUI)** 5.14.19 - UI 컴포넌트 라이브러리
-- **React Router DOM** 7.7.1 - 라우팅
-- **Zustand** 5.0.7 - 상태 관리
-- **Axios** 1.11.0 - HTTP 클라이언트
-- **STOMP.js** 7.0.0 - WebSocket 통신
-- **Socket.io Client** 4.8.1 - 실시간 통신
-- **Vite** 5.0.0 - 빌드 도구
+- **React** 19
+- **Vite** 7
+- **React Router DOM** 7 - 라우팅
+- **Zustand** 5 & **@tanstack/react-query** 5 - 상태 및 데이터 동기화
+- **Tailwind CSS** 3, `tailwind-merge`, `tailwindcss-animate` - 스타일 프리셋
+- **Radix UI** 컴포넌트 & **framer-motion** - 인터랙션
+- **Axios**, **STOMP.js**, `sockjs-client` - HTTP & WebSocket 클라이언트
 
 ### 개발 도구
 - **Java** 17
@@ -124,8 +106,8 @@ kotlin_liargame/
 
 ### 사전 요구사항
 - Java 17 이상
-- Node.js 16 이상
-- npm 또는 yarn
+- Node.js 18 이상
+- npm (또는 호환되는 패키지 매니저)
 
 ### 백엔드 실행
 ```bash
@@ -134,16 +116,23 @@ kotlin_liargame/
 ```
 
 ### 프론트엔드 실행
+멀티앱 구조이므로 각 애플리케이션 디렉토리에서 의존성을 설치하고 실행합니다.
+
+**메인 허브**
 ```bash
-# frontend 디렉토리로 이동
-cd frontend
-
-# 의존성 설치
+cd apps/main
 npm install
-
-# 개발 서버 실행
 npm run dev
 ```
+
+**라이어 게임**
+```bash
+cd apps/liar-game
+npm install
+npm run dev
+```
+
+나머지 앱(`apps/nemonemo`, `apps/roulette`, `apps/sadari-game`)은 현재 스캐폴드만 존재하며 이후 동일한 방식으로 확장할 수 있습니다.
 
 ## 게임 플레이 방법
 
@@ -190,26 +179,21 @@ This project is implemented as a real-time web game using a Kotlin backend and R
 
 ```
 kotlin_liargame/
-├── frontend/             # React frontend application
-│   ├── public/           # Static assets
-│   ├── src/              # React source code
-│   │   ├── components/   # React components
-│   │   ├── pages/        # Page components
-│   │   ├── stores/       # Zustand state management stores
-│   │   ├── App.jsx       # Main React component
-│   │   └── main.jsx      # React application entry point
-│   ├── package.json      # Frontend dependencies
-│   └── vite.config.js    # Vite configuration
-├── src/                  # Kotlin backend source code
-│   ├── main/             # Main source code
-│   │   ├── kotlin/       # Kotlin code
-│   │   │   └── org/example/kotlin_liargame/
-│   │   │       ├── domain/   # Domain-specific code
-│   │   │       └── config/   # Application configuration
-│   │   └── resources/    # Resource files
-│   └── test/             # Test code
-├── build.gradle.kts      # Gradle build configuration
-└── settings.gradle.kts   # Gradle settings
+├── apps/                       # Multi-frontend workspace
+│   ├── main/                   # Landing SPA linking every experience
+│   ├── liar-game/              # Liar Game React client
+│   ├── nemonemo/               # Nemonemo puzzle scaffold
+│   ├── roulette/               # Party roulette scaffold
+│   └── sadari-game/            # Ladder game scaffold
+├── src/                        # Kotlin backend source
+│   ├── main/
+│   │   ├── kotlin/
+│   │   └── resources/
+│   └── test/
+├── docs/                       # Documentation and plans
+├── scripts/                    # Utility scripts
+├── build.gradle.kts            # Gradle build configuration
+└── settings.gradle.kts         # Gradle settings
 ```
 
 ## Technology Stack
@@ -225,16 +209,46 @@ kotlin_liargame/
 - **MockK** - Testing framework
 
 ### Frontend
-- **React** 18.2.0
-- **Material-UI (MUI)** 5.14.19 - UI component library
-- **React Router DOM** 7.7.1 - Routing
-- **Zustand** 5.0.7 - State management
-- **Axios** 1.11.0 - HTTP client
-- **STOMP.js** 7.0.0 - WebSocket communication
-- **Socket.io Client** 4.8.1 - Real-time communication
-- **Vite** 5.0.0 - Build tool
+- **React** 19
+- **Vite** 7
+- **React Router DOM** 7 for routing
+- **Zustand** 5 + **@tanstack/react-query** 5 for state/data sync
+- **Tailwind CSS** 3 with `tailwind-merge` & `tailwindcss-animate`
+- **Radix UI** primitives and **framer-motion**
+- **Axios**, **STOMP.js**, `sockjs-client` for HTTP & WebSocket clients
 
 ### Development Tools
 - **Java** 17
 - **Gradle** - Build tool
 - **TypeScript** - Type safety
+
+## Installation and Setup
+
+### Prerequisites
+- Java 17 or newer
+- Node.js 18 or newer
+- npm (or a compatible package manager)
+
+### Backend
+```bash
+./gradlew bootRun
+```
+
+### Frontend Apps
+Each app now lives under `apps/`. Install dependencies and run dev servers individually.
+
+**Main hub**
+```bash
+cd apps/main
+npm install
+npm run dev
+```
+
+**Liar Game**
+```bash
+cd apps/liar-game
+npm install
+npm run dev
+```
+
+Scaffolds for `apps/nemonemo`, `apps/roulette`, and `apps/sadari-game` are ready for future builds.

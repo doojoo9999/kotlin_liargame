@@ -39,7 +39,7 @@
 
 ## 5. Execution Phases
 - Phase 1: Produce wireframes and motion references (Figma) and review with stakeholders.
-- Phase 2: Refactor React layout in `frontend/src/pages/GameRoom` plus supporting components/stores.
+- Phase 2: Refactor React layout in `apps/liar-game/src/pages/GameRoom` plus supporting components/stores.
 - Phase 3: Integrate animations/effects, accessibility refinements, and styling polish.
 - Phase 4: Run regression QA (multi-user sessions) and document release notes.
 
