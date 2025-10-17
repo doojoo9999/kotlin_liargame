@@ -44,39 +44,129 @@ const gameLinks: GameLink[] = [
   },
 ];
 
+const highlightStats = [
+  { label: "실시간 세션", value: "3+" },
+  { label: "플레이어 동시 접속", value: "150+" },
+  { label: "로컬 / 온라인 지원", value: "하이브리드" },
+];
+
+const roadmap = [
+  {
+    phase: "1",
+    title: "캐주얼 퍼즐 & 파티 게임",
+    detail: "라이어 게임과 네모네모 로직으로 시작하는 즉시 플레이 경험.",
+  },
+  {
+    phase: "2",
+    title: "멀티 디바이스 연동",
+    detail: "모바일, 태블릿, TV 환경에서 동일한 룸 코드로 접속.",
+  },
+  {
+    phase: "3",
+    title: "AI 사회자 & 도우미",
+    detail: "자동 사회 진행과 요약 기능으로 새로운 파티 경험 제공.",
+  },
+];
+
 export default function App() {
   return (
     <main className="landing">
-      <header className="landing__header">
-        <p className="landing__badge">파티 게임 허브</p>
-        <h1>친구들과 함께 즐기는 멀티 게임 플랫폼</h1>
-        <p className="landing__subtitle">
-          메인 페이지에서 원하는 게임을 고르고 바로 시작하세요. 추리, 퍼즐, 파티게임까지
-          한곳에서 연결됩니다.
+      <section className="landing__hero">
+        <div className="landing__hero-badge">멀티 파티 게임 스튜디오</div>
+        <h1 className="landing__hero-title">
+          순간이 모이면
+          <span className="landing__hero-gradient"> 잊지 못할 밤</span>
+        </h1>
+        <p className="landing__hero-subtitle">
+          친구들과 함께 추리하고, 토론하고, 웃으며 즐기는 파티 허브. 한 곳에서 다양한
+          파티 게임을 선택하고 새로운 룸을 개설하세요.
         </p>
-      </header>
-
-      <section className="landing__grid">
-        {gameLinks.map((game) => (
+        <div className="landing__hero-actions">
           <a
-            key={game.id}
-            className={`landing__card ${game.comingSoon ? "landing__card--disabled" : ""}`}
-            href={game.comingSoon ? "#" : game.href}
-            aria-disabled={game.comingSoon}
-            rel={game.comingSoon ? undefined : "noreferrer noopener"}
-            target={game.comingSoon ? undefined : "_blank"}
+            className="button button--primary"
+            href={gameLinks[0].href}
+            target="_blank"
+            rel="noreferrer noopener"
           >
-            <div className="landing__card-header">
-              <span className="landing__card-title">{game.name}</span>
-              {game.comingSoon ? (
-                <span className="landing__chip">준비 중</span>
-              ) : (
-                <span className="landing__chip landing__chip--active">입장하기</span>
-              )}
-            </div>
-            <p className="landing__card-description">{game.description}</p>
+            지금 바로 플레이
           </a>
-        ))}
+          <a className="button button--ghost" href="mailto:party@gamehub.kr">
+            운영팀에게 문의
+          </a>
+        </div>
+        <div className="landing__hero-stats">
+          {highlightStats.map((stat) => (
+            <div key={stat.label} className="landing__hero-stat">
+              <span className="landing__hero-value">{stat.value}</span>
+              <span className="landing__hero-label">{stat.label}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="landing__section landing__section--glass">
+        <header className="landing__section-header">
+          <div>
+            <p className="landing__eyebrow">플랫폼 라인업</p>
+            <h2>실시간으로 연결되는 파티 게임</h2>
+          </div>
+          <p className="landing__section-copy">
+            모든 게임은 동일한 계정과 룸 코드로 운영됩니다. 새로운 게임이 추가될 때마다
+            자동으로 메인 허브에서 연결됩니다.
+          </p>
+        </header>
+
+        <div className="landing__grid">
+          {gameLinks.map((game) => (
+            <a
+              key={game.id}
+              className={`landing__card ${game.comingSoon ? "landing__card--disabled" : ""}`}
+              href={game.comingSoon ? "#" : game.href}
+              aria-disabled={game.comingSoon}
+              rel={game.comingSoon ? undefined : "noreferrer noopener"}
+              target={game.comingSoon ? undefined : "_blank"}
+            >
+              <div className="landing__card-top">
+                <span className="landing__pill">{game.comingSoon ? "Soon" : "Live"}</span>
+                <span className="landing__icon">↗</span>
+              </div>
+              <h3>{game.name}</h3>
+              <p>{game.description}</p>
+              <div className="landing__card-footer">
+                {game.comingSoon ? (
+                  <span className="landing__chip">준비 중</span>
+                ) : (
+                  <span className="landing__chip landing__chip--active">입장하기</span>
+                )}
+              </div>
+            </a>
+          ))}
+        </div>
+      </section>
+
+      <section className="landing__section">
+        <header className="landing__section-header">
+          <div>
+            <p className="landing__eyebrow">2025 로드맵</p>
+            <h2>다음 업데이트 미리보기</h2>
+          </div>
+          <p className="landing__section-copy">
+            단계별로 확장되는 콘텐츠와 운영 자동화를 통해 파티 게임 경험을 꾸준히
+            다듬고 있습니다.
+          </p>
+        </header>
+
+        <div className="landing__roadmap">
+          {roadmap.map((item) => (
+            <article key={item.phase} className="landing__roadmap-item">
+              <span className="landing__roadmap-phase">{item.phase}</span>
+              <div className="landing__roadmap-content">
+                <h3>{item.title}</h3>
+                <p>{item.detail}</p>
+              </div>
+            </article>
+          ))}
+        </div>
       </section>
     </main>
   );
