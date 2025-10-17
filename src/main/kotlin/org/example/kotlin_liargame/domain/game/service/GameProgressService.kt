@@ -477,11 +477,22 @@ class GameProgressService(
         val selectedSubjects = selectSubjects(game)
         assignRolesAndSubjects(game, players, selectedSubjects)
 
-        // 2. Re-shuffle turn order
+        // 2. Reset round-scoped game state before shuffling new order
+        game.currentPhase = GamePhase.SPEECH
+        game.currentPlayerId = null
+        game.accusedPlayerId = null
+        game.turnStartedAt = null
+        game.phaseEndTime = null
+        game.votingPhase = null
+        game.currentVotes = 0
+        game.requiredVotes = null
+        game.activePlayersCount = players.count { it.isAlive }
+
+        // 3. Re-shuffle turn order
         game.turnOrder = players.shuffled().joinToString(",") { it.nickname }
         game.currentTurnIndex = 0
         
-        // 3. Reset player states for the new round
+        // 4. Reset player states for the new round
         players.forEach { 
             if(it.isAlive) {
                 it.resetForNewRound() 

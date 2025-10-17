@@ -4,6 +4,7 @@ import {useGameLayoutViewModel} from './useGameLayoutViewModel'
 import {WaitingRoomControls} from './WaitingRoomControls'
 import {useWebSocket} from '@/hooks/useWebSocket'
 import {useGameRecovery} from '@/hooks/useGameRecovery'
+import {useGameFlow} from '@/hooks/useGameFlow'
 import {websocketService} from '@/services/websocketService'
 import {toast} from 'sonner'
 import type {ActivityEvent} from '@/types/game'
@@ -71,6 +72,14 @@ export function GameFlowManager({ onReturnToLobby, onNextRound }: GameFlowManage
     startGame,
     toggleReady,
   } = viewModel
+
+  const {
+    submitHint: submitHintRequest,
+    voteForLiar: voteForLiarRequest,
+    submitDefense: submitDefenseRequest,
+    castFinalVote: castFinalVoteRequest,
+    guessWord: guessWordRequest,
+  } = useGameFlow()
 
   const [activities, setActivities] = useState<ActivityEvent[]>([])
   const [isStartingGame, setIsStartingGame] = useState(false)
@@ -219,11 +228,11 @@ export function GameFlowManager({ onReturnToLobby, onNextRound }: GameFlowManage
 
     addHint(currentPlayer.id, currentPlayer.nickname, hint)
     try {
-      websocketService.sendGameAction(gameNumber.toString(), 'hint', { hint })
+      await submitHintRequest(hint)
     } catch (error) {
       console.error('Failed to send hint action:', error)
     }
-  }, [addHint, currentPlayer, gameNumber])
+  }, [addHint, currentPlayer, gameNumber, submitHintRequest])
 
   const handleVotePlayer = useCallback(async (playerId: string) => {
     if (!gameNumber || !currentPlayer) return
@@ -245,42 +254,42 @@ export function GameFlowManager({ onReturnToLobby, onNextRound }: GameFlowManage
     castVote(currentPlayer.id, resolvedTargetId)
     setUserVote(resolvedTargetId)
     try {
-      websocketService.sendGameAction(gameNumber.toString(), 'vote', { targetUserId: resolvedTargetUserId })
+      await voteForLiarRequest(resolvedTargetUserId)
     } catch (error) {
       console.error('Failed to send vote action:', error)
     }
-  }, [castVote, currentPlayer, gameNumber, players, setUserVote])
+  }, [castVote, currentPlayer, gameNumber, players, setUserVote, voteForLiarRequest])
 
   const handleSubmitDefense = useCallback(async (defense: string) => {
     if (!gameNumber || !currentPlayer) return
 
     addDefense(currentPlayer.id, currentPlayer.nickname, defense)
     try {
-      websocketService.sendGameAction(gameNumber.toString(), 'defense', { defenseText: defense })
+      await submitDefenseRequest(defense)
     } catch (error) {
       console.error('Failed to send defense action:', error)
     }
-  }, [addDefense, currentPlayer, gameNumber])
+  }, [addDefense, currentPlayer, gameNumber, submitDefenseRequest])
 
   const handleGuessWord = useCallback(async (guess: string) => {
     if (!gameNumber || !currentPlayer) return
 
     try {
-      websocketService.sendGameAction(gameNumber.toString(), 'guess', { guess })
+      await guessWordRequest(guess)
     } catch (error) {
       console.error('Failed to send guess action:', error)
     }
-  }, [currentPlayer, gameNumber])
+  }, [currentPlayer, gameNumber, guessWordRequest])
 
   const handleCastFinalVote = useCallback(async (execute: boolean) => {
     if (!gameNumber || !currentPlayer) return
 
     try {
-      websocketService.sendGameAction(gameNumber.toString(), 'final_vote', { execute })
+      await castFinalVoteRequest(execute)
     } catch (error) {
       console.error('Failed to send final vote action:', error)
     }
-  }, [currentPlayer, gameNumber])
+  }, [castFinalVoteRequest, currentPlayer, gameNumber])
 
   const handleSendChatMessage = useCallback(async (content: string, type: ChatMessageType = 'DISCUSSION') => {
     await sendChatMessage(content, type)
