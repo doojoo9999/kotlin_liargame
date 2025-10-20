@@ -1,0 +1,78 @@
+.stage-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.panel__header h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.panel__header .panel__hint {
+  margin: 0.2rem 0 0;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.stage-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(164px, 1fr));
+  gap: 0.75rem;
+}
+
+.stage-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding: 1rem;
+  min-height: 120px;
+  border-radius: 14px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.01));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  text-align: left;
+  gap: 0.4rem;
+  cursor: pointer;
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+  color: inherit;
+}
+
+.stage-card__accent {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(155deg, var(--stage-accent), transparent 60%);
+  opacity: 0.35;
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+.stage-card__content {
+  position: relative;
+  z-index: 1;
+}
+
+.stage-card h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
+}
+
+.stage-card p {
+  margin: 0;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.stage-card.active {
+  border-color: var(--stage-accent);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.18);
+  transform: translateY(-2px);
+}
+
+.stage-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.2);
+}

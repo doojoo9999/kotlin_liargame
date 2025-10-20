@@ -1,5 +1,7 @@
 import {defineConfig, devices} from '@playwright/test';
 
+const liarGameBaseUrl = process.env.LIAR_GAME_BASE_URL ?? 'http://localhost:5173';
+
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: true,
@@ -11,7 +13,7 @@ export default defineConfig({
     ['json', { outputFile: 'test-results/e2e-results.json' }]
   ],
   use: {
-    baseURL: 'http://218.150.3.77:5173',
+    baseURL: liarGameBaseUrl,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure'

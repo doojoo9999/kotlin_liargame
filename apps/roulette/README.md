@@ -1,9 +1,39 @@
-# Party Roulette (Placeholder)
+# Party Roulette
 
-이 디렉터리는 파티 룰렛 미니게임을 위한 프론트엔드 워크스페이스 자리입니다.  
-아직 구현체가 없으므로 다음 가이드를 참고해 초기 세팅을 진행하세요.
+A broadcast-friendly roulette experience with stage events, power-ups, and a persistent scoreboard. Built with React + TypeScript + Vite.
 
-## 초기 세팅 아이디어
-- `apps/main`에 정의된 허브 링크를 기준으로 URL 스킴을 먼저 결정합니다.
-- 공통 빌드/테스트 스크립트는 `apps/liar-game/package.json`을 복사한 뒤 필요 없는 의존성을 정리해 사용합니다.
-- 게임 룰에 필요한 상태 모델과 API 계약을 `/docs/roulette` 등 별도 문서로 추가해 추후 연동을 쉽게 만듭니다.
+## Features
+
+- **Stage Themes** – Neon Arcade, Haunted Carnival, and Starship Hangar each add unique palettes and event decks.
+- **Event Deck** – Two random cards per round that boost, ban, or reward contenders to keep rounds unpredictable.
+- **Wheel Presentation** – Animated conic-gradient wheel with easing, pointer highlight, and stage accent colours.
+- **Participant Management** – Bulk paste using `Name/weight` or `Name*count`, fine-tune weights with sliders, bench or remove contenders.
+- **Progression** – Automatic scoring (5/3/1 points), streak bonuses, event-based score boosts, and podium recap panels.
+- **Overlay Mode** – Hide side panels for a capture-friendly layout mid-stream.
+
+## Scripts
+
+```bash
+npm install
+npm run dev     # start Vite dev server
+npm run build   # production build
+npm run preview # preview production build
+```
+
+## Input Cheatsheet
+
+```
+Streamer/1.2
+Guest/0.8
+Editor*2
+```
+
+- `/` adjusts base weight (chance). Range 0.5–3 via slider.
+- `*` multiplies entry count; internally converted into additional weight.
+
+## Roadmap
+
+- Stage-specific audio loops & SFX cues.
+- Audience-triggered event cards (chat integrations).
+- Persistent presets & multi-round history export.
+```
