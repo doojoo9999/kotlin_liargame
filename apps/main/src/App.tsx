@@ -21,8 +21,7 @@ const gameLinks: GameLink[] = [
     description: "논리 퍼즐로 협업하며 퍼즐을 해결하는 캐주얼 게임.",
     href:
       import.meta.env.VITE_NEMONEMO_URL ??
-      "#",
-    comingSoon: true,
+      "http://localhost:5176",
   },
   {
     id: "roulette",
@@ -39,8 +38,7 @@ const gameLinks: GameLink[] = [
     description: "랜덤 매칭으로 게임 순서, 점심 메뉴, 팀 구성을 빠르게 정해요.",
     href:
       import.meta.env.VITE_SADARI_GAME_URL ??
-      "#",
-    comingSoon: true,
+      "http://localhost:5175",
   },
 ];
 
@@ -72,14 +70,13 @@ export default function App() {
   return (
     <main className="landing">
       <section className="landing__hero">
-        <div className="landing__hero-badge">멀티 파티 게임 스튜디오</div>
+        <div className="landing__hero-badge">WEB 멀티 게임 스튜디오</div>
         <h1 className="landing__hero-title">
-          순간이 모이면
-          <span className="landing__hero-gradient"> 잊지 못할 밤</span>
+          zzirit&nbsp;& &nbsp;
+          <span className="landing__hero-gradient"> STELLIVE</span>
         </h1>
         <p className="landing__hero-subtitle">
-          친구들과 함께 추리하고, 토론하고, 웃으며 즐기는 파티 허브. 한 곳에서 다양한
-          파티 게임을 선택하고 새로운 룸을 개설하세요.
+          다양한 장르의 게임을 선택하고 플레이하세요.
         </p>
         <div className="landing__hero-actions">
           <a
@@ -90,7 +87,7 @@ export default function App() {
           >
             지금 바로 플레이
           </a>
-          <a className="button button--ghost" href="mailto:party@gamehub.kr">
+          <a className="button button--ghost" href="mailto:admin@zzirit.kr">
             운영팀에게 문의
           </a>
         </div>
