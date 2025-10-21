@@ -78,22 +78,21 @@ class SecurityConfig {
                 "https://www.liargame.com",
                 "https://api.liargame.com"
             )
-            "staging" -> listOf(
-                "https://staging.liargame.com",
-                "http://218.150.3.77:3000",
-                "http://218.150.3.77:5173",
-                "http://218.150.3.77:5174"
-            )
-            else -> listOf(
-                "http://218.150.3.77:3000",
-                "http://218.150.3.77:5173",
-                "http://218.150.3.77:5174",
-                "http://218.150.3.77:5175",
-                "http://127.0.0.1:3000",
-                "http://127.0.0.1:5173",
-                "http://127.0.0.1:5174",
-                "http://127.0.0.1:5175"
-            )
+            "staging" -> listOf("https://staging.liargame.com") + localDevelopmentOrigins()
+            else -> localDevelopmentOrigins()
+        }
+    }
+
+    private fun localDevelopmentOrigins(): List<String> {
+        val hosts = listOf("127.0.0.1", "218.150.3.77")
+        val ports = buildList {
+            add(3000)
+            add(4173)
+            addAll(5173..5200)
+        }
+
+        return hosts.flatMap { host ->
+            ports.map { port -> "http://$host:$port" }
         }
     }
 }
