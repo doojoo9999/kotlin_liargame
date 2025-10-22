@@ -1,5 +1,4 @@
-import {Participant, ResolvedEvent} from '../types';
-import {applyWeightModifiers, combineEffects} from './events';
+import type {Participant} from '../types';
 
 export interface WheelSegment {
   participant: Participant;
@@ -9,30 +8,20 @@ export interface WheelSegment {
   weight: number;
 }
 
-export function buildWheelSegments(
-  participants: Participant[],
-  events: ResolvedEvent[],
-) {
-  const { weightMultipliers, bannedIds } = combineEffects(events);
+export function buildWheelSegments(participants: Participant[]): WheelSegment[] {
   const eligible = participants.filter(
-    (participant) =>
-      participant.isActive &&
-      !bannedIds.has(participant.id) &&
-      applyWeightModifiers(participant, weightMultipliers) > 0,
+    (participant) => participant.isActive && participant.entryCount > 0,
   );
 
-  if (!eligible.length) {
-    return {
-      segments: [] as WheelSegment[],
-      weightMultipliers,
-      bannedIds,
-    };
+  if (typeof window !== 'undefined') {
+    (window as any).__debugEligible = eligible;
   }
 
-  const weights = eligible.map((participant) =>
-    applyWeightModifiers(participant, weightMultipliers),
-  );
+  if (!eligible.length) {
+    return [];
+  }
 
+  const weights = eligible.map((participant) => participant.entryCount);
   const total = weights.reduce((sum, weight) => sum + weight, 0);
 
   let cursor = 0;
@@ -49,12 +38,11 @@ export function buildWheelSegments(
     cursor += span;
     return segment;
   });
-
-  return {
-    segments,
-    weightMultipliers,
-    bannedIds,
-  };
+  if (typeof window !== 'undefined') {
+    (window as any).__debugEligible = eligible;
+    (window as any).__debugSegments = segments;
+  }
+  return segments;
 }
 
 export function findSegment(
@@ -63,4 +51,3 @@ export function findSegment(
 ): WheelSegment | undefined {
   return segments.find((segment) => segment.participant.id === participantId);
 }
-

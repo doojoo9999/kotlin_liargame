@@ -1,5 +1,5 @@
-import {CSSProperties} from 'react';
-import {ResolvedEvent, StageDefinition} from '../types';
+import type {CSSProperties} from 'react';
+import type {ResolvedEvent, StageDefinition} from '../types';
 import './EventBoard.css';
 
 interface EventBoardProps {
@@ -14,16 +14,16 @@ export function EventBoard({ stage, events, onReroll, onRefresh, disabled }: Eve
   return (
     <section className="panel event-panel">
       <header className="panel__header">
-        <h2>Event Deck</h2>
+        <h2>이벤트 카드</h2>
         <div className="panel__actions">
           <button type="button" className="btn ghost" onClick={onRefresh} disabled={disabled}>
-            Reroll All
+            전체 새로뽑기
           </button>
         </div>
       </header>
       <div className="event-grid">
         {events.length === 0 ? (
-          <p className="empty-state">Events appear once you add participants.</p>
+          <p className="empty-state">참가자를 추가하면 이벤트가 표시됩니다.</p>
         ) : (
           events.map((event, index) => (
             <article
@@ -43,7 +43,7 @@ export function EventBoard({ stage, events, onReroll, onRefresh, disabled }: Eve
                   onClick={() => onReroll(index)}
                   disabled={disabled}
                 >
-                  Reroll
+                  교체
                 </button>
               </div>
               <p className="event-card__description">{event.card.description}</p>

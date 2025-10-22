@@ -1,4 +1,4 @@
-import {EventCard, Participant, ResolvedEvent} from '../types';
+import type {EventCard, Participant, ResolvedEvent} from '../types';
 
 const randomItem = <T>(arr: T[]): T | null => {
   if (!arr.length) return null;
@@ -6,8 +6,16 @@ const randomItem = <T>(arr: T[]): T | null => {
   return arr[index];
 };
 
-const toSummary = (names: string[], fallback: string) =>
-  names.length ? names.join(', ') : fallback;
+const findTiedExtremes = (eligible: Participant[], mode: 'max' | 'min') => {
+  if (!eligible.length) return eligible;
+  const values = eligible.map((p) => p.entryCount || 0);
+  const target = mode === 'max' ? Math.max(...values) : Math.min(...values);
+  const matches = eligible.filter((p) => p.entryCount === target);
+  if (matches.length === eligible.length) {
+    return eligible;
+  }
+  return matches;
+};
 
 export function resolveEvent(
   card: EventCard,
@@ -19,28 +27,22 @@ export function resolveEvent(
   let targets: Participant[] = [];
 
   switch (card.target) {
-    case 'random-active': {
-      const pick = randomItem(eligible);
+    case 'random-active':
+    case 'highest-weight':
+    case 'lowest-weight': {
+      const pool =
+        card.target === 'highest-weight'
+          ? findTiedExtremes(eligible, 'max')
+          : card.target === 'lowest-weight'
+            ? findTiedExtremes(eligible, 'min')
+            : eligible;
+      const pick = randomItem(pool);
       if (!pick) return null;
       targets = [pick];
       break;
     }
-    case 'highest-weight': {
-      const max = Math.max(...eligible.map((p) => p.baseWeight));
-      targets = eligible.filter((p) => p.baseWeight === max);
-      break;
-    }
-    case 'lowest-weight': {
-      const min = Math.min(...eligible.map((p) => p.baseWeight));
-      targets = eligible.filter((p) => p.baseWeight === min);
-      break;
-    }
     case 'everyone': {
       targets = eligible;
-      break;
-    }
-    case 'first-place': {
-      targets = [];
       break;
     }
     default:
@@ -48,92 +50,29 @@ export function resolveEvent(
   }
 
   const targetIds = targets.map((target) => target.id);
-  const names = card.target === 'everyone'
-    ? ['Everyone']
-    : targets.map((target) => target.name);
-
   const resolved: ResolvedEvent = {
     card,
     affectedParticipantIds: targetIds,
-    summary: '',
+    summary: card.title,
   };
 
-  switch (card.type) {
-    case 'weight-multiplier':
-      resolved.weightMultipliers = targetIds.reduce<Record<string, number>>(
-        (acc, id) => {
-          acc[id] = card.magnitude;
-          return acc;
-        },
-        {},
-      );
-      resolved.summary = `${card.title}: ${toSummary(
-        names,
-        'No one',
-      )} ${(card.magnitude >= 1 ? 'boost' : 'penalty')} ×${card.magnitude.toFixed(
-        2,
-      )}`;
-      break;
-    case 'ban':
-      resolved.bannedParticipantIds = targetIds;
-      resolved.summary = `${card.title}: ${toSummary(
-        names,
-        'No one',
-      )} is benched`;
-      break;
-    case 'score-bonus':
-      resolved.scoreBonus = {
-        position: 0,
-        amount: Math.round(card.magnitude),
-      };
-      resolved.summary = `${card.title}: First place gains +${Math.round(
-        card.magnitude,
-      )} pts`;
-      break;
-    default:
-      resolved.summary = card.title;
+  if (card.type === 'ban') {
+    resolved.bannedParticipantIds = targetIds;
   }
 
   return resolved;
 }
 
 export function combineEffects(events: ResolvedEvent[]) {
-  const weightMultipliers = new Map<string, number>();
   const bannedIds = new Set<string>();
-  const scoreBonuses: { position: number; amount: number }[] = [];
 
   events.forEach((event) => {
-    if (event.weightMultipliers) {
-      Object.entries(event.weightMultipliers).forEach(([id, multiplier]) => {
-        weightMultipliers.set(
-          id,
-          Number(
-            (weightMultipliers.get(id) ?? 1) * multiplier,
-          ),
-        );
-      });
-    }
-
     if (event.bannedParticipantIds) {
       event.bannedParticipantIds.forEach((id) => bannedIds.add(id));
-    }
-
-    if (event.scoreBonus) {
-      scoreBonuses.push(event.scoreBonus);
     }
   });
 
   return {
-    weightMultipliers,
     bannedIds,
-    scoreBonuses,
   };
-}
-
-export function applyWeightModifiers(
-  participant: Participant,
-  weightMultipliers: Map<string, number>,
-): number {
-  const multiplier = weightMultipliers.get(participant.id) ?? 1;
-  return Number((participant.baseWeight * multiplier).toFixed(3));
 }

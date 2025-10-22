@@ -85,7 +85,7 @@
 
 @media (min-width: 1240px) {
   .app-grid {
-    grid-template-columns: 320px minmax(420px, 1fr) 320px;
+    grid-template-columns: minmax(360px, 440px) minmax(560px, 1fr) minmax(360px, 460px);
   }
 }
 

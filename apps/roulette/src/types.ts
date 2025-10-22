@@ -3,21 +3,18 @@ export type StageId = 'neon-arcade' | 'haunted-carnival' | 'starship-hangar';
 export interface Participant {
   id: string;
   name: string;
-  baseWeight: number;
+  entryCount: number;
   isActive: boolean;
-  points: number;
-  streak: number;
   colorHue: number;
 }
 
-export type EventEffectType = 'weight-multiplier' | 'ban' | 'score-bonus';
+export type EventEffectType = 'ban';
 
 export type EventTarget =
   | 'random-active'
   | 'highest-weight'
   | 'lowest-weight'
-  | 'everyone'
-  | 'first-place';
+  | 'everyone';
 
 export interface EventCard {
   id: string;
@@ -45,18 +42,5 @@ export interface ResolvedEvent {
   card: EventCard;
   affectedParticipantIds: string[];
   summary: string;
-  weightMultipliers?: Record<string, number>;
   bannedParticipantIds?: string[];
-  scoreBonus?: {
-    position: number; // 0 = first place
-    amount: number;
-  };
 }
-
-export interface WinnerResult {
-  participantId: string;
-  placement: number; // 0-index
-  pointsEarned: number;
-  streak: number;
-}
-

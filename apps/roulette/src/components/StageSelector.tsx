@@ -1,5 +1,5 @@
-import {CSSProperties} from 'react';
-import {StageDefinition} from '../types';
+import type {CSSProperties} from 'react';
+import type {StageDefinition} from '../types';
 import './StageSelector.css';
 
 interface StageSelectorProps {
@@ -12,8 +12,8 @@ export function StageSelector({ stages, activeStageId, onChange }: StageSelector
   return (
     <section className="panel stage-panel">
       <header className="panel__header">
-        <h2>Stage</h2>
-        <p className="panel__hint">Themes tweak palettes & event decks.</p>
+        <h2>무대 선택</h2>
+        <p className="panel__hint">테마다운 색상과 이벤트 구성을 고를 수 있습니다.</p>
       </header>
       <div className="stage-grid">
         {stages.map((stage) => (

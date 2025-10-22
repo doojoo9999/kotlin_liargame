@@ -22,6 +22,7 @@ const gameLinks: GameLink[] = [
     href:
       import.meta.env.VITE_NEMONEMO_URL ??
       "http://localhost:5176",
+    comingSoon: true,
   },
   {
     id: "roulette",
@@ -29,8 +30,7 @@ const gameLinks: GameLink[] = [
     description: "빠르게 룰렛을 돌려 미션과 벌칙을 정하는 파티 꿀템.",
     href:
       import.meta.env.VITE_ROULETTE_URL ??
-      "#",
-    comingSoon: true,
+      "http://localhost:5174",
   },
   {
     id: "sadari-game",

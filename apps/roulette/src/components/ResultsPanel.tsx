@@ -1,40 +1,55 @@
-import {Participant, WinnerResult} from '../types';
+import type {Participant} from '../types';
 import './ResultsPanel.css';
 
 interface ResultsPanelProps {
   participants: Participant[];
-  results: WinnerResult[];
+  winnerId: string | null;
 }
 
-const medalLabels = ['First', 'Second', 'Third'];
+const formatShare = (value: number) => `${value.toFixed(1)}%`;
 
-export function ResultsPanel({ participants, results }: ResultsPanelProps) {
-  if (!results.length) {
+export function ResultsPanel({participants, winnerId}: ResultsPanelProps) {
+  if (!winnerId) {
+    return (
+      <section className="panel results-panel">
+        <header className="panel__header">
+          <h2>최근 우승자</h2>
+        </header>
+        <p className="empty-state">아직 스핀 기록이 없습니다.</p>
+      </section>
+    );
+  }
+
+  const winner = participants.find((participant) => participant.id === winnerId);
+  if (!winner) {
     return null;
   }
 
-  const lookup = new Map(participants.map((participant) => [participant.id, participant]));
+  const totalTickets = participants
+    .filter((participant) => participant.isActive)
+    .reduce((sum, participant) => sum + participant.entryCount, 0);
+
+  const share = totalTickets > 0 ? (winner.entryCount / totalTickets) * 100 : 0;
 
   return (
     <section className="panel results-panel">
       <header className="panel__header">
-        <h2>Last Spin</h2>
+        <h2>최근 우승자</h2>
       </header>
-      <div className="results-grid">
-        {results.map((result) => {
-          const participant = lookup.get(result.participantId);
-          if (!participant) return null;
-
-          return (
-            <article className={`result-card placement-${result.placement}`} key={participant.id}>
-              <span className="result-medal">{medalLabels[result.placement]}</span>
-              <strong>{participant.name}</strong>
-              <span className="result-points">+{result.pointsEarned} pts</span>
-              {result.streak >= 2 && <span className="result-streak">{result.streak}× streak!</span>}
-            </article>
-          );
-        })}
-      </div>
+      <article className="result-card placement-0">
+        <span className="result-medal">🏆</span>
+        <strong>{winner.name}</strong>
+        <dl className="result-meta">
+          <div>
+            <dt>추첨 티켓</dt>
+            <dd>{winner.entryCount}장</dd>
+          </div>
+          <div>
+            <dt>총 비율</dt>
+            <dd>{formatShare(share)}</dd>
+          </div>
+        </dl>
+      </article>
     </section>
   );
 }
