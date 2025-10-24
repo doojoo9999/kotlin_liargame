@@ -12,7 +12,6 @@ export type EventEffectType = 'ban';
 
 export type EventTarget =
   | 'random-active'
-  | 'highest-weight'
   | 'lowest-weight'
   | 'everyone';
 

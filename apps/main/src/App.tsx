@@ -33,6 +33,14 @@ const gameLinks: GameLink[] = [
       "http://localhost:5174",
   },
   {
+    id: "pinball",
+    name: "핀볼 로얄",
+    description: "맵과 스킬을 믹스해 최후의 생존자나 첫 낙하 승자를 가리는 핀볼 배틀.",
+    href:
+      import.meta.env.VITE_PINBALL_URL ??
+      "http://localhost:5177",
+  },
+  {
     id: "sadari-game",
     name: "사다리 게임",
     description: "랜덤 매칭으로 게임 순서, 점심 메뉴, 팀 구성을 빠르게 정해요.",

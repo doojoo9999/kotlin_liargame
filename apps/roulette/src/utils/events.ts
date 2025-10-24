@@ -6,6 +6,41 @@ const randomItem = <T>(arr: T[]): T | null => {
   return arr[index];
 };
 
+const formatParticipantNames = (participants: Participant[]) => {
+  const names = participants
+    .map((participant) => participant.name.trim())
+    .filter((name) => name.length > 0);
+  return names.length ? names.join(', ') : '이름 미상';
+};
+
+const buildSummary = (card: EventCard, targets: Participant[]) => {
+  if (!targets.length) {
+    return `${card.title}: 제외 대상 없음`;
+  }
+
+  if (card.type === 'ban') {
+    switch (card.target) {
+      case 'random-active': {
+        const names = formatParticipantNames(targets);
+        return `${card.title}: ${names} (무작위) 제외`;
+      }
+      case 'lowest-weight': {
+        const names = formatParticipantNames(targets);
+        return `${card.title}: ${names} (최저 티켓) 제외`;
+      }
+      case 'everyone': {
+        return `${card.title}: ${targets.length}명 전원 제외`;
+      }
+      default: {
+        const names = formatParticipantNames(targets);
+        return `${card.title}: ${names} 제외`;
+      }
+    }
+  }
+
+  return card.title;
+};
+
 const findTiedExtremes = (eligible: Participant[], mode: 'max' | 'min') => {
   if (!eligible.length) return eligible;
   const values = eligible.map((p) => p.entryCount || 0);
@@ -28,14 +63,9 @@ export function resolveEvent(
 
   switch (card.target) {
     case 'random-active':
-    case 'highest-weight':
     case 'lowest-weight': {
       const pool =
-        card.target === 'highest-weight'
-          ? findTiedExtremes(eligible, 'max')
-          : card.target === 'lowest-weight'
-            ? findTiedExtremes(eligible, 'min')
-            : eligible;
+        card.target === 'lowest-weight' ? findTiedExtremes(eligible, 'min') : eligible;
       const pick = randomItem(pool);
       if (!pick) return null;
       targets = [pick];
@@ -53,7 +83,7 @@ export function resolveEvent(
   const resolved: ResolvedEvent = {
     card,
     affectedParticipantIds: targetIds,
-    summary: card.title,
+    summary: buildSummary(card, targets),
   };
 
   if (card.type === 'ban') {

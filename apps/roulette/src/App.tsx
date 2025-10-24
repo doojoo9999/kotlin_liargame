@@ -8,7 +8,7 @@ import {ResultsPanel} from './components/ResultsPanel';
 import {STAGES} from './data/stages';
 import type {Participant, ResolvedEvent, StageDefinition, StageId} from './types';
 import {parseParticipantInput} from './utils/participants';
-import {resolveEvent} from './utils/events';
+import {combineEffects, resolveEvent} from './utils/events';
 import {buildWheelSegments, findSegment} from './utils/wheel';
 import {weightedRandom} from './utils/random';
 import './App.css';
@@ -37,6 +37,7 @@ function pickStage(stageId: StageId): StageDefinition {
 export default function App() {
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [stageId, setStageId] = useState<StageId>(DEFAULT_STAGE_ID);
+  const [eventsEnabled, setEventsEnabled] = useState(true);
   const [events, setEvents] = useState<ResolvedEvent[]>([]);
   const [isSpinning, setIsSpinning] = useState(false);
   const [rotation, setRotation] = useState(0);
@@ -45,6 +46,20 @@ export default function App() {
   const spinTimeoutRef = useRef<number | null>(null);
 
   const stage = useMemo(() => pickStage(stageId), [stageId]);
+  const bannedIds = useMemo(
+    () => (eventsEnabled ? combineEffects(events).bannedIds : new Set<string>()),
+    [eventsEnabled, events],
+  );
+  const eligibleParticipants = useMemo(
+    () =>
+      participants.filter(
+        (participant) =>
+          participant.isActive &&
+          participant.entryCount > 0 &&
+          !bannedIds.has(participant.id),
+      ),
+    [participants, bannedIds],
+  );
 
   useEffect(() => () => {
     if (spinTimeoutRef.current !== null) {
@@ -66,6 +81,11 @@ export default function App() {
   }, [participants]);
 
   const refreshEvents = useCallback((count = EVENTS_PER_ROUND) => {
+    if (!eventsEnabled) {
+      setEvents([]);
+      return;
+    }
+
     if (!hasActiveParticipants(participants)) {
       setEvents([]);
       return;
@@ -88,7 +108,7 @@ export default function App() {
     }
 
     setEvents(drawn);
-  }, [participants, stage]);
+  }, [eventsEnabled, participants, stage]);
 
   useEffect(() => {
     refreshEvents();
@@ -154,6 +174,7 @@ export default function App() {
 
   const handleRerollEvent = (index: number) => {
     if (isSpinning) return;
+    if (!eventsEnabled) return;
     setEvents((prev) => {
       if (!prev[index]) return prev;
       const pool = stage.eventDeck.filter((card) => card.id !== prev[index].card.id);
@@ -170,13 +191,19 @@ export default function App() {
 
   const handleRefreshEvents = () => {
     if (isSpinning) return;
+    if (!eventsEnabled) return;
     refreshEvents();
+  };
+
+  const handleToggleEvents = () => {
+    if (isSpinning) return;
+    setEventsEnabled((prev) => !prev);
   };
 
   const handleSpin = () => {
     if (isSpinning) return;
 
-    const segments = buildWheelSegments(participants);
+    const segments = buildWheelSegments(eligibleParticipants);
     if (!segments.length) return;
 
     const winner = weightedRandom(
@@ -211,7 +238,7 @@ export default function App() {
     '--muted-color': stage.palette.muted,
   } as CSSProperties;
 
-  const eventSummaries = events.map((event) => event.summary);
+  const eventSummaries = eventsEnabled ? events.map((event) => event.summary) : [];
 
   return (
     <div className={`app-shell ${overlayMode ? 'overlay-mode' : ''}`} style={themeStyle}>
@@ -233,8 +260,10 @@ export default function App() {
           <EventBoard
             stage={stage}
             events={events}
+            eventsEnabled={eventsEnabled}
             onReroll={handleRerollEvent}
             onRefresh={handleRefreshEvents}
+            onToggleEvents={handleToggleEvents}
             disabled={isSpinning}
           />
         </div>
@@ -242,11 +271,11 @@ export default function App() {
         <div className="column column--center">
           <RouletteWheel
             stage={stage}
-            participants={participants}
+            participants={eligibleParticipants}
             rotation={rotation}
             isSpinning={isSpinning}
             onSpin={handleSpin}
-            disabled={isSpinning || participants.length === 0}
+            disabled={isSpinning || eligibleParticipants.length === 0}
             eventSummaries={eventSummaries}
           />
           <ResultsPanel participants={participants} winnerId={lastWinnerId} />
