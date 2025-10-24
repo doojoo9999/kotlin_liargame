@@ -109,6 +109,18 @@ const starshipHangarEvents: EventCard[] = [
 
 export const STAGES: StageDefinition[] = [
   {
+    id: 'classic-mode',
+    name: '기본 모드',
+    subtitle: '이벤트 없이 깔끔한 기본 테마.',
+    palette: {
+      background: '#0c101a',
+      accent: '#9aa4ff',
+      text: '#f5f7ff',
+      muted: '#1f2535',
+    },
+    eventDeck: [],
+  },
+  {
     id: 'neon-arcade',
     name: '네온 아케이드',
     subtitle: '레이저와 신시사이저가 넘치는 화려한 무대.',

@@ -1,4 +1,4 @@
-export type StageId = 'neon-arcade' | 'haunted-carnival' | 'starship-hangar';
+export type StageId = 'classic-mode' | 'neon-arcade' | 'haunted-carnival' | 'starship-hangar';
 
 export interface Participant {
   id: string;

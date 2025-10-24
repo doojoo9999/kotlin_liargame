@@ -13,6 +13,8 @@ import {MainResultsPage as ResultsPage} from '@/versions/main/pages/ResultsPage'
 import {ErrorBoundary} from '@/components/common/ErrorBoundary'
 import {NotFoundPage} from '@/components/common/NotFoundPage'
 
+const basename = import.meta.env.BASE_URL ?? "/";
+
 export const router = createBrowserRouter([
   {
     path: '/',
@@ -52,7 +54,7 @@ export const router = createBrowserRouter([
       },
     ]
   },
-])
+], {basename})
 
 // Auth guard hook - import authStore where needed
 export const useAuthGuard = () => {

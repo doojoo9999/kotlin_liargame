@@ -91,8 +91,13 @@ class SecurityConfig {
             addAll(5173..5200)
         }
 
-        return hosts.flatMap { host ->
+        val baseOrigins = hosts.flatMap { host ->
             ports.map { port -> "http://$host:$port" }
         }
+
+        return baseOrigins + listOf(
+            "https://zzirit.kr",
+            "https://www.zzirit.kr"
+        )
     }
 }

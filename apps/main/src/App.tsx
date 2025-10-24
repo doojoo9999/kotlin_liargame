@@ -13,7 +13,7 @@ const gameLinks: GameLink[] = [
     description: "실시간 추리와 토론이 펼쳐지는 메인 파티 게임.",
     href:
       import.meta.env.VITE_LIAR_GAME_URL ??
-      "http://localhost:5173",
+      "https://zzirit.kr/liargame/",
   },
   {
     id: "nemonemo",
@@ -21,7 +21,7 @@ const gameLinks: GameLink[] = [
     description: "논리 퍼즐로 협업하며 퍼즐을 해결하는 캐주얼 게임.",
     href:
       import.meta.env.VITE_NEMONEMO_URL ??
-      "http://localhost:5176",
+      "https://zzirit.kr/nemo/",
     comingSoon: true,
   },
   {
@@ -30,7 +30,7 @@ const gameLinks: GameLink[] = [
     description: "빠르게 룰렛을 돌려 미션과 벌칙을 정하는 파티 꿀템.",
     href:
       import.meta.env.VITE_ROULETTE_URL ??
-      "http://localhost:5174",
+      "https://zzirit.kr/roulette/",
   },
   {
     id: "pinball",
@@ -38,7 +38,7 @@ const gameLinks: GameLink[] = [
     description: "맵과 스킬을 믹스해 최후의 생존자나 첫 낙하 승자를 가리는 핀볼 배틀.",
     href:
       import.meta.env.VITE_PINBALL_URL ??
-      "http://localhost:5177",
+      "https://zzirit.kr/pinball/",
   },
   {
     id: "sadari-game",
@@ -46,7 +46,7 @@ const gameLinks: GameLink[] = [
     description: "랜덤 매칭으로 게임 순서, 점심 메뉴, 팀 구성을 빠르게 정해요.",
     href:
       import.meta.env.VITE_SADARI_GAME_URL ??
-      "http://localhost:5175",
+      "https://zzirit.kr/sadari/",
   },
 ];
 

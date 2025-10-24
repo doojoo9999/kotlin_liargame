@@ -13,7 +13,7 @@ import {buildWheelSegments, findSegment} from './utils/wheel';
 import {weightedRandom} from './utils/random';
 import './App.css';
 
-const DEFAULT_STAGE_ID: StageId = 'neon-arcade';
+const DEFAULT_STAGE_ID: StageId = 'classic-mode';
 const SPIN_DURATION_MS = 5800;
 const EVENTS_PER_ROUND = 2;
 
@@ -37,7 +37,7 @@ function pickStage(stageId: StageId): StageDefinition {
 export default function App() {
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [stageId, setStageId] = useState<StageId>(DEFAULT_STAGE_ID);
-  const [eventsEnabled, setEventsEnabled] = useState(true);
+  const [eventsEnabled, setEventsEnabled] = useState(false);
   const [events, setEvents] = useState<ResolvedEvent[]>([]);
   const [isSpinning, setIsSpinning] = useState(false);
   const [rotation, setRotation] = useState(0);
