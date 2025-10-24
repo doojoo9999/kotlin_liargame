@@ -4,9 +4,8 @@
   min-height: 100vh;
   padding: 24px clamp(16px, 5vw, 48px);
   gap: 24px;
-  background: radial-gradient(circle at top, rgba(79, 70, 229, 0.35), transparent 60%),
-    linear-gradient(160deg, rgba(15, 23, 42, 0.9), rgba(2, 6, 23, 0.94));
-  color: #e2e8f0;
+  background: var(--pinball-shell-gradient);
+  color: var(--pinball-text-primary);
 }
 
 .app-header {
@@ -25,14 +24,14 @@
 
 .app-header p {
   margin: 4px 0 0;
-  color: rgba(226, 232, 240, 0.75);
+  color: var(--pinball-text-secondary);
   max-width: 720px;
 }
 
 .header-meta {
   display: flex;
   gap: 16px;
-  color: rgba(148, 163, 184, 0.8);
+  color: var(--pinball-text-tertiary);
   font-size: 14px;
 }
 
@@ -67,16 +66,16 @@
   justify-content: center;
   padding: 16px;
   border-radius: 24px;
-  background: rgba(15, 23, 42, 0.5);
+  background: var(--pinball-panel-surface);
   box-shadow:
-    inset 0 0 0 1px rgba(148, 163, 184, 0.15),
-    0 20px 45px rgba(15, 23, 42, 0.45);
+    var(--pinball-inner-shadow),
+    var(--pinball-panel-shadow);
 }
 
 .pinball-canvas {
   border-radius: 20px;
-  border: 1px solid rgba(148, 163, 184, 0.45);
-  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--pinball-panel-border-strong);
+  background: var(--pinball-panel-strong);
   max-width: 100%;
   height: auto;
 }
@@ -87,8 +86,8 @@
   gap: 16px;
   padding: 20px;
   border-radius: 20px;
-  background: rgba(15, 23, 42, 0.6);
-  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.1);
+  background: var(--pinball-panel-surface);
+  box-shadow: inset 0 0 0 1px var(--pinball-panel-border);
 }
 
 .panel-header {
@@ -106,7 +105,7 @@
 
 .panel-header p {
   margin: 0;
-  color: rgba(148, 163, 184, 0.8);
+  color: var(--pinball-text-tertiary);
   font-size: 14px;
 }
 
@@ -115,11 +114,11 @@
   grid-template-columns: repeat(2, 1fr);
   gap: 8px 12px;
   font-size: 14px;
-  color: rgba(148, 163, 184, 0.8);
+  color: var(--pinball-text-tertiary);
 }
 
 .panel-footer strong {
-  color: rgba(226, 232, 240, 0.95);
+  color: var(--pinball-text-primary);
 }
 
 .panel-actions {
@@ -138,15 +137,15 @@
   min-height: 96px;
   padding: 12px 14px;
   border-radius: 14px;
-  border: 1px solid rgba(148, 163, 184, 0.3);
-  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid var(--pinball-panel-border);
+  background: var(--pinball-panel-strong);
   color: inherit;
   font-size: 15px;
   resize: vertical;
 }
 
 .participant-input:focus {
-  outline: 2px solid rgba(99, 102, 241, 0.65);
+  outline: 2px solid var(--pinball-focus-ring);
 }
 
 .participant-list {
@@ -166,15 +165,15 @@
   gap: 12px;
   padding: 12px 14px;
   border-radius: 14px;
-  background: rgba(30, 41, 59, 0.6);
-  border: 1px solid rgba(148, 163, 184, 0.1);
+  background: var(--pinball-panel-surface);
+  border: 1px solid var(--pinball-panel-border);
 }
 
 .color-chip {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  box-shadow: 0 0 10px rgba(255, 255, 255, 0.35);
+  box-shadow: 0 0 10px var(--pinball-chip-glow);
 }
 
 .participant-info {
@@ -193,15 +192,15 @@
   align-items: center;
   gap: 8px;
   font-size: 13px;
-  color: rgba(148, 163, 184, 0.8);
+  color: var(--pinball-text-tertiary);
 }
 
 .participant-entry input {
   width: 64px;
   padding: 6px 8px;
   border-radius: 10px;
-  border: 1px solid rgba(148, 163, 184, 0.3);
-  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid var(--pinball-panel-border);
+  background: var(--pinball-surface-strong);
   color: inherit;
 }
 
@@ -216,7 +215,7 @@
   align-items: center;
   gap: 6px;
   font-size: 13px;
-  color: rgba(148, 163, 184, 0.85);
+  color: var(--pinball-muted-strong);
 }
 
 .toggle input {
@@ -224,9 +223,9 @@
   width: 32px;
   height: 18px;
   border-radius: 999px;
-  border: 1px solid rgba(148, 163, 184, 0.4);
+  border: 1px solid var(--pinball-panel-border-strong);
   position: relative;
-  background: rgba(15, 23, 42, 0.7);
+  background: var(--pinball-surface-soft);
   transition: background 0.2s ease;
 }
 
@@ -235,17 +234,17 @@
   position: absolute;
   inset: 2px;
   border-radius: 999px;
-  background: rgba(148, 163, 184, 0.6);
+  background: var(--pinball-accent-strong);
   transition: transform 0.2s ease, background 0.2s ease;
 }
 
 .toggle input:checked {
-  background: rgba(99, 102, 241, 0.7);
+  background: var(--pinball-accent-strong);
 }
 
 .toggle input:checked::after {
   transform: translateX(14px);
-  background: rgba(226, 232, 240, 0.95);
+  background: color-mix(in srgb, var(--pinball-text-primary) 95%, transparent);
 }
 
 .icon-button,
@@ -262,9 +261,9 @@
 
 .primary-button {
   padding: 10px 16px;
-  color: #0b1120;
-  background: linear-gradient(135deg, #818cf8, #6366f1);
-  box-shadow: 0 12px 24px rgba(99, 102, 241, 0.35);
+  color: var(--foreground-inverse, #120d2d);
+  background: var(--gradient-primary, linear-gradient(135deg, #7650ff 0%, #ff3aac 100%));
+  box-shadow: 0 12px 24px color-mix(in srgb, var(--pinball-highlight) 60%, transparent);
 }
 
 .primary-button:disabled {
@@ -275,16 +274,16 @@
 
 .secondary-button {
   padding: 10px 16px;
-  background: rgba(148, 163, 184, 0.15);
-  color: rgba(226, 232, 240, 0.85);
-  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.2);
+  background: color-mix(in srgb, var(--pinball-muted) 15%, transparent);
+  color: color-mix(in srgb, var(--pinball-text-primary) 85%, transparent);
+  box-shadow: inset 0 0 0 1px var(--pinball-panel-border);
 }
 
 .ghost-button {
   padding: 8px 12px;
-  background: rgba(148, 163, 184, 0.12);
-  color: rgba(226, 232, 240, 0.85);
-  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.2);
+  background: color-mix(in srgb, var(--pinball-muted) 12%, transparent);
+  color: color-mix(in srgb, var(--pinball-text-primary) 85%, transparent);
+  box-shadow: inset 0 0 0 1px var(--pinball-panel-border);
 }
 
 .ghost-button:disabled {
@@ -297,8 +296,8 @@
   height: 28px;
   display: grid;
   place-items: center;
-  background: rgba(148, 163, 184, 0.18);
-  color: rgba(226, 232, 240, 0.8);
+  background: color-mix(in srgb, var(--pinball-muted) 18%, transparent);
+  color: color-mix(in srgb, var(--pinball-text-primary) 80%, transparent);
   font-size: 18px;
   line-height: 1;
 }
@@ -322,8 +321,8 @@
   gap: 12px;
   padding: 16px;
   border-radius: 16px;
-  background: rgba(30, 41, 59, 0.6);
-  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: var(--pinball-surface-soft);
+  border: 1px solid var(--pinball-panel-border);
   text-align: left;
   color: inherit;
   cursor: pointer;
@@ -331,8 +330,8 @@
 }
 
 .map-card.is-active {
-  border: 1px solid var(--accent-color, rgba(99, 102, 241, 0.8));
-  box-shadow: 0 12px 30px rgba(79, 70, 229, 0.35);
+  border: 1px solid var(--accent-color, var(--pinball-accent-strong));
+  box-shadow: 0 12px 30px color-mix(in srgb, var(--pinball-highlight) 55%, transparent);
 }
 
 .map-card__header {
@@ -350,15 +349,15 @@
   align-self: flex-start;
   padding: 3px 8px;
   border-radius: 999px;
-  background: rgba(99, 102, 241, 0.18);
-  color: rgba(129, 140, 248, 0.9);
+  background: var(--pinball-accent-soft);
+  color: color-mix(in srgb, var(--primary, #7650ff) 90%, transparent);
   font-size: 12px;
   font-weight: 600;
 }
 
 .map-description {
   margin: 0;
-  color: rgba(148, 163, 184, 0.8);
+  color: var(--pinball-muted);
   font-size: 13px;
 }
 
@@ -377,13 +376,13 @@
 
 .map-meta dt {
   font-size: 11px;
-  color: rgba(148, 163, 184, 0.65);
+  color: var(--pinball-muted-soft);
 }
 
 .map-meta dd {
   margin: 0;
   font-size: 13px;
-  color: rgba(226, 232, 240, 0.9);
+  color: color-mix(in srgb, var(--pinball-text-primary) 90%, transparent);
 }
 
 .skill-grid {
@@ -397,7 +396,7 @@
   align-items: center;
   justify-content: center;
   min-height: 100px;
-  color: rgba(148, 163, 184, 0.7);
+  color: var(--pinball-muted);
   font-size: 14px;
 }
 
@@ -412,13 +411,13 @@
   gap: 8px;
   padding: 14px;
   border-radius: 14px;
-  background: rgba(30, 41, 59, 0.7);
-  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: var(--pinball-surface-soft);
+  border: 1px solid var(--pinball-panel-border);
 }
 
 .skill-card--rare {
-  border-color: rgba(248, 113, 113, 0.45);
-  box-shadow: 0 0 18px rgba(248, 113, 113, 0.25);
+  border-color: color-mix(in srgb, var(--pinball-danger) 45%, transparent);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--pinball-danger) 25%, transparent);
 }
 
 .skill-rarity {
@@ -426,11 +425,11 @@
   align-items: center;
   gap: 6px;
   font-size: 11px;
-  color: rgba(248, 113, 113, 0.8);
+  color: color-mix(in srgb, var(--pinball-danger) 80%, transparent);
 }
 
 .skill-card--common .skill-rarity {
-  color: rgba(94, 234, 212, 0.75);
+  color: color-mix(in srgb, var(--pinball-success) 75%, transparent);
 }
 
 .skill-card h3 {
@@ -441,19 +440,19 @@
 .skill-summary {
   margin: 0;
   font-size: 13px;
-  color: rgba(226, 232, 240, 0.85);
+  color: color-mix(in srgb, var(--pinball-text-primary) 85%, transparent);
 }
 
 .skill-description {
   margin: 0;
   font-size: 12px;
-  color: rgba(148, 163, 184, 0.78);
+  color: var(--pinball-muted);
 }
 
 .skill-target {
   margin-top: auto;
   font-size: 12px;
-  color: rgba(226, 232, 240, 0.78);
+  color: color-mix(in srgb, var(--pinball-text-primary) 78%, transparent);
 }
 
 .control-grid {
@@ -472,15 +471,15 @@
 
 .control-label {
   font-size: 13px;
-  color: rgba(148, 163, 184, 0.8);
+  color: var(--pinball-muted);
 }
 
 .segment-control {
   display: inline-flex;
   padding: 4px;
   border-radius: 12px;
-  background: rgba(15, 23, 42, 0.8);
-  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: var(--pinball-surface-strong);
+  border: 1px solid var(--pinball-panel-border);
 }
 
 .segment-control button {
@@ -488,14 +487,14 @@
   border-radius: 8px;
   padding: 8px 14px;
   background: transparent;
-  color: rgba(226, 232, 240, 0.8);
+  color: color-mix(in srgb, var(--pinball-text-primary) 80%, transparent);
   cursor: pointer;
   font-size: 14px;
 }
 
 .segment-control button.is-active {
-  background: rgba(99, 102, 241, 0.3);
-  color: rgba(226, 232, 240, 0.95);
+  background: var(--pinball-accent-soft);
+  color: color-mix(in srgb, var(--pinball-text-primary) 95%, transparent);
 }
 
 .control-actions {
@@ -510,14 +509,14 @@
   min-height: 56px;
   padding: 14px;
   border-radius: 16px;
-  background: rgba(30, 41, 59, 0.65);
-  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: var(--pinball-surface-soft);
+  border: 1px solid var(--pinball-panel-border);
   font-size: 15px;
 }
 
 .winner-label {
   font-size: 13px;
-  color: rgba(94, 234, 212, 0.85);
+  color: color-mix(in srgb, var(--pinball-success) 85%, transparent);
 }
 
 .winner-name {
@@ -525,7 +524,7 @@
   padding: 6px 12px;
   border-radius: 999px;
   backdrop-filter: blur(8px);
-  color: rgba(15, 23, 42, 0.92);
+  color: var(--foreground-inverse, #120d2d);
   font-weight: 600;
 }
 
@@ -547,16 +546,16 @@
   align-items: center;
   padding: 8px 12px;
   border-radius: 12px;
-  background: rgba(15, 23, 42, 0.8);
-  border: 1px solid rgba(148, 163, 184, 0.15);
+  background: var(--pinball-surface-strong);
+  border: 1px solid var(--pinball-panel-border);
   font-size: 13px;
 }
 
 .elimination-log .order {
-  color: rgba(148, 163, 184, 0.8);
+  color: var(--pinball-muted);
 }
 
 .elimination-log .reason {
   justify-self: end;
-  color: rgba(94, 234, 212, 0.75);
+  color: color-mix(in srgb, var(--pinball-success) 75%, transparent);
 }

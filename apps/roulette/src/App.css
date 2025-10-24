@@ -1,10 +1,10 @@
 .app-shell {
   min-height: 100vh;
   padding: 2rem clamp(1rem, 2vw, 3rem);
-  background: radial-gradient(circle at 20% -10%, rgba(255, 255, 255, 0.08), transparent 45%),
-    radial-gradient(circle at 80% 0%, rgba(255, 255, 255, 0.05), transparent 55%),
-    var(--bg-color, #05060b);
-  color: var(--text-color, #f8f9ff);
+  background: radial-gradient(circle at 20% -10%, color-mix(in srgb, var(--roulette-foreground) 10%, transparent) 0%, transparent 45%),
+    radial-gradient(circle at 80% 0%, color-mix(in srgb, var(--roulette-foreground) 6%, transparent) 0%, transparent 55%),
+    var(--bg-color, var(--roulette-background));
+  color: var(--text-color, var(--roulette-foreground));
   transition: background 320ms ease;
 }
 
@@ -24,7 +24,7 @@
 
 .app-header p {
   margin: 0.35rem 0 0;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--roulette-muted);
   font-size: 0.95rem;
 }
 
@@ -47,8 +47,8 @@
 .panel {
   padding: 1.25rem;
   border-radius: 20px;
-  background: rgba(10, 12, 18, 0.65);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--roulette-surface);
+  border: 1px solid var(--roulette-border);
   backdrop-filter: blur(12px);
 }
 
@@ -61,7 +61,7 @@
 .panel__hint {
   margin: 0;
   font-size: 0.85rem;
-  color: rgba(255, 255, 255, 0.65);
+  color: var(--roulette-muted);
 }
 
 .overlay-mode .column--left,

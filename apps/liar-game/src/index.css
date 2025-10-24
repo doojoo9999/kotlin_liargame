@@ -4,99 +4,65 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222.2 84% 4.9%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96%;
-    --accent-foreground: 222.2 84% 4.9%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
-    --radius: 0.5rem;
+    color-scheme: dark;
+    font-family: var(--font-family-base, "Pretendard Variable", "Inter", "Segoe UI", sans-serif);
+    background-color: var(--background, #0f0e1f);
+    color: var(--foreground, #f5f4ff);
   }
 
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 84% 4.9%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 94.1%;
-  }
-}
-
-@layer base {
   * {
-    border-color: hsl(var(--border));
+    border-color: var(--border, rgba(130, 120, 225, 0.28));
   }
+
   body {
-    background-color: hsl(var(--background));
-    color: hsl(var(--foreground));
+    background-color: var(--background, #0f0e1f);
+    color: var(--foreground, #f5f4ff);
     font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  a {
+    color: inherit;
   }
 }
 
 /* Liar Game specific styles */
 @layer components {
   .game-card {
-    border-radius: 0.5rem;
-    border: 1px solid hsl(var(--border));
-    background-color: hsl(var(--card));
-    color: hsl(var(--card-foreground));
-    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
-    transition: all 0.2s ease-in-out;
+    border-radius: var(--radius-card, 24px);
+    border: 1px solid var(--border, rgba(130, 120, 225, 0.28));
+    background-color: var(--card, rgba(30, 28, 58, 0.82));
+    color: var(--card-foreground, #f5f4ff);
+    box-shadow: var(--shadow-card, 0 12px 24px rgba(15, 12, 38, 0.32));
+    backdrop-filter: blur(var(--blur-card, 18px));
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
   }
-  
+
   .game-card:hover {
-    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-    transform: translateY(-1px);
+    box-shadow: var(--shadow-card-strong, 0 18px 40px rgba(11, 9, 31, 0.28));
+    transform: translateY(-2px);
   }
-  
+
   /* Progress bar custom colors */
   .progress-bar-red .progress-indicator {
-    background-color: #ef4444;
+    background-color: var(--destructive, #f32d4c);
   }
-  
+
   .progress-bar-orange .progress-indicator {
-    background-color: #f97316;
+    background-color: var(--warning, #f76e08);
   }
-  
+
   /* Animation improvements */
   .animate-bounce-soft {
-    animation: bounce-soft 2s infinite;
+    animation: bounce-soft var(--stellive-motion-duration-slow, 500ms) infinite;
   }
-  
+
   @keyframes bounce-soft {
     0%, 100% {
       transform: translateY(0);
       animation-timing-function: cubic-bezier(0.8, 0, 1, 1);
     }
     50% {
-      transform: translateY(-5%);
+      transform: translateY(-4%);
       animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
     }
   }
@@ -104,7 +70,7 @@
 
 .chat-scroll-area {
   scrollbar-width: thin;
-  scrollbar-color: hsl(var(--primary) / 0.4) transparent;
+  scrollbar-color: color-mix(in srgb, var(--primary, #7650ff) 40%, transparent) transparent;
   scrollbar-gutter: stable both-edges;
 }
 
@@ -113,12 +79,12 @@
 }
 
 .chat-scroll-area::-webkit-scrollbar-thumb {
-  background-color: hsl(var(--primary) / 0.5);
+  background-color: color-mix(in srgb, var(--primary, #7650ff) 50%, transparent);
   border-radius: 9999px;
 }
 
 .chat-scroll-area::-webkit-scrollbar-thumb:hover {
-  background-color: hsl(var(--primary) / 0.7);
+  background-color: color-mix(in srgb, var(--primary, #7650ff) 70%, transparent);
 }
 
 .chat-scroll-area::-webkit-scrollbar-track {

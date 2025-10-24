@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@stellive/ui": "file:../ui",
     "matter-js": "^0.19.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"

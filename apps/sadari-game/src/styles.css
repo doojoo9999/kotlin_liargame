@@ -1,34 +1,33 @@
 :root {
-  color-scheme: dark light;
-  font-family: "Pretendard Variable", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
+  color-scheme: dark;
+  font-family: var(--font-family-base, "Pretendard Variable", "Inter", "Segoe UI", sans-serif);
   line-height: 1.5;
   font-weight: 400;
   text-rendering: optimizeLegibility;
-  --surface-background: #04050d;
-  --surface-overlay: rgba(18, 20, 31, 0.7);
-  --surface-glass: rgba(35, 38, 54, 0.6);
-  --surface-glass-strong: rgba(35, 38, 54, 0.85);
-  --surface-contrast: rgba(255, 255, 255, 0.08);
-  --border-primary: rgba(123, 134, 255, 0.25);
-  --border-muted: rgba(149, 158, 191, 0.3);
-  --text-primary: #f6f7fb;
-  --text-secondary: rgba(216, 222, 255, 0.75);
-  --text-tertiary: rgba(216, 222, 255, 0.55);
-  --accent: #7b7fff;
-  --accent-strong: #9a8cff;
-  --gradient-accent: linear-gradient(135deg, rgba(99, 102, 241, 0.95), rgba(14, 165, 233, 0.75));
-  --gradient-background: radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.3), transparent 45%),
-    radial-gradient(circle at 90% 30%, rgba(14, 165, 233, 0.28), transparent 55%),
-    radial-gradient(circle at 50% 120%, rgba(109, 40, 217, 0.32), transparent 45%);
-  --radius-large: 36px;
-  --radius-card: 24px;
-  --radius-pill: 999px;
-  --shadow-soft: 0 30px 120px rgba(10, 12, 25, 0.45);
-  --shadow-card: 0 12px 40px rgba(18, 21, 34, 0.4);
-  --shadow-card-hover: 0 18px 48px rgba(20, 23, 38, 0.5);
-  --blur-hero: 24px;
-  --blur-card: 18px;
+  --surface-background: var(--background, #0f0e1f);
+  --surface-overlay: color-mix(in srgb, var(--surface, rgba(30, 28, 58, 0.82)) 92%, transparent);
+  --surface-glass: color-mix(in srgb, var(--surface-overlay) 70%, transparent);
+  --surface-glass-strong: color-mix(in srgb, var(--surface-overlay) 88%, transparent);
+  --surface-contrast: color-mix(in srgb, var(--border-strong, rgba(121, 108, 215, 0.28)) 90%, transparent);
+  --border-primary: var(--border-strong, rgba(130, 120, 225, 0.28));
+  --border-muted: color-mix(in srgb, var(--border, rgba(130, 120, 225, 0.18)) 65%, transparent);
+  --text-primary: var(--foreground, #f5f4ff);
+  --text-secondary: var(--foreground-secondary, rgba(223, 219, 255, 0.72));
+  --text-tertiary: var(--foreground-muted, rgba(178, 174, 219, 0.5));
+  --accent: var(--primary, #7650ff);
+  --accent-strong: color-mix(in srgb, var(--primary, #7650ff) 80%, #ffffff 20%);
+  --gradient-accent: var(--gradient-primary, linear-gradient(135deg, #7650ff 0%, #ff3aac 100%));
+  --gradient-background: radial-gradient(circle at 10% 20%, color-mix(in srgb, var(--primary, #7650ff) 28%, transparent) 0%, transparent 55%),
+    radial-gradient(circle at 90% 30%, color-mix(in srgb, var(--accent, #ff3aac) 22%, transparent) 0%, transparent 65%),
+    radial-gradient(circle at 50% 120%, color-mix(in srgb, var(--secondary, #3f69ff) 26%, transparent) 0%, transparent 50%);
+  --radius-large: calc(var(--radius-card, 24px) * 1.5);
+  --radius-card: var(--radius-card, 24px);
+  --radius-pill: var(--radius-pill, 999px);
+  --shadow-soft: color-mix(in srgb, var(--shadow-card-strong, rgba(11, 9, 31, 0.28)) 100%, transparent);
+  --shadow-card: var(--shadow-card, 0 12px 24px rgba(15, 12, 38, 0.32));
+  --shadow-card-hover: var(--shadow-card-strong, 0 18px 40px rgba(11, 9, 31, 0.28));
+  --blur-hero: var(--blur-overlay, 28px);
+  --blur-card: var(--blur-card, 18px);
 }
 
 *,
@@ -62,7 +61,7 @@ body::after {
   content: "";
   position: fixed;
   inset: 0;
-  background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.08), transparent 55%);
+  background: radial-gradient(circle at top right, color-mix(in srgb, var(--text-primary) 12%, transparent) 0%, transparent 55%);
   z-index: -3;
 }
 
@@ -94,53 +93,53 @@ button {
 }
 
 .button--primary {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.95), rgba(14, 165, 233, 0.75));
-  color: #111321;
-  box-shadow: 0 12px 30px rgba(64, 81, 216, 0.35);
+  background: var(--gradient-accent);
+  color: var(--foreground-inverse, #120d2d);
+  box-shadow: 0 12px 30px color-mix(in srgb, var(--accent) 50%, transparent);
 }
 
 .button--primary:hover {
   transform: translateY(-1px);
-  box-shadow: 0 18px 36px rgba(64, 81, 216, 0.45);
+  box-shadow: 0 18px 36px color-mix(in srgb, var(--accent) 60%, transparent);
 }
 
 .button--ghost {
-  border: 1px solid rgba(148, 163, 255, 0.35);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
   color: var(--text-secondary);
-  background: rgba(255, 255, 255, 0.06);
+  background: color-mix(in srgb, var(--text-primary) 10%, transparent);
 }
 
 .button--ghost:hover {
-  border-color: rgba(148, 163, 255, 0.55);
-  color: #e0e7ff;
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  color: var(--text-primary);
 }
 
 .button--secondary {
-  border: 1px solid rgba(148, 163, 255, 0.35);
-  background: rgba(36, 39, 60, 0.85);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  background: color-mix(in srgb, var(--surface-overlay) 85%, transparent);
   color: var(--text-secondary);
 }
 
 .button--secondary:hover {
-  color: #e0e7ff;
-  border-color: rgba(148, 163, 255, 0.55);
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
 }
 
 .button--small {
   padding: 0.55rem 1.1rem;
   font-size: 0.86rem;
-  background: rgba(36, 39, 60, 0.85);
-  border: 1px solid rgba(148, 163, 255, 0.35);
+  background: color-mix(in srgb, var(--surface-overlay) 85%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
   color: var(--text-secondary);
 }
 
 .button--small:hover {
-  color: #e0e7ff;
-  border-color: rgba(148, 163, 255, 0.55);
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
 }
 
 .button:focus-visible {
-  outline: 2px solid rgba(79, 70, 229, 0.8);
+  outline: 2px solid color-mix(in srgb, var(--accent) 80%, transparent);
   outline-offset: 3px;
 }
 
@@ -157,7 +156,7 @@ input {
   background: var(--surface-overlay);
   box-shadow: var(--shadow-soft);
   backdrop-filter: blur(var(--blur-hero));
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid color-mix(in srgb, var(--border-muted) 85%, transparent);
 }
 
 .sadari__hero {
@@ -170,8 +169,8 @@ input {
   width: fit-content;
   padding: 0.5rem 1rem;
   border-radius: var(--radius-pill);
-  background: rgba(99, 102, 241, 0.18);
-  border: 1px solid rgba(148, 163, 255, 0.35);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
   color: var(--accent-strong);
   font-weight: 600;
   font-size: 0.85rem;
@@ -188,10 +187,10 @@ input {
 
 .sadari__hero-highlight {
   display: inline-block;
-  background: linear-gradient(135deg, #a855f7, #60a5fa 45%, #22d3ee);
+  background: var(--gradient-accent);
   -webkit-background-clip: text;
   color: transparent;
-  filter: drop-shadow(0 8px 24px rgba(79, 70, 229, 0.3));
+  filter: drop-shadow(0 8px 24px color-mix(in srgb, var(--accent) 40%, transparent));
 }
 
 .sadari__hero-subtitle {
@@ -216,8 +215,8 @@ input {
 .sadari__panel {
   border-radius: var(--radius-card);
   padding: clamp(1.8rem, 2.5vw, 2.4rem);
-  background: rgba(26, 28, 44, 0.72);
-  border: 1px solid rgba(120, 130, 196, 0.25);
+  background: color-mix(in srgb, var(--surface-overlay) 78%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border-muted) 75%, transparent);
   box-shadow: var(--shadow-card);
   display: flex;
   flex-direction: column;
@@ -227,13 +226,13 @@ input {
 }
 
 .sadari__panel--form {
-  background: rgba(20, 23, 38, 0.78);
-  border: 1px solid rgba(120, 130, 196, 0.22);
+  background: color-mix(in srgb, var(--surface-overlay) 82%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border-muted) 70%, transparent);
 }
 
 .sadari__panel--glass {
   background: var(--surface-glass-strong);
-  border: 1px solid rgba(130, 140, 210, 0.35);
+  border: 1px solid color-mix(in srgb, var(--border-primary) 40%, transparent);
   overflow: visible;
 }
 
@@ -249,7 +248,7 @@ input {
   font-size: 0.78rem;
   letter-spacing: 0.2em;
   font-weight: 600;
-  color: rgba(148, 163, 255, 0.6);
+  color: color-mix(in srgb, var(--accent) 60%, transparent);
   margin-bottom: 0.35rem;
 }
 
@@ -294,30 +293,30 @@ input {
   width: 100%;
   padding: 0.78rem 0.9rem;
   border-radius: 16px;
-  border: 1px solid rgba(110, 120, 190, 0.3);
-  background: rgba(15, 17, 29, 0.7);
+  border: 1px solid color-mix(in srgb, var(--border-muted) 65%, transparent);
+  background: color-mix(in srgb, var(--surface-overlay) 70%, transparent);
   color: var(--text-primary);
   transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 
 .sadari__input::placeholder {
-  color: rgba(216, 222, 255, 0.4);
+  color: color-mix(in srgb, var(--text-secondary) 55%, transparent);
 }
 
 .sadari__input:focus {
   outline: none;
-  border-color: rgba(132, 143, 255, 0.65);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
-  background: rgba(20, 23, 40, 0.8);
+  border-color: color-mix(in srgb, var(--accent) 65%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
+  background: color-mix(in srgb, var(--surface-overlay) 86%, transparent);
 }
 
 .sadari__remove {
   width: 40px;
   height: 40px;
   border-radius: 14px;
-  border: 1px solid rgba(110, 120, 190, 0.2);
-  background: rgba(20, 22, 36, 0.8);
-  color: rgba(216, 222, 255, 0.65);
+border: 1px solid color-mix(in srgb, var(--border-muted) 60%, transparent);
+  background: color-mix(in srgb, var(--surface-overlay) 86%, transparent);
+  color: color-mix(in srgb, var(--text-secondary) 80%, transparent);
   font-size: 1.15rem;
   line-height: 1;
   transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
@@ -329,17 +328,17 @@ input {
 }
 
 .sadari__remove:not(:disabled):hover {
-  color: #fca5a5;
-  border-color: rgba(248, 113, 113, 0.35);
-  background: rgba(46, 20, 33, 0.85);
+  color: color-mix(in srgb, var(--destructive, #f32d4c) 70%, transparent);
+  border-color: color-mix(in srgb, var(--destructive, #f32d4c) 35%, transparent);
+  background: color-mix(in srgb, var(--destructive, #f32d4c) 35%, var(--surface-sunken, rgba(12, 11, 24, 0.88)) 65%);
 }
 
 .sadari__panel-footer {
   padding: 1rem 1.1rem;
   border-radius: 18px;
-  background: rgba(23, 25, 40, 0.8);
-  border: 1px solid rgba(123, 134, 255, 0.18);
-  color: rgba(216, 222, 255, 0.72);
+  background: color-mix(in srgb, var(--surface-overlay) 84%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border-primary) 30%, transparent);
+  color: var(--text-secondary);
   font-size: 0.92rem;
   line-height: 1.6;
 }
@@ -369,8 +368,8 @@ input {
   position: relative;
   padding: 0.85rem 1rem;
   border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(148, 163, 255, 0.25);
+  background: color-mix(in srgb, var(--text-primary) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
   color: var(--text-secondary);
   display: flex;
   align-items: center;
@@ -388,8 +387,8 @@ input {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: rgba(99, 102, 241, 0.18);
-  border: 1px solid rgba(148, 163, 255, 0.35);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -406,9 +405,9 @@ input {
 }
 
 .sadari__slot.is-active {
-  border-color: rgba(148, 163, 255, 0.55);
-  color: #e0e7ff;
-  background: rgba(99, 102, 241, 0.18);
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
   transform: translateY(-1px);
 }
 
@@ -430,21 +429,21 @@ input {
 
 .sadari__link {
   fill: none;
-  stroke: rgba(148, 163, 255, 0.28);
+  stroke: color-mix(in srgb, var(--accent) 28%, transparent);
   stroke-width: 2.2;
   transition: stroke 0.2s ease, stroke-width 0.2s ease, filter 0.2s ease;
 }
 
 .sadari__link--active {
-  stroke: rgba(155, 164, 255, 0.85);
+  stroke: color-mix(in srgb, var(--accent) 85%, transparent);
   stroke-width: 3.2;
-  filter: drop-shadow(0 8px 14px rgba(99, 102, 241, 0.45));
+  filter: drop-shadow(0 8px 14px color-mix(in srgb, var(--accent) 55%, transparent));
 }
 
 .sadari__summary {
   border-radius: 20px;
-  border: 1px solid rgba(123, 134, 255, 0.2);
-  background: rgba(22, 24, 38, 0.8);
+  border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
+  background: color-mix(in srgb, var(--surface-sunken, rgba(12, 11, 24, 0.88)) 80%, transparent);
   padding: 1.4rem 1.6rem;
   display: grid;
   gap: 0.9rem;

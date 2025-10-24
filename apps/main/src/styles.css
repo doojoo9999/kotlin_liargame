@@ -1,34 +1,33 @@
 :root {
-  color-scheme: dark light;
-  font-family: "Pretendard Variable", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
+  color-scheme: dark;
+  font-family: var(--font-family-base, "Pretendard Variable", "Inter", "Segoe UI", sans-serif);
   line-height: 1.5;
   font-weight: 400;
   text-rendering: optimizeLegibility;
-  --surface-background: #04050d;
-  --surface-overlay: rgba(18, 20, 31, 0.7);
-  --surface-glass: rgba(35, 38, 54, 0.6);
-  --surface-glass-strong: rgba(35, 38, 54, 0.85);
-  --surface-contrast: rgba(255, 255, 255, 0.08);
-  --border-primary: rgba(123, 134, 255, 0.25);
-  --border-muted: rgba(149, 158, 191, 0.3);
-  --text-primary: #f6f7fb;
-  --text-secondary: rgba(216, 222, 255, 0.75);
-  --text-tertiary: rgba(216, 222, 255, 0.55);
-  --accent: #7b7fff;
-  --accent-strong: #9a8cff;
-  --gradient-accent: linear-gradient(135deg, rgba(99, 102, 241, 0.95), rgba(14, 165, 233, 0.75));
-  --gradient-background: radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.3), transparent 45%),
-    radial-gradient(circle at 90% 30%, rgba(14, 165, 233, 0.28), transparent 55%),
-    radial-gradient(circle at 50% 120%, rgba(109, 40, 217, 0.32), transparent 45%);
-  --radius-large: 36px;
-  --radius-card: 24px;
-  --radius-pill: 999px;
-  --shadow-soft: 0 30px 120px rgba(10, 12, 25, 0.45);
-  --shadow-card: 0 12px 40px rgba(18, 21, 34, 0.4);
-  --shadow-card-hover: 0 18px 48px rgba(20, 23, 38, 0.5);
-  --blur-hero: 24px;
-  --blur-card: 18px;
+  --surface-background: var(--background, #0f0e1f);
+  --surface-overlay: color-mix(in srgb, var(--surface, rgba(30, 28, 58, 0.82)) 92%, transparent);
+  --surface-glass: color-mix(in srgb, var(--surface-overlay) 70%, transparent);
+  --surface-glass-strong: color-mix(in srgb, var(--surface-overlay) 88%, transparent);
+  --surface-contrast: color-mix(in srgb, var(--border-strong, rgba(121, 108, 215, 0.28)) 90%, transparent);
+  --border-primary: var(--border-strong, rgba(130, 120, 225, 0.28));
+  --border-muted: color-mix(in srgb, var(--border, rgba(130, 120, 225, 0.18)) 65%, transparent);
+  --text-primary: var(--foreground, #f5f4ff);
+  --text-secondary: var(--foreground-secondary, rgba(223, 219, 255, 0.72));
+  --text-tertiary: var(--foreground-muted, rgba(178, 174, 219, 0.5));
+  --accent: var(--primary, #7650ff);
+  --accent-strong: color-mix(in srgb, var(--primary, #7650ff) 80%, #ffffff 20%);
+  --gradient-accent: var(--gradient-primary, linear-gradient(135deg, #7650ff 0%, #ff3aac 100%));
+  --gradient-background: radial-gradient(circle at 10% 20%, color-mix(in srgb, var(--primary, #7650ff) 28%, transparent) 0%, transparent 55%),
+    radial-gradient(circle at 90% 30%, color-mix(in srgb, var(--accent, #ff3aac) 22%, transparent) 0%, transparent 65%),
+    radial-gradient(circle at 50% 120%, color-mix(in srgb, var(--secondary, #3f69ff) 26%, transparent) 0%, transparent 50%);
+  --radius-large: calc(var(--radius-card, 24px) * 1.5);
+  --radius-card: var(--radius-card, 24px);
+  --radius-pill: var(--radius-pill, 999px);
+  --shadow-soft: color-mix(in srgb, var(--shadow-card-strong, rgba(11, 9, 31, 0.28)) 100%, transparent);
+  --shadow-card: var(--shadow-card, 0 12px 24px rgba(15, 12, 38, 0.32));
+  --shadow-card-hover: var(--shadow-card-strong, 0 18px 40px rgba(11, 9, 31, 0.28));
+  --blur-hero: var(--blur-overlay, 28px);
+  --blur-card: var(--blur-card, 18px);
 }
 
 *,
@@ -64,7 +63,7 @@ body::after {
   content: "";
   position: fixed;
   inset: 0;
-  background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.08), transparent 55%);
+  background: radial-gradient(circle at top right, color-mix(in srgb, var(--foreground, #f5f4ff) 14%, transparent) 0%, transparent 55%);
   z-index: -3;
 }
 
@@ -85,7 +84,7 @@ a {
   padding: clamp(2.4rem, 3vw, 3.5rem);
   border-radius: var(--radius-large);
   background: var(--surface-overlay);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid color-mix(in srgb, var(--border-muted) 88%, transparent);
   box-shadow: var(--shadow-soft);
   backdrop-filter: blur(var(--blur-hero));
 }
@@ -100,8 +99,8 @@ a {
   width: fit-content;
   padding: 0.45rem 0.9rem;
   border-radius: var(--radius-pill);
-  background: rgba(99, 102, 241, 0.18);
-  border: 1px solid rgba(148, 163, 255, 0.35);
+  background: color-mix(in srgb, var(--primary, #7650ff) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary, #7650ff) 35%, transparent);
   color: var(--accent-strong);
   font-weight: 600;
   font-size: 0.85rem;
@@ -118,10 +117,10 @@ a {
 
 .landing__hero-gradient {
   display: inline-block;
-  background: linear-gradient(135deg, #a855f7, #60a5fa 45%, #22d3ee);
+  background: var(--gradient-accent);
   -webkit-background-clip: text;
   color: transparent;
-  filter: drop-shadow(0 8px 24px rgba(79, 70, 229, 0.3));
+  filter: drop-shadow(0 8px 24px color-mix(in srgb, var(--primary, #7650ff) 38%, transparent));
 }
 
 .landing__hero-subtitle {
@@ -153,24 +152,24 @@ a {
 
 .button--primary {
   background: var(--gradient-accent);
-  box-shadow: 0 18px 32px rgba(79, 70, 229, 0.35);
-  color: #f8fafc;
+  box-shadow: 0 18px 32px color-mix(in srgb, var(--primary, #7650ff) 35%, transparent);
+  color: var(--foreground-inverse, #120d2d);
 }
 
 .button--primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 22px 42px rgba(79, 70, 229, 0.45);
+  box-shadow: 0 22px 42px color-mix(in srgb, var(--primary, #7650ff) 45%, transparent);
 }
 
 .button--ghost {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(143, 155, 255, 0.25);
+  background: color-mix(in srgb, var(--foreground, #f5f4ff) 12%, transparent);
+  border-color: color-mix(in srgb, var(--primary, #7650ff) 22%, transparent);
   color: var(--text-secondary);
 }
 
 .button--ghost:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
+  background: color-mix(in srgb, var(--foreground, #f5f4ff) 18%, transparent);
+  color: var(--text-primary);
 }
 
 .landing__hero-stats {
@@ -181,9 +180,13 @@ a {
 
 .landing__hero-stat {
   padding: 1rem 1.1rem;
-  background: linear-gradient(160deg, rgba(148, 163, 255, 0.08), rgba(39, 41, 63, 0.08));
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--primary, #7650ff) 14%, transparent),
+    color-mix(in srgb, var(--surface, rgba(30, 28, 58, 0.82)) 26%, transparent)
+  );
   border-radius: var(--radius-card);
-  border: 1px solid rgba(148, 163, 255, 0.25);
+  border: 1px solid color-mix(in srgb, var(--primary, #7650ff) 28%, transparent);
   backdrop-filter: blur(var(--blur-card));
   box-shadow: var(--shadow-card);
   display: grid;
@@ -208,15 +211,15 @@ a {
   gap: clamp(1.5rem, 2vw, 2.5rem);
   padding: clamp(1.5rem, 2vw, 2.2rem);
   border-radius: calc(var(--radius-large) - 12px);
-  background: rgba(16, 18, 28, 0.65);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: color-mix(in srgb, var(--surface, rgba(30, 28, 58, 0.82)) 78%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border-muted) 80%, transparent);
   backdrop-filter: blur(var(--blur-card));
-  box-shadow: 0 20px 60px rgba(13, 15, 28, 0.35);
+  box-shadow: 0 20px 60px color-mix(in srgb, var(--shadow-card-strong, rgba(11, 9, 31, 0.28)) 90%, transparent);
 }
 
 .landing__section--glass {
   background: var(--surface-glass);
-  border-color: rgba(150, 160, 255, 0.18);
+  border-color: color-mix(in srgb, var(--border-muted) 70%, transparent);
 }
 
 .landing__section-header {
@@ -260,11 +263,11 @@ a {
   border-radius: var(--radius-card);
   background: linear-gradient(
     150deg,
-    rgba(99, 102, 241, 0.14),
-    rgba(12, 18, 42, 0.6) 70%,
-    rgba(12, 18, 42, 0.8)
+    color-mix(in srgb, var(--primary, #7650ff) 14%, transparent),
+    color-mix(in srgb, var(--surface, rgba(30, 28, 58, 0.82)) 38%, transparent) 70%,
+    color-mix(in srgb, var(--surface-sunken, rgba(12, 11, 24, 0.88)) 65%, transparent)
   );
-  border: 1px solid rgba(123, 134, 255, 0.2);
+  border: 1px solid color-mix(in srgb, var(--border-primary) 85%, transparent);
   box-shadow: var(--shadow-card);
   transition: transform 0.22s ease, box-shadow 0.22s ease, border 0.22s ease;
   position: relative;
@@ -277,7 +280,7 @@ a {
   position: absolute;
   inset: -40% 10% auto;
   height: 160%;
-  background: radial-gradient(circle, rgba(148, 163, 255, 0.35), transparent 55%);
+  background: radial-gradient(circle, color-mix(in srgb, var(--primary, #7650ff) 32%, transparent), transparent 55%);
   opacity: 0;
   transition: opacity 0.3s ease;
   z-index: -1;
@@ -286,7 +289,7 @@ a {
 .landing__card:hover:not(.landing__card--disabled) {
   transform: translateY(-6px);
   box-shadow: var(--shadow-card-hover);
-  border-color: rgba(148, 163, 255, 0.35);
+  border-color: color-mix(in srgb, var(--primary, #7650ff) 35%, transparent);
 }
 
 .landing__card:hover::after {
@@ -304,8 +307,8 @@ a {
 .landing__pill {
   border-radius: var(--radius-pill);
   padding: 0.25rem 0.75rem;
-  background: rgba(124, 132, 255, 0.16);
-  border: 1px solid rgba(148, 163, 255, 0.24);
+  background: color-mix(in srgb, var(--primary, #7650ff) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary, #7650ff) 24%, transparent);
   font-weight: 500;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -336,7 +339,7 @@ a {
   opacity: 0.55;
   transform: none;
   box-shadow: none;
-  border-color: rgba(91, 103, 194, 0.2);
+  border-color: color-mix(in srgb, var(--border-muted) 70%, transparent);
 }
 
 .landing__chip {
@@ -346,15 +349,15 @@ a {
   font-weight: 600;
   border: 1px solid var(--border-muted);
   color: var(--text-tertiary);
-  background: rgba(255, 255, 255, 0.04);
+  background: color-mix(in srgb, var(--foreground, #f5f4ff) 12%, transparent);
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
 .landing__chip--active {
-  border-color: rgba(101, 132, 255, 0.4);
-  color: #e0e7ff;
-  background: rgba(101, 132, 255, 0.14);
+  border-color: color-mix(in srgb, var(--primary, #7650ff) 40%, transparent);
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--primary, #7650ff) 18%, transparent);
 }
 
 .landing__roadmap {
@@ -368,17 +371,17 @@ a {
   gap: 1.2rem;
   padding: 1.3rem 1.5rem;
   border-radius: var(--radius-card);
-  background: rgba(27, 30, 48, 0.7);
-  border: 1px solid rgba(120, 130, 196, 0.25);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  background: color-mix(in srgb, var(--surface, rgba(30, 28, 58, 0.82)) 74%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border-muted) 82%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--foreground, #f5f4ff) 6%, transparent);
 }
 
 .landing__roadmap-phase {
   width: 40px;
   height: 40px;
   border-radius: var(--radius-pill);
-  background: rgba(99, 102, 241, 0.2);
-  border: 1px solid rgba(148, 163, 255, 0.32);
+  background: color-mix(in srgb, var(--primary, #7650ff) 20%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary, #7650ff) 32%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;

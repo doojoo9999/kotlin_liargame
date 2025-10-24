@@ -55,12 +55,12 @@
 /* Timer warning animations */
 @keyframes timer-warning {
   0%, 100% {
-    color: rgb(239 68 68);
-    text-shadow: 0 0 5px rgba(239, 68, 68, 0.3);
+    color: var(--destructive, #f32d4c);
+    text-shadow: 0 0 5px color-mix(in srgb, var(--destructive, #f32d4c) 35%, transparent);
   }
   50% {
-    color: rgb(220 38 38);
-    text-shadow: 0 0 10px rgba(239, 68, 68, 0.6);
+    color: color-mix(in srgb, var(--destructive, #f32d4c) 90%, #ffffff 10%);
+    text-shadow: 0 0 10px color-mix(in srgb, var(--destructive, #f32d4c) 55%, transparent);
   }
 }
 
@@ -107,12 +107,12 @@
 
 .vote-button:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--foreground, #f5f4ff) 10%, transparent);
 }
 
 .vote-button:active {
   transform: translateY(0);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px color-mix(in srgb, var(--foreground, #f5f4ff) 12%, transparent);
 }
 
 /* Phase indicator progress bar */
@@ -132,8 +132,8 @@
 
 /* Highlight effects for important elements */
 .highlight-glow {
-  box-shadow: 0 0 15px rgba(59, 130, 246, 0.3);
-  border: 2px solid rgba(59, 130, 246, 0.5);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--primary, #7650ff) 45%, transparent);
+  border: 2px solid color-mix(in srgb, var(--primary, #7650ff) 60%, transparent);
 }
 
 /* Connection status indicators */

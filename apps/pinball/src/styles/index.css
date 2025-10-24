@@ -1,23 +1,46 @@
 :root {
-  color: #e5e7eb;
-  background-color: #0f172a;
-  font-family:
-    'Pretendard Variable',
-    'Noto Sans KR',
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    sans-serif;
+  color: var(--foreground, #f5f4ff);
+  background-color: var(--background, #0f0e1f);
+  font-family: var(--font-family-base, 'Pretendard Variable', 'Noto Sans KR', 'Inter', 'Segoe UI',
+      system-ui, -apple-system, BlinkMacSystemFont, sans-serif);
   line-height: 1.5;
   font-weight: 400;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+  --pinball-shell-gradient: radial-gradient(circle at top,
+      color-mix(in srgb, var(--primary, #7650ff) 35%, transparent) 0%, transparent 60%),
+    linear-gradient(160deg,
+      color-mix(in srgb, var(--surface, rgba(30, 28, 58, 0.82)) 88%, transparent),
+      color-mix(in srgb, var(--surface-sunken, rgba(12, 11, 24, 0.88)) 94%, transparent));
+  --pinball-text-primary: var(--foreground, #f5f4ff);
+  --pinball-text-secondary: color-mix(in srgb, var(--foreground-secondary, rgba(223, 219, 255, 0.72)) 85%, transparent);
+  --pinball-text-tertiary: color-mix(in srgb, var(--foreground-muted, rgba(178, 174, 219, 0.5)) 90%, transparent);
+  --pinball-panel-surface: color-mix(in srgb, var(--surface, rgba(30, 28, 58, 0.82)) 65%, transparent);
+  --pinball-panel-strong: color-mix(in srgb, var(--surface-sunken, rgba(12, 11, 24, 0.88)) 72%, transparent);
+  --pinball-panel-border: color-mix(in srgb, var(--border-muted, rgba(130, 120, 225, 0.18)) 70%, transparent);
+  --pinball-panel-border-strong: color-mix(in srgb, var(--border-strong, rgba(121, 108, 215, 0.28)) 80%, transparent);
+  --pinball-panel-shadow: 0 20px 45px color-mix(in srgb, var(--shadow-card-strong, rgba(11, 9, 31, 0.28)) 90%, transparent);
+  --pinball-inner-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-muted, rgba(130, 120, 225, 0.18)) 50%, transparent);
+  --pinball-focus-ring: color-mix(in srgb, var(--primary, #7650ff) 65%, transparent);
+  --pinball-chip-glow: color-mix(in srgb, var(--foreground, #f5f4ff) 35%, transparent);
+  --pinball-highlight: color-mix(in srgb, var(--primary, #7650ff) 55%, transparent);
+  --pinball-muted-strong: color-mix(in srgb, var(--pinball-text-tertiary) 95%, transparent);
+  --pinball-muted: color-mix(in srgb, var(--pinball-text-tertiary) 85%, transparent);
+  --pinball-muted-soft: color-mix(in srgb, var(--pinball-text-tertiary) 70%, transparent);
+  --pinball-surface-soft: color-mix(in srgb, var(--pinball-panel-surface) 85%, transparent);
+  --pinball-surface-strong: color-mix(in srgb, var(--pinball-panel-strong) 90%, transparent);
+  --pinball-accent-soft: color-mix(in srgb, var(--primary, #7650ff) 30%, transparent);
+  --pinball-accent-strong: color-mix(in srgb, var(--primary, #7650ff) 70%, transparent);
+  --pinball-success: var(--success, #15b86f);
+  --pinball-danger: var(--destructive, #f32d4c);
+  --pinball-info: var(--info, #3589ff);
 }
 
 body {
   margin: 0;
   min-height: 100vh;
+  background: var(--background, #0f0e1f);
+  color: var(--pinball-text-primary);
 }
 
 #root {
