@@ -89,6 +89,15 @@ button.ghost:hover {
   border-color: rgba(248, 250, 252, 0.85);
 }
 
+button.danger {
+  color: #fecdd3;
+  border-color: rgba(248, 113, 113, 0.5);
+}
+
+button.danger:hover {
+  border-color: rgba(252, 165, 165, 0.9);
+}
+
 nav {
   display: flex;
   gap: 1rem;
@@ -162,6 +171,49 @@ table td {
 .admin-key-buttons {
   display: flex;
   gap: 0.75rem;
+}
+
+.table-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.participant-grid {
+  display: grid;
+  gap: 0.75rem;
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.participant-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.25);
+}
+
+.participant-row.selected {
+  border-color: rgba(56, 189, 248, 0.6);
+  background: rgba(56, 189, 248, 0.08);
+}
+
+.participant-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+}
+
+.member-name-clamp {
+  display: inline-block;
+  max-width: 220px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 @media (min-width: 900px) {

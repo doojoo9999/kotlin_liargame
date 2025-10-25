@@ -1,13 +1,14 @@
 import {FormEvent, useEffect, useState} from "react";
 import {request} from "../api";
 import type {MemberResponse} from "../types";
-import {MemberRole} from "../types";
+import {MemberRole, MemberStatus} from "../types";
 
 const defaultForm = {
   name: "",
   joinedAt: "",
   role: MemberRole.USER,
   memo: "",
+  status: MemberStatus.ACTIVE,
 };
 
 export default function MembersPage() {
@@ -15,6 +16,7 @@ export default function MembersPage() {
   const [form, setForm] = useState(defaultForm);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editingMemberId, setEditingMemberId] = useState<number | null>(null);
 
   const loadMembers = async () => {
     setLoading(true);
@@ -33,20 +35,68 @@ export default function MembersPage() {
     void loadMembers();
   }, []);
 
+  const resetForm = () => {
+    setForm(defaultForm);
+    setEditingMemberId(null);
+  };
+
+  const formatDate = (value: string | null) => {
+    if (!value) return "";
+    return value.split("T")[0];
+  };
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!form.name.trim()) return;
     try {
-      await request<MemberResponse>("/members", {
-        method: "POST",
-        body: {
-          name: form.name,
-          joinedAt: form.joinedAt || null,
-          role: form.role,
-          memo: form.memo || null,
-        },
-      });
-      setForm(defaultForm);
+      if (editingMemberId) {
+        await request<MemberResponse>(`/members/${editingMemberId}`, {
+          method: "PUT",
+          body: {
+            name: form.name.trim(),
+            joinedAt: form.joinedAt || null,
+            role: form.role,
+            memo: form.memo || null,
+            status: form.status,
+          },
+        });
+      } else {
+        await request<MemberResponse>("/members", {
+          method: "POST",
+          body: {
+            name: form.name.trim(),
+            joinedAt: form.joinedAt || null,
+            role: form.role,
+            memo: form.memo || null,
+          },
+        });
+      }
+      resetForm();
+      await loadMembers();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const handleEdit = (member: MemberResponse) => {
+    setEditingMemberId(member.id);
+    setForm({
+      name: member.name,
+      joinedAt: formatDate(member.joinedAt),
+      role: member.role,
+      memo: member.memo ?? "",
+      status: member.status,
+    });
+  };
+
+  const handleDelete = async (member: MemberResponse) => {
+    const confirmed = window.confirm(`${member.name} 혈원을 비활성화할까요?`);
+    if (!confirmed) return;
+    try {
+      await request(`/members/${member.id}`, {method: "DELETE"});
+      if (editingMemberId === member.id) {
+        resetForm();
+      }
       await loadMembers();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -91,8 +141,25 @@ export default function MembersPage() {
           onChange={(event) => setForm({...form, memo: event.target.value})}
           rows={3}
         />
+        {editingMemberId && (
+          <select
+            value={form.status}
+            onChange={(event) => setForm({...form, status: event.target.value as MemberStatus})}
+          >
+            {Object.values(MemberStatus).map((status) => (
+              <option key={status} value={status}>
+                {status}
+              </option>
+            ))}
+          </select>
+        )}
         <div>
-          <button type="submit">혈원 추가</button>
+          <button type="submit">{editingMemberId ? "혈원 수정" : "혈원 추가"}</button>
+          {editingMemberId && (
+            <button type="button" className="ghost" style={{marginLeft: "0.75rem"}} onClick={resetForm}>
+              취소
+            </button>
+          )}
         </div>
       </form>
 
@@ -110,23 +177,34 @@ export default function MembersPage() {
               <th>가입일</th>
               <th>최근 활동</th>
               <th>메모</th>
+              <th>작업</th>
             </tr>
           </thead>
           <tbody>
             {members.map((member) => (
-              <tr key={member.id}>
-                <td>{member.name}</td>
-                <td>
-                  <span className="badge">{member.status}</span>
-                </td>
-                <td>{member.role}</td>
-                <td>{member.joinedAt ?? "—"}</td>
-                <td>{member.lastActiveAt ?? "—"}</td>
-                <td>{member.memo ?? ""}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+            <tr key={member.id}>
+              <td>{member.name}</td>
+              <td>
+                <span className="badge">{member.status}</span>
+              </td>
+              <td>{member.role}</td>
+              <td>{member.joinedAt ?? "—"}</td>
+              <td>{member.lastActiveAt ?? "—"}</td>
+              <td>{member.memo ?? ""}</td>
+              <td>
+                <div className="table-actions">
+                  <button type="button" onClick={() => handleEdit(member)}>
+                    수정
+                  </button>
+                  <button type="button" className="ghost danger" onClick={() => handleDelete(member)}>
+                    삭제
+                  </button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
       )}
     </section>
   );

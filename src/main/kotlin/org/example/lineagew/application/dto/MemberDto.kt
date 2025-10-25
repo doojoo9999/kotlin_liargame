@@ -18,6 +18,8 @@ data class MemberCreateRequest(
 )
 
 data class MemberUpdateRequest(
+    @field:Size(max = 80)
+    val name: String? = null,
     val status: MemberStatus? = null,
     val role: MemberRole? = null,
     val joinedAt: LocalDate? = null,

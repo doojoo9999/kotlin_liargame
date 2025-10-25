@@ -39,6 +39,16 @@ class MemberService(
     @Transactional
     fun updateMember(id: Long, request: MemberUpdateRequest): MemberResponse {
         val member = memberRepository.findById(id).orElseThrow { IllegalArgumentException("Member not found: $id") }
+        request.name?.let { newName ->
+            val trimmed = newName.trim()
+            require(trimmed.isNotEmpty()) { "이름은 비워 둘 수 없습니다" }
+            memberRepository.findByNameIgnoreCase(trimmed).ifPresent { existing ->
+                if (existing.id != member.id) {
+                    error("Member with name $trimmed already exists")
+                }
+            }
+            member.name = trimmed
+        }
         request.status?.let { member.status = it }
         request.role?.let { member.role = it }
         request.joinedAt?.let { member.joinedAt = it }

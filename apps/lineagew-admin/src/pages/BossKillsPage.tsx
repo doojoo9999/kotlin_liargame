@@ -1,14 +1,11 @@
-import {FormEvent, useEffect, useState} from "react";
+import {FormEvent, useEffect, useMemo, useState} from "react";
 import {buildQuery, request} from "../api";
 import type {BossKillResponse, BossResponse, MemberResponse} from "../types";
 
-interface ParticipantFormRow {
-  memberId: number | "";
+interface ParticipantSelection {
+  selected: boolean;
   baseWeight: string;
-  attendance: boolean;
 }
-
-const createEmptyRow = (): ParticipantFormRow => ({memberId: "", baseWeight: "1", attendance: true});
 
 export default function BossKillsPage() {
   const [bosses, setBosses] = useState<BossResponse[]>([]);
@@ -17,7 +14,8 @@ export default function BossKillsPage() {
   const [bossId, setBossId] = useState<number | "">("");
   const [killedAt, setKilledAt] = useState<string>(new Date().toISOString().slice(0, 16));
   const [notes, setNotes] = useState("");
-  const [participants, setParticipants] = useState<ParticipantFormRow[]>([createEmptyRow(), createEmptyRow()]);
+  const [participantSelections, setParticipantSelections] = useState<Record<number, ParticipantSelection>>({});
+  const [memberFilter, setMemberFilter] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const load = async () => {
@@ -29,6 +27,13 @@ export default function BossKillsPage() {
       ]);
       setBosses(bossData);
       setMembers(memberData);
+      setParticipantSelections((prev) => {
+        const next: Record<number, ParticipantSelection> = {};
+        memberData.forEach((member) => {
+          next[member.id] = prev[member.id] ?? {selected: false, baseWeight: "1"};
+        });
+        return next;
+      });
       setKills(killData);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -41,7 +46,15 @@ export default function BossKillsPage() {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!bossId || participants.every((row) => !row.memberId)) return;
+    const payloadParticipants = Object.entries(participantSelections)
+      .filter(([, selection]) => selection.selected)
+      .map(([memberId, selection]) => ({
+        memberId: Number(memberId),
+        baseWeight: 1,
+        attendance: true,
+      }));
+
+    if (!bossId || payloadParticipants.length === 0) return;
     try {
       await request<BossKillResponse>("/boss-kills", {
         method: "POST",
@@ -49,27 +62,39 @@ export default function BossKillsPage() {
           bossId,
           killedAt: new Date(killedAt).toISOString(),
           notes: notes || null,
-          participants: participants
-            .filter((row) => row.memberId !== "")
-            .map((row) => ({
-              memberId: Number(row.memberId),
-              baseWeight: row.baseWeight ? Number(row.baseWeight) : 1,
-              attendance: row.attendance,
-            })),
+          participants: payloadParticipants,
         },
       });
       setBossId("");
       setKilledAt(new Date().toISOString().slice(0, 16));
       setNotes("");
-      setParticipants([createEmptyRow(), createEmptyRow()]);
+      setParticipantSelections((prev) => {
+        const reset: Record<number, ParticipantSelection> = {};
+        Object.entries(prev).forEach(([memberId]) => {
+          reset[Number(memberId)] = {selected: false, baseWeight: "1"};
+        });
+        return reset;
+      });
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
   };
 
-  const updateParticipant = (index: number, patch: Partial<ParticipantFormRow>) => {
-    setParticipants((rows) => rows.map((row, i) => (i === index ? {...row, ...patch} : row)));
+  const filteredMembers = useMemo(() => {
+    const keyword = memberFilter.trim().toLowerCase();
+    if (!keyword) return members;
+    return members.filter((member) => member.name.toLowerCase().includes(keyword));
+  }, [members, memberFilter]);
+
+  const toggleMemberSelection = (memberId: number, selected: boolean) => {
+    setParticipantSelections((prev) => ({
+      ...prev,
+      [memberId]: {
+        selected,
+        baseWeight: prev[memberId]?.baseWeight ?? "1",
+      },
+    }));
   };
 
   return (
@@ -101,48 +126,35 @@ export default function BossKillsPage() {
         />
 
         <div className="card" style={{background: "rgba(15,23,42,0.4)"}}>
-          <h3 style={{marginTop: 0}}>참여자</h3>
-          {participants.map((row, index) => (
-            <div key={index} className="grid grid-cols-2" style={{marginBottom: "0.75rem"}}>
-                <select
-                  value={row.memberId}
-                onChange={(event) =>
-                  updateParticipant(index, {
-                    memberId: event.target.value ? Number(event.target.value) : "",
-                  })
-                }
-              >
-                  <option value="">혈원을 선택하세요…</option>
-                {members.map((member) => (
-                  <option key={member.id} value={member.id}>
-                    {member.name}
-                  </option>
-                ))}
-              </select>
-              <input
-                type="number"
-                min="0"
-                step="0.1"
-                value={row.baseWeight}
-                onChange={(event) => updateParticipant(index, {baseWeight: event.target.value})}
-              />
-              <label style={{display: "flex", alignItems: "center", gap: "0.5rem"}}>
-                <input
-                  type="checkbox"
-                  checked={row.attendance}
-                  onChange={(event) => updateParticipant(index, {attendance: event.target.checked})}
-                />
-                참석 인정
-              </label>
-            </div>
-          ))}
-          <div>
-            <button
-              type="button"
-              onClick={() => setParticipants((rows) => [...rows, createEmptyRow()])}
-            >
-              + 참여자 추가
-            </button>
+          <h3 style={{marginTop: 0}}>참여 혈원 선택</h3>
+          <input
+            placeholder="혈원 검색"
+            value={memberFilter}
+            onChange={(event) => setMemberFilter(event.target.value)}
+          />
+          <div className="participant-grid">
+            {filteredMembers.length === 0 ? (
+              <p style={{color: "#94a3b8"}}>조건에 맞는 혈원이 없습니다.</p>
+            ) : (
+              filteredMembers.map((member) => {
+                const selection = participantSelections[member.id] ?? {selected: false, baseWeight: "1"};
+                return (
+                  <div
+                    key={member.id}
+                    className={`participant-row ${selection.selected ? "selected" : ""}`}
+                  >
+                    <label className="participant-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={selection.selected}
+                        onChange={(event) => toggleMemberSelection(member.id, event.target.checked)}
+                      />
+                      <span className="member-name-clamp">{member.name}</span>
+                    </label>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
 
@@ -169,8 +181,8 @@ export default function BossKillsPage() {
               <td>
                 {kill.participants.map((participant) => (
                   <div key={participant.id}>
-                    {participant.memberName} · 가중치 {participant.baseWeight}
-                    {!participant.attendance && <span className="badge">불참</span>}
+                    {participant.memberName}
+                    {participant.baseWeight !== "1" && ` · 가중치 ${participant.baseWeight}`}
                   </div>
                 ))}
               </td>
