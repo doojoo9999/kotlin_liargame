@@ -368,3 +368,10 @@ Idempotency: 정산 API는 같은 payload+키로 중복 확정 불가
     - 1/N, 가중치, 라운딩/잔액, 보정 곡선/감쇠, 확정/롤백, 보고서 피벗 검증
       출력물: 마이그레이션 스키마, 도메인 엔티티, 서비스/리포지토리, API 계약서(YAML/문서), 테스트.
       주의: 금액은 정수(원) 저장 권장. 모든 정책 값은 스냅샷 및 감사 가능해야 함.
+
+10) 구현 산출물 요약
+
+- 백엔드: `org.example.lineagew` 패키지 신규 구성 (엔티티, 서비스, API 컨트롤러, 업로드 도구, 감사/정책/레포트 모듈). `KotlinLiargameApplication`은 `org.example.lineagew`를 스캔하도록 확장.
+- 테스트: `SaleServiceIntegrationTest` 로 분배 엔진 가중치 및 잔액 정합성 검증.
+- 프런트엔드: `apps/lineagew-admin` Vite/React 콘솔. 멤버/보스/보스킬/인벤토리/세일/클랜펀드/정책/리포트/업로드 전 기능 검사 UI. 기본 base path는 `/linw/`로, 배포 시 Nginx 등에 `location /linw/ { try_files $uri /linw/index.html; }` 형태로 정적 호스팅하면 `https://zzirit.kr/linw`에서 동작한다.
+- API 명세: `docs/lineagew/api-contract.yaml` (OpenAPI 3.0) 수록.

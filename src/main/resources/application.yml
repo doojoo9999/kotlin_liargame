@@ -134,3 +134,8 @@ logging:
         root: INFO
         org.example.kotlin_liargame: DEBUG
         org.springframework.security: DEBUG
+
+lineagew:
+  admin:
+    header-name: X-Lineage-Admin-Key
+    key: ${LINEAGEW_ADMIN_KEY:dev-admin-key}

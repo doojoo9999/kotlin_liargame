@@ -47,3 +47,8 @@ logging:
 app:
   content:
     manual-approval-required: false
+
+lineagew:
+  admin:
+    header-name: X-Lineage-Admin-Key
+    key: ${LINEAGEW_ADMIN_KEY:dev-admin-key}

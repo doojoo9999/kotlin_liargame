@@ -1,0 +1,1148 @@
+openapi: 3.0.3
+info:
+  title: LineageW Treasury API
+  version: 1.0.0
+  description: |
+    REST interface for managing LineageW loot, settlement, and treasury operations.
+servers:
+  - url: http://localhost:20021/api/lineage
+paths:
+  /members:
+    get:
+      summary: List members
+      responses:
+        '200':
+          description: Member roster
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Member'
+    post:
+      summary: Create member
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MemberCreateRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Member'
+  /members/{memberId}:
+    put:
+      summary: Update member metadata
+      parameters:
+        - in: path
+          name: memberId
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MemberUpdateRequest'
+      responses:
+        '200':
+          description: Updated member
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Member'
+    delete:
+      summary: Deactivate member
+      parameters:
+        - in: path
+          name: memberId
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Deactivated member
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Member'
+  /bosses:
+    get:
+      summary: List bosses
+      responses:
+        '200':
+          description: Boss catalog
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Boss'
+    post:
+      summary: Create boss
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BossRequest'
+      responses:
+        '201':
+          description: Created boss
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Boss'
+  /bosses/{bossId}:
+    put:
+      summary: Update boss
+      parameters:
+        - in: path
+          name: bossId
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BossRequest'
+      responses:
+        '200':
+          description: Updated boss
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Boss'
+  /boss-kills:
+    get:
+      summary: Fetch recent boss kills
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Boss kill entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BossKill'
+    post:
+      summary: Register boss kill with participants
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BossKillCreateRequest'
+      responses:
+        '201':
+          description: Created kill record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BossKill'
+  /items:
+    get:
+      summary: List inventory
+      parameters:
+        - in: query
+          name: status
+          schema:
+            $ref: '#/components/schemas/ItemStatus'
+      responses:
+        '200':
+          description: Inventory items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Item'
+    post:
+      summary: Create inventory item
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ItemRequest'
+      responses:
+        '201':
+          description: Created item
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Item'
+  /items/{itemId}:
+    put:
+      summary: Update inventory item
+      parameters:
+        - in: path
+          name: itemId
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ItemRequest'
+      responses:
+        '200':
+          description: Updated item
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Item'
+  /sales:
+    get:
+      summary: List sales
+      parameters:
+        - in: query
+          name: state
+          schema:
+            $ref: '#/components/schemas/SaleState'
+      responses:
+        '200':
+          description: Sales entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Sale'
+    post:
+      summary: Create draft sale
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaleCreateRequest'
+      responses:
+        '201':
+          description: Draft sale
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sale'
+  /sales/{saleId}:
+    get:
+      summary: Fetch sale detail
+      parameters:
+        - in: path
+          name: saleId
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Sale detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sale'
+    put:
+      summary: Update draft sale
+      parameters:
+        - in: path
+          name: saleId
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaleCreateRequest'
+      responses:
+        '200':
+          description: Updated sale
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sale'
+  /sales/{saleId}/finalize:
+    post:
+      summary: Finalize sale and generate payouts
+      parameters:
+        - in: path
+          name: saleId
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FinalizeSaleRequest'
+      responses:
+        '200':
+          description: Finalized sale
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sale'
+  /sales/{saleId}/cancel:
+    post:
+      summary: Cancel finalized sale (admin)
+      parameters:
+        - in: path
+          name: saleId
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Cancelled sale
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sale'
+  /clan-fund:
+    get:
+      summary: Fetch clan fund summary
+      responses:
+        '200':
+          description: Balance and history
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClanFund'
+  /clan-fund/transactions:
+    post:
+      summary: Create manual clan fund transaction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClanFundTxnRequest'
+      responses:
+        '201':
+          description: Created transaction
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClanFundTxn'
+  /essences:
+    get:
+      summary: List essences
+      responses:
+        '200':
+          description: Essence balances
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Essence'
+    post:
+      summary: Upsert essence master record
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EssenceRequest'
+      responses:
+        '200':
+          description: Upserted essence
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Essence'
+  /essences/{essenceId}/transactions:
+    post:
+      summary: Append essence movement
+      parameters:
+        - in: path
+          name: essenceId
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EssenceTxnRequest'
+      responses:
+        '200':
+          description: Updated essence with txn
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Essence'
+  /policy:
+    get:
+      summary: Fetch global policy defaults
+      responses:
+        '200':
+          description: Policy snapshot
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GlobalPolicy'
+    put:
+      summary: Update global policy defaults
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GlobalPolicyUpdateRequest'
+      responses:
+        '200':
+          description: Updated policy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GlobalPolicy'
+  /reports/daily-settlement:
+    get:
+      summary: Daily settlement pivot
+      parameters:
+        - in: query
+          name: from
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: to
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Daily member payouts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailySettlementReport'
+  /reports/participation:
+    get:
+      summary: Participation window summary
+      parameters:
+        - in: query
+          name: from
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: to
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: window
+          schema:
+            $ref: '#/components/schemas/BonusWindow'
+      responses:
+        '200':
+          description: Participation metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParticipationReport'
+  /upload/preview:
+    post:
+      summary: Validate upload payload
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UploadPayload'
+      responses:
+        '200':
+          description: Preview statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadPreviewResponse'
+  /upload/commit:
+    post:
+      summary: Commit upload payload
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UploadPayload'
+      responses:
+        '201':
+          description: Commit summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadCommitResponse'
+components:
+  schemas:
+    Member:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        status:
+          $ref: '#/components/schemas/MemberStatus'
+        role:
+          $ref: '#/components/schemas/MemberRole'
+        joinedAt:
+          type: string
+          format: date
+          nullable: true
+        lastActiveAt:
+          type: string
+          format: date
+          nullable: true
+        memo:
+          type: string
+          nullable: true
+    MemberCreateRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        joinedAt:
+          type: string
+          format: date
+          nullable: true
+        role:
+          $ref: '#/components/schemas/MemberRole'
+        memo:
+          type: string
+          nullable: true
+    MemberUpdateRequest:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/MemberStatus'
+        role:
+          $ref: '#/components/schemas/MemberRole'
+        joinedAt:
+          type: string
+          format: date
+          nullable: true
+        memo:
+          type: string
+          nullable: true
+    MemberStatus:
+      type: string
+      enum: [ACTIVE, INACTIVE]
+    MemberRole:
+      type: string
+      enum: [USER, ADMIN]
+    Boss:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        tier:
+          type: string
+          nullable: true
+        memo:
+          type: string
+          nullable: true
+    BossRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        tier:
+          type: string
+          nullable: true
+        memo:
+          type: string
+          nullable: true
+    BossKill:
+      type: object
+      properties:
+        id:
+          type: integer
+        bossId:
+          type: integer
+        bossName:
+          type: string
+        killedAt:
+          type: string
+          format: date-time
+        notes:
+          type: string
+          nullable: true
+        participants:
+          type: array
+          items:
+            $ref: '#/components/schemas/BossKillParticipant'
+    BossKillParticipant:
+      type: object
+      properties:
+        id:
+          type: integer
+        memberId:
+          type: integer
+        memberName:
+          type: string
+        baseWeight:
+          type: number
+        attendance:
+          type: boolean
+    BossKillCreateRequest:
+      type: object
+      required: [bossId, killedAt, participants]
+      properties:
+        bossId:
+          type: integer
+        killedAt:
+          type: string
+          format: date-time
+        notes:
+          type: string
+          nullable: true
+        participants:
+          type: array
+          items:
+            type: object
+            required: [memberId]
+            properties:
+              memberId:
+                type: integer
+              baseWeight:
+                type: number
+                default: 1
+              attendance:
+                type: boolean
+                default: true
+    Item:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        grade:
+          $ref: '#/components/schemas/ItemGrade'
+        acquiredAt:
+          type: string
+          format: date
+          nullable: true
+        sourceBossKillId:
+          type: integer
+          nullable: true
+        status:
+          $ref: '#/components/schemas/ItemStatus'
+        note:
+          type: string
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+    ItemRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        grade:
+          $ref: '#/components/schemas/ItemGrade'
+        acquiredAt:
+          type: string
+          format: date
+          nullable: true
+        sourceBossKillId:
+          type: integer
+          nullable: true
+        status:
+          $ref: '#/components/schemas/ItemStatus'
+        note:
+          type: string
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+    ItemGrade:
+      type: string
+      enum: [COMMON, UNCOMMON, RARE, EPIC, LEGENDARY]
+    ItemStatus:
+      type: string
+      enum: [IN_STOCK, RESERVED, SOLD]
+    Sale:
+      type: object
+      properties:
+        id:
+          type: integer
+        itemId:
+          type: integer
+        soldAt:
+          type: string
+          format: date-time
+        buyer:
+          type: string
+          nullable: true
+        grossAmount:
+          type: integer
+        feeAmount:
+          type: integer
+        taxAmount:
+          type: integer
+        netAmount:
+          type: integer
+        state:
+          $ref: '#/components/schemas/SaleState'
+        memo:
+          type: string
+          nullable: true
+        distributionRule:
+          $ref: '#/components/schemas/DistributionRule'
+        payouts:
+          type: array
+          items:
+            $ref: '#/components/schemas/Payout'
+    SaleCreateRequest:
+      type: object
+      required: [itemId, soldAt, grossAmount]
+      properties:
+        itemId:
+          type: integer
+        soldAt:
+          type: string
+          format: date-time
+        buyer:
+          type: string
+          nullable: true
+        grossAmount:
+          type: integer
+        feeAmount:
+          type: integer
+          default: 0
+        taxAmount:
+          type: integer
+          default: 0
+        memo:
+          type: string
+          nullable: true
+    SaleState:
+      type: string
+      enum: [DRAFT, FINALIZED, CANCELED]
+    DistributionRule:
+      type: object
+      properties:
+        mode:
+          $ref: '#/components/schemas/DistributionMode'
+        roundingMode:
+          $ref: '#/components/schemas/RoundingStrategy'
+        remainderPolicy:
+          $ref: '#/components/schemas/RemainderPolicy'
+        manualRemainderMemberId:
+          type: integer
+          nullable: true
+        participationBonusEnabled:
+          type: boolean
+        bonusWindow:
+          $ref: '#/components/schemas/BonusWindow'
+        bonusCurve:
+          $ref: '#/components/schemas/BonusCurveType'
+        bonusBaseMultiplier:
+          type: number
+        bonusCapMultiplier:
+          type: number
+        penaltyFloorMultiplier:
+          type: number
+        decayPolicy:
+          $ref: '#/components/schemas/DecayPolicy'
+        decayHalfLifeDays:
+          type: integer
+          nullable: true
+        participants:
+          type: array
+          items:
+            $ref: '#/components/schemas/DistributionParticipant'
+    DistributionParticipant:
+      type: object
+      properties:
+        memberId:
+          type: integer
+        baseWeight:
+          type: number
+        bonusMultiplier:
+          type: number
+        finalWeight:
+          type: number
+    DistributionMode:
+      type: string
+      enum: [EQUAL_SPLIT, WEIGHTED]
+    RoundingStrategy:
+      type: string
+      enum: [FLOOR, ROUND, CEIL]
+    RemainderPolicy:
+      type: string
+      enum: [TO_CLAN_FUND, HIGHEST_WEIGHT, OLDEST_MEMBER, MANUAL_MEMBER]
+    BonusWindow:
+      type: string
+      enum: [WEEK, TWO_WEEKS, FOUR_WEEKS]
+    BonusCurveType:
+      type: string
+      enum: [STEP, LINEAR, LOGISTIC]
+    DecayPolicy:
+      type: string
+      enum: [NONE, EXP_DECAY]
+    FinalizeSaleRequest:
+      type: object
+      required: [rule, participants]
+      properties:
+        idempotencyKey:
+          type: string
+          nullable: true
+        rule:
+          type: object
+          properties:
+            mode:
+              $ref: '#/components/schemas/DistributionMode'
+            roundingMode:
+              $ref: '#/components/schemas/RoundingStrategy'
+            remainderPolicy:
+              $ref: '#/components/schemas/RemainderPolicy'
+            manualRemainderMemberId:
+              type: integer
+              nullable: true
+            participationBonusEnabled:
+              type: boolean
+            bonusWindow:
+              $ref: '#/components/schemas/BonusWindow'
+            bonusCurve:
+              $ref: '#/components/schemas/BonusCurveType'
+            bonusBaseMultiplier:
+              type: number
+              nullable: true
+            bonusCapMultiplier:
+              type: number
+              nullable: true
+            penaltyFloorMultiplier:
+              type: number
+              nullable: true
+            decayPolicy:
+              $ref: '#/components/schemas/DecayPolicy'
+            decayHalfLifeDays:
+              type: integer
+              nullable: true
+            bonusLinearSlope:
+              type: number
+              nullable: true
+            bonusLinearIntercept:
+              type: number
+              nullable: true
+            bonusLogisticK:
+              type: number
+              nullable: true
+            bonusLogisticX0:
+              type: number
+              nullable: true
+            stepTiers:
+              type: array
+              items:
+                type: object
+                properties:
+                  minParticipation:
+                    type: integer
+                  multiplier:
+                    type: number
+        participants:
+          type: array
+          items:
+            type: object
+            required: [memberId]
+            properties:
+              memberId:
+                type: integer
+              baseWeight:
+                type: number
+                default: 1
+    Payout:
+      type: object
+      properties:
+        memberId:
+          type: integer
+        amount:
+          type: integer
+    ClanFund:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        balance:
+          type: integer
+        transactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClanFundTxn'
+    ClanFundTxn:
+      type: object
+      properties:
+        id:
+          type: integer
+        type:
+          $ref: '#/components/schemas/ClanFundTxnType'
+        amount:
+          type: integer
+        occurredAt:
+          type: string
+          format: date
+        title:
+          type: string
+        memo:
+          type: string
+          nullable: true
+        relatedSaleId:
+          type: integer
+          nullable: true
+        actorMemberId:
+          type: integer
+          nullable: true
+    ClanFundTxnRequest:
+      allOf:
+        - $ref: '#/components/schemas/ClanFundTxn'
+      required: [type, amount, title, occurredAt]
+    ClanFundTxnType:
+      type: string
+      enum: [INCOME, EXPENSE, ADJUST]
+    Essence:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        quantity:
+          type: integer
+        memo:
+          type: string
+          nullable: true
+        transactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/EssenceTxn'
+    EssenceRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        memo:
+          type: string
+          nullable: true
+    EssenceTxn:
+      type: object
+      properties:
+        id:
+          type: integer
+        occurredAt:
+          type: string
+          format: date
+        deltaQty:
+          type: integer
+        reason:
+          type: string
+        memo:
+          type: string
+          nullable: true
+    EssenceTxnRequest:
+      allOf:
+        - $ref: '#/components/schemas/EssenceTxn'
+      properties:
+        increase:
+          type: boolean
+          description: true to add delta, false to subtract
+      required: [deltaQty, reason, occurredAt, increase]
+    GlobalPolicy:
+      type: object
+      properties:
+        id:
+          type: integer
+        defaultRounding:
+          $ref: '#/components/schemas/RoundingStrategy'
+        defaultRemainder:
+          $ref: '#/components/schemas/RemainderPolicy'
+        defaultBonusWindow:
+          $ref: '#/components/schemas/BonusWindow'
+        defaultBonusCurve:
+          $ref: '#/components/schemas/BonusCurveType'
+        bonusBaseMultiplier:
+          type: number
+        bonusCapMultiplier:
+          type: number
+        penaltyFloorMultiplier:
+          type: number
+        decayPolicy:
+          $ref: '#/components/schemas/DecayPolicy'
+        decayHalfLifeDays:
+          type: integer
+          nullable: true
+        bonusLinearSlope:
+          type: number
+        bonusLinearIntercept:
+          type: number
+    GlobalPolicyUpdateRequest:
+      allOf:
+        - $ref: '#/components/schemas/GlobalPolicy'
+      required:
+        - defaultRounding
+        - defaultRemainder
+        - defaultBonusWindow
+        - defaultBonusCurve
+    DailySettlementReport:
+      type: object
+      properties:
+        rows:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+                format: date
+              payouts:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    memberId:
+                      type: integer
+                    memberName:
+                      type: string
+                    amount:
+                      type: integer
+              rowTotal:
+                type: integer
+        columnTotals:
+          type: object
+          additionalProperties:
+            type: integer
+        grandTotal:
+          type: integer
+    ParticipationReport:
+      type: object
+      properties:
+        window:
+          $ref: '#/components/schemas/BonusWindow'
+        summaries:
+          type: array
+          items:
+            type: object
+            properties:
+              memberId:
+                type: integer
+              memberName:
+                type: string
+              windowStart:
+                type: string
+                format: date
+              windowEnd:
+                type: string
+                format: date
+              participationCount:
+                type: number
+              bonusMultiplier:
+                type: number
+                nullable: true
+    UploadPayload:
+      type: object
+      properties:
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/MemberCreateRequest'
+        bosses:
+          type: array
+          items:
+            $ref: '#/components/schemas/BossRequest'
+        bossKills:
+          type: array
+          items:
+            $ref: '#/components/schemas/BossKillCreateRequest'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ItemRequest'
+        sales:
+          type: array
+          items:
+            type: object
+            properties:
+              sale:
+                $ref: '#/components/schemas/SaleCreateRequest'
+              finalize:
+                $ref: '#/components/schemas/FinalizeSaleRequest'
+                nullable: true
+        clanFundTransactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClanFundTxnRequest'
+        essences:
+          type: array
+          items:
+            $ref: '#/components/schemas/EssenceRequest'
+    UploadPreviewResponse:
+      type: object
+      properties:
+        memberCount:
+          type: integer
+        bossCount:
+          type: integer
+        bossKillCount:
+          type: integer
+        itemCount:
+          type: integer
+        saleCount:
+          type: integer
+        clanFundTxnCount:
+          type: integer
+        essenceCount:
+          type: integer
+        warnings:
+          type: array
+          items:
+            type: string
+    UploadCommitResponse:
+      type: object
+      properties:
+        createdMembers:
+          type: integer
+        createdBosses:
+          type: integer
+        createdBossKills:
+          type: integer
+        createdItems:
+          type: integer
+        createdSales:
+          type: integer
+        finalizedSales:
+          type: integer
+        clanFundTxns:
+          type: integer
+        essences:
+          type: integer

@@ -133,3 +133,8 @@ app:
       enabled: true
       requests-per-minute: 60
       burst-capacity: 100
+
+lineagew:
+  admin:
+    header-name: X-Lineage-Admin-Key
+    key: ${LINEAGEW_ADMIN_KEY:}

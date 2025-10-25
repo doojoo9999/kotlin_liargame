@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Start all front-end dev servers on their designated ports.
-# main: 4173, liar-game: 5173, roulette: 5174, sadari-game: 5175, pinball: 5176
+# main: 4173, liar-game: 5173, roulette: 5174, sadari-game: 5175, pinball: 5176, linw-admin: 5177
 
 set -euo pipefail
 
@@ -18,6 +18,30 @@ APPS=(
   "sadari-game|${ROOT_DIR}/apps/sadari-game|5175"
   "pinball|${ROOT_DIR}/apps/pinball|5176"
 )
+
+LINW_APP_ENTRY="lineagew-admin|${ROOT_DIR}/apps/lineagew-admin|5177"
+
+COMMAND="${1:-all}"
+
+case "$COMMAND" in
+  ""|all)
+    APPS+=("${LINW_APP_ENTRY}")
+    ;;
+  linw:start)
+    APPS=("${LINW_APP_ENTRY}")
+    ;;
+  linw:stop)
+    IFS='|' read -r linw_name _ linw_port <<<"${LINW_APP_ENTRY}"
+    free_port "$linw_name" "$linw_port"
+    echo "[linw] ${linw_name}: stopped dev server on port ${linw_port}"
+    exit 0
+    ;;
+  *)
+    echo "Unknown command: ${COMMAND}" >&2
+    echo "Usage: $0 [all|linw:start|linw:stop]" >&2
+    exit 1
+    ;;
+esac
 
 PIDS=()
 
