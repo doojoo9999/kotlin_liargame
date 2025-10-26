@@ -45,6 +45,48 @@ esac
 
 PIDS=()
 
+run_with_optional_sudo() {
+  if command -v sudo >/dev/null 2>&1; then
+    sudo "$@"
+  else
+    "$@"
+  fi
+}
+
+ensure_postgresql_running() {
+  if command -v pg_isready >/dev/null 2>&1; then
+    if pg_isready -q >/dev/null 2>&1; then
+      echo "[svc] postgresql: already running"
+      return
+    fi
+  elif pgrep -x postgres >/dev/null 2>&1; then
+    echo "[svc] postgresql: already running"
+    return
+  fi
+
+  echo "[svc] postgresql: starting service"
+  run_with_optional_sudo service postgresql start >/dev/null 2>&1 || {
+    echo "[svc] postgresql: failed to start (install or permissions missing?)" >&2
+  }
+}
+
+ensure_redis_running() {
+  if command -v redis-cli >/dev/null 2>&1; then
+    if redis-cli ping >/dev/null 2>&1; then
+      echo "[svc] redis: already running"
+      return
+    fi
+  elif pgrep -x redis-server >/dev/null 2>&1; then
+    echo "[svc] redis: already running"
+    return
+  fi
+
+  echo "[svc] redis: starting service"
+  run_with_optional_sudo service redis-server start >/dev/null 2>&1 || {
+    echo "[svc] redis: failed to start (install or permissions missing?)" >&2
+  }
+}
+
 ensure_dependencies() {
   local app_name="$1"
   local app_dir="$2"
@@ -90,6 +132,9 @@ cleanup() {
 }
 
 trap cleanup EXIT INT TERM
+
+ensure_postgresql_running
+ensure_redis_running
 
 for entry in "${SHARED_PACKAGES[@]}"; do
   IFS='|' read -r pkg_name pkg_dir <<<"$entry"
