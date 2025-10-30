@@ -1,6 +1,7 @@
 package org.example.kotlin_liargame.global.exception
 
 import org.example.kotlin_liargame.global.dto.ErrorResponse
+import org.example.lineagew.domain.boss.exception.DuplicateBossException
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
@@ -100,7 +101,27 @@ class GlobalExceptionHandler(
         
         return ResponseEntity(errorResponse, HttpStatus.BAD_REQUEST)
     }
-    
+
+    @ExceptionHandler(DuplicateBossException::class)
+    fun handleDuplicateBossException(
+        ex: DuplicateBossException,
+        request: WebRequest
+    ): ResponseEntity<ErrorResponse> {
+        val errorResponse = ErrorResponse(
+            errorCode = "DUPLICATE_BOSS",
+            message = ex.message ?: "Boss already exists",
+            userFriendlyMessage = "이미 등록된 보스가 있습니다.",
+            details = mapOf(
+                "path" to request.getDescription(false),
+                "bossName" to ex.bossName
+            )
+        )
+
+        println("[ERROR] DuplicateBossException: ${ex.message}")
+
+        return ResponseEntity(errorResponse, HttpStatus.CONFLICT)
+    }
+
     @ExceptionHandler(IllegalStateException::class)
     fun handleIllegalStateException(
         ex: IllegalStateException,

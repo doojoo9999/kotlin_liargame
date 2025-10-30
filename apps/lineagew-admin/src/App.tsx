@@ -11,6 +11,8 @@ import UploadPage from "./pages/UploadPage";
 import ClanFundPage from "./pages/ClanFundPage";
 import PolicyPage from "./pages/PolicyPage";
 import EssencePage from "./pages/EssencePage";
+import DistributionPage from "./pages/DistributionPage";
+import PayoutHistoryPage from "./pages/PayoutHistoryPage";
 
 const routes = [
   {path: "", label: "대시보드", element: <DashboardPage />},
@@ -19,6 +21,8 @@ const routes = [
   {path: "boss-kills", label: "보스킬", element: <BossKillsPage />},
   {path: "items", label: "인벤토리", element: <ItemsPage />},
   {path: "sales", label: "정산", element: <SalesPage />},
+  {path: "distribution", label: "분배", element: <DistributionPage />},
+  {path: "payouts", label: "분배 확인", element: <PayoutHistoryPage />},
   {path: "reports", label: "리포트", element: <ReportsPage />},
   {path: "clan-fund", label: "혈비", element: <ClanFundPage />},
   {path: "essence", label: "정수", element: <EssencePage />},

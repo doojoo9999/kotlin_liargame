@@ -5,7 +5,7 @@ spring:
   # PostgreSQL 데이터베이스 설정
   datasource:
     driver-class-name: org.postgresql.Driver
-    url: jdbc:postgresql://${DB_HOST:172.26.180.125}:${DB_PORT:5432}/${DB_NAME:liargame}
+    url: jdbc:postgresql://${DB_HOST:127.0.0.1}:${DB_PORT:5432}/${DB_NAME:liargame}
     username: ${DB_USERNAME:liargame_user}
     password: ${DB_PASSWORD:liargame_password}
     
@@ -131,8 +131,8 @@ app:
   security:
     rate-limit:
       enabled: true
-      requests-per-minute: 60
-      burst-capacity: 100
+      requests-per-minute: 500
+      burst-capacity: 500
 
 lineagew:
   admin:

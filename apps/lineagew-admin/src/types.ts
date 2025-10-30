@@ -47,10 +47,40 @@ export interface ItemResponse {
   tags: string[];
 }
 
+export interface ItemDetailResponse extends ItemResponse {
+  sourceBossKill?: BossKillResponse | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface PayoutResponse {
   id: number;
   memberId: number;
   amount: number;
+  status: PayoutStatus;
+  paidAt: string | null;
+  paidNote: string | null;
+}
+
+export interface PayoutDetailResponse {
+  id: number;
+  memberId: number;
+  memberName: string;
+  amount: number;
+  status: PayoutStatus;
+  saleId: number;
+  soldAt: string;
+  saleMemo?: string | null;
+  itemId: number;
+  itemName: string;
+  itemGrade: ItemGrade;
+  bossKillId?: number | null;
+  bossName?: string | null;
+  bossKilledAt?: string | null;
+  paidAt?: string | null;
+  paidNote?: string | null;
+  paidByMemberId?: number | null;
+  paidByMemberName?: string | null;
 }
 
 export interface DistributionParticipantResponse {
@@ -90,6 +120,7 @@ export interface DistributionRuleResponse {
 export interface SaleResponse {
   id: number;
   itemId: number;
+  itemName: string;
   soldAt: string;
   buyer?: string | null;
   grossAmount: number;
@@ -220,6 +251,11 @@ export enum RemainderPolicy {
   HIGHEST_WEIGHT = "HIGHEST_WEIGHT",
   OLDEST_MEMBER = "OLDEST_MEMBER",
   MANUAL_MEMBER = "MANUAL_MEMBER",
+}
+
+export enum PayoutStatus {
+  PENDING = "PENDING",
+  PAID = "PAID",
 }
 
 export enum BonusWindow {

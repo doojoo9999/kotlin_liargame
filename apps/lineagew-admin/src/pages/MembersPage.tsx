@@ -17,6 +17,7 @@ export default function MembersPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editingMemberId, setEditingMemberId] = useState<number | null>(null);
+  const [showInactive, setShowInactive] = useState(false);
 
   const loadMembers = async () => {
     setLoading(true);
@@ -103,12 +104,20 @@ export default function MembersPage() {
     }
   };
 
+  const visibleMembers = showInactive ? members : members.filter((member) => member.status === MemberStatus.ACTIVE);
+
   return (
     <section className="card">
       <h2>혈원 관리</h2>
       <p style={{color: "#94a3b8", marginBottom: "1.5rem"}}>
         혈원 기본 정보를 등록하고, 최근 참여 기록을 확인해 가중치와 정산 참여 자격을 판단하세요.
       </p>
+
+      <div style={{display: "flex", justifyContent: "flex-end", marginBottom: "1rem", gap: "0.5rem"}}>
+        <button type="button" className="ghost" onClick={() => setShowInactive((prev) => !prev)}>
+          {showInactive ? "활성 혈원만 보기" : "비활성 포함"}
+        </button>
+      </div>
 
       <form onSubmit={handleSubmit} className="grid">
         <input
@@ -181,8 +190,8 @@ export default function MembersPage() {
             </tr>
           </thead>
           <tbody>
-            {members.map((member) => (
-            <tr key={member.id}>
+            {visibleMembers.map((member) => (
+              <tr key={member.id}>
               <td>{member.name}</td>
               <td>
                 <span className="badge">{member.status}</span>

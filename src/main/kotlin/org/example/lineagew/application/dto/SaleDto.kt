@@ -37,6 +37,7 @@ data class SaleCreateRequest(
 data class SaleResponse(
     val id: Long,
     val itemId: Long,
+    val itemName: String,
     val soldAt: LocalDateTime,
     val buyer: String?,
     val grossAmount: Long,
@@ -52,6 +53,7 @@ data class SaleResponse(
 fun Sale.toResponse(rule: DistributionRule?, payouts: List<Payout>): SaleResponse = SaleResponse(
     id = requireNotNull(id),
     itemId = item.id!!,
+    itemName = item.name,
     soldAt = soldAt,
     buyer = buyer,
     grossAmount = grossAmount,
@@ -139,7 +141,10 @@ data class DistributionParticipantResponse(
 data class PayoutResponse(
     val id: Long,
     val memberId: Long,
-    val amount: Long
+    val amount: Long,
+    val status: PayoutStatus,
+    val paidAt: LocalDateTime?,
+    val paidNote: String?
 )
 
 fun DistributionRule.toResponse(): DistributionRuleResponse = DistributionRuleResponse(
@@ -176,7 +181,10 @@ fun DistributionParticipant.toResponse(): DistributionParticipantResponse = Dist
 fun Payout.toResponse(): PayoutResponse = PayoutResponse(
     id = requireNotNull(id),
     memberId = member.id!!,
-    amount = amount
+    amount = amount,
+    status = status,
+    paidAt = paidAt,
+    paidNote = paidNote
 )
 
 fun BonusStepTierRequest.toEntity(): BonusStepTier = BonusStepTier(

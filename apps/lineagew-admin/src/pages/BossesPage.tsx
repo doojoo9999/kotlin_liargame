@@ -1,24 +1,26 @@
 import {FormEvent, useEffect, useState} from "react";
-import {request} from "../api";
+import {ApiError, request} from "../api";
 import type {BossResponse} from "../types";
 
-const formDefaults = {
+const createFormDefaults = () => ({
   name: "",
   tier: "",
   memo: "",
-};
+});
 
 export default function BossesPage() {
   const [bosses, setBosses] = useState<BossResponse[]>([]);
-  const [form, setForm] = useState(formDefaults);
+  const [form, setForm] = useState(createFormDefaults);
   const [error, setError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
 
   const load = async () => {
     try {
+      setError(null);
       const data = await request<BossResponse[]>("/bosses");
       setBosses(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(formatError(err));
     }
   };
 
@@ -26,24 +28,69 @@ export default function BossesPage() {
     void load();
   }, []);
 
+  const resetForm = () => {
+    setForm(createFormDefaults());
+    setEditingId(null);
+  };
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!form.name.trim()) return;
     try {
-      await request<BossResponse>("/bosses", {
-        method: "POST",
-        body: {
-          name: form.name,
-          tier: form.tier || null,
-          memo: form.memo || null,
-        },
-      });
-      setForm(formDefaults);
+      setError(null);
+      if (editingId) {
+        await request<BossResponse>(`/bosses/${editingId}`, {
+          method: "PUT",
+          body: {
+            name: form.name,
+            tier: form.tier || null,
+            memo: form.memo || null,
+          },
+        });
+      } else {
+        await request<BossResponse>("/bosses", {
+          method: "POST",
+          body: {
+            name: form.name,
+            tier: form.tier || null,
+            memo: form.memo || null,
+          },
+        });
+      }
+      resetForm();
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(formatError(err));
     }
   };
+
+  const handleEdit = (boss: BossResponse) => {
+    setForm({
+      name: boss.name,
+      tier: boss.tier ?? "",
+      memo: boss.memo ?? "",
+    });
+    setEditingId(boss.id);
+    setError(null);
+  };
+
+  const handleDelete = async (boss: BossResponse) => {
+    if (!window.confirm(`정말로 '${boss.name}' 보스를 삭제하시겠습니까?`)) {
+      return;
+    }
+    try {
+      setError(null);
+      await request(`/bosses/${boss.id}`, {method: "DELETE"});
+      if (editingId === boss.id) {
+        resetForm();
+      }
+      await load();
+    } catch (err) {
+      setError(formatError(err));
+    }
+  };
+
+  const isEditing = editingId !== null;
 
   return (
     <section className="card">
@@ -72,7 +119,12 @@ export default function BossesPage() {
           style={{gridColumn: "span 2"}}
         />
         <div>
-          <button type="submit">보스 저장</button>
+          <button type="submit">{isEditing ? "보스 수정" : "보스 저장"}</button>
+          {isEditing && (
+            <button type="button" onClick={resetForm} className="button button--ghost" style={{marginLeft: "0.5rem"}}>
+              취소
+            </button>
+          )}
         </div>
       </form>
 
@@ -84,6 +136,7 @@ export default function BossesPage() {
             <th>이름</th>
             <th>티어</th>
             <th>메모</th>
+            <th>관리</th>
           </tr>
         </thead>
         <tbody>
@@ -92,10 +145,28 @@ export default function BossesPage() {
               <td>{boss.name}</td>
               <td>{boss.tier ?? ""}</td>
               <td>{boss.memo ?? ""}</td>
+              <td>
+                <div style={{display: "flex", gap: "0.5rem"}}>
+                  <button type="button" onClick={() => handleEdit(boss)}>수정</button>
+                  <button type="button" className="button button--danger" onClick={() => handleDelete(boss)}>
+                    삭제
+                  </button>
+                </div>
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
     </section>
   );
+}
+
+function formatError(err: unknown): string {
+  if (err instanceof ApiError) {
+    return err.message;
+  }
+  if (err instanceof Error) {
+    return err.message;
+  }
+  return String(err);
 }

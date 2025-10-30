@@ -161,4 +161,75 @@ export const SKILL_DECK: SkillCard[] = [
       }
     },
   },
+  {
+    id: 'gravity-pulse',
+    name: '중력 펄스',
+    summary: '주기적으로 아래로 당기는 충격파',
+    type: 'global',
+    rarity: 'rare',
+    description: '라운드 내내 주기적으로 모든 공을 아래로 끌어당겨 교착 상태를 해소합니다.',
+    apply: () => {
+      const id = buildResolvedSkillId('gravity-pulse')
+      let timer = 0
+      return {
+        id,
+        name: '중력 펄스',
+        summary: '2.5초마다 짧은 하강 펄스가 발생합니다.',
+        description: '범용적인 안전장치로, 느려진 공을 아래로 밀어넣어 경기 종료를 보장합니다.',
+        rarity: 'rare',
+        type: 'global',
+        hooks: {
+          onTick: (_engine, balls, delta, helpers) => {
+            timer += delta
+            if (timer >= 2500) {
+              timer = 0
+              balls.forEach((state) => {
+                helpers.addImpulse(state, {x: (Math.random() - 0.5) * 0.001, y: 0.0032})
+              })
+            }
+          },
+        },
+      }
+    },
+  },
+  {
+    id: 'flux-gyro',
+    name: '플럭스 자이로',
+    summary: '느린 공에 가속 부여',
+    type: 'participant',
+    rarity: 'rare',
+    description:
+      '무작위 참가자의 공에 자이로 제동 장치를 부착해 느려질 때마다 다시 가속합니다.',
+    apply: (context) => {
+      const targetId = pickRandomParticipantId(context)
+      if (!targetId) return null
+      const id = buildResolvedSkillId('flux-gyro', targetId)
+      return {
+        id,
+        name: '플럭스 자이로',
+        summary: '느려질수록 아래로 끌어당기는 힘이 발동합니다.',
+        description: '속도가 떨어지면 강한 하향 힘과 회전을 부여해 정체 구간을 탈출시킵니다.',
+        rarity: 'rare',
+        type: 'participant',
+        targetParticipantId: targetId,
+        hooks: {
+          setupBall: (ball, state) => {
+            if (state.participantId !== targetId) return
+            ball.restitution *= 1.18
+            ball.frictionAir *= 0.7
+          },
+          onTick: (_engine, balls, _delta, helpers) => {
+            balls.forEach((state) => {
+              if (state.participantId !== targetId || state.eliminatedAt) return
+              const {x: vx, y: vy} = state.body.velocity
+              const speed = Math.hypot(vx, vy)
+              if (speed < 2.4) {
+                helpers.addImpulse(state, {x: (Math.random() - 0.5) * 0.0012, y: 0.0024})
+              }
+            })
+          },
+        },
+      }
+    },
+  },
 ]

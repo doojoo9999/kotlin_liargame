@@ -193,7 +193,21 @@ class Payout(
     var member: Member,
 
     @Column(nullable = false)
-    var amount: Long
+    var amount: Long,
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 16)
+    var status: PayoutStatus = PayoutStatus.PENDING,
+
+    @Column(name = "paid_at")
+    var paidAt: LocalDateTime? = null,
+
+    @Column(name = "paid_note", columnDefinition = "text")
+    var paidNote: String? = null,
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "paid_by_member_id")
+    var paidByMember: Member? = null
 ) : LineagewBaseEntity() {
 
     @Id
@@ -233,4 +247,3 @@ class ParticipationBonusLog(
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     var id: Long? = null
 }
-

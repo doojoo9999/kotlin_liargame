@@ -5,7 +5,7 @@ spring:
   jpa:
       show-sql: true
       hibernate:
-          ddl-auto: create
+          ddl-auto: update
           # Set to 'validate' after fixing the schema
           # ddl-auto: validate
       properties:
@@ -67,7 +67,7 @@ spring:
 
   data:
     redis:
-      host: ${REDIS_HOST:172.26.180.125}
+      host: ${REDIS_HOST:127.0.0.1}
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:}
       ssl:
@@ -134,6 +134,10 @@ logging:
         root: INFO
         org.example.kotlin_liargame: DEBUG
         org.springframework.security: DEBUG
+
+app:
+  content:
+    manual-approval-required: false
 
 lineagew:
   admin:

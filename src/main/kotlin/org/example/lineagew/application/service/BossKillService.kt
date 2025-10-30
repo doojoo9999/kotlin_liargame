@@ -48,4 +48,9 @@ class BossKillService(
         .sortedByDescending { it.killedAt }
         .take(limit)
         .map { it.toResponse() }
+
+    @Transactional(readOnly = true)
+    fun findById(id: Long): BossKillResponse = bossKillRepository.findById(id)
+        .orElseThrow { IllegalArgumentException("BossKill not found: $id") }
+        .toResponse()
 }

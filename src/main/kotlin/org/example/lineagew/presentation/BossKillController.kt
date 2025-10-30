@@ -20,6 +20,9 @@ class BossKillController(
     fun listRecent(@RequestParam(defaultValue = "50") limit: Int): List<BossKillResponse> =
         bossKillService.findRecent(limit)
 
+    @GetMapping("/{id}")
+    fun getBossKill(@PathVariable id: Long): BossKillResponse = bossKillService.findById(id)
+
     @LineagewAdminOnly
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)

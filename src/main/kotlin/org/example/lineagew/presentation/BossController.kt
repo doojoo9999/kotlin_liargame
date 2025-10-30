@@ -30,4 +30,11 @@ class BossController(
         @PathVariable id: Long,
         @Valid @RequestBody request: BossRequest
     ): BossResponse = bossService.updateBoss(id, request)
+
+    @LineagewAdminOnly
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    fun deleteBoss(@PathVariable id: Long) {
+        bossService.deleteBoss(id)
+    }
 }

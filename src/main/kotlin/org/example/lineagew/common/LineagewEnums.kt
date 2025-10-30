@@ -79,11 +79,17 @@ enum class ClanFundTxnType {
     ADJUST
 }
 
+enum class PayoutStatus {
+    PENDING,
+    PAID
+}
+
 enum class AuditAction {
     CREATE_SALE,
     UPDATE_SALE,
     SETTLE_SALE,
     CANCEL_SALE,
+    UPDATE_PAYOUT_STATUS,
     EDIT_RULE,
     UPDATE_CLAN_FUND,
     IMPORT_DATA

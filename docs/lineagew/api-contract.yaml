@@ -314,6 +314,67 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Sale'
+  /payouts:
+    get:
+      summary: Search payouts
+      parameters:
+        - in: query
+          name: status
+          schema:
+            $ref: '#/components/schemas/PayoutStatus'
+        - in: query
+          name: memberId
+          schema:
+            type: integer
+        - in: query
+          name: from
+          schema:
+            type: string
+            format: date
+            description: Sold-at date (inclusive)
+        - in: query
+          name: to
+          schema:
+            type: string
+            format: date
+            description: Sold-at date (inclusive)
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+      responses:
+        '200':
+          description: Payout list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PayoutDetail'
+  /payouts/{payoutId}/status:
+    put:
+      summary: Update payout status
+      parameters:
+        - in: path
+          name: payoutId
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PayoutStatusUpdateRequest'
+      responses:
+        '200':
+          description: Updated payout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PayoutDetail'
   /clan-fund:
     get:
       summary: Fetch clan fund summary
@@ -883,10 +944,21 @@ components:
     Payout:
       type: object
       properties:
+        id:
+          type: integer
         memberId:
           type: integer
         amount:
           type: integer
+        status:
+          $ref: '#/components/schemas/PayoutStatus'
+        paidAt:
+          type: string
+          format: date-time
+          nullable: true
+        paidNote:
+          type: string
+          nullable: true
     ClanFund:
       type: object
       properties:
@@ -930,6 +1002,66 @@ components:
     ClanFundTxnType:
       type: string
       enum: [INCOME, EXPENSE, ADJUST]
+    PayoutStatus:
+      type: string
+      enum: [PENDING, PAID]
+    PayoutDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+        memberId:
+          type: integer
+        memberName:
+          type: string
+        amount:
+          type: integer
+        status:
+          $ref: '#/components/schemas/PayoutStatus'
+        saleId:
+          type: integer
+        soldAt:
+          type: string
+          format: date-time
+        saleMemo:
+          type: string
+          nullable: true
+        itemId:
+          type: integer
+        itemName:
+          type: string
+        itemGrade:
+          $ref: '#/components/schemas/ItemGrade'
+        bossKillId:
+          type: integer
+          nullable: true
+        bossName:
+          type: string
+          nullable: true
+        bossKilledAt:
+          type: string
+          format: date-time
+          nullable: true
+        paidAt:
+          type: string
+          format: date-time
+          nullable: true
+        paidNote:
+          type: string
+          nullable: true
+    PayoutStatusUpdateRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          $ref: '#/components/schemas/PayoutStatus'
+        paidAt:
+          type: string
+          format: date-time
+          nullable: true
+        note:
+          type: string
+          nullable: true
     Essence:
       type: object
       properties:

@@ -19,7 +19,7 @@ spring:
         dialect: org.hibernate.dialect.H2Dialect
   data:
     redis:
-      host: 172.26.180.125
+      host: 127.0.0.1
       port: 6379
       password:
       ssl:

@@ -107,6 +107,8 @@ class SaleServiceIntegrationTest @Autowired constructor(
         assertThat(alphaPayout.amount + betaPayout.amount).isEqualTo(1000)
         assertThat(alphaPayout.amount).isEqualTo(600)
         assertThat(betaPayout.amount).isEqualTo(400)
+        assertThat(alphaPayout.status).isEqualTo(PayoutStatus.PENDING)
+        assertThat(betaPayout.status).isEqualTo(PayoutStatus.PENDING)
 
         val rule = finalized.distributionRule!!
         val alphaParticipant = rule.participants.first { it.memberId == memberAlpha.id }
