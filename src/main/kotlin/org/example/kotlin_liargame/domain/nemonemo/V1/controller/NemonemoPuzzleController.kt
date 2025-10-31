@@ -1,4 +1,4 @@
-package org.example.kotlin_liargame.domain.nemonemo.V1.controller
+package org.example.kotlin_liargame.domain.nemonemo.controller
 
 import jakarta.servlet.http.HttpSession
 import org.example.kotlin_liargame.domain.nemonemo.dto.PuzzleDetailResponse

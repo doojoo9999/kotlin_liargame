@@ -1,4 +1,4 @@
-package org.example.kotlin_liargame.domain.nemonemo.V1.config
+package org.example.kotlin_liargame.domain.nemonemo.config
 
 import org.springdoc.core.models.GroupedOpenApi
 import org.springframework.context.annotation.Bean

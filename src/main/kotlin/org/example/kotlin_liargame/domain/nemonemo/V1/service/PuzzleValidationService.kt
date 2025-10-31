@@ -1,4 +1,4 @@
-package org.example.kotlin_liargame.domain.nemonemo.V1.service
+package org.example.kotlin_liargame.domain.nemonemo.service
 
 import org.example.kotlin_liargame.domain.nemonemo.model.PuzzleDifficulty
 import org.example.kotlin_liargame.domain.nemonemo.model.PuzzleGridCodec

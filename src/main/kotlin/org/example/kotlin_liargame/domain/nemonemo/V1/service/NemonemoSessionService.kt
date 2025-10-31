@@ -1,4 +1,4 @@
-package org.example.kotlin_liargame.domain.nemonemo.V1.service
+package org.example.kotlin_liargame.domain.nemonemo.service
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.example.kotlin_liargame.domain.nemonemo.dto.SessionActionRequestDto

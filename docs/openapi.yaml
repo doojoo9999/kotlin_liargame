@@ -1,0 +1,497 @@
+openapi: 3.1.0
+info:
+  title: Nemonemo API
+  version: 0.1.0
+  description: >
+    REST API specification for the Nemonemo puzzle platform.
+servers:
+  - url: https://api.nemonemo.example.com
+    description: Production
+  - url: https://staging-api.nemonemo.example.com
+    description: Staging
+tags:
+  - name: Puzzles
+  - name: Plays
+  - name: Daily Picks
+  - name: Multiplayer
+  - name: Challenges
+security:
+  - bearerAuth: []
+paths:
+  /api/v1/puzzles:
+    get:
+      tags: [Puzzles]
+      summary: List puzzles
+      parameters:
+        - $ref: '#/components/parameters/PageCursor'
+        - $ref: '#/components/parameters/PageSize'
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [APPROVED, OFFICIAL]
+        - name: difficulty
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+              enum: [EASY, MEDIUM, HARD, EXPERT]
+          style: form
+          explode: false
+      responses:
+        '200':
+          description: Paginated puzzle list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PuzzleListResponse'
+    post:
+      tags: [Puzzles]
+      summary: Upload puzzle draft
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PuzzleUploadRequest'
+      responses:
+        '202':
+          description: Puzzle accepted for processing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PuzzleUploadResponse'
+  /api/v1/puzzles/{puzzleId}:
+    get:
+      tags: [Puzzles]
+      summary: Retrieve puzzle detail
+      parameters:
+        - $ref: '#/components/parameters/PuzzleId'
+      responses:
+        '200':
+          description: Puzzle detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PuzzleDetail'
+  /api/v1/puzzles/{puzzleId}/plays:
+    post:
+      tags: [Plays]
+      summary: Start or resume a play session
+      parameters:
+        - $ref: '#/components/parameters/PuzzleId'
+      responses:
+        '201':
+          description: Play session created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlaySession'
+  /api/v1/plays/{playId}/autosave:
+    post:
+      tags: [Plays]
+      summary: Save progress snapshot
+      parameters:
+        - $ref: '#/components/parameters/PlayId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AutosavePayload'
+      responses:
+        '204':
+          description: Snapshot stored
+  /api/v1/plays/{playId}/submit:
+    post:
+      tags: [Plays]
+      summary: Submit final solution
+      parameters:
+        - $ref: '#/components/parameters/PlayId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlaySubmitPayload'
+      responses:
+        '200':
+          description: Submission result with score
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayResult'
+  /api/v1/daily-picks:
+    get:
+      tags: [Daily Picks]
+      summary: Fetch current featured puzzles
+      responses:
+        '200':
+          description: Daily picks
+          headers:
+            ETag:
+              schema:
+                type: string
+            Last-Modified:
+              schema:
+                type: string
+                format: date-time
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailyPicks'
+  /api/v1/multiplayer/sessions:
+    post:
+      tags: [Multiplayer]
+      summary: Create multiplayer session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MultiplayerSessionCreate'
+      responses:
+        '201':
+          description: Session created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MultiplayerSession'
+  /api/v1/challenges:
+    get:
+      tags: [Challenges]
+      summary: List active challenges
+      responses:
+        '200':
+          description: Challenge list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChallengeList'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    PageCursor:
+      name: cursor
+      in: query
+      schema:
+        type: string
+      required: false
+    PageSize:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+      required: false
+    PuzzleId:
+      name: puzzleId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    PlayId:
+      name: playId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  schemas:
+    PuzzleSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        width:
+          type: integer
+        height:
+          type: integer
+        difficultyScore:
+          type: number
+          format: float
+        difficultyCategory:
+          type: string
+        status:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        thumbnailUrl:
+          type: string
+    PuzzleListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/PuzzleSummary'
+        nextCursor:
+          type: string
+          nullable: true
+    PuzzleUploadRequest:
+      type: object
+      required: [title, width, height, grid]
+      properties:
+        title:
+          type: string
+          maxLength: 120
+        description:
+          type: string
+        width:
+          type: integer
+          minimum: 5
+          maximum: 50
+        height:
+          type: integer
+          minimum: 5
+          maximum: 50
+        grid:
+          type: array
+          items:
+            type: string
+        tags:
+          type: array
+          items:
+            type: string
+        seriesId:
+          type: string
+          format: uuid
+          nullable: true
+    PuzzleUploadResponse:
+      type: object
+      properties:
+        puzzleId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [PENDING_REVIEW, APPROVED, REJECTED]
+        metadata:
+          type: object
+          properties:
+            contentStyle:
+              type: string
+            textLikenessScore:
+              type: number
+            tags:
+              type: array
+              items:
+                type: string
+            uniqueness:
+              type: boolean
+            difficultyScore:
+              type: number
+            difficultyCategory:
+              type: string
+        rejectionReason:
+          type: string
+          nullable: true
+    PuzzleDetail:
+      allOf:
+        - $ref: '#/components/schemas/PuzzleSummary'
+        - type: object
+          properties:
+            author:
+              type: object
+              properties:
+                subjectKey:
+                  type: string
+                  format: uuid
+                nickname:
+                  type: string
+            hints:
+              type: object
+              properties:
+                rows:
+                  type: array
+                  items:
+                    type: array
+                    items:
+                      type: integer
+                cols:
+                  type: array
+                  items:
+                    type: array
+                    items:
+                      type: integer
+            stats:
+              type: object
+              properties:
+                playCount:
+                  type: integer
+                clearCount:
+                  type: integer
+                averageTimeMs:
+                  type: integer
+    PlaySession:
+      type: object
+      properties:
+        playId:
+          type: string
+          format: uuid
+        stateToken:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+    AutosavePayload:
+      type: object
+      required: [progress]
+      properties:
+        progress:
+          type: object
+          additionalProperties: true
+        timestamp:
+          type: string
+          format: date-time
+    PlaySubmitPayload:
+      type: object
+      required: [finalGrid, mistakes, durationMs]
+      properties:
+        finalGrid:
+          type: string
+          description: Base64 encoded grid payload
+        mistakes:
+          type: integer
+          minimum: 0
+        usedHints:
+          type: integer
+          minimum: 0
+        undoCount:
+          type: integer
+          minimum: 0
+        comboCount:
+          type: integer
+          minimum: 0
+        durationMs:
+          type: integer
+          minimum: 0
+    PlayResult:
+      type: object
+      properties:
+        score:
+          type: integer
+        timeMs:
+          type: integer
+        comboBonus:
+          type: integer
+        perfectClear:
+          type: boolean
+        leaderboardRank:
+          type: integer
+          nullable: true
+    DailyPicks:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PuzzleSummary'
+    MultiplayerSessionCreate:
+      type: object
+      required: [mode, puzzleId]
+      properties:
+        mode:
+          type: string
+          enum: [COOP, VERSUS, RELAY]
+        puzzleId:
+          type: string
+          format: uuid
+        maxParticipants:
+          type: integer
+          default: 4
+        privacy:
+          type: string
+          enum: [PUBLIC, PRIVATE]
+        password:
+          type: string
+          nullable: true
+    MultiplayerParticipant:
+      type: object
+      properties:
+        subjectKey:
+          type: string
+          format: uuid
+        nickname:
+          type: string
+        ready:
+          type: boolean
+        score:
+          type: integer
+          nullable: true
+    MultiplayerSession:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        mode:
+          type: string
+        status:
+          type: string
+          enum: [WAITING, IN_PROGRESS, FINISHED]
+        hostKey:
+          type: string
+          format: uuid
+        participants:
+          type: array
+          items:
+            $ref: '#/components/schemas/MultiplayerParticipant'
+        websocketEndpoint:
+          type: string
+    ChallengeSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [DAILY, WEEKLY, MONTHLY]
+        title:
+          type: string
+        description:
+          type: string
+        progress:
+          type: object
+          additionalProperties: true
+        rewards:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+              amount:
+                type: integer
+        completed:
+          type: boolean
+        claimed:
+          type: boolean
+    ChallengeList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChallengeSummary'
+        serverTime:
+          type: string
+          format: date-time

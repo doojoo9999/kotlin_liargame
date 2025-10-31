@@ -1,0 +1,67 @@
+# Preview daily picks
+GET {{baseUrl}}/api/v1/daily-picks
+Authorization: Bearer {{accessToken}}
+Accept: application/json
+
+###
+
+# Upload puzzle draft
+POST {{baseUrl}}/api/v1/puzzles
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+Idempotency-Key: {{$guid}}
+
+{
+  "title": "KST Skyline",
+  "width": 15,
+  "height": 15,
+  "grid": [
+    "...##....##.....",
+    "...##....##.....",
+    "###############",
+    "##....###....##",
+    "##....###....##"
+  ],
+  "tags": ["city", "night"],
+  "seriesId": null
+}
+
+###
+
+# Submit play result
+POST {{baseUrl}}/api/v1/plays/{{playId}}/submit
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+Idempotency-Key: {{$guid}}
+
+{
+  "finalGrid": "base64-encoded-grid",
+  "mistakes": 0,
+  "usedHints": 1,
+  "undoCount": 4,
+  "comboCount": 32,
+  "durationMs": 184000
+}
+
+###
+
+# Create multiplayer session
+POST {{baseUrl}}/api/v1/multiplayer/sessions
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "mode": "VERSUS",
+  "puzzleId": "{{puzzleId}}",
+  "maxParticipants": 4,
+  "privacy": "PUBLIC"
+}
+
+###
+
+# Claim challenge reward
+POST {{baseUrl}}/api/v1/challenges/{{challengeId}}/claim
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{}

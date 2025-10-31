@@ -135,6 +135,12 @@ a {
   flex-wrap: wrap;
 }
 
+.landing__hero-actions-primary {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
 .button {
   display: inline-flex;
   align-items: center;
@@ -159,6 +165,19 @@ a {
 .button--primary:hover {
   transform: translateY(-2px);
   box-shadow: 0 22px 42px color-mix(in srgb, var(--primary, #7650ff) 45%, transparent);
+}
+
+.button--secondary {
+  background: color-mix(in srgb, var(--primary, #7650ff) 18%, transparent);
+  border-color: color-mix(in srgb, var(--primary, #7650ff) 42%, transparent);
+  color: var(--text-primary);
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--primary, #7650ff) 28%, transparent);
+}
+
+.button--secondary:hover {
+  transform: translateY(-1px);
+  background: color-mix(in srgb, var(--primary, #7650ff) 26%, transparent);
+  box-shadow: 0 14px 28px color-mix(in srgb, var(--primary, #7650ff) 35%, transparent);
 }
 
 .button--ghost {

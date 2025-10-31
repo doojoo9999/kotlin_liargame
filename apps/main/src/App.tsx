@@ -21,8 +21,7 @@ const gameLinks: GameLink[] = [
     description: "논리 퍼즐로 협업하며 퍼즐을 해결하는 캐주얼 게임.",
     href:
       import.meta.env.VITE_NEMONEMO_URL ??
-      "https://zzirit.kr/nemo/",
-    comingSoon: true,
+      "https://zzirit.kr/nemonemo/",
   },
   {
     id: "roulette",
@@ -87,14 +86,27 @@ export default function App() {
           다양한 장르의 게임을 선택하고 플레이하세요.
         </p>
         <div className="landing__hero-actions">
-          <a
-            className="button button--primary"
-            href={gameLinks[0].href}
-            target="_blank"
-            rel="noreferrer noopener"
-          >
-            지금 바로 플레이
-          </a>
+          <div className="landing__hero-actions-primary">
+            <a
+              className="button button--primary"
+              href={gameLinks[0].href}
+              target="_blank"
+              rel="noreferrer noopener"
+            >
+              라이어 게임 시작
+            </a>
+            <a
+              className="button button--secondary"
+              href={
+                gameLinks.find((game) => game.id === "nemonemo")?.href ??
+                "https://zzirit.kr/nemonemo/"
+              }
+              target="_blank"
+              rel="noreferrer noopener"
+            >
+              네모네모 로직 플레이
+            </a>
+          </div>
           <a className="button button--ghost" href="mailto:admin@zzirit.kr">
             운영팀에게 문의
           </a>

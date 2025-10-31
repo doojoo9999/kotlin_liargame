@@ -1,4 +1,4 @@
-package org.example.kotlin_liargame.domain.nemonemo.V1.dto
+package org.example.kotlin_liargame.domain.nemonemo.dto
 
 import org.example.kotlin_liargame.domain.nemonemo.model.NemonemoPuzzleEntity
 import org.example.kotlin_liargame.domain.nemonemo.model.PuzzleDifficulty

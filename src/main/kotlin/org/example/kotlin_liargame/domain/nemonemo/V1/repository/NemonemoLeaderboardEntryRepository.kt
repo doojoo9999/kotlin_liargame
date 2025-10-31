@@ -1,4 +1,4 @@
-package org.example.kotlin_liargame.domain.nemonemo.V1.repository
+package org.example.kotlin_liargame.domain.nemonemo.repository
 
 import org.example.kotlin_liargame.domain.nemonemo.model.NemonemoLeaderboardEntryEntity
 import org.example.kotlin_liargame.domain.nemonemo.model.NemonemoPuzzleReleaseEntity

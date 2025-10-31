@@ -1,4 +1,4 @@
-package org.example.kotlin_liargame.domain.nemonemo.V1.model
+package org.example.kotlin_liargame.domain.nemonemo.model
 
 enum class PuzzleSessionStatus {
     IN_PROGRESS,

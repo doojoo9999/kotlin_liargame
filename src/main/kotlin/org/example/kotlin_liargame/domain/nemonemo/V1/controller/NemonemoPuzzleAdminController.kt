@@ -1,10 +1,10 @@
-package org.example.kotlin_liargame.domain.nemonemo.V1.controller
+package org.example.kotlin_liargame.domain.nemonemo.controller
 
 import jakarta.servlet.http.HttpSession
 import org.example.kotlin_liargame.domain.nemonemo.dto.*
-import org.example.kotlin_liargame.domain.nemonemo.V1.model.PuzzleLifecycleStatus
-import org.example.kotlin_liargame.domain.nemonemo.V1.service.NemonemoPuzzleAdminService
-import org.example.kotlin_liargame.domain.nemonemo.V1.service.NemonemoResourceNotFoundException
+import org.example.kotlin_liargame.domain.nemonemo.model.PuzzleLifecycleStatus
+import org.example.kotlin_liargame.domain.nemonemo.service.NemonemoPuzzleAdminService
+import org.example.kotlin_liargame.domain.nemonemo.service.NemonemoResourceNotFoundException
 import org.example.kotlin_liargame.global.security.SessionManagementService
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity

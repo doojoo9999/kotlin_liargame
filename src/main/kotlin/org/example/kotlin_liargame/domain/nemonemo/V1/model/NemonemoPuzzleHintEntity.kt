@@ -1,4 +1,4 @@
-package org.example.kotlin_liargame.domain.nemonemo.V1.model
+package org.example.kotlin_liargame.domain.nemonemo.model
 
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
