@@ -1,0 +1,15 @@
+ALTER TABLE linw_payouts
+    ADD COLUMN IF NOT EXISTS status VARCHAR(16) NOT NULL DEFAULT 'PENDING';
+
+ALTER TABLE linw_payouts
+    ADD COLUMN IF NOT EXISTS paid_at TIMESTAMP NULL;
+
+ALTER TABLE linw_payouts
+    ADD COLUMN IF NOT EXISTS paid_note TEXT NULL;
+
+UPDATE linw_payouts
+SET status = 'PENDING'
+WHERE status IS NULL;
+
+ALTER TABLE linw_payouts
+    ALTER COLUMN status DROP DEFAULT;

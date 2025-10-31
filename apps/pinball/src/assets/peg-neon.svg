@@ -1,0 +1,17 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="pegGlow" cx="0.5" cy="0.32" r="0.7">
+      <stop offset="0" stop-color="#F8FAFC" />
+      <stop offset="0.28" stop-color="#C7D2FE" />
+      <stop offset="0.62" stop-color="#6366F1" />
+      <stop offset="1" stop-color="#312E81" />
+    </radialGradient>
+    <radialGradient id="pegHalo" cx="0.5" cy="0.5" r="0.95">
+      <stop offset="0" stop-color="#8B5CF6" stop-opacity="0.85" />
+      <stop offset="1" stop-color="#0F172A" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+  <circle cx="64" cy="64" r="58" fill="url(#pegHalo)" />
+  <circle cx="64" cy="64" r="44" fill="url(#pegGlow)" />
+  <circle cx="64" cy="64" r="18" fill="#FDF4FF" opacity="0.6" />
+</svg>

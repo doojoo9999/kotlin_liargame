@@ -1,0 +1,21 @@
+<svg width="160" height="160" viewBox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bumperCore" cx="0.5" cy="0.38" r="0.72">
+      <stop offset="0" stop-color="#FDF2F8" />
+      <stop offset="0.18" stop-color="#FBCFE8" />
+      <stop offset="0.52" stop-color="#DB2777" />
+      <stop offset="1" stop-color="#831843" />
+    </radialGradient>
+    <radialGradient id="bumperHalo" cx="0.5" cy="0.5" r="0.98">
+      <stop offset="0" stop-color="#FB7185" stop-opacity="0.9" />
+      <stop offset="1" stop-color="#0F172A" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="bumperSpark" cx="0.5" cy="0.24" r="0.35">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.9" />
+      <stop offset="1" stop-color="#F8FAFC" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+  <circle cx="80" cy="80" r="74" fill="url(#bumperHalo)" />
+  <circle cx="80" cy="80" r="56" fill="url(#bumperCore)" />
+  <circle cx="80" cy="64" r="32" fill="url(#bumperSpark)" />
+</svg>
