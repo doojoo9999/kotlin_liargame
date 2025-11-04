@@ -1,5 +1,11 @@
 # 프로젝트: 네모네모로직(Nonogram) 플랫폼 — 게임성 강화 버전 전체 지시서
 
+## 0) 진행 현황 (2025-11-04 기준)
+
+- **F1** 완료 – `V012__Create_nemonemo_v2_tables.sql` 보강 및 시드 정비, Flyway 적용 확인.
+- **F2** 완료 – SubjectPrincipal 기반 세션 인증·RateLimit 필터·헤더 정리.
+- **F3** 진행 중 – 퍼즐 업로드 파이프라인 안정화(그리드 밸리데이션/체크섬 중복 처리, ResponseStatusException 매핑, `NemonemoPuzzleV2ControllerTest` 정상화).
+
 ## 1) 제품 목표(필수 기능)
 
 ### 핵심 게임플레이 기능

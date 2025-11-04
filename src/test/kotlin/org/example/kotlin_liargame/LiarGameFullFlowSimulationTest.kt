@@ -160,10 +160,9 @@ class LiarGameFullFlowSimulationTest {
         // 세션에 인증 속성이 비어 있다면 테스트에서 JSON 직렬화 방식으로 주입
         val userSessionData = sessionDataManager.getUserSession(session)
         if (userSessionData == null) {
-            val user = userRepository.findAll().find { it.nickname == nickname }
-                ?: throw IllegalArgumentException("User not found for nickname=$nickname")
+            val user = userRepository.findByNickname(nickname)
+                ?: userService.createUser(UserAddRequest(nickname, password))
 
-            // JSON 직렬화 방식으로 세션 등록
             sessionManagementService.registerSession(session, user.nickname, user.id)
         }
 

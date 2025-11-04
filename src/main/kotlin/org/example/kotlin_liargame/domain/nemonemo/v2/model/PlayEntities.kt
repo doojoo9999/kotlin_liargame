@@ -15,6 +15,8 @@ import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
 import jakarta.persistence.UniqueConstraint
 import org.example.kotlin_liargame.global.base.BaseEntity
+import org.hibernate.annotations.JdbcTypeCode
+import org.hibernate.type.SqlTypes
 import java.io.Serializable
 import java.time.Instant
 import java.util.UUID
@@ -42,6 +44,7 @@ class PlayEntity(
     @Column(name = "client_build", length = 32)
     var clientBuild: String? = null,
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "input_events", columnDefinition = "jsonb")
     var inputEvents: String,
 
@@ -51,6 +54,7 @@ class PlayEntity(
     @Column(name = "used_hints", nullable = false)
     var usedHints: Int = 0,
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "progress_snapshots", columnDefinition = "jsonb")
     var progressSnapshots: String? = null,
 
@@ -97,7 +101,7 @@ class ScoreEntity(
     @Column(name = "last_played_at", nullable = false)
     var lastPlayedAt: Instant = Instant.now(),
 
-    @Column(name = "flags", columnDefinition = "text[]")
+    @Column(name = "flags")
     var flags: String? = null
 )
 
@@ -108,6 +112,7 @@ class DailyPickEntity(
     @Column(name = "pick_date", nullable = false)
     val pickDate: java.time.LocalDate,
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "items", columnDefinition = "jsonb", nullable = false)
     var items: String,
 
@@ -174,6 +179,7 @@ class GameSettingEntity(
     @Column(name = "subject_key", columnDefinition = "uuid")
     val subjectKey: UUID,
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "settings", columnDefinition = "jsonb", nullable = false)
     var settings: String,
 

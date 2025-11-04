@@ -1,11 +1,13 @@
 package org.example.kotlin_liargame.global.config
 
 import org.example.kotlin_liargame.global.security.RateLimitingInterceptor
+import org.example.kotlin_liargame.global.security.SubjectPrincipalArgumentResolver
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
 import org.springframework.security.crypto.password.PasswordEncoder
+import org.springframework.web.method.support.HandlerMethodArgumentResolver
 import org.springframework.web.servlet.config.annotation.CorsRegistry
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer
@@ -13,6 +15,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer
 @Configuration
 class WebConfig(
     private val rateLimitingInterceptor: RateLimitingInterceptor,
+    private val subjectPrincipalArgumentResolver: SubjectPrincipalArgumentResolver,
     @Value("\${ratelimit.enabled:true}") private val rateLimitEnabled: Boolean
 ) : WebMvcConfigurer {
 
@@ -48,6 +51,10 @@ class WebConfig(
             .allowCredentials(true)
     }
 
+    override fun addArgumentResolvers(resolvers: MutableList<HandlerMethodArgumentResolver>) {
+        resolvers.add(subjectPrincipalArgumentResolver)
+    }
+
     private fun getAllowedOrigins(): Array<String> {
         val profile = System.getProperty("spring.profiles.active") ?: "dev"
 
@@ -65,7 +72,7 @@ class WebConfig(
     }
 
     private fun localDevelopmentOrigins(): List<String> {
-        val hosts = listOf("127.0.0.1", "218.150.3.77")
+        val hosts = listOf("localhost", "127.0.0.1", "218.150.3.77")
         val ports = buildList {
             add(3000)
             add(4173)

@@ -1,12 +1,14 @@
 import { useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { usePuzzleDetail } from '@/features/daily/usePuzzleDetail';
+import { usePlaySession } from '@/features/play/usePlaySession';
 import { useGameStore } from '@/store/gameStore';
 import { useNotificationStore } from '@/store/notificationStore';
 
 const PuzzlePlayPage = () => {
   const { puzzleId } = useParams<{ puzzleId: string }>();
   const { data, isLoading } = usePuzzleDetail(puzzleId);
+  const { status: playStatus, autosaveState, lastSavedAt } = usePlaySession(puzzleId);
   const loadGrid = useGameStore((state) => state.loadGrid);
   const pushToast = useNotificationStore((state) => state.pushToast);
 
@@ -32,6 +34,9 @@ const PuzzlePlayPage = () => {
           <div>
             <h1 className="text-2xl font-bold">{data.title}</h1>
             <p className="text-sm text-slate-400">{data.description ?? '설명이 제공되지 않았습니다.'}</p>
+            <p className="mt-1 text-xs text-slate-500">
+              세션 상태: {playStatus === 'ready' ? '진행 중' : playStatus === 'starting' ? '준비 중' : playStatus === 'error' ? '오류' : '대기'}
+            </p>
           </div>
           <div className="rounded border border-slate-800 bg-slate-900 px-3 py-1 text-xs text-slate-300">
             {data.width} × {data.height}
@@ -54,6 +59,15 @@ const PuzzlePlayPage = () => {
             <li>클리어: {data.statistics.clearCount.toLocaleString()}</li>
             <li>평균 시간: {(data.statistics.averageTimeMs ?? 0) / 1000}s</li>
           </ul>
+        </div>
+        <div className="rounded border border-slate-800 bg-slate-950/60 p-3 text-xs text-slate-400">
+          <p>자동 저장 상태: {autosaveState === 'saving' ? '저장 중…' : autosaveState === 'error' ? '오류' : '대기 중'}</p>
+          <p className="mt-1">
+            마지막 저장:{' '}
+            {lastSavedAt
+              ? new Date(lastSavedAt).toLocaleTimeString()
+              : '아직 저장 내역 없음'}
+          </p>
         </div>
         <div className="grid gap-2">
           <button className="rounded bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground">

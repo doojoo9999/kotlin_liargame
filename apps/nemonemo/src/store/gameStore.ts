@@ -15,18 +15,27 @@ type GridState = {
 
 export type GameMode = 'NORMAL' | 'TIME_ATTACK' | 'MULTIPLAYER';
 
+type SessionState = {
+  playId: string | null;
+  stateToken: string | null;
+  expiresAt: string | null;
+};
+
 type GameStore = {
   mode: GameMode;
   timerMs: number;
   combo: number;
   mistakes: number;
   grid: GridState;
+  session: SessionState;
   setMode: (mode: GameMode) => void;
   loadGrid: (payload: { id: string; width: number; height: number; cells: CellState[] }) => void;
   updateCell: (index: number, state: CellState) => void;
   undo: () => void;
   redo: () => void;
   recordMistake: () => void;
+  setSession: (payload: { playId: string; stateToken: string; expiresAt: string }) => void;
+  clearSession: () => void;
   reset: () => void;
 };
 
@@ -40,6 +49,12 @@ const initialGrid: GridState = {
   lastUpdated: null
 };
 
+const createInitialSession = (): SessionState => ({
+  playId: null,
+  stateToken: null,
+  expiresAt: null
+});
+
 export const useGameStore = create<GameStore>()(
   immer((set) => ({
     mode: 'NORMAL',
@@ -47,6 +62,7 @@ export const useGameStore = create<GameStore>()(
     combo: 0,
     mistakes: 0,
     grid: initialGrid,
+    session: createInitialSession(),
     setMode: (mode) => set({ mode }),
     loadGrid: ({ id, width, height, cells }) =>
       set(() => ({
@@ -89,13 +105,30 @@ export const useGameStore = create<GameStore>()(
         const next = grid.future.pop();
         if (!next) return;
         grid.history.push([...next]);
-        grid.cells = next;
-      }),
+          grid.cells = next;
+        }),
     recordMistake: () =>
       set((draft) => {
         draft.mistakes += 1;
         draft.combo = 0;
       }),
-    reset: () => set({ grid: initialGrid, combo: 0, mistakes: 0, timerMs: 0 })
+    setSession: ({ playId, stateToken, expiresAt }) =>
+      set((draft) => {
+        draft.session.playId = playId;
+        draft.session.stateToken = stateToken;
+        draft.session.expiresAt = expiresAt;
+      }),
+    clearSession: () =>
+      set((draft) => {
+        draft.session = createInitialSession();
+      }),
+    reset: () =>
+      set(() => ({
+        grid: initialGrid,
+        combo: 0,
+        mistakes: 0,
+        timerMs: 0,
+        session: createInitialSession()
+      }))
   }))
 );

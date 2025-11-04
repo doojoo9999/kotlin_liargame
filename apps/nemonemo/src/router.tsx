@@ -11,23 +11,26 @@ import MultiplayerLobbyPage from './routes/MultiplayerLobbyPage';
 import AdminDashboardPage from './routes/AdminDashboardPage';
 import NotFoundPage from './routes/NotFoundPage';
 
-const router = createBrowserRouter([
-  {
-    path: '/',
-    element: <AppLayout />,
-    errorElement: <NotFoundPage />,
-    children: [
-      { index: true, element: <HomePage /> },
-      { path: 'puzzles/:puzzleId', element: <PuzzlePlayPage /> },
-      { path: 'editor', element: <PuzzleEditorPage /> },
-      { path: 'search', element: <SearchPage /> },
-      { path: 'leaderboard', element: <LeaderboardPage /> },
-      { path: 'profile', element: <ProfilePage /> },
-      { path: 'community', element: <CommunityPage /> },
-      { path: 'multiplayer', element: <MultiplayerLobbyPage /> },
-      { path: 'admin', element: <AdminDashboardPage /> }
-    ]
-  }
-]);
+const router = createBrowserRouter(
+  [
+    {
+      path: '/',
+      element: <AppLayout />,
+      errorElement: <NotFoundPage />,
+      children: [
+        { index: true, element: <HomePage /> },
+        { path: 'puzzles/:puzzleId', element: <PuzzlePlayPage /> },
+        { path: 'editor', element: <PuzzleEditorPage /> },
+        { path: 'search', element: <SearchPage /> },
+        { path: 'leaderboard', element: <LeaderboardPage /> },
+        { path: 'profile', element: <ProfilePage /> },
+        { path: 'community', element: <CommunityPage /> },
+        { path: 'multiplayer', element: <MultiplayerLobbyPage /> },
+        { path: 'admin', element: <AdminDashboardPage /> }
+      ]
+    }
+  ],
+  { basename: import.meta.env.BASE_URL ?? '/' }
+);
 
 export default router;

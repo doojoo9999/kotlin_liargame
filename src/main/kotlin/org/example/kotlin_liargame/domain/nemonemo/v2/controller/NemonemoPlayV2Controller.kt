@@ -5,11 +5,12 @@ import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PlayAutosaveRequest
 import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PlayStartRequest
 import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PlaySubmitRequest
 import org.example.kotlin_liargame.domain.nemonemo.v2.service.PlaySessionService
+import org.example.kotlin_liargame.global.security.RequireSubject
+import org.example.kotlin_liargame.global.security.SubjectPrincipal
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
-import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import java.util.UUID
@@ -23,10 +24,10 @@ class NemonemoPlayV2Controller(
     @PostMapping("/puzzles/{puzzleId}/plays")
     fun startPlay(
         @PathVariable puzzleId: UUID,
-        @RequestHeader("X-Subject-Key") subjectKey: UUID,
+        @RequireSubject subject: SubjectPrincipal,
         @Valid @RequestBody request: PlayStartRequest
     ) = ResponseEntity.ok(
-        playSessionService.startPlay(puzzleId, subjectKey, request)
+        playSessionService.startPlay(puzzleId, subject.subjectKey, request)
     )
 
     @PostMapping("/plays/{playId}/autosave")
@@ -41,9 +42,9 @@ class NemonemoPlayV2Controller(
     @PostMapping("/plays/{playId}/submit")
     fun submit(
         @PathVariable playId: UUID,
-        @RequestHeader("X-Subject-Key") subjectKey: UUID,
+        @RequireSubject subject: SubjectPrincipal,
         @Valid @RequestBody request: PlaySubmitRequest
     ) = ResponseEntity.ok(
-        playSessionService.submit(playId, subjectKey, request)
+        playSessionService.submit(playId, subject.subjectKey, request)
     )
 }

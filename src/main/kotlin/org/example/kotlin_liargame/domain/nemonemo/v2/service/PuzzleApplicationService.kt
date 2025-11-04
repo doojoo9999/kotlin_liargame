@@ -28,7 +28,8 @@ class PuzzleApplicationService(
     private val puzzleHintRepository: PuzzleHintRepository,
     private val puzzleSolutionRepository: PuzzleSolutionRepository,
     private val dailyPickRepository: DailyPickRepository,
-    private val metadataResolver: PuzzleMetadataResolver
+    private val metadataResolver: PuzzleMetadataResolver,
+    private val puzzleGridValidator: PuzzleGridValidator
 ) {
 
     fun listPuzzles(
@@ -59,6 +60,8 @@ class PuzzleApplicationService(
         request: PuzzleCreateRequest,
         authorKey: UUID?
     ): PuzzleCreateResponse {
+        val sanitizedGrid = puzzleGridValidator.sanitize(request)
+
         val puzzle = PuzzleEntity(
             title = request.title,
             description = request.description,
@@ -71,9 +74,15 @@ class PuzzleApplicationService(
             tags.addAll(request.tags)
         }
 
-        val savedPuzzle = puzzleRepository.save(puzzle)
+        val metadata = metadataResolver.analyzeGrid(sanitizedGrid, puzzle)
+        if (puzzleSolutionRepository.existsByChecksum(metadata.checksum)) {
+            throw org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.CONFLICT,
+                "이미 동일한 해답을 가진 퍼즐이 존재합니다."
+            )
+        }
 
-        val metadata = metadataResolver.analyzeGrid(request.grid, savedPuzzle)
+        val savedPuzzle = puzzleRepository.save(puzzle)
 
         puzzleHintRepository.save(
             PuzzleHintEntity(
@@ -93,12 +102,12 @@ class PuzzleApplicationService(
         )
 
         metadata.applyTo(savedPuzzle)
-        puzzleRepository.save(savedPuzzle)
+        val updatedPuzzle = puzzleRepository.save(savedPuzzle)
 
         val responseMetadata = PuzzleMetadataDto(
             contentStyle = metadata.contentStyle,
             textLikenessScore = metadata.textScore,
-            tags = metadata.tags,
+            tags = updatedPuzzle.tags.toList(),
             uniqueness = metadata.unique,
             difficultyScore = metadata.difficultyScore,
             difficultyCategory = metadata.difficultyCategory,
@@ -106,8 +115,8 @@ class PuzzleApplicationService(
         )
 
         return PuzzleCreateResponse(
-            puzzleId = savedPuzzle.id,
-            status = savedPuzzle.status,
+            puzzleId = updatedPuzzle.id,
+            status = updatedPuzzle.status,
             metadata = responseMetadata,
             rejectionReason = null,
             reviewNotes = null
@@ -124,8 +133,14 @@ class PuzzleApplicationService(
             )
         }
         val puzzleIds = metadataResolver.parseDailyPickItems(pick.items)
-        val puzzles = puzzleRepository.findAllById(puzzleIds)
-        val summaries = puzzles.map(::toSummary)
+        val summaries = if (puzzleIds.isEmpty()) {
+            puzzleRepository.findByStatusOrderByCreatedAtDesc(PuzzleStatus.APPROVED)
+                .take(5)
+                .map(::toSummary)
+        } else {
+            val resolved = puzzleRepository.findAllById(puzzleIds).associateBy { it.id }
+            puzzleIds.mapNotNull(resolved::get).map(::toSummary)
+        }
         return DailyPickResponse(
             date = pick.pickDate.toString(),
             items = summaries

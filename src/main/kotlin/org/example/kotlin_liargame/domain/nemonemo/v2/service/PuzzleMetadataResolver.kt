@@ -2,6 +2,8 @@ package org.example.kotlin_liargame.domain.nemonemo.v2.service
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
+import org.example.kotlin_liargame.domain.nemonemo.service.PuzzleValidationResult
+import org.example.kotlin_liargame.domain.nemonemo.service.PuzzleValidationService
 import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleAuthorDto
 import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleDetailDto
 import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleHintDto
@@ -9,39 +11,24 @@ import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleStatDto
 import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleContentStyle
 import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleEntity
 import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleHintEntity
+import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Component
-import java.nio.charset.StandardCharsets
-import java.security.MessageDigest
+import org.springframework.web.server.ResponseStatusException
 import java.time.Instant
 import java.util.UUID
 
 @Component
 class PuzzleMetadataResolver(
-    private val objectMapper: ObjectMapper
+    private val objectMapper: ObjectMapper,
+    private val puzzleValidationService: PuzzleValidationService
 ) {
 
     fun analyzeGrid(grid: List<String>, puzzle: PuzzleEntity): ResolvedPuzzleMetadata {
-        val flattened = grid.joinToString(separator = "")
-        val filledCells = flattened.count { it == '#' }
-        val totalCells = puzzle.width * puzzle.height
-        val density = if (totalCells == 0) 0.0 else filledCells.toDouble() / totalCells
-
-        val difficultyScore = (density * 5.0) + (grid.size / 10.0)
-        val difficultyCategory = resolveDifficultyLabel(difficultyScore)
-        val estimatedTime = (totalCells * (1 + density)).toLong() * 1500
-
-        val rows = grid.map { row ->
-            row.split(Regex("\\.+")).filter { it.isNotEmpty() }.map(String::length)
-        }
-        val cols = (0 until puzzle.width).map { x ->
-            val columnString = grid.joinToString("") { it[x].toString() }
-            columnString.split(Regex("\\.+")).filter { it.isNotEmpty() }.map(String::length)
-        }
-
-        val rowsJson = objectMapper.writeValueAsString(rows)
-        val colsJson = objectMapper.writeValueAsString(cols)
-        val solutionBytes = flattened.toByteArray(StandardCharsets.UTF_8)
-        val checksum = checksum(solutionBytes)
+        val analysis = runAnalysis(grid)
+        val rowsJson = objectMapper.writeValueAsString(analysis.validation.hints.rows)
+        val colsJson = objectMapper.writeValueAsString(analysis.validation.hints.columns)
+        val solutionBytes = puzzleValidationService.encodeSolution(analysis.grid)
+        val checksum = analysis.validation.checksum
 
         return ResolvedPuzzleMetadata(
             rowsJson = rowsJson,
@@ -49,12 +36,12 @@ class PuzzleMetadataResolver(
             solutionBytes = solutionBytes,
             checksum = checksum,
             contentStyle = puzzle.contentStyle,
-            textScore = if (flattened.any { it.isLetter() }) 0.8 else 0.1,
+            textScore = computeTextScore(grid),
             tags = deriveTags(grid),
-            unique = true,
-            difficultyScore = difficultyScore,
-            difficultyCategory = difficultyCategory?:"UNKNOWN",
-            estimatedTimeMs = estimatedTime
+            unique = analysis.validation.solver.uniqueSolution,
+            difficultyScore = analysis.validation.solver.difficultyScore,
+            difficultyCategory = resolveDifficultyLabel(analysis.validation.solver.difficultyScore) ?: "UNKNOWN",
+            estimatedTimeMs = analysis.validation.estimatedMinutes.toLong() * 60_000
         )
     }
 
@@ -102,6 +89,15 @@ class PuzzleMetadataResolver(
         )
     }
 
+    private fun runAnalysis(grid: List<String>): PuzzleAnalysisPayload {
+        val parsedGrid = puzzleValidationService.parseSolutionPayload(grid)
+        val validation = puzzleValidationService.validateSolution(parsedGrid)
+        if (!validation.solver.uniqueSolution) {
+            throw ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "퍼즐이 유일해를 만족하지 않습니다.")
+        }
+        return PuzzleAnalysisPayload(parsedGrid, validation)
+    }
+
     fun parseDailyPickItems(payload: String): List<UUID> =
         runCatching { objectMapper.readValue<List<UUID>>(payload) }.getOrElse { emptyList() }
 
@@ -118,6 +114,11 @@ class PuzzleMetadataResolver(
     private fun parseHintArray(raw: String): List<List<Int>> =
         runCatching { objectMapper.readValue<List<List<Int>>>(raw) }.getOrElse { emptyList() }
 
+    private fun computeTextScore(grid: List<String>): Double {
+        val flattened = grid.joinToString(separator = "")
+        return if (flattened.any { it.isLetter() }) 0.8 else 0.1
+    }
+
     private fun deriveTags(grid: List<String>): List<String> {
         val size = grid.size
         val tags = mutableListOf<String>()
@@ -129,10 +130,6 @@ class PuzzleMetadataResolver(
         return tags
     }
 
-    private fun checksum(bytes: ByteArray): String {
-        val digest = MessageDigest.getInstance("SHA-256").digest(bytes)
-        return digest.joinToString("") { "%02x".format(it) }
-    }
 }
 
 data class ResolvedPuzzleMetadata(
@@ -151,8 +148,14 @@ data class ResolvedPuzzleMetadata(
     fun applyTo(puzzle: PuzzleEntity) {
         puzzle.textLikenessScore = textScore
         puzzle.difficultyScore = difficultyScore
+        val mergedTags = (puzzle.tags + tags).toSet()
         puzzle.tags.clear()
-        puzzle.tags.addAll(tags)
+        puzzle.tags.addAll(mergedTags)
         puzzle.uniquenessFlag = unique
     }
 }
+
+private data class PuzzleAnalysisPayload(
+    val grid: Array<BooleanArray>,
+    val validation: PuzzleValidationResult
+)

@@ -13,6 +13,8 @@ import jakarta.persistence.Table
 import java.io.Serializable
 import java.time.Instant
 import java.util.UUID
+import org.hibernate.annotations.JdbcTypeCode
+import org.hibernate.type.SqlTypes
 
 @Entity
 @Table(name = "multiplayer_sessions")
@@ -36,6 +38,7 @@ class MultiplayerSessionEntity(
     @Column(nullable = false, length = 16)
     var status: MultiplayerStatus = MultiplayerStatus.WAITING,
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "participants", columnDefinition = "jsonb", nullable = false)
     var participantsSnapshot: String,
 
@@ -45,6 +48,7 @@ class MultiplayerSessionEntity(
     @Column(name = "finished_at")
     var finishedAt: Instant? = null,
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "result", columnDefinition = "jsonb")
     var result: String? = null,
 

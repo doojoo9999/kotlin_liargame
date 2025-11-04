@@ -22,7 +22,9 @@ interface PuzzleSeriesRepository : JpaRepository<PuzzleSeriesEntity, UUID>
 
 interface PuzzleHintRepository : JpaRepository<PuzzleHintEntity, UUID>
 
-interface PuzzleSolutionRepository : JpaRepository<PuzzleSolutionEntity, UUID>
+interface PuzzleSolutionRepository : JpaRepository<PuzzleSolutionEntity, UUID> {
+    fun existsByChecksum(checksum: String): Boolean
+}
 
 interface PuzzleVoteRepository : JpaRepository<PuzzleVoteEntity, Long> {
     fun findByPuzzleIdAndSubjectKey(puzzleId: UUID, subjectKey: UUID): Optional<PuzzleVoteEntity>

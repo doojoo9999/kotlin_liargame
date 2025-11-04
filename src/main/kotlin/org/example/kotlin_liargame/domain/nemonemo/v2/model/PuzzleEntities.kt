@@ -15,6 +15,8 @@ import jakarta.persistence.JoinColumn
 import jakarta.persistence.Lob
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
+import org.hibernate.annotations.JdbcTypeCode
+import org.hibernate.type.SqlTypes
 import org.example.kotlin_liargame.global.base.BaseEntity
 import java.time.Instant
 import java.util.UUID
@@ -143,12 +145,12 @@ class PuzzleHintEntity(
     @Column(name = "puzzle_id", columnDefinition = "uuid")
     val puzzleId: UUID,
 
-    @Lob
-    @Column(name = "rows", nullable = false)
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "rows", nullable = false, columnDefinition = "jsonb")
     var rows: String,
 
-    @Lob
-    @Column(name = "cols", nullable = false)
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "cols", nullable = false, columnDefinition = "jsonb")
     var cols: String,
 
     @Column(nullable = false)

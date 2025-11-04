@@ -7,6 +7,8 @@ import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
 import jakarta.persistence.Table
+import org.hibernate.annotations.JdbcTypeCode
+import org.hibernate.type.SqlTypes
 import java.io.Serializable
 import java.time.Instant
 import java.time.LocalDate
@@ -34,6 +36,7 @@ class AchievementEntity(
     @Column(nullable = false)
     val points: Int,
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "conditions", columnDefinition = "jsonb", nullable = false)
     val conditions: String
 ) {
@@ -60,6 +63,7 @@ class UserAchievementEntity(
     @Column(name = "unlocked_at", nullable = false)
     val unlockedAt: Instant = Instant.now(),
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "progress", columnDefinition = "jsonb")
     val progress: String? = null
 )
@@ -77,9 +81,11 @@ class ChallengeEntity(
     @Column(columnDefinition = "TEXT")
     val description: String? = null,
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "requirements", columnDefinition = "jsonb", nullable = false)
     val requirements: String,
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "rewards", columnDefinition = "jsonb", nullable = false)
     val rewards: String,
 
@@ -112,6 +118,7 @@ class UserChallengeEntity(
     @EmbeddedId
     val id: UserChallengeId,
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "progress", columnDefinition = "jsonb", nullable = false)
     var progress: String,
 
@@ -140,6 +147,7 @@ class SeasonPassEntity(
     @Column(name = "end_date", nullable = false)
     val endDate: LocalDate,
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "tiers", columnDefinition = "jsonb", nullable = false)
     val tiers: String,
 

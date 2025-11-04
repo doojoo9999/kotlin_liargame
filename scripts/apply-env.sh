@@ -18,10 +18,9 @@ else
 fi
 
 declare -A APP_BASE_OVERRIDES=(
-  ["lineagew-admin"]="/linw"
-  ["nemonemo"]="/nemonemo"
+  ["lineagew-admin"]="/linw/"
+  ["nemonemo"]="/nemonemo/"
 )
-
 declare -A API_BASE_OVERRIDES=(
   ["lineagew-admin"]="https://zzirit.kr/api/lineage"
   ["nemonemo"]="https://zzirit.kr/api/v2/nemonemo"

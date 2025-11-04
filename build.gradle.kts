@@ -61,7 +61,8 @@ dependencies {
     testImplementation("io.mockk:mockk:1.13.10")
     testImplementation("org.testcontainers:postgresql")
     testImplementation("org.testcontainers:junit-jupiter")
-    // testImplementation("org.springframework.security:spring-security-test")
+    testImplementation("com.opentable.components:otj-pg-embedded:0.13.1")
+    testImplementation("org.springframework.security:spring-security-test")
     }
 
 kotlin {

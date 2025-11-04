@@ -3,6 +3,7 @@ package org.example.kotlin_liargame.global.exception
 import org.example.kotlin_liargame.global.dto.ErrorResponse
 import org.example.lineagew.domain.boss.exception.DuplicateBossException
 import org.springframework.http.HttpStatus
+import org.springframework.http.HttpStatusCode
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.messaging.handler.annotation.MessageExceptionHandler
@@ -11,6 +12,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.context.request.WebRequest
+import org.springframework.web.server.ResponseStatusException
 
 @RestControllerAdvice
 class GlobalExceptionHandler(
@@ -122,6 +124,27 @@ class GlobalExceptionHandler(
         return ResponseEntity(errorResponse, HttpStatus.CONFLICT)
     }
 
+    @ExceptionHandler(ResponseStatusException::class)
+    fun handleResponseStatusException(
+        ex: ResponseStatusException,
+        request: WebRequest
+    ): ResponseEntity<ErrorResponse> {
+        val status = resolveHttpStatus(ex.statusCode)
+        val errorResponse = ErrorResponse(
+            errorCode = status.name,
+            message = ex.reason ?: status.reasonPhrase,
+            userFriendlyMessage = ex.reason ?: status.reasonPhrase,
+            details = mapOf(
+                "path" to request.getDescription(false),
+                "exceptionType" to ex.javaClass.simpleName
+            )
+        )
+
+        println("[ERROR] ResponseStatusException(${status.value()}): ${ex.reason}")
+
+        return ResponseEntity(errorResponse, status)
+    }
+
     @ExceptionHandler(IllegalStateException::class)
     fun handleIllegalStateException(
         ex: IllegalStateException,
@@ -188,4 +211,7 @@ class GlobalExceptionHandler(
         
         return errorResponse
     }
+
+    private fun resolveHttpStatus(statusCode: HttpStatusCode): HttpStatus =
+        HttpStatus.resolve(statusCode.value()) ?: HttpStatus.INTERNAL_SERVER_ERROR
 }
