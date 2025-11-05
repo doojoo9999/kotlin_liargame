@@ -2,6 +2,7 @@ package org.example.kotlin_liargame.domain.nemonemo.v2.controller
 
 import jakarta.validation.Valid
 import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleCreateRequest
+import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleAuditLogDto
 import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleOfficialRequest
 import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleReviewRequest
 import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleStatus
@@ -127,6 +128,19 @@ class NemonemoPuzzleV2Controller(
         }
         ResponseEntity.ok(
             puzzleApplicationService.getReviewQueue(limit)
+        )
+    }
+
+    @GetMapping("/admin/puzzles/{puzzleId}/audits")
+    fun auditTrail(
+        @PathVariable puzzleId: UUID,
+        @RequireSubject subject: SubjectPrincipal
+    ): ResponseEntity<List<PuzzleAuditLogDto>> {
+        if (!subject.isAdmin) {
+            throw ResponseStatusException(HttpStatus.FORBIDDEN, "ADMIN_ONLY")
+        }
+        return ResponseEntity.ok(
+            puzzleApplicationService.getPuzzleAuditTrail(puzzleId)
         )
     }
 }

@@ -5,12 +5,14 @@ import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleCreateRequest
 import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleCreateResponse
 import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleDetailDto
 import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleListResponse
+import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleAuditLogDto
 import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleMetadataDto
 import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleOfficialRequest
 import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleReviewRequest
 import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleReviewResponse
 import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleSummaryDto
 import org.example.kotlin_liargame.domain.nemonemo.v2.model.DailyPickEntity
+import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleAuditAction
 import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleContentStyle
 import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleEntity
 import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleHintEntity
@@ -36,7 +38,8 @@ class PuzzleApplicationService(
     private val puzzleSolutionRepository: PuzzleSolutionRepository,
     private val dailyPickRepository: DailyPickRepository,
     private val metadataResolver: PuzzleMetadataResolver,
-    private val puzzleGridValidator: PuzzleGridValidator
+    private val puzzleGridValidator: PuzzleGridValidator,
+    private val puzzleAuditService: PuzzleAuditService
 ) {
 
     fun listPuzzles(
@@ -147,11 +150,12 @@ class PuzzleApplicationService(
         }
 
         val now = Instant.now()
-        when (request.decision) {
+        val auditAction = when (request.decision) {
             PuzzleReviewDecision.APPROVE -> {
                 puzzle.status = PuzzleStatus.APPROVED
                 puzzle.approvedAt = now
                 puzzle.rejectionReason = null
+                PuzzleAuditAction.REVIEW_APPROVE
             }
             PuzzleReviewDecision.REJECT -> {
                 val reason = request.rejectionReason?.takeIf { it.isNotBlank() }
@@ -159,6 +163,7 @@ class PuzzleApplicationService(
                 puzzle.status = PuzzleStatus.REJECTED
                 puzzle.rejectionReason = reason
                 puzzle.approvedAt = null
+                PuzzleAuditAction.REVIEW_REJECT
             }
         }
         puzzle.reviewNotes = request.reviewNotes
@@ -166,6 +171,16 @@ class PuzzleApplicationService(
         puzzle.reviewedAt = now
 
         val saved = puzzleRepository.save(puzzle)
+        puzzleAuditService.record(
+            puzzleId = saved.id,
+            actorKey = reviewerKey,
+            action = auditAction,
+            payload = mapOf(
+                "status" to saved.status.name,
+                "reviewNotes" to saved.reviewNotes,
+                "rejectionReason" to saved.rejectionReason
+            )
+        )
         return PuzzleReviewResponse(
             puzzleId = saved.id,
             status = saved.status,
@@ -207,6 +222,15 @@ class PuzzleApplicationService(
         puzzle.reviewedAt = now
 
         val saved = puzzleRepository.save(puzzle)
+        puzzleAuditService.record(
+            puzzleId = saved.id,
+            actorKey = reviewerKey,
+            action = PuzzleAuditAction.OFFICIAL_PROMOTE,
+            payload = mapOf(
+                "status" to saved.status.name,
+                "notes" to request.notes
+            )
+        )
         return PuzzleReviewResponse(
             puzzleId = saved.id,
             status = saved.status,
@@ -242,6 +266,15 @@ class PuzzleApplicationService(
         puzzle.reviewedAt = now
 
         val saved = puzzleRepository.save(puzzle)
+        puzzleAuditService.record(
+            puzzleId = saved.id,
+            actorKey = reviewerKey,
+            action = PuzzleAuditAction.OFFICIAL_REVOKE,
+            payload = mapOf(
+                "status" to saved.status.name,
+                "notes" to request.notes
+            )
+        )
         return PuzzleReviewResponse(
             puzzleId = saved.id,
             status = saved.status,
@@ -283,6 +316,11 @@ class PuzzleApplicationService(
             .sortedBy { it.createdAt }
             .take(limit.coerceAtLeast(1))
             .map(::toSummary)
+    }
+
+    @Transactional(readOnly = true)
+    fun getPuzzleAuditTrail(puzzleId: UUID): List<PuzzleAuditLogDto> {
+        return puzzleAuditService.fetch(puzzleId)
     }
 
     private fun toSummary(entity: PuzzleEntity): PuzzleSummaryDto = PuzzleSummaryDto(

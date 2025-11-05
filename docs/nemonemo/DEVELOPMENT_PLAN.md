@@ -4,7 +4,7 @@
 
 - **F1** 완료 – `V012__Create_nemonemo_v2_tables.sql` 보강 및 시드 정비, Flyway 적용 확인.
 - **F2** 완료 – SubjectPrincipal 기반 세션 인증·RateLimit 필터·헤더 정리.
-- **F3** 진행 중 – 퍼즐 업로드 파이프라인 안정화(그리드 밸리데이션/체크섬 중복 처리, ResponseStatusException 매핑, `NemonemoPuzzleV2ControllerTest` 정상화) 및 관리자 검수 API(승인/반려, 리뷰 메타데이터 저장) 확장.
+- **F3** 진행 중 – 퍼즐 업로드 파이프라인 안정화(그리드 밸리데이션/체크섬 중복 처리, ResponseStatusException 매핑, `NemonemoPuzzleV2ControllerTest` 정상화) 및 관리자 검수 API(승인/반려, 리뷰 메타데이터 저장) 확장, 감사 로그(`puzzle_audit_logs`) 기록/테스트 도입.
 
 ## 1) 제품 목표(필수 기능)
 
@@ -110,7 +110,7 @@
 - `scores` (puzzle_id, subject_key, mode, best_time_ms, best_score, perfect_clear, last_played_at, flags)
 - `daily_picks` (date, items JSONB, generated_at)
 - `reports` (puzzle_id, reporter_key, reason, status, reviewed_at, reviewer_id)
-- `audit_logs` (who, what, when, payload JSONB)
+- `puzzle_audit_logs` (관리자 액션, 대상 퍼즐, 시점, payload JSONB)
 
 ### 게임성 강화 추가 테이블
 - `achievements` (id, code, title, description, icon_url, tier ENUM: BRONZE|SILVER|GOLD|PLATINUM, points, conditions JSONB)
@@ -325,6 +325,24 @@ difficulty_score =
 - **승격 API**: `POST /api/v2/nemonemo/puzzles/{id}/official` (관리자 전용) – 승인 상태에서만 허용, `notes` 필드로 승격 메모 저장, 응답은 검수 응답과 동일 포맷.
 - **철회 API**: `POST /api/v2/nemonemo/puzzles/{id}/official/revoke` (관리자 전용) – OFFICIAL 상태에서만 허용, `notes` 선택 입력, 상태를 `APPROVED`로 되돌리고 `official_at`을 해제한다.
 - **검수 대기 큐 조회 API**: `GET /api/v2/nemonemo/admin/puzzles/review-queue?limit=20` – 관리자 전용, DRAFT 퍼즐을 생성일 순으로 반환.
+ - **감사 로그 조회 API**: `GET /api/v2/nemonemo/admin/puzzles/{puzzleId}/audits` – 관리자 전용, 승인/승격/철회 기록과 payload(JSONB)를 시간순으로 반환.  
+   - Request: 관리자 세션 필수, 추가 쿼리 파라미터 없음  
+   - Response 예시  
+   ```json
+   [
+     {
+       "id": "9f07b6a0-4d3e-46b7-9c1c-4b7fb6e8b034",
+       "action": "REVIEW_APPROVE",
+       "actorKey": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+       "payload": {
+         "status": "APPROVED",
+         "reviewNotes": "OK"
+       },
+       "createdAt": "2025-11-05T08:52:14.036"
+     }
+   ]
+   ```  
+   - TODO: 향후 페이지네이션(`cursor`)과 액션/기간 필터를 확장하고, 응답에 `nextCursor`를 포함하도록 개선.
 
 ### 승격 혜택
 - "OFFICIAL" 배지 표시

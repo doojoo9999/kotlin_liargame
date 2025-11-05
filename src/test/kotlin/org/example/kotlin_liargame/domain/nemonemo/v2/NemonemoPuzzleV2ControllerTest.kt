@@ -5,6 +5,7 @@ import jakarta.transaction.Transactional
 import org.example.kotlin_liargame.domain.nemonemo.service.PuzzleValidationService
 import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleCreateRequest
 import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleReviewRequest
+import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleAuditAction
 import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleReviewDecision
 import org.example.kotlin_liargame.domain.nemonemo.v2.model.DailyPickEntity
 import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleContentStyle
@@ -13,12 +14,16 @@ import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleStatus
 import org.example.kotlin_liargame.domain.nemonemo.v2.model.ScoreEntity
 import org.example.kotlin_liargame.domain.nemonemo.v2.model.ScoreId
 import org.example.kotlin_liargame.domain.nemonemo.v2.repository.DailyPickRepository
+import org.example.kotlin_liargame.domain.nemonemo.v2.repository.PuzzleAuditLogRepository
 import org.example.kotlin_liargame.domain.nemonemo.v2.repository.PuzzleHintRepository
 import org.example.kotlin_liargame.domain.nemonemo.v2.repository.PuzzleRepository
 import org.example.kotlin_liargame.domain.nemonemo.v2.repository.PuzzleSolutionRepository
 import org.example.kotlin_liargame.domain.nemonemo.v2.repository.PlayRepository
 import org.example.kotlin_liargame.domain.nemonemo.v2.repository.ScoreRepository
 import org.example.kotlin_liargame.domain.nemonemo.v2.service.PuzzleApplicationService
+import org.example.kotlin_liargame.domain.nemonemo.v2.controller.NemonemoPuzzleV2Controller
+import org.example.kotlin_liargame.global.security.SessionDataManager
+import org.example.kotlin_liargame.global.security.UserSessionData
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -33,6 +38,7 @@ import org.junit.jupiter.api.AfterEach
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.http.MediaType
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf
 import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.DynamicPropertyRegistry
@@ -40,6 +46,16 @@ import org.springframework.test.context.DynamicPropertySource
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
+import org.springframework.test.web.servlet.request.RequestPostProcessor
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+import org.springframework.test.web.servlet.setup.MockMvcBuilders
+import org.springframework.core.MethodParameter
+import org.springframework.web.bind.support.WebDataBinderFactory
+import org.springframework.web.context.request.NativeWebRequest
+import org.springframework.web.method.support.HandlerMethodArgumentResolver
+import org.springframework.web.method.support.ModelAndViewContainer
+import org.example.kotlin_liargame.global.security.RequireSubject
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers
 import java.time.Instant
 import java.time.LocalDate
 import java.util.UUID
@@ -61,7 +77,10 @@ class NemonemoPuzzleV2ControllerTest @Autowired constructor(
     private val playRepository: PlayRepository,
     private val dailyPickRepository: DailyPickRepository,
     private val scoreRepository: ScoreRepository,
-    private val objectMapper: ObjectMapper
+    private val puzzleAuditLogRepository: PuzzleAuditLogRepository,
+    private val objectMapper: ObjectMapper,
+    private val sessionDataManager: SessionDataManager,
+    private val puzzleController: NemonemoPuzzleV2Controller
 ) {
 
     companion object {
@@ -167,6 +186,7 @@ class NemonemoPuzzleV2ControllerTest @Autowired constructor(
         scoreRepository.deleteAll()
         playRepository.deleteAll()
         dailyPickRepository.deleteAll()
+        puzzleAuditLogRepository.deleteAll()
         puzzleSolutionRepository.deleteAll()
         puzzleHintRepository.deleteAll()
         puzzleRepository.deleteAll()
@@ -183,6 +203,43 @@ class NemonemoPuzzleV2ControllerTest @Autowired constructor(
         userId = null,
         roles = setOf("ROLE_SUBJECT", "ROLE_GUEST")
     )
+
+    private fun asGuest(): RequestPostProcessor = attachPrincipal(guestPrincipal())
+
+    private fun attachPrincipal(principal: SubjectPrincipal): RequestPostProcessor = RequestPostProcessor { request ->
+        val session = requireNotNull(request.getSession(true))
+        principal.userId?.let { userId ->
+            sessionDataManager.setUserSession(
+                session,
+                UserSessionData(
+                    userId = userId,
+                    nickname = "member"
+                )
+            )
+        }
+        session.setAttribute(SubjectPrincipalResolver.SUBJECT_SESSION_ATTRIBUTE, principal)
+        request.setAttribute(SubjectPrincipalResolver.REQUEST_ATTRIBUTE, principal)
+        request.addHeader("X-Subject-Key", principal.subjectKey.toString())
+        request
+    }
+
+    private fun createAdminMockMvc(principal: SubjectPrincipal): MockMvc =
+        MockMvcBuilders.standaloneSetup(puzzleController)
+            .setCustomArgumentResolvers(object : HandlerMethodArgumentResolver {
+                override fun supportsParameter(parameter: MethodParameter): Boolean {
+                    return parameter.hasParameterAnnotation(RequireSubject::class.java) &&
+                        SubjectPrincipal::class.java.isAssignableFrom(parameter.parameterType)
+                }
+
+                override fun resolveArgument(
+                    parameter: MethodParameter,
+                    mavContainer: org.springframework.web.method.support.ModelAndViewContainer?,
+                    webRequest: org.springframework.web.context.request.NativeWebRequest,
+                    binderFactory: org.springframework.web.bind.support.WebDataBinderFactory?
+                ): Any = principal
+            })
+            .setMessageConverters(MappingJackson2HttpMessageConverter(objectMapper))
+            .build()
 
     private fun ensureUniqueSolution(label: String, grid: List<String>) {
         val parsed = puzzleValidationService.parseSolutionPayload(grid)
@@ -391,13 +448,7 @@ class NemonemoPuzzleV2ControllerTest @Autowired constructor(
         val draftId = createDraftPuzzle("Forbidden Review")
 
         mockMvc.post("/api/v2/nemonemo/puzzles/{id}/review", draftId) {
-            with {
-                val session = requireNotNull(it.getSession(true))
-                session.setAttribute(SubjectPrincipalResolver.SUBJECT_SESSION_ATTRIBUTE, guestPrincipal())
-                it.setAttribute(SubjectPrincipalResolver.REQUEST_ATTRIBUTE, guestPrincipal())
-                it.addHeader("X-Subject-Key", SUBJECT_KEY.toString())
-                it
-            }
+            with(asGuest())
             contentType = MediaType.APPLICATION_JSON
             content = objectMapper.writeValueAsString(
                 PuzzleReviewRequest(
@@ -456,13 +507,7 @@ class NemonemoPuzzleV2ControllerTest @Autowired constructor(
         approveDraft(draftId)
 
         mockMvc.post("/api/v2/nemonemo/puzzles/{id}/official", draftId) {
-            with {
-                val session = requireNotNull(it.getSession(true))
-                session.setAttribute(SubjectPrincipalResolver.SUBJECT_SESSION_ATTRIBUTE, guestPrincipal())
-                it.setAttribute(SubjectPrincipalResolver.REQUEST_ATTRIBUTE, guestPrincipal())
-                it.addHeader("X-Subject-Key", SUBJECT_KEY.toString())
-                it
-            }
+            with(asGuest())
             contentType = MediaType.APPLICATION_JSON
             content = objectMapper.writeValueAsString(
                 org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleOfficialRequest(
@@ -510,13 +555,7 @@ class NemonemoPuzzleV2ControllerTest @Autowired constructor(
         promoteOfficial(draftId)
 
         mockMvc.post("/api/v2/nemonemo/puzzles/{id}/official/revoke", draftId) {
-            with {
-                val session = requireNotNull(it.getSession(true))
-                session.setAttribute(SubjectPrincipalResolver.SUBJECT_SESSION_ATTRIBUTE, guestPrincipal())
-                it.setAttribute(SubjectPrincipalResolver.REQUEST_ATTRIBUTE, guestPrincipal())
-                it.addHeader("X-Subject-Key", SUBJECT_KEY.toString())
-                it
-            }
+            with(asGuest())
             contentType = MediaType.APPLICATION_JSON
             content = objectMapper.writeValueAsString(
                 org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleOfficialRequest(notes = "철회 요청")
@@ -561,6 +600,46 @@ class NemonemoPuzzleV2ControllerTest @Autowired constructor(
     }
 
     @Test
+    fun `approve review writes puzzle audit log`() {
+        val draftId = createDraftPuzzle("Audit Review")
+        approveDraft(draftId)
+
+        val logs = puzzleAuditLogRepository.findByPuzzleIdOrderByCreatedAtAsc(draftId)
+        assertEquals(1, logs.size)
+        val log = logs.first()
+        assertEquals(PuzzleAuditAction.REVIEW_APPROVE, log.action)
+        val payload = log.payload?.let(objectMapper::readTree)
+        assertEquals("APPROVED", payload?.get("status")?.asText())
+    }
+
+    @Test
+    fun `official actions emit audit logs`() {
+        val draftId = createDraftPuzzle("Audit Official Flow")
+        approveDraft(draftId)
+        puzzleApplicationService.promoteToOfficial(
+            puzzleId = draftId,
+            reviewerKey = SUBJECT_KEY,
+            request = org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleOfficialRequest(notes = "승격 감사")
+        )
+        puzzleApplicationService.revokeOfficial(
+            puzzleId = draftId,
+            reviewerKey = SUBJECT_KEY,
+            request = org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleOfficialRequest(notes = "철회 감사")
+        )
+
+        val actions = puzzleAuditLogRepository.findByPuzzleIdOrderByCreatedAtAsc(draftId)
+            .map { it.action }
+        assertEquals(
+            listOf(
+                PuzzleAuditAction.REVIEW_APPROVE,
+                PuzzleAuditAction.OFFICIAL_PROMOTE,
+                PuzzleAuditAction.OFFICIAL_REVOKE
+            ),
+            actions
+        )
+    }
+
+    @Test
     fun `get review queue returns drafts`() {
         val draftId = createDraftPuzzle("Queue Candidate")
         val queue = puzzleApplicationService.getReviewQueue(10)
@@ -573,15 +652,140 @@ class NemonemoPuzzleV2ControllerTest @Autowired constructor(
         createDraftPuzzle("Queue Forbidden")
 
         mockMvc.get("/api/v2/nemonemo/admin/puzzles/review-queue") {
-            with {
-                val session = requireNotNull(it.getSession(true))
-                session.setAttribute(SubjectPrincipalResolver.SUBJECT_SESSION_ATTRIBUTE, guestPrincipal())
-                it.setAttribute(SubjectPrincipalResolver.REQUEST_ATTRIBUTE, guestPrincipal())
-                it.addHeader("X-Subject-Key", SUBJECT_KEY.toString())
-                it
-            }
+            with(asGuest())
         }.andExpect {
             status { isForbidden() }
         }
+    }
+
+    @Test
+    fun `admin review queue endpoint returns drafts`() {
+        val draftId = createDraftPuzzle("Queue Admin")
+        val adminPrincipal = adminPrincipal()
+        val mvcResult = createAdminMockMvc(adminPrincipal).perform(
+            MockMvcRequestBuilders
+                .get("/api/v2/nemonemo/admin/puzzles/review-queue")
+                .param("limit", "5")
+        ).andReturn()
+
+        val queueStatus = mvcResult.response.status
+        val queueBody = mvcResult.response.contentAsString
+        val resolvedPrincipal = mvcResult.request.getAttribute(SubjectPrincipalResolver.REQUEST_ATTRIBUTE) as? SubjectPrincipal
+        assertEquals(200, queueStatus, "Queue status=$queueStatus body=$queueBody roles=${resolvedPrincipal?.roles}")
+
+        val nodes = objectMapper.readTree(queueBody)
+        assertTrue(nodes.any { it.get("id").asText() == draftId.toString() }, "Queue response: $queueBody")
+    }
+
+    @Test
+    fun `admin audit endpoint exposes audit trail`() {
+        val draftId = createDraftPuzzle("Audit API")
+        puzzleApplicationService.reviewPuzzle(
+            puzzleId = draftId,
+            reviewerKey = SUBJECT_KEY,
+            request = PuzzleReviewRequest(
+                decision = PuzzleReviewDecision.APPROVE,
+                reviewNotes = "OK",
+                rejectionReason = null
+            )
+        )
+
+        val adminPrincipal = adminPrincipal()
+
+        val auditResult = createAdminMockMvc(adminPrincipal).perform(
+            MockMvcRequestBuilders
+                .get("/api/v2/nemonemo/admin/puzzles/{id}/audits", draftId)
+        ).andReturn()
+
+        val auditStatus = auditResult.response.status
+        val resolvedAuditPrincipal = auditResult.request.getAttribute(SubjectPrincipalResolver.REQUEST_ATTRIBUTE) as? SubjectPrincipal
+        assertEquals(200, auditStatus, "Audit status=$auditStatus body=${auditResult.response.contentAsString} roles=${resolvedAuditPrincipal?.roles}")
+
+        val auditBody = auditResult.response.contentAsString
+        val auditNodes = objectMapper.readTree(auditBody)
+        assertEquals("REVIEW_APPROVE", auditNodes[0].get("action").asText(), "Audit response: $auditBody")
+        assertEquals("APPROVED", auditNodes[0].path("payload").path("status").asText(), "Audit response: $auditBody")
+        assertEquals(SUBJECT_KEY.toString(), auditNodes[0].get("actorKey").asText(), "Audit response: $auditBody")
+    }
+
+    @Test
+    fun `admin controller review approves puzzle`() {
+        val draftId = createDraftPuzzle("Controller Approve")
+        val adminPrincipal = adminPrincipal()
+
+        createAdminMockMvc(adminPrincipal)
+            .perform(
+                MockMvcRequestBuilders
+                    .post("/api/v2/nemonemo/puzzles/{id}/review", draftId)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        objectMapper.writeValueAsBytes(
+                            PuzzleReviewRequest(
+                                decision = PuzzleReviewDecision.APPROVE,
+                                reviewNotes = "controller",
+                                rejectionReason = null
+                            )
+                        )
+                    )
+            )
+            .andExpect(MockMvcResultMatchers.status().isOk)
+
+        val entity = puzzleRepository.findById(draftId).orElseThrow()
+        assertEquals(PuzzleStatus.APPROVED, entity.status)
+        assertEquals("controller", entity.reviewNotes)
+    }
+
+    @Test
+    fun `admin controller promote sets official`() {
+        val draftId = createDraftPuzzle("Controller Promote")
+        approveDraft(draftId)
+        val adminPrincipal = adminPrincipal()
+
+        createAdminMockMvc(adminPrincipal)
+            .perform(
+                MockMvcRequestBuilders
+                    .post("/api/v2/nemonemo/puzzles/{id}/official", draftId)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        objectMapper.writeValueAsBytes(
+                            org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleOfficialRequest(
+                                notes = "승격 controller"
+                            )
+                        )
+                    )
+            )
+            .andExpect(MockMvcResultMatchers.status().isOk)
+
+        val entity = puzzleRepository.findById(draftId).orElseThrow()
+        assertEquals(PuzzleStatus.OFFICIAL, entity.status)
+        assertEquals("승격 controller", entity.reviewNotes)
+    }
+
+    @Test
+    fun `admin controller revoke returns to approved`() {
+        val draftId = createDraftPuzzle("Controller Revoke")
+        approveDraft(draftId)
+        promoteOfficial(draftId, notes = "승격 controller")
+        val adminPrincipal = adminPrincipal()
+
+        createAdminMockMvc(adminPrincipal)
+            .perform(
+                MockMvcRequestBuilders
+                    .post("/api/v2/nemonemo/puzzles/{id}/official/revoke", draftId)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        objectMapper.writeValueAsBytes(
+                            org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleOfficialRequest(
+                                notes = "철회 controller"
+                            )
+                        )
+                    )
+            )
+            .andExpect(MockMvcResultMatchers.status().isOk)
+
+        val entity = puzzleRepository.findById(draftId).orElseThrow()
+        assertEquals(PuzzleStatus.APPROVED, entity.status)
+        assertEquals("철회 controller", entity.reviewNotes)
+        assertNull(entity.officialAt)
     }
 }

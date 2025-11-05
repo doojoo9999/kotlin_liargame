@@ -21,6 +21,13 @@ import org.example.kotlin_liargame.global.base.BaseEntity
 import java.time.Instant
 import java.util.UUID
 
+enum class PuzzleAuditAction {
+    REVIEW_APPROVE,
+    REVIEW_REJECT,
+    OFFICIAL_PROMOTE,
+    OFFICIAL_REVOKE
+}
+
 @Entity
 @Table(name = "puzzles")
 class PuzzleEntity(
@@ -183,6 +190,29 @@ class PuzzleSolutionEntity(
     @Column(nullable = false, length = 128)
     var checksum: String
 )
+
+@Entity
+@Table(name = "puzzle_audit_logs")
+class PuzzleAuditLogEntity(
+    @Column(name = "puzzle_id", nullable = false, columnDefinition = "uuid")
+    val puzzleId: UUID,
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 40)
+    val action: PuzzleAuditAction,
+
+    @Column(name = "actor_key", nullable = false, columnDefinition = "uuid")
+    val actorKey: UUID,
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb")
+    val payload: String?
+) : BaseEntity() {
+
+    @Id
+    @Column(columnDefinition = "uuid")
+    val id: UUID = UUID.randomUUID()
+}
 
 @Entity
 @Table(name = "votes")

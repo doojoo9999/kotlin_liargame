@@ -1,5 +1,6 @@
 package org.example.kotlin_liargame.domain.nemonemo.v2.dto
 
+import com.fasterxml.jackson.databind.JsonNode
 import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleContentStyle
 import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleMode
 import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleStatus
@@ -116,4 +117,12 @@ data class PuzzleMetadataDto(
 data class DailyPickResponse(
     val date: String,
     val items: List<PuzzleSummaryDto>
+)
+
+data class PuzzleAuditLogDto(
+    val id: UUID,
+    val action: String,
+    val actorKey: UUID,
+    val payload: JsonNode?,
+    val createdAt: LocalDateTime
 )

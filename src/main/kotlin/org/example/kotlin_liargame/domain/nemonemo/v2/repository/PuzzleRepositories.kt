@@ -1,5 +1,6 @@
 package org.example.kotlin_liargame.domain.nemonemo.v2.repository
 
+import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleAuditLogEntity
 import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleCommentEntity
 import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleEntity
 import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleHintEntity
@@ -24,6 +25,10 @@ interface PuzzleHintRepository : JpaRepository<PuzzleHintEntity, UUID>
 
 interface PuzzleSolutionRepository : JpaRepository<PuzzleSolutionEntity, UUID> {
     fun existsByChecksum(checksum: String): Boolean
+}
+
+interface PuzzleAuditLogRepository : JpaRepository<PuzzleAuditLogEntity, UUID> {
+    fun findByPuzzleIdOrderByCreatedAtAsc(puzzleId: UUID): List<PuzzleAuditLogEntity>
 }
 
 interface PuzzleVoteRepository : JpaRepository<PuzzleVoteEntity, Long> {
