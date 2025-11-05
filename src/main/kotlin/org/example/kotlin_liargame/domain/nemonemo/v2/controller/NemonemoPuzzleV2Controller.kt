@@ -2,6 +2,8 @@ package org.example.kotlin_liargame.domain.nemonemo.v2.controller
 
 import jakarta.validation.Valid
 import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleCreateRequest
+import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleOfficialRequest
+import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleReviewRequest
 import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleStatus
 import org.example.kotlin_liargame.domain.nemonemo.v2.service.PuzzleApplicationService
 import org.example.kotlin_liargame.global.security.RequireSubject
@@ -15,6 +17,8 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
+import org.springframework.http.HttpStatus
+import org.springframework.web.server.ResponseStatusException
 import java.time.LocalDate
 import java.util.UUID
 
@@ -49,6 +53,42 @@ class NemonemoPuzzleV2Controller(
             authorKey = subject.subjectKey
         )
     )
+
+    @PostMapping("/puzzles/{puzzleId}/review")
+    fun reviewPuzzle(
+        @PathVariable puzzleId: UUID,
+        @RequireSubject subject: SubjectPrincipal,
+        @Valid @RequestBody request: PuzzleReviewRequest
+    ) = run {
+        if (!subject.isAdmin) {
+            throw ResponseStatusException(HttpStatus.FORBIDDEN, "ADMIN_ONLY")
+        }
+        ResponseEntity.ok(
+            puzzleApplicationService.reviewPuzzle(
+                puzzleId = puzzleId,
+                reviewerKey = subject.subjectKey,
+                request = request
+            )
+        )
+    }
+
+    @PostMapping("/puzzles/{puzzleId}/official")
+    fun promoteToOfficial(
+        @PathVariable puzzleId: UUID,
+        @RequireSubject subject: SubjectPrincipal,
+        @Valid @RequestBody request: PuzzleOfficialRequest
+    ) = run {
+        if (!subject.isAdmin) {
+            throw ResponseStatusException(HttpStatus.FORBIDDEN, "ADMIN_ONLY")
+        }
+        ResponseEntity.ok(
+            puzzleApplicationService.promoteToOfficial(
+                puzzleId = puzzleId,
+                reviewerKey = subject.subjectKey,
+                request = request
+            )
+        )
+    }
 
     @GetMapping("/daily-picks")
     fun getDailyPicks(

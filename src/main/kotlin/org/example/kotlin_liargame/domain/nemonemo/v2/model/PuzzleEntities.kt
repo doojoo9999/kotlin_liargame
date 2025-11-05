@@ -88,6 +88,18 @@ class PuzzleEntity(
     @Column(name = "official_at")
     var officialAt: Instant? = null,
 
+    @Column(name = "review_notes")
+    var reviewNotes: String? = null,
+
+    @Column(name = "rejection_reason")
+    var rejectionReason: String? = null,
+
+    @Column(name = "reviewed_at")
+    var reviewedAt: Instant? = null,
+
+    @Column(name = "reviewer_key")
+    var reviewerKey: UUID? = null,
+
     @Column(name = "view_count", nullable = false)
     var viewCount: Long = 0,
 

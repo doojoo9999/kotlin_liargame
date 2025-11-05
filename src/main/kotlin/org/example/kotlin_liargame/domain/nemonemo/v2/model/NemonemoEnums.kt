@@ -7,6 +7,11 @@ enum class PuzzleStatus {
     REJECTED
 }
 
+enum class PuzzleReviewDecision {
+    APPROVE,
+    REJECT
+}
+
 enum class PuzzleMode {
     NORMAL,
     TIME_ATTACK,

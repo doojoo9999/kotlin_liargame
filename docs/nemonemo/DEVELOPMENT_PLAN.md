@@ -4,7 +4,7 @@
 
 - **F1** 완료 – `V012__Create_nemonemo_v2_tables.sql` 보강 및 시드 정비, Flyway 적용 확인.
 - **F2** 완료 – SubjectPrincipal 기반 세션 인증·RateLimit 필터·헤더 정리.
-- **F3** 진행 중 – 퍼즐 업로드 파이프라인 안정화(그리드 밸리데이션/체크섬 중복 처리, ResponseStatusException 매핑, `NemonemoPuzzleV2ControllerTest` 정상화).
+- **F3** 진행 중 – 퍼즐 업로드 파이프라인 안정화(그리드 밸리데이션/체크섬 중복 처리, ResponseStatusException 매핑, `NemonemoPuzzleV2ControllerTest` 정상화) 및 관리자 검수 API(승인/반려, 리뷰 메타데이터 저장) 확장.
 
 ## 1) 제품 목표(필수 기능)
 
@@ -259,21 +259,49 @@ difficulty_score =
 ### 업로드 결과 응답
 ```json
 {
-  "puzzle_id": "uuid",
-  "status": "APPROVED" | "PENDING_REVIEW" | "REJECTED",
+  "puzzleId": "UUID",
+  "status": "DRAFT",
   "metadata": {
-    "content_style": "GENERIC_PIXEL",
-    "text_likeness_score": 0.12,
+    "contentStyle": "GENERIC_PIXEL",
+    "textLikenessScore": 0.12,
     "tags": ["animal", "cute"],
     "uniqueness": true,
-    "difficulty_score": 4.5,
-    "difficulty_category": "MEDIUM",
-    "solving_time_estimate_ms": 180000
+    "difficultyScore": 4.5,
+    "difficultyCategory": "MEDIUM",
+    "solvingTimeEstimateMs": 180000
   },
-  "rejection_reason": "...",
-  "review_notes": "..."
+  "rejectionReason": null,
+  "reviewNotes": null,
+  "reviewerKey": null,
+  "reviewedAt": null
 }
 ```
+
+- 검수 메타데이터(`review_notes`, `rejection_reason`, `reviewed_at`, `reviewer_key`)는 승인/반려 이후 퍼즐 상세와 목록에 반영한다.
+
+### 검수 API (관리자 전용)
+- **Endpoint**: `POST /api/v2/nemonemo/puzzles/{puzzleId}/review`
+- **권한**: 관리자 세션(`SubjectPrincipal.isAdmin == true`) 필수, 미충족 시 403 `ADMIN_ONLY`.
+- **Body**
+```json
+{
+  "decision": "APPROVE",
+  "reviewNotes": "검수 메모 (선택)",
+  "rejectionReason": null
+}
+```
+- **응답(200)**
+```json
+{
+  "puzzleId": "UUID",
+  "status": "APPROVED",
+  "reviewNotes": "검수 메모",
+  "rejectionReason": null,
+  "reviewerKey": "관리자 subjectKey",
+  "reviewedAt": "2025-11-04T12:34:56Z"
+}
+```
+- 반려 시 `decision`은 `REJECT`, `rejectionReason`은 필수. 승인 시 `approved_at`이 채워지고 `rejection_reason`은 null.
 
 ## 8) OFFICIAL 승격(코드 구현)
 
@@ -294,6 +322,7 @@ difficulty_score =
     - 감사 로그 자동 기록
     - 일괄 처리 기능
     - 통계 대시보드
+- **승격 API**: `POST /api/v2/nemonemo/puzzles/{id}/official` (관리자 전용) – 승인 상태에서만 허용, `notes` 필드로 승격 메모 저장, 응답은 검수 응답과 동일 포맷.
 
 ### 승격 혜택
 - "OFFICIAL" 배지 표시
@@ -616,4 +645,3 @@ type ServerMessage =
 - **방 수 제한**: 동시 활성 방 최대 1000개
 - **메시지 배칭**: 100ms 윈도우 내 메시지 묶음 전송
 - **Redis Pub/Sub 샤딩**: session_id 기반 분산
-

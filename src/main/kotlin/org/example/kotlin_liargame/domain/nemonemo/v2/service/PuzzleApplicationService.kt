@@ -6,6 +6,9 @@ import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleCreateResponse
 import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleDetailDto
 import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleListResponse
 import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleMetadataDto
+import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleOfficialRequest
+import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleReviewRequest
+import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleReviewResponse
 import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleSummaryDto
 import org.example.kotlin_liargame.domain.nemonemo.v2.model.DailyPickEntity
 import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleContentStyle
@@ -13,13 +16,17 @@ import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleEntity
 import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleHintEntity
 import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleSolutionEntity
 import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleStatus
+import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleReviewDecision
 import org.example.kotlin_liargame.domain.nemonemo.v2.repository.DailyPickRepository
 import org.example.kotlin_liargame.domain.nemonemo.v2.repository.PuzzleHintRepository
 import org.example.kotlin_liargame.domain.nemonemo.v2.repository.PuzzleRepository
 import org.example.kotlin_liargame.domain.nemonemo.v2.repository.PuzzleSolutionRepository
+import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.web.server.ResponseStatusException
 import java.time.LocalDate
+import java.time.Instant
 import java.util.UUID
 
 @Service
@@ -119,7 +126,94 @@ class PuzzleApplicationService(
             status = updatedPuzzle.status,
             metadata = responseMetadata,
             rejectionReason = null,
-            reviewNotes = null
+            reviewNotes = null,
+            reviewerKey = null,
+            reviewedAt = null
+        )
+    }
+
+    @Transactional
+    fun reviewPuzzle(
+        puzzleId: UUID,
+        reviewerKey: UUID,
+        request: PuzzleReviewRequest
+    ): PuzzleReviewResponse {
+        val puzzle = puzzleRepository.findById(puzzleId).orElseThrow {
+            ResponseStatusException(HttpStatus.NOT_FOUND, "퍼즐을 찾을 수 없습니다.")
+        }
+
+        if (puzzle.status != PuzzleStatus.DRAFT) {
+            throw ResponseStatusException(HttpStatus.CONFLICT, "검수는 대기 중 퍼즐에서만 수행할 수 있습니다.")
+        }
+
+        val now = Instant.now()
+        when (request.decision) {
+            PuzzleReviewDecision.APPROVE -> {
+                puzzle.status = PuzzleStatus.APPROVED
+                puzzle.approvedAt = now
+                puzzle.rejectionReason = null
+            }
+            PuzzleReviewDecision.REJECT -> {
+                val reason = request.rejectionReason?.takeIf { it.isNotBlank() }
+                    ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "반려 시 사유를 반드시 기입해야 합니다.")
+                puzzle.status = PuzzleStatus.REJECTED
+                puzzle.rejectionReason = reason
+                puzzle.approvedAt = null
+            }
+        }
+        puzzle.reviewNotes = request.reviewNotes
+        puzzle.reviewerKey = reviewerKey
+        puzzle.reviewedAt = now
+
+        val saved = puzzleRepository.save(puzzle)
+        return PuzzleReviewResponse(
+            puzzleId = saved.id,
+            status = saved.status,
+            reviewNotes = saved.reviewNotes,
+            rejectionReason = saved.rejectionReason,
+            reviewerKey = saved.reviewerKey,
+            reviewedAt = saved.reviewedAt
+        )
+    }
+
+    @Transactional
+    fun promoteToOfficial(
+        puzzleId: UUID,
+        reviewerKey: UUID,
+        request: PuzzleOfficialRequest
+    ): PuzzleReviewResponse {
+        val puzzle = puzzleRepository.findById(puzzleId).orElseThrow {
+            ResponseStatusException(HttpStatus.NOT_FOUND, "퍼즐을 찾을 수 없습니다.")
+        }
+
+        if (puzzle.status != PuzzleStatus.APPROVED) {
+            throw ResponseStatusException(
+                HttpStatus.CONFLICT,
+                "승격은 승인된 퍼즐에서만 수행할 수 있습니다."
+            )
+        }
+        if (puzzle.officialAt != null && puzzle.status == PuzzleStatus.OFFICIAL) {
+            throw ResponseStatusException(
+                HttpStatus.CONFLICT,
+                "이미 OFFICIAL 상태입니다."
+            )
+        }
+
+        val now = Instant.now()
+        puzzle.status = PuzzleStatus.OFFICIAL
+        puzzle.officialAt = now
+        puzzle.reviewNotes = request.notes ?: puzzle.reviewNotes
+        puzzle.reviewerKey = reviewerKey
+        puzzle.reviewedAt = now
+
+        val saved = puzzleRepository.save(puzzle)
+        return PuzzleReviewResponse(
+            puzzleId = saved.id,
+            status = saved.status,
+            reviewNotes = saved.reviewNotes,
+            rejectionReason = saved.rejectionReason,
+            reviewerKey = saved.reviewerKey,
+            reviewedAt = saved.reviewedAt
         )
     }
 

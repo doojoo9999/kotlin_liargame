@@ -3,7 +3,9 @@ package org.example.kotlin_liargame.domain.nemonemo.v2.dto
 import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleContentStyle
 import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleMode
 import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleStatus
+import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleReviewDecision
 import java.time.LocalDateTime
+import java.time.Instant
 import java.util.UUID
 
 data class PuzzleSummaryDto(
@@ -77,7 +79,28 @@ data class PuzzleCreateResponse(
     val status: PuzzleStatus,
     val metadata: PuzzleMetadataDto,
     val rejectionReason: String?,
-    val reviewNotes: String?
+    val reviewNotes: String?,
+    val reviewerKey: UUID?,
+    val reviewedAt: Instant?
+)
+
+data class PuzzleReviewRequest(
+    val decision: PuzzleReviewDecision,
+    val reviewNotes: String?,
+    val rejectionReason: String?
+)
+
+data class PuzzleReviewResponse(
+    val puzzleId: UUID,
+    val status: PuzzleStatus,
+    val reviewNotes: String?,
+    val rejectionReason: String?,
+    val reviewerKey: UUID?,
+    val reviewedAt: Instant?
+)
+
+data class PuzzleOfficialRequest(
+    val notes: String?
 )
 
 data class PuzzleMetadataDto(
