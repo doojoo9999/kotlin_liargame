@@ -90,6 +90,24 @@ class NemonemoPuzzleV2Controller(
         )
     }
 
+    @PostMapping("/puzzles/{puzzleId}/official/revoke")
+    fun revokeOfficial(
+        @PathVariable puzzleId: UUID,
+        @RequireSubject subject: SubjectPrincipal,
+        @Valid @RequestBody request: PuzzleOfficialRequest
+    ) = run {
+        if (!subject.isAdmin) {
+            throw ResponseStatusException(HttpStatus.FORBIDDEN, "ADMIN_ONLY")
+        }
+        ResponseEntity.ok(
+            puzzleApplicationService.revokeOfficial(
+                puzzleId = puzzleId,
+                reviewerKey = subject.subjectKey,
+                request = request
+            )
+        )
+    }
+
     @GetMapping("/daily-picks")
     fun getDailyPicks(
         @RequestParam(required = false)

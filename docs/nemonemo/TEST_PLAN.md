@@ -27,6 +27,9 @@
 - 핵심 경로(인증, 퍼즐 업로드→검수→플레이→제출→랭킹) 전체 커버.
 - 배치/스케줄러 동작 검증(일일 추천, 시즌 종료 등).
 - 퍼즐 업로드 파이프라인 4가지 응답(201/409/400/422) 및 메타데이터 저장 경로 통합 테스트 (`NemonemoPuzzleV2ControllerTest`).
+- 관리자 검수 API 성공/권한 차단/입력 오류 흐름(`PuzzleReviewDecision`) 검증.
+- OFFICIAL 승격 API(승인 상태 → OFFICIAL, 승인 전 승격 시 409) 검증.
+- OFFICIAL 철회 API(OFFICIAL → APPROVED, 비OFFICIAL 철회 시 409, 비관리자 403) 검증.
 
 ### 2.3 E2E/시나리오 테스트 (Playwright)
 | 시나리오 | 설명 |

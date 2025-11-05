@@ -22,6 +22,7 @@ import org.example.kotlin_liargame.domain.nemonemo.v2.service.PuzzleApplicationS
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.springframework.beans.factory.annotation.Autowired
 import com.opentable.db.postgres.embedded.EmbeddedPostgres
 import org.hamcrest.Matchers.hasItem
@@ -211,6 +212,14 @@ class NemonemoPuzzleV2ControllerTest @Autowired constructor(
                 reviewNotes = "자동 승인",
                 rejectionReason = null
             )
+        )
+    }
+
+    private fun promoteOfficial(puzzleId: UUID, notes: String? = "승격 완료") {
+        puzzleApplicationService.promoteToOfficial(
+            puzzleId = puzzleId,
+            reviewerKey = SUBJECT_KEY,
+            request = org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleOfficialRequest(notes = notes)
         )
     }
 
@@ -481,6 +490,63 @@ class NemonemoPuzzleV2ControllerTest @Autowired constructor(
 
         val exception = assertThrows<org.springframework.web.server.ResponseStatusException> {
             puzzleApplicationService.promoteToOfficial(
+                puzzleId = draftId,
+                reviewerKey = SUBJECT_KEY,
+                request = org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleOfficialRequest(notes = null)
+            )
+        }
+        assertEquals(org.springframework.http.HttpStatus.CONFLICT, exception.statusCode)
+    }
+
+    @Test
+    fun `revoke official requires admin`() {
+        val draftId = createDraftPuzzle("Revoke Forbidden")
+        approveDraft(draftId)
+        promoteOfficial(draftId)
+
+        mockMvc.post("/api/v2/nemonemo/puzzles/{id}/official/revoke", draftId) {
+            with {
+                val session = requireNotNull(it.getSession(true))
+                session.setAttribute(SubjectPrincipalResolver.SUBJECT_SESSION_ATTRIBUTE, guestPrincipal())
+                it.setAttribute(SubjectPrincipalResolver.REQUEST_ATTRIBUTE, guestPrincipal())
+                it.addHeader("X-Subject-Key", SUBJECT_KEY.toString())
+                it
+            }
+            contentType = MediaType.APPLICATION_JSON
+            content = objectMapper.writeValueAsString(
+                org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleOfficialRequest(notes = "철회 요청")
+            )
+        }.andExpect {
+            status { isForbidden() }
+        }
+    }
+
+    @Test
+    fun `revoke official transitions to approved`() {
+        val draftId = createDraftPuzzle("Revoke Success")
+        approveDraft(draftId)
+        promoteOfficial(draftId, notes = "승격 완료")
+
+        val response = puzzleApplicationService.revokeOfficial(
+            puzzleId = draftId,
+            reviewerKey = SUBJECT_KEY,
+            request = org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleOfficialRequest(notes = "철회됨")
+        )
+
+        assertEquals(PuzzleStatus.APPROVED, response.status)
+        assertEquals("철회됨", response.reviewNotes)
+        val entity = puzzleRepository.findById(draftId).orElseThrow()
+        assertEquals(PuzzleStatus.APPROVED, entity.status)
+        assertNull(entity.officialAt)
+    }
+
+    @Test
+    fun `revoke official requires official status`() {
+        val draftId = createDraftPuzzle("Revoke Conflict")
+        approveDraft(draftId)
+
+        val exception = assertThrows<org.springframework.web.server.ResponseStatusException> {
+            puzzleApplicationService.revokeOfficial(
                 puzzleId = draftId,
                 reviewerKey = SUBJECT_KEY,
                 request = org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleOfficialRequest(notes = null)

@@ -323,6 +323,7 @@ difficulty_score =
     - 일괄 처리 기능
     - 통계 대시보드
 - **승격 API**: `POST /api/v2/nemonemo/puzzles/{id}/official` (관리자 전용) – 승인 상태에서만 허용, `notes` 필드로 승격 메모 저장, 응답은 검수 응답과 동일 포맷.
+- **철회 API**: `POST /api/v2/nemonemo/puzzles/{id}/official/revoke` (관리자 전용) – OFFICIAL 상태에서만 허용, `notes` 선택 입력, 상태를 `APPROVED`로 되돌리고 `official_at`을 해제한다.
 
 ### 승격 혜택
 - "OFFICIAL" 배지 표시

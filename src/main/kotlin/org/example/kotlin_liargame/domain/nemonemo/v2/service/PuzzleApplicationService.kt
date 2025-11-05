@@ -217,6 +217,41 @@ class PuzzleApplicationService(
         )
     }
 
+    @Transactional
+    fun revokeOfficial(
+        puzzleId: UUID,
+        reviewerKey: UUID,
+        request: PuzzleOfficialRequest
+    ): PuzzleReviewResponse {
+        val puzzle = puzzleRepository.findById(puzzleId).orElseThrow {
+            ResponseStatusException(HttpStatus.NOT_FOUND, "퍼즐을 찾을 수 없습니다.")
+        }
+
+        if (puzzle.status != PuzzleStatus.OFFICIAL) {
+            throw ResponseStatusException(
+                HttpStatus.CONFLICT,
+                "OFFICIAL 상태에서만 철회할 수 있습니다."
+            )
+        }
+
+        val now = Instant.now()
+        puzzle.status = PuzzleStatus.APPROVED
+        puzzle.officialAt = null
+        puzzle.reviewNotes = request.notes ?: puzzle.reviewNotes
+        puzzle.reviewerKey = reviewerKey
+        puzzle.reviewedAt = now
+
+        val saved = puzzleRepository.save(puzzle)
+        return PuzzleReviewResponse(
+            puzzleId = saved.id,
+            status = saved.status,
+            reviewNotes = saved.reviewNotes,
+            rejectionReason = saved.rejectionReason,
+            reviewerKey = saved.reviewerKey,
+            reviewedAt = saved.reviewedAt
+        )
+    }
+
     fun getDailyPicks(date: LocalDate = LocalDate.now()): DailyPickResponse {
         val pick = dailyPickRepository.findById(date).orElseGet {
             dailyPickRepository.save(
