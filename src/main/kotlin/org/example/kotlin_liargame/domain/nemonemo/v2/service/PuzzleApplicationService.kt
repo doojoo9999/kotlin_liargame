@@ -276,6 +276,15 @@ class PuzzleApplicationService(
         )
     }
 
+    @Transactional(readOnly = true)
+    fun getReviewQueue(limit: Int): List<PuzzleSummaryDto> {
+        val candidates = puzzleRepository.findByStatusOrderByCreatedAtDesc(PuzzleStatus.DRAFT)
+        return candidates
+            .sortedBy { it.createdAt }
+            .take(limit.coerceAtLeast(1))
+            .map(::toSummary)
+    }
+
     private fun toSummary(entity: PuzzleEntity): PuzzleSummaryDto = PuzzleSummaryDto(
         id = entity.id,
         title = entity.title,

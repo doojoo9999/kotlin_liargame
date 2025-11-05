@@ -23,9 +23,11 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.springframework.beans.factory.annotation.Autowired
 import com.opentable.db.postgres.embedded.EmbeddedPostgres
 import org.hamcrest.Matchers.hasItem
+import org.hamcrest.Matchers.hasItems
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.AfterEach
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
@@ -114,6 +116,7 @@ class NemonemoPuzzleV2ControllerTest @Autowired constructor(
 
     @BeforeEach
     fun setupFixture() {
+        cleanup()
         ensureUniqueSolution("fixtureGrid", fixtureGrid)
         ensureUniqueSolution("solverTestGrid", solverTestGrid)
         ensureUniqueSolution("duplicateTestGrid", duplicateTestGrid)
@@ -302,6 +305,8 @@ class NemonemoPuzzleV2ControllerTest @Autowired constructor(
         }
             .andExpect {
                 status { isCreated() }
+                jsonPath("$.metadata.tags") { isArray() }
+                jsonPath("$.metadata.tags", hasItems("custom", "small", "sparse"))
                 jsonPath("$.metadata.uniqueness") { value(true) }
                 jsonPath("$.metadata.difficultyScore") { isNumber() }
                 jsonPath("$.metadata.solvingTimeEstimateMs") { isNumber() }
@@ -553,5 +558,30 @@ class NemonemoPuzzleV2ControllerTest @Autowired constructor(
             )
         }
         assertEquals(org.springframework.http.HttpStatus.CONFLICT, exception.statusCode)
+    }
+
+    @Test
+    fun `get review queue returns drafts`() {
+        val draftId = createDraftPuzzle("Queue Candidate")
+        val queue = puzzleApplicationService.getReviewQueue(10)
+        val ids = queue.map { it.id }
+        assertTrue(ids.contains(draftId))
+    }
+
+    @Test
+    fun `non admin cannot fetch review queue`() {
+        createDraftPuzzle("Queue Forbidden")
+
+        mockMvc.get("/api/v2/nemonemo/admin/puzzles/review-queue") {
+            with {
+                val session = requireNotNull(it.getSession(true))
+                session.setAttribute(SubjectPrincipalResolver.SUBJECT_SESSION_ATTRIBUTE, guestPrincipal())
+                it.setAttribute(SubjectPrincipalResolver.REQUEST_ATTRIBUTE, guestPrincipal())
+                it.addHeader("X-Subject-Key", SUBJECT_KEY.toString())
+                it
+            }
+        }.andExpect {
+            status { isForbidden() }
+        }
     }
 }

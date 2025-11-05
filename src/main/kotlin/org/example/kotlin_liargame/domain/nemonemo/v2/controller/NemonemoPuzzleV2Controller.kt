@@ -116,4 +116,17 @@ class NemonemoPuzzleV2Controller(
     ) = ResponseEntity.ok(
         puzzleApplicationService.getDailyPicks(date ?: LocalDate.now())
     )
+
+    @GetMapping("/admin/puzzles/review-queue")
+    fun reviewQueue(
+        @RequireSubject subject: SubjectPrincipal,
+        @RequestParam(defaultValue = "20") limit: Int
+    ) = run {
+        if (!subject.isAdmin) {
+            throw ResponseStatusException(HttpStatus.FORBIDDEN, "ADMIN_ONLY")
+        }
+        ResponseEntity.ok(
+            puzzleApplicationService.getReviewQueue(limit)
+        )
+    }
 }
