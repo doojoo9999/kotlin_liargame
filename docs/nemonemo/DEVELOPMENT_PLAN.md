@@ -4,7 +4,8 @@
 
 - **F1** 완료 – `V012__Create_nemonemo_v2_tables.sql` 보강 및 시드 정비, Flyway 적용 확인.
 - **F2** 완료 – SubjectPrincipal 기반 세션 인증·RateLimit 필터·헤더 정리.
-- **F3** 진행 중 – 퍼즐 업로드 파이프라인 안정화(그리드 밸리데이션/체크섬 중복 처리, ResponseStatusException 매핑, `NemonemoPuzzleV2ControllerTest` 정상화) 및 관리자 검수 API(승인/반려, 리뷰 메타데이터 저장) 확장, 감사 로그(`puzzle_audit_logs`) 기록/테스트 도입.
+- **F3** 완료 – 퍼즐 업로드 파이프라인 안정화(그리드 밸리데이션/체크섬 중복 처리, ResponseStatusException 매핑, `NemonemoPuzzleV2ControllerTest` 정상화) 및 관리자 검수 API(승인/반려, 리뷰 메타데이터 저장) 확장, 감사 로그(`puzzle_audit_logs`) 기록/테스트 도입.
+- **F4** 진행 중 – 플레이 세션 핵심 API(MVP) 구현 및 MockMvc 회귀 테스트 확보. 서비스 단위 테스트·레이트 리밋 검증·프런트 캔버스 연동은 후속 작업으로 남음.
 
 ## 1) 제품 목표(필수 기능)
 
@@ -351,6 +352,34 @@ difficulty_score =
 - 작가 프로필에 강조 표시
 
 ## 9) 프론트엔드(코드 구현)
+
+### F4 플레이 세션 (MVP API 스펙)
+- TODO: `PlaySessionService` 단위 테스트·레이트 리밋 통합 테스트·프런트 캔버스 연동을 보강하여 F4 마무리.
+- **POST** `/api/v2/nemonemo/puzzles/{puzzleId}/plays`
+  - RequireSubject(게스트 포함)
+  - Request: `{ "mode": "NORMAL" }`
+  - Response: `{ "playId": "UUID", "stateToken": "string", "expiresAt": "<ISO8601>" }`
+  - 승인된 퍼즐만 허용. 매 호출마다 새 세션 생성(기존 세션은 TODO).
+
+- **PATCH** `/api/v2/nemonemo/plays/{playId}/snapshot`
+  - Request: `{ "snapshot": { ... }, "mistakes": 1, "undoCount": 2, "usedHints": 0 }`
+  - Response: `204 No Content`
+  - 소유자 본인만 호출 가능. progressSnapshots JSON 덮어쓰기. stateToken 갱신은 차기 과제.
+
+- **POST** `/api/v2/nemonemo/plays/{playId}/submit`
+  - Request: `{ "solution": ["#.."], "elapsedMs": 123456, "mistakes": 1, "hints": 0 }`
+  - Response: `{ "score": 1234, "combo": 5, "perfectClear": true }`
+  - 제출 중복 시 409, 오답 시 422. 성공 시 scores 테이블 upsert 및 puzzles playCount/clearCount 증가.
+
+- **GET** `/api/v2/nemonemo/plays/{playId}`
+  - Response: `{ "puzzleId": "UUID", "snapshot": {...}, "startedAt": "...", "lastSavedAt": "...", "stateToken": "..." }`
+  - 다른 기기에서 이어 하기용. 본인 세션만 접근 가능.
+
+#### 서비스/테스트 메모
+- `PlaySessionService`(신규)에서 create/save/submit 책임 분리.
+- 점수 계산은 MVP에서 단순화(난이도 기반 + perfect 보너스). F5에서 공식 확장.
+- 테스트 전략: 단위(서비스) + MockMvc 흘림(생성→저장→제출→중복 제출). snapshot/submit 에러(403/422)도 커버.
+- TODO: 플레이 통계 업데이트 동시성, 기존 미완료 세션 정리, RateLimit 설정.
 
 ### 페이지 구조
 

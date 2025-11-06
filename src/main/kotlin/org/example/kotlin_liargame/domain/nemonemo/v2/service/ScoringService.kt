@@ -3,11 +3,8 @@ package org.example.kotlin_liargame.domain.nemonemo.v2.service
 import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PlayResultDto
 import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PlaySubmitRequest
 import org.example.kotlin_liargame.domain.nemonemo.v2.model.PlayEntity
-import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleMode
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
-import java.time.Instant
-import java.util.UUID
 import kotlin.math.max
 
 @Component
@@ -27,7 +24,7 @@ class ScoringService(
     ): ScoreBreakdown {
         val clearBonus = baseMultiplier * difficultyWeight
         val targetTime = play.puzzle.width * play.puzzle.height * 1000L
-        val timeBonus = max(0, (targetTime - request.durationMs).toInt() / 1000) * timeMultiplier
+        val timeBonus = max(0, (targetTime - request.elapsedMs).toInt() / 1000) * timeMultiplier
         val comboBonus = request.comboCount * comboMultiplier
         val perfectBonusScore = if (request.mistakes == 0) perfectBonus else 0
         val penalty = (request.mistakes * mistakePenalty) + (request.usedHints * hintPenalty)
@@ -45,19 +42,17 @@ class ScoringService(
     fun buildResult(
         play: PlayEntity,
         breakdown: ScoreBreakdown,
-        leaderboardRank: Int?
+        leaderboardRank: Int?,
+        elapsedMs: Long
     ): PlayResultDto = PlayResultDto(
         puzzleId = play.puzzle.id,
         playId = play.id,
         score = breakdown.finalScore,
-        timeMs = play.finishedAt?.toEpochMilliDiff(play.startedAt) ?: 0,
+        elapsedMs = elapsedMs,
         comboBonus = breakdown.comboBonus,
         perfectClear = breakdown.perfectBonus > 0,
         leaderboardRank = leaderboardRank
     )
-
-    private fun Instant.toEpochMilliDiff(start: Instant): Long =
-        (this.toEpochMilli() - start.toEpochMilli()).coerceAtLeast(0)
 }
 
 data class ScoreBreakdown(

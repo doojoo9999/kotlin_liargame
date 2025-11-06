@@ -67,7 +67,20 @@ class RateLimitingInterceptor(
             return true
         }
 
-        return skipPaths.any { requestURI.startsWith(it) }
+        if (skipPaths.any { requestURI.startsWith(it) }) {
+            return true
+        }
+
+        val playPaths = listOf(
+            "/api/v2/nemonemo/puzzles/", // 이후 /{id}/plays
+            "/api/v2/nemonemo/plays/"
+        )
+
+        if (playPaths.any { requestURI.startsWith(it) }) {
+            return false
+        }
+
+        return false
     }
     
 

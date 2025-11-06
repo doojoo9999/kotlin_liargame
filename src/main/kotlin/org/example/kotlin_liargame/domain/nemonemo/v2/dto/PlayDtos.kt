@@ -15,25 +15,36 @@ data class PlayStartResponse(
 )
 
 data class PlayAutosaveRequest(
-    val progress: Map<String, Any>,
-    val timestamp: Instant
+    val snapshot: Map<String, Any?>,
+    val mistakes: Int,
+    val undoCount: Int,
+    val usedHints: Int
 )
 
 data class PlaySubmitRequest(
-    val finalGrid: String,
+    val solution: List<String>,
+    val elapsedMs: Long,
     val mistakes: Int,
     val usedHints: Int,
     val undoCount: Int,
-    val comboCount: Int,
-    val durationMs: Long
+    val comboCount: Int
 )
 
 data class PlayResultDto(
     val puzzleId: UUID,
     val playId: UUID,
     val score: Int,
-    val timeMs: Long,
+    val elapsedMs: Long,
     val comboBonus: Int,
     val perfectClear: Boolean,
     val leaderboardRank: Int?
+)
+
+data class PlayDetailResponse(
+    val playId: UUID,
+    val puzzleId: UUID,
+    val snapshot: Map<String, Any?>?,
+    val startedAt: Instant,
+    val lastSavedAt: Instant?,
+    val stateToken: String
 )

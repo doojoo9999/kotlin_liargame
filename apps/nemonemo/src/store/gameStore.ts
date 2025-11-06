@@ -26,6 +26,7 @@ type GameStore = {
   timerMs: number;
   combo: number;
   mistakes: number;
+  hintsUsed: number;
   grid: GridState;
   session: SessionState;
   setMode: (mode: GameMode) => void;
@@ -34,6 +35,7 @@ type GameStore = {
   undo: () => void;
   redo: () => void;
   recordMistake: () => void;
+  recordHint: () => void;
   setSession: (payload: { playId: string; stateToken: string; expiresAt: string }) => void;
   clearSession: () => void;
   reset: () => void;
@@ -61,6 +63,7 @@ export const useGameStore = create<GameStore>()(
     timerMs: 0,
     combo: 0,
     mistakes: 0,
+    hintsUsed: 0,
     grid: initialGrid,
     session: createInitialSession(),
     setMode: (mode) => set({ mode }),
@@ -77,6 +80,7 @@ export const useGameStore = create<GameStore>()(
         },
         combo: 0,
         mistakes: 0,
+        hintsUsed: 0,
         timerMs: 0
       })),
     updateCell: (index, state) =>
@@ -98,6 +102,7 @@ export const useGameStore = create<GameStore>()(
         grid.future.push([...grid.cells]);
         grid.history = grid.history.slice(0, -1);
         grid.cells = [...previous];
+        grid.lastUpdated = Date.now();
       }),
     redo: () =>
       set((draft) => {
@@ -105,12 +110,17 @@ export const useGameStore = create<GameStore>()(
         const next = grid.future.pop();
         if (!next) return;
         grid.history.push([...next]);
-          grid.cells = next;
-        }),
+        grid.cells = [...next];
+        grid.lastUpdated = Date.now();
+      }),
     recordMistake: () =>
       set((draft) => {
         draft.mistakes += 1;
         draft.combo = 0;
+      }),
+    recordHint: () =>
+      set((draft) => {
+        draft.hintsUsed += 1;
       }),
     setSession: ({ playId, stateToken, expiresAt }) =>
       set((draft) => {
@@ -127,6 +137,7 @@ export const useGameStore = create<GameStore>()(
         grid: initialGrid,
         combo: 0,
         mistakes: 0,
+        hintsUsed: 0,
         timerMs: 0,
         session: createInitialSession()
       }))

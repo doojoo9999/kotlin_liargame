@@ -12,8 +12,8 @@ class RateLimitingService {
     private val websocketMessageCounts = ConcurrentHashMap<String, MutableList<LocalDateTime>>()
     
     // API 요청 제한 설정
-    private val apiRequestsPerMinute = 500
-    private val apiBurstCapacity = 500
+    private val apiRequestsPerMinute = 120
+    private val apiBurstCapacity = 150
     
     // WebSocket 메시지 제한 설정
     private val websocketMessagesPerMinute = 30

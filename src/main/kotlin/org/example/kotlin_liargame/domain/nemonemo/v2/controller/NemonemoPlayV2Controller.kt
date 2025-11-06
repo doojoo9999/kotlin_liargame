@@ -8,6 +8,8 @@ import org.example.kotlin_liargame.domain.nemonemo.v2.service.PlaySessionService
 import org.example.kotlin_liargame.global.security.RequireSubject
 import org.example.kotlin_liargame.global.security.SubjectPrincipal
 import org.springframework.http.ResponseEntity
+import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
@@ -30,12 +32,13 @@ class NemonemoPlayV2Controller(
         playSessionService.startPlay(puzzleId, subject.subjectKey, request)
     )
 
-    @PostMapping("/plays/{playId}/autosave")
+    @PatchMapping("/plays/{playId}/snapshot")
     fun autosave(
         @PathVariable playId: UUID,
+        @RequireSubject subject: SubjectPrincipal,
         @Valid @RequestBody request: PlayAutosaveRequest
     ): ResponseEntity<Void> {
-        playSessionService.autosave(playId, request)
+        playSessionService.autosave(playId, subject.subjectKey, request)
         return ResponseEntity.noContent().build()
     }
 
@@ -46,5 +49,13 @@ class NemonemoPlayV2Controller(
         @Valid @RequestBody request: PlaySubmitRequest
     ) = ResponseEntity.ok(
         playSessionService.submit(playId, subject.subjectKey, request)
+    )
+
+    @GetMapping("/plays/{playId}")
+    fun getPlay(
+        @PathVariable playId: UUID,
+        @RequireSubject subject: SubjectPrincipal
+    ) = ResponseEntity.ok(
+        playSessionService.getPlay(playId, subject.subjectKey)
     )
 }

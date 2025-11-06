@@ -45,6 +45,7 @@ import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
+import org.springframework.test.web.servlet.patch
 import org.springframework.test.web.servlet.post
 import org.springframework.test.web.servlet.request.RequestPostProcessor
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders
@@ -320,7 +321,7 @@ class NemonemoPuzzleV2ControllerTest @Autowired constructor(
     fun `start play creates session with state token`() {
         mockMvc.post("/api/v2/nemonemo/puzzles/{id}/plays", puzzleId) {
             contentType = MediaType.APPLICATION_JSON
-            header("X-Subject-Key", SUBJECT_KEY.toString())
+            with(asGuest())
             content = """{"mode":"NORMAL"}"""
             with(csrf())
         }
@@ -329,6 +330,147 @@ class NemonemoPuzzleV2ControllerTest @Autowired constructor(
                 jsonPath("$.playId") { exists() }
                 jsonPath("$.stateToken") { isNotEmpty() }
             }
+    }
+
+    @Test
+    fun `play snapshot and submit updates score`() {
+        val startResponse = mockMvc.post("/api/v2/nemonemo/puzzles/{id}/plays", puzzleId) {
+            contentType = MediaType.APPLICATION_JSON
+            with(asGuest())
+            content = """{"mode":"NORMAL"}"""
+            with(csrf())
+        }.andExpect {
+            status { isOk() }
+        }.andReturn()
+
+        val playId = UUID.fromString(objectMapper.readTree(startResponse.response.contentAsString).get("playId").asText())
+
+        mockMvc.patch("/api/v2/nemonemo/plays/{id}/snapshot", playId) {
+            contentType = MediaType.APPLICATION_JSON
+            with(asGuest())
+            content = objectMapper.writeValueAsString(
+                mapOf(
+                    "snapshot" to mapOf("cells" to listOf(mapOf("x" to 0, "y" to 0, "value" to 1))),
+                    "mistakes" to 0,
+                    "undoCount" to 1,
+                    "usedHints" to 0
+                )
+            )
+            with(csrf())
+        }.andExpect {
+            status { isNoContent() }
+        }
+
+        mockMvc.get("/api/v2/nemonemo/plays/{id}", playId) {
+            with(asGuest())
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.playId") { value(playId.toString()) }
+            jsonPath("$.snapshot.cells") { isArray() }
+        }
+
+        mockMvc.post("/api/v2/nemonemo/plays/{id}/submit", playId) {
+            contentType = MediaType.APPLICATION_JSON
+            with(asGuest())
+            content = objectMapper.writeValueAsString(
+                mapOf(
+                    "solution" to fixtureGrid,
+                    "elapsedMs" to 120_000,
+                    "mistakes" to 0,
+                    "usedHints" to 0,
+                    "undoCount" to 1,
+                    "comboCount" to 3
+                )
+            )
+            with(csrf())
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.score") { isNumber() }
+            jsonPath("$.perfectClear") { value(true) }
+        }
+
+        val updatedPuzzle = puzzleRepository.findById(puzzleId).orElseThrow()
+        assertEquals(13, updatedPuzzle.playCount)
+        assertEquals(5, updatedPuzzle.clearCount)
+        val scoreId = ScoreId(puzzleId, SUBJECT_KEY, PuzzleMode.NORMAL)
+        assertTrue(scoreRepository.findById(scoreId).isPresent)
+    }
+
+    @Test
+    fun `submit rejects incorrect solution with 422`() {
+        val start = mockMvc.post("/api/v2/nemonemo/puzzles/{id}/plays", puzzleId) {
+            contentType = MediaType.APPLICATION_JSON
+            with(asGuest())
+            content = """{"mode":"NORMAL"}"""
+        }.andReturn()
+
+        val playId = UUID.fromString(objectMapper.readTree(start.response.contentAsString).get("playId").asText())
+        val originalPuzzle = puzzleRepository.findById(puzzleId).orElseThrow()
+        val originalScore = scoreRepository.findById(ScoreId(puzzleId, SUBJECT_KEY, PuzzleMode.NORMAL)).orElseThrow()
+
+        mockMvc.post("/api/v2/nemonemo/plays/{id}/submit", playId) {
+            contentType = MediaType.APPLICATION_JSON
+            with(asGuest())
+            content = objectMapper.writeValueAsString(
+                mapOf(
+                    "solution" to fixtureGrid.mapIndexed { idx, row ->
+                        if (idx == 0) row.replaceRange(0, 1, ".") else row
+                    },
+                    "elapsedMs" to 90_000,
+                    "mistakes" to 0,
+                    "usedHints" to 0,
+                    "undoCount" to 0,
+                    "comboCount" to 0
+                )
+            )
+        }.andExpect {
+            status { isUnprocessableEntity() }
+        }
+
+        val puzzle = puzzleRepository.findById(puzzleId).orElseThrow()
+        assertEquals(originalPuzzle.playCount, puzzle.playCount)
+        assertEquals(originalPuzzle.clearCount, puzzle.clearCount)
+        val scoreId = ScoreId(puzzleId, SUBJECT_KEY, PuzzleMode.NORMAL)
+        val persistedScore = scoreRepository.findById(scoreId).orElseThrow()
+        assertEquals(originalScore.bestScore, persistedScore.bestScore)
+    }
+
+    @Test
+    fun `submit twice returns conflict`() {
+        val start = mockMvc.post("/api/v2/nemonemo/puzzles/{id}/plays", puzzleId) {
+            contentType = MediaType.APPLICATION_JSON
+            with(asGuest())
+            content = """{"mode":"NORMAL"}"""
+        }.andReturn()
+
+        val playId = UUID.fromString(objectMapper.readTree(start.response.contentAsString).get("playId").asText())
+
+        val payload = objectMapper.writeValueAsString(
+            mapOf(
+                "solution" to fixtureGrid,
+                "elapsedMs" to 180_000,
+                "mistakes" to 1,
+                "usedHints" to 0,
+                "undoCount" to 0,
+                "comboCount" to 2
+            )
+        )
+
+        mockMvc.post("/api/v2/nemonemo/plays/{id}/submit", playId) {
+            contentType = MediaType.APPLICATION_JSON
+            with(asGuest())
+            content = payload
+        }.andExpect {
+            status { isOk() }
+        }
+
+        mockMvc.post("/api/v2/nemonemo/plays/{id}/submit", playId) {
+            contentType = MediaType.APPLICATION_JSON
+            with(asGuest())
+            content = payload
+        }.andExpect {
+            status { isConflict() }
+        }
     }
 
     @Test
@@ -787,5 +929,30 @@ class NemonemoPuzzleV2ControllerTest @Autowired constructor(
         assertEquals(PuzzleStatus.APPROVED, entity.status)
         assertEquals("철회 controller", entity.reviewNotes)
         assertNull(entity.officialAt)
+    }
+
+    @Test
+    fun `admin controller promote rejects draft without audit`() {
+        val draftId = createDraftPuzzle("Controller Promote Conflict")
+        val adminPrincipal = adminPrincipal()
+
+        assertTrue(puzzleAuditLogRepository.findByPuzzleIdOrderByCreatedAtAsc(draftId).isEmpty())
+
+        createAdminMockMvc(adminPrincipal)
+            .perform(
+                MockMvcRequestBuilders
+                    .post("/api/v2/nemonemo/puzzles/{id}/official", draftId)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        objectMapper.writeValueAsBytes(
+                            org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleOfficialRequest(
+                                notes = "invalid promote"
+                            )
+                        )
+                    )
+            )
+            .andExpect(MockMvcResultMatchers.status().isConflict)
+
+        assertTrue(puzzleAuditLogRepository.findByPuzzleIdOrderByCreatedAtAsc(draftId).isEmpty())
     }
 }

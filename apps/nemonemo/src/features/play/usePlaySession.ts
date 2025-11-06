@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiClient } from '@/lib/api/client';
-import { useGameStore } from '@/store/gameStore';
+import { useGameStore, type CellState } from '@/store/gameStore';
 import { useNotificationStore } from '@/store/notificationStore';
 
 type PlayStartResponse = {
@@ -10,15 +10,24 @@ type PlayStartResponse = {
 };
 
 type AutosavePayload = {
-  progress: Record<string, unknown>;
-  timestamp: string;
+  snapshot: {
+    cells: CellState[];
+    width: number;
+    height: number;
+    mistakes: number;
+    updatedAt: number | null;
+  };
+  mistakes: number;
+  undoCount: number;
+  usedHints: number;
 };
 
 export const usePlaySession = (puzzleId?: string) => {
-  const { session, grid, mistakes, setSession, clearSession } = useGameStore((state) => ({
+  const { session, grid, mistakes, hintsUsed, setSession, clearSession } = useGameStore((state) => ({
     session: state.session,
     grid: state.grid,
     mistakes: state.mistakes,
+    hintsUsed: state.hintsUsed,
     setSession: state.setSession,
     clearSession: state.clearSession
   }));
@@ -73,29 +82,31 @@ export const usePlaySession = (puzzleId?: string) => {
       });
   }, [clearSession, puzzleId, pushToast, setSession]);
 
-  const buildAutosavePayload = useMemo<AutosavePayload | null>(() => {
-    if (!session.playId) {
+  const autosavePayload = useMemo<AutosavePayload | null>(() => {
+    if (!session.playId || grid.cells.length === 0) {
       return null;
     }
     return {
-      progress: {
+      snapshot: {
         cells: grid.cells,
         width: grid.width,
         height: grid.height,
         mistakes,
         updatedAt: grid.lastUpdated
       },
-      timestamp: new Date().toISOString()
+      mistakes,
+      undoCount: Math.max(0, grid.history.length - 1),
+      usedHints: hintsUsed
     };
-  }, [grid.cells, grid.height, grid.lastUpdated, grid.width, mistakes, session.playId]);
+  }, [grid.cells, grid.height, grid.history.length, grid.lastUpdated, grid.width, hintsUsed, mistakes, session.playId]);
 
   const autosave = useCallback(async () => {
-    if (!session.playId || !buildAutosavePayload) {
+    if (!session.playId || !autosavePayload) {
       return;
     }
     setAutosaveState('saving');
     try {
-      await apiClient.post(`/plays/${session.playId}/autosave`, buildAutosavePayload);
+      await apiClient.patch(`/plays/${session.playId}/snapshot`, autosavePayload);
       autosaveErrorNotifiedRef.current = false;
       setLastSavedAt(Date.now());
       setAutosaveState('idle');
@@ -110,7 +121,7 @@ export const usePlaySession = (puzzleId?: string) => {
         });
       }
     }
-  }, [buildAutosavePayload, pushToast, session.playId]);
+  }, [autosavePayload, pushToast, session.playId]);
 
   useEffect(() => {
     if (!session.playId || !grid.lastUpdated) {

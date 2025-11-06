@@ -14,7 +14,7 @@ import java.time.Instant
 import java.util.Optional
 import java.util.UUID
 
-interface PuzzleRepository : JpaRepository<PuzzleEntity, UUID> {
+interface PuzzleRepository : JpaRepository<PuzzleEntity, UUID>, CustomPuzzleRepository {
     fun findByStatusOrderByCreatedAtDesc(status: PuzzleStatus): List<PuzzleEntity>
     fun findByOfficialAtAfter(threshold: Instant): List<PuzzleEntity>
 }
