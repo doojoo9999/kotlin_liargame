@@ -28,7 +28,7 @@ export const usePuzzleList = (status: 'APPROVED' | 'OFFICIAL' = 'APPROVED') =>
       });
       return data;
     },
-    getNextPageParam: (lastPage, _pages, lastPageParam) => {
+    getNextPageParam: (lastPage) => {
       if (!lastPage.nextCursor) return undefined;
       const [, next] = lastPage.nextCursor.split(':');
       return Number(next);

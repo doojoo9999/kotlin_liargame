@@ -1,5 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import PuzzleCanvas from '@/components/game/PuzzleCanvas';
 import { usePuzzleDetail } from '@/features/daily/usePuzzleDetail';
 import { usePlaySession } from '@/features/play/usePlaySession';
 import { useGameStore } from '@/store/gameStore';
@@ -8,9 +9,26 @@ import { useNotificationStore } from '@/store/notificationStore';
 const PuzzlePlayPage = () => {
   const { puzzleId } = useParams<{ puzzleId: string }>();
   const { data, isLoading } = usePuzzleDetail(puzzleId);
-  const { status: playStatus, autosaveState, lastSavedAt } = usePlaySession(puzzleId);
+  const { status: playStatus, autosaveState, lastSavedAt, forceAutosave } = usePlaySession(puzzleId);
   const loadGrid = useGameStore((state) => state.loadGrid);
   const pushToast = useNotificationStore((state) => state.pushToast);
+  const [manualSavePending, setManualSavePending] = useState(false);
+
+  const handleManualSave = async () => {
+    if (!puzzleId || manualSavePending) {
+      return;
+    }
+    setManualSavePending(true);
+    try {
+      await forceAutosave();
+      pushToast({ title: '진행 상황 저장', description: '현재 진행도가 안전하게 저장되었습니다.' });
+    } catch (error) {
+      console.error('Manual autosave failed', error);
+      pushToast({ title: '저장 실패', description: '네트워크 상태를 확인해 주세요.' });
+    } finally {
+      setManualSavePending(false);
+    }
+  };
 
   useEffect(() => {
     if (!data) return;
@@ -42,9 +60,7 @@ const PuzzlePlayPage = () => {
             {data.width} × {data.height}
           </div>
         </header>
-        <div className="aspect-square rounded-lg border border-slate-800 bg-slate-900/40 p-4">
-          <p className="text-sm text-slate-500">캔버스 컴포넌트가 여기에 렌더링될 예정입니다.</p>
-        </div>
+        <PuzzleCanvas />
       </section>
 
       <aside className="space-y-4 rounded-lg border border-slate-800 bg-slate-900/40 p-4">
@@ -61,7 +77,9 @@ const PuzzlePlayPage = () => {
           </ul>
         </div>
         <div className="rounded border border-slate-800 bg-slate-950/60 p-3 text-xs text-slate-400">
-          <p>자동 저장 상태: {autosaveState === 'saving' ? '저장 중…' : autosaveState === 'error' ? '오류' : '대기 중'}</p>
+          <p data-testid="autosave-indicator">
+            자동 저장 상태: {autosaveState === 'saving' ? '저장 중…' : autosaveState === 'error' ? '오류' : '대기 중'}
+          </p>
           <p className="mt-1">
             마지막 저장:{' '}
             {lastSavedAt
@@ -70,8 +88,12 @@ const PuzzlePlayPage = () => {
           </p>
         </div>
         <div className="grid gap-2">
-          <button className="rounded bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground">
-            제출하기
+          <button
+            className="rounded bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+            disabled={manualSavePending || playStatus !== 'ready'}
+            onClick={handleManualSave}
+          >
+            {manualSavePending ? '수동 저장 중…' : '수동 저장'}
           </button>
           <button className="rounded border border-slate-700 px-3 py-2 text-sm text-slate-200 hover:border-primary">
             힌트 보기

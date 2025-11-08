@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { apiClient } from '@/lib/api/client';
 import { useGameStore, type CellState } from '@/store/gameStore';
 import { useNotificationStore } from '@/store/notificationStore';
+import { usePlayApi } from './PlayApiContext';
 
 type PlayStartResponse = {
   playId: string;
@@ -32,6 +32,7 @@ export const usePlaySession = (puzzleId?: string) => {
     clearSession: state.clearSession
   }));
   const pushToast = useNotificationStore((state) => state.pushToast);
+  const httpClient = usePlayApi();
 
   const [status, setStatus] = useState<'idle' | 'starting' | 'ready' | 'error'>('idle');
   const [autosaveState, setAutosaveState] = useState<'idle' | 'saving' | 'error'>('idle');
@@ -56,7 +57,7 @@ export const usePlaySession = (puzzleId?: string) => {
     setStatus('starting');
     clearSession();
 
-    apiClient
+    httpClient
       .post<PlayStartResponse>(`/puzzles/${puzzleId}/plays`, { mode: 'NORMAL' })
       .then((response) => {
         if (autosaveAbortRef.current) {
@@ -80,7 +81,7 @@ export const usePlaySession = (puzzleId?: string) => {
         });
         setStatus('error');
       });
-  }, [clearSession, puzzleId, pushToast, setSession]);
+  }, [clearSession, puzzleId, pushToast, setSession, httpClient]);
 
   const autosavePayload = useMemo<AutosavePayload | null>(() => {
     if (!session.playId || grid.cells.length === 0) {
@@ -106,7 +107,7 @@ export const usePlaySession = (puzzleId?: string) => {
     }
     setAutosaveState('saving');
     try {
-      await apiClient.patch(`/plays/${session.playId}/snapshot`, autosavePayload);
+      await httpClient.patch(`/plays/${session.playId}/snapshot`, autosavePayload);
       autosaveErrorNotifiedRef.current = false;
       setLastSavedAt(Date.now());
       setAutosaveState('idle');
@@ -121,7 +122,7 @@ export const usePlaySession = (puzzleId?: string) => {
         });
       }
     }
-  }, [autosavePayload, pushToast, session.playId]);
+  }, [autosavePayload, httpClient, pushToast, session.playId]);
 
   useEffect(() => {
     if (!session.playId || !grid.lastUpdated) {
@@ -156,10 +157,15 @@ export const usePlaySession = (puzzleId?: string) => {
     };
   }, [clearSession]);
 
+  const forceAutosave = useCallback(async () => {
+    await autosave();
+  }, [autosave]);
+
   return {
     status,
     playId: session.playId,
     autosaveState,
-    lastSavedAt
+    lastSavedAt,
+    forceAutosave
   };
 };

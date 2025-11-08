@@ -354,7 +354,9 @@ difficulty_score =
 ## 9) 프론트엔드(코드 구현)
 
 ### F4 플레이 세션 (MVP API 스펙)
-- TODO: `PlaySessionService` 단위 테스트·레이트 리밋 통합 테스트·프런트 캔버스 연동을 보강하여 F4 마무리.
+- PuzzleCanvas에 실제 인터랙션(셀 토글)과 수동 저장 버튼을 추가하여 UI 스캐폴드 확보.
+- `usePlaySession`은 `forceAutosave`를 노출하고, Vitest 기반 단위 테스트로 수동 저장 흐름을 검증.
+- TODO: Playwright 기반 브라우저 상호작용(E2E) 하네스를 연결해 실제 웹뷰에서 autosave 트리거를 검증.
 - **POST** `/api/v2/nemonemo/puzzles/{puzzleId}/plays`
   - RequireSubject(게스트 포함)
   - Request: `{ "mode": "NORMAL" }`

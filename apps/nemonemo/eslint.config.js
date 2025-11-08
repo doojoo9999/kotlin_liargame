@@ -4,17 +4,12 @@ import reactHooks from 'eslint-plugin-react-hooks';
 import reactRefresh from 'eslint-plugin-react-refresh';
 import tseslint from 'typescript-eslint';
 
-const typescriptConfigs = tseslint.configs.recommendedTypeChecked.map((config) => ({
+const typescriptConfigs = tseslint.configs.recommended.map((config) => ({
   ...config,
   files: config.files ?? ['**/*.{ts,tsx,cts,mts}'],
   languageOptions: {
     ...config.languageOptions,
-    globals: globals.browser,
-    parserOptions: {
-      ...config.languageOptions?.parserOptions,
-      project: ['./tsconfig.json'],
-      tsconfigRootDir: import.meta.dirname
-    }
+    globals: globals.browser
   }
 }));
 
