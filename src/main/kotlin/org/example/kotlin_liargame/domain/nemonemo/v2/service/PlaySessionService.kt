@@ -21,6 +21,7 @@ import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.server.ResponseStatusException
+import java.time.Duration
 import java.time.Instant
 import java.time.ZoneOffset
 import java.util.Base64
@@ -39,11 +40,23 @@ class PlaySessionService(
 
     @Transactional
     fun startPlay(puzzleId: UUID, subjectKey: UUID, request: PlayStartRequest): PlayStartResponse {
+        val cleanupNow = Instant.now()
+        val cutoff = cleanupNow.minus(STALE_SESSION_TTL)
+        playRepository.finishStaleSessions(subjectKey, cutoff, cleanupNow)
         val puzzle = puzzleRepository.findById(puzzleId).orElseThrow {
             ResponseStatusException(HttpStatus.NOT_FOUND, "PUZZLE_NOT_FOUND")
         }
         if (puzzle.status !in setOf(PuzzleStatus.APPROVED, PuzzleStatus.OFFICIAL)) {
             throw ResponseStatusException(HttpStatus.CONFLICT, "PUZZLE_NOT_PLAYABLE")
+        }
+        val existing = playRepository
+            .findTopByPuzzleIdAndSubjectKeyAndFinishedAtIsNullOrderByStartedAtDesc(puzzleId, subjectKey)
+        if (existing != null) {
+            return PlayStartResponse(
+                playId = existing.id,
+                stateToken = generateStateToken(existing.id, existing.startedAt),
+                expiresAt = existing.startedAt.plusSeconds(STALE_SESSION_TTL.seconds)
+            )
         }
         val play = PlayEntity(
             puzzle = puzzle,
@@ -56,7 +69,7 @@ class PlaySessionService(
         return PlayStartResponse(
             playId = saved.id,
             stateToken = generateStateToken(saved.id, saved.startedAt),
-            expiresAt = saved.startedAt.plusSeconds(60 * 60)
+            expiresAt = saved.startedAt.plusSeconds(STALE_SESSION_TTL.seconds)
         )
     }
 
@@ -119,7 +132,10 @@ class PlaySessionService(
         score.lastPlayedAt = Instant.now()
         scoreRepository.save(score)
 
-        puzzleRepository.incrementPlayStats(play.puzzle.id, request.mistakes == 0)
+        val updated = puzzleRepository.incrementPlayStats(play.puzzle.id, request.mistakes == 0)
+        if (updated == 0) {
+            throw ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "PLAY_STATS_UPDATE_FAILED")
+        }
 
         val leaderboardRank = if (improved) {
             scoreRepository.findTop100ByIdPuzzleIdOrderByBestScoreDesc(play.puzzle.id)
@@ -156,4 +172,8 @@ class PlaySessionService(
 
     private fun generateStateToken(playId: UUID, startedAt: Instant): String =
         Base64.getUrlEncoder().encodeToString("$playId:${startedAt.toEpochMilli()}".toByteArray())
+
+    companion object {
+        private val STALE_SESSION_TTL: Duration = Duration.ofHours(1)
+    }
 }

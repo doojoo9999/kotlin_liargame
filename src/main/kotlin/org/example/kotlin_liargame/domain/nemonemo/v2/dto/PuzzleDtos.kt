@@ -126,3 +126,8 @@ data class PuzzleAuditLogDto(
     val payload: JsonNode?,
     val createdAt: LocalDateTime
 )
+
+data class PuzzleAuditLogPageDto(
+    val items: List<PuzzleAuditLogDto>,
+    val nextCursor: String?
+)

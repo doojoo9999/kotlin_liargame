@@ -32,6 +32,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.http.HttpStatus
 import org.springframework.web.server.ResponseStatusException
+import java.time.Duration
 import java.time.Instant
 import java.util.Optional
 import java.util.UUID
@@ -68,6 +69,10 @@ class PlaySessionServiceTest {
             scoringService = scoringService,
             objectMapper = objectMapper
         )
+        every {
+            playRepository.findTopByPuzzleIdAndSubjectKeyAndFinishedAtIsNullOrderByStartedAtDesc(any(), any())
+        } returns null
+        every { playRepository.finishStaleSessions(any(), any(), any()) } returns 0
     }
 
     @AfterEach
@@ -87,6 +92,9 @@ class PlaySessionServiceTest {
         val puzzle = createPuzzle(PuzzleStatus.APPROVED)
 
         every { puzzleRepository.findById(puzzle.id) } returns Optional.of(puzzle)
+        every {
+            playRepository.findTopByPuzzleIdAndSubjectKeyAndFinishedAtIsNullOrderByStartedAtDesc(puzzle.id, subjectKey)
+        } returns null
         val savedSlot = slot<PlayEntity>()
         every { playRepository.save(capture(savedSlot)) } answers { savedSlot.captured }
 
@@ -96,6 +104,47 @@ class PlaySessionServiceTest {
         assertEquals(savedSlot.captured.startedAt.plusSeconds(60 * 60), response.expiresAt)
         assertTrue(response.stateToken.isNotBlank())
         verify(exactly = 1) { playRepository.save(any()) }
+    }
+
+    @Test
+    fun `startPlay expires stale sessions before new play`() {
+        val puzzle = createPuzzle(PuzzleStatus.APPROVED)
+        val cutoffSlot = slot<Instant>()
+        val markSlot = slot<Instant>()
+        every { puzzleRepository.findById(puzzle.id) } returns Optional.of(puzzle)
+        every {
+            playRepository.findTopByPuzzleIdAndSubjectKeyAndFinishedAtIsNullOrderByStartedAtDesc(puzzle.id, subjectKey)
+        } returns null
+        every { playRepository.save(any()) } answers { firstArg() }
+        every {
+            playRepository.finishStaleSessions(subjectKey, capture(cutoffSlot), capture(markSlot))
+        } returns 2
+
+        service.startPlay(puzzle.id, subjectKey, PlayStartRequest(PuzzleMode.NORMAL))
+
+        assertEquals(Duration.ofHours(1), Duration.between(cutoffSlot.captured, markSlot.captured))
+        verify(exactly = 1) { playRepository.finishStaleSessions(subjectKey, any(), any()) }
+    }
+
+    @Test
+    fun `startPlay reuses existing unfinished session`() {
+        val puzzle = createPuzzle(PuzzleStatus.APPROVED)
+        val existing = PlayEntity(
+            puzzle = puzzle,
+            subjectKey = subjectKey,
+            mode = PuzzleMode.NORMAL,
+            startedAt = Instant.now().minusSeconds(30),
+            inputEvents = "[]"
+        )
+        every { puzzleRepository.findById(puzzle.id) } returns Optional.of(puzzle)
+        every {
+            playRepository.findTopByPuzzleIdAndSubjectKeyAndFinishedAtIsNullOrderByStartedAtDesc(puzzle.id, subjectKey)
+        } returns existing
+
+        val response = service.startPlay(puzzle.id, subjectKey, PlayStartRequest(PuzzleMode.NORMAL))
+
+        assertEquals(existing.id, response.playId)
+        verify(exactly = 0) { playRepository.save(any()) }
     }
 
     @Test
@@ -157,7 +206,7 @@ class PlaySessionServiceTest {
         val savedScoreSlot = slot<ScoreEntity>()
         every { scoreRepository.save(capture(savedScoreSlot)) } answers { savedScoreSlot.captured }
         every { scoreRepository.findTop100ByIdPuzzleIdOrderByBestScoreDesc(puzzle.id) } answers { listOf(savedScoreSlot.captured) }
-        every { puzzleRepository.incrementPlayStats(puzzle.id, true) } just Runs
+        every { puzzleRepository.incrementPlayStats(puzzle.id, true) } returns 1
 
         val result = service.submit(playId, subjectKey, request)
 
@@ -169,6 +218,58 @@ class PlaySessionServiceTest {
         assertEquals(request.elapsedMs, savedScoreSlot.captured.bestTimeMs)
         verify { puzzleRepository.incrementPlayStats(puzzle.id, true) }
         verify { scoreRepository.save(savedScoreSlot.captured) }
+    }
+
+    @Test
+    fun `submit fails when stat update fails`() {
+        val puzzle = createPuzzle(PuzzleStatus.APPROVED)
+        val play = PlayEntity(
+            puzzle = puzzle,
+            subjectKey = subjectKey,
+            mode = PuzzleMode.NORMAL,
+            startedAt = Instant.now(),
+            inputEvents = "[]"
+        )
+        val playId = play.id
+        val request = PlaySubmitRequest(
+            solution = listOf("#."),
+            elapsedMs = 10_000,
+            mistakes = 0,
+            usedHints = 0,
+            undoCount = 0,
+            comboCount = 0
+        )
+        val solutionEntity = PuzzleSolutionEntity(puzzleId = puzzle.id, gridData = byteArrayOf(1), checksum = "checksum")
+        val solution = arrayOf(booleanArrayOf(true))
+        val breakdown = ScoreBreakdown(
+            finalScore = 1_500,
+            timeBonus = 100,
+            comboBonus = 10,
+            perfectBonus = 500,
+            penalty = 0
+        )
+        val scoreId = ScoreId(puzzle.id, subjectKey, PuzzleMode.NORMAL)
+        val existingScore = ScoreEntity(scoreId).apply {
+            bestScore = 2_000
+            bestTimeMs = 5_000
+            perfectClear = true
+        }
+
+        every { playRepository.findById(playId) } returns Optional.of(play)
+        every { playRepository.save(any()) } answers { firstArg() }
+        every { puzzleSolutionRepository.findById(puzzle.id) } returns Optional.of(solutionEntity)
+        every { puzzleValidationService.parseSolutionPayload(request.solution) } returns solution
+        every { puzzleValidationService.decodeSolution(solutionEntity.gridData, puzzle.width, puzzle.height) } returns solution
+        every { scoringService.calculateScore(play, request, puzzle.difficultyScore ?: 1.0) } returns breakdown
+        every { scoreRepository.findById(scoreId) } returns Optional.of(existingScore)
+        every { scoreRepository.save(existingScore) } returns existingScore
+        every { puzzleRepository.incrementPlayStats(puzzle.id, true) } returns 0
+
+        val exception = org.junit.jupiter.api.assertThrows<ResponseStatusException> {
+            service.submit(playId, subjectKey, request)
+        }
+
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, exception.statusCode)
     }
 
     @Test
@@ -251,4 +352,3 @@ class PlaySessionServiceTest {
             contentStyle = PuzzleContentStyle.GENERIC_PIXEL
         )
 }
-

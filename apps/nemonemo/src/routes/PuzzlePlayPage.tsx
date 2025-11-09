@@ -92,6 +92,7 @@ const PuzzlePlayPage = () => {
             className="rounded bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
             disabled={manualSavePending || playStatus !== 'ready'}
             onClick={handleManualSave}
+            data-testid="manual-save"
           >
             {manualSavePending ? '수동 저장 중…' : '수동 저장'}
           </button>

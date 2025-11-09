@@ -38,6 +38,13 @@ export const usePlaySession = (puzzleId?: string) => {
   const [autosaveState, setAutosaveState] = useState<'idle' | 'saving' | 'error'>('idle');
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
 
+  const updateStatus = useCallback((value: typeof status) => {
+    setStatus(value);
+    if (typeof window !== 'undefined') {
+      (window as Window & { __PLAYWRIGHT_LAST_STATUS__?: string }).__PLAYWRIGHT_LAST_STATUS__ = value;
+    }
+  }, []);
+
   const startedForPuzzleRef = useRef<string | null>(null);
   const autosaveErrorNotifiedRef = useRef(false);
   const autosaveAbortRef = useRef(false);
@@ -46,7 +53,7 @@ export const usePlaySession = (puzzleId?: string) => {
     if (!puzzleId) {
       clearSession();
       startedForPuzzleRef.current = null;
-      setStatus('idle');
+      updateStatus('idle');
       return;
     }
 
@@ -54,8 +61,9 @@ export const usePlaySession = (puzzleId?: string) => {
       return;
     }
     startedForPuzzleRef.current = puzzleId;
-    setStatus('starting');
+    updateStatus('starting');
     clearSession();
+    autosaveAbortRef.current = false;
 
     httpClient
       .post<PlayStartResponse>(`/puzzles/${puzzleId}/plays`, { mode: 'NORMAL' })
@@ -68,7 +76,7 @@ export const usePlaySession = (puzzleId?: string) => {
           title: '플레이 세션 시작',
           description: '자동 저장이 활성화되었습니다.'
         });
-        setStatus('ready');
+        updateStatus('ready');
       })
       .catch((error) => {
         if (autosaveAbortRef.current) {
@@ -79,9 +87,9 @@ export const usePlaySession = (puzzleId?: string) => {
           title: '세션 시작 실패',
           description: '네트워크 연결을 확인해 주세요.'
         });
-        setStatus('error');
+        updateStatus('error');
       });
-  }, [clearSession, puzzleId, pushToast, setSession, httpClient]);
+  }, [clearSession, httpClient, puzzleId, pushToast, setSession, updateStatus]);
 
   const autosavePayload = useMemo<AutosavePayload | null>(() => {
     if (!session.playId || grid.cells.length === 0) {

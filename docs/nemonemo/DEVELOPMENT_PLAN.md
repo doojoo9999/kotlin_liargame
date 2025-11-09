@@ -343,7 +343,7 @@ difficulty_score =
      }
    ]
    ```  
-   - TODO: 향후 페이지네이션(`cursor`)과 액션/기간 필터를 확장하고, 응답에 `nextCursor`를 포함하도록 개선.
+   - 감사 로그 조회 API는 `cursor` + `limit` 기반 페이지네이션을 지원하며 `nextCursor`를 응답에 포함합니다. (기간/액션 필터는 추후 확장)
 
 ### 승격 혜택
 - "OFFICIAL" 배지 표시
@@ -356,12 +356,11 @@ difficulty_score =
 ### F4 플레이 세션 (MVP API 스펙)
 - PuzzleCanvas에 실제 인터랙션(셀 토글)과 수동 저장 버튼을 추가하여 UI 스캐폴드 확보.
 - `usePlaySession`은 `forceAutosave`를 노출하고, Vitest 기반 단위 테스트로 수동 저장 흐름을 검증.
-- TODO: Playwright 기반 브라우저 상호작용(E2E) 하네스를 연결해 실제 웹뷰에서 autosave 트리거를 검증.
 - **POST** `/api/v2/nemonemo/puzzles/{puzzleId}/plays`
   - RequireSubject(게스트 포함)
   - Request: `{ "mode": "NORMAL" }`
   - Response: `{ "playId": "UUID", "stateToken": "string", "expiresAt": "<ISO8601>" }`
-  - 승인된 퍼즐만 허용. 매 호출마다 새 세션 생성(기존 세션은 TODO).
+  - 승인된 퍼즐만 허용. 동일 퍼즐에 미완료 세션이 있으면 재사용하여 `playId`와 `stateToken`을 그대로 반환.
 
 - **PATCH** `/api/v2/nemonemo/plays/{playId}/snapshot`
   - Request: `{ "snapshot": { ... }, "mistakes": 1, "undoCount": 2, "usedHints": 0 }`
@@ -381,7 +380,16 @@ difficulty_score =
 - `PlaySessionService`(신규)에서 create/save/submit 책임 분리.
 - 점수 계산은 MVP에서 단순화(난이도 기반 + perfect 보너스). F5에서 공식 확장.
 - 테스트 전략: 단위(서비스) + MockMvc 흘림(생성→저장→제출→중복 제출). snapshot/submit 에러(403/422)도 커버.
-- TODO: 플레이 통계 업데이트 동시성, 기존 미완료 세션 정리, RateLimit 설정.
+
+#### F4 보완 계획 (통계 동시성 & 세션 정리)
+1. **플레이 통계 원자 업데이트**
+   - `PuzzleRepository.incrementPlayStats`를 JPQL 벌크 업데이트로 유지하되, **반드시 상위 트랜잭션 내에서만 실행**하도록 `Propagation.MANDATORY`를 강제한다.
+   - 업데이트 성공 시점에 `play_count`, `clear_count`, `modified_at`을 동시에 갱신하여 동시 요청에서도 카운터 불일치를 막고, 반환값이 0이면 `PLAY_STATS_UPDATE_FAILED` 예외로 전체 제출을 롤백한다.
+   - 서비스 단위 테스트에서 성공/실패 케이스를 모두 검증하고, MockK에서 점수 계산/저장 경로를 명시적으로 스텁해 실패 원인을 정확히 파악할 수 있도록 정리한다.
+2. **미완료 세션 정리(만료)**
+   - `PlayRepository`에 `finishStaleSessions(subjectKey, cutoff, now)` 메서드를 추가하여 **시작 후 1시간 이상 지난 미완료 세션**을 `finishedAt = now`로 일괄 마킹한다. (동시에 `modified_at`도 갱신)
+   - `PlaySessionService.startPlay` 진입 시 subjectKey 단위로 만료 처리를 먼저 수행해, 오래된 세션 때문에 신규 세션 생성이 막히는 문제를 제거한다.
+   - 만료 로직은 향후 스케줄러로 분리할 수 있도록 service 메서드로 캡슐화하고, 단위 테스트에서 만료 개수/재사용 조건을 검증한다.
 
 ### 페이지 구조
 

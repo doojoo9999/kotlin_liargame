@@ -5,7 +5,7 @@ import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleCreateRequest
 import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleCreateResponse
 import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleDetailDto
 import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleListResponse
-import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleAuditLogDto
+import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleAuditLogPageDto
 import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleMetadataDto
 import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleOfficialRequest
 import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleReviewRequest
@@ -319,8 +319,8 @@ class PuzzleApplicationService(
     }
 
     @Transactional(readOnly = true)
-    fun getPuzzleAuditTrail(puzzleId: UUID): List<PuzzleAuditLogDto> {
-        return puzzleAuditService.fetch(puzzleId)
+    fun getPuzzleAuditTrail(puzzleId: UUID, cursor: String?, limit: Int): PuzzleAuditLogPageDto {
+        return puzzleAuditService.fetchPage(puzzleId, cursor, limit)
     }
 
     private fun toSummary(entity: PuzzleEntity): PuzzleSummaryDto = PuzzleSummaryDto(

@@ -844,10 +844,58 @@ class NemonemoPuzzleV2ControllerTest @Autowired constructor(
         assertEquals(200, auditStatus, "Audit status=$auditStatus body=${auditResult.response.contentAsString} roles=${resolvedAuditPrincipal?.roles}")
 
         val auditBody = auditResult.response.contentAsString
-        val auditNodes = objectMapper.readTree(auditBody)
-        assertEquals("REVIEW_APPROVE", auditNodes[0].get("action").asText(), "Audit response: $auditBody")
-        assertEquals("APPROVED", auditNodes[0].path("payload").path("status").asText(), "Audit response: $auditBody")
-        assertEquals(SUBJECT_KEY.toString(), auditNodes[0].get("actorKey").asText(), "Audit response: $auditBody")
+        val auditRoot = objectMapper.readTree(auditBody)
+        assertTrue(auditRoot.has("items"), "Audit response missing items: $auditBody")
+        val firstItem = auditRoot.path("items").first()
+        assertEquals("REVIEW_APPROVE", firstItem.get("action").asText(), "Audit response: $auditBody")
+        assertEquals("APPROVED", firstItem.path("payload").path("status").asText(), "Audit response: $auditBody")
+        assertEquals(SUBJECT_KEY.toString(), firstItem.get("actorKey").asText(), "Audit response: $auditBody")
+        assertTrue(auditRoot.path("nextCursor").isMissingNode || auditRoot.path("nextCursor").isNull,
+            "Audit response should not have next cursor: $auditBody")
+    }
+
+    @Test
+    fun `admin audit endpoint supports cursor pagination`() {
+        val draftId = createDraftPuzzle("Audit Cursor")
+        puzzleApplicationService.reviewPuzzle(
+            puzzleId = draftId,
+            reviewerKey = SUBJECT_KEY,
+            request = PuzzleReviewRequest(
+                decision = PuzzleReviewDecision.APPROVE,
+                reviewNotes = "OK",
+                rejectionReason = null
+            )
+        )
+        puzzleApplicationService.promoteToOfficial(
+            puzzleId = draftId,
+            reviewerKey = SUBJECT_KEY,
+            request = org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleOfficialRequest("승격")
+        )
+
+        val adminPrincipal = adminPrincipal()
+        val client = createAdminMockMvc(adminPrincipal)
+
+        val firstPage = client.perform(
+            MockMvcRequestBuilders
+                .get("/api/v2/nemonemo/admin/puzzles/{id}/audits", draftId)
+                .param("limit", "1")
+        ).andReturn()
+
+        val firstBody = objectMapper.readTree(firstPage.response.contentAsString)
+        assertEquals(1, firstBody.path("items").size(), "First page should contain one item: $firstBody")
+        val nextCursor = firstBody.path("nextCursor").asText()
+        assertTrue(nextCursor.isNotBlank(), "Next cursor expected: $firstBody")
+
+        val secondPage = client.perform(
+            MockMvcRequestBuilders
+                .get("/api/v2/nemonemo/admin/puzzles/{id}/audits", draftId)
+                .param("cursor", nextCursor)
+        ).andReturn()
+
+        val secondBody = objectMapper.readTree(secondPage.response.contentAsString)
+        assertEquals(1, secondBody.path("items").size(), "Second page should contain one item: $secondBody")
+        assertTrue(secondBody.path("nextCursor").isMissingNode || secondBody.path("nextCursor").isNull,
+            "No next cursor expected on last page: $secondBody")
     }
 
     @Test
