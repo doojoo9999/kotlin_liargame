@@ -131,8 +131,12 @@ app:
   security:
     rate-limit:
       enabled: true
-      requests-per-minute: 500
-      burst-capacity: 500
+      api:
+        requests-per-minute: 500
+        burst-capacity: 500
+      websocket:
+        messages-per-minute: 120
+        burst-capacity: 200
 
 lineagew:
   admin:

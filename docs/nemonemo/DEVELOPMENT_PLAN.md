@@ -390,6 +390,10 @@ difficulty_score =
    - `PlayRepository`에 `finishStaleSessions(subjectKey, cutoff, now)` 메서드를 추가하여 **시작 후 1시간 이상 지난 미완료 세션**을 `finishedAt = now`로 일괄 마킹한다. (동시에 `modified_at`도 갱신)
    - `PlaySessionService.startPlay` 진입 시 subjectKey 단위로 만료 처리를 먼저 수행해, 오래된 세션 때문에 신규 세션 생성이 막히는 문제를 제거한다.
    - 만료 로직은 향후 스케줄러로 분리할 수 있도록 service 메서드로 캡슐화하고, 단위 테스트에서 만료 개수/재사용 조건을 검증한다.
+3. **Rate Limit 설정 외부화 + 운영 가이드**
+   - `app.security.rate-limit` 설정을 `application*.yml`에서 관리하고, API/웹소켓별 `requests-per-minute`, `burst-capacity`를 분리한다. 운영 환경은 분당 500/버스트 500, 기본/테스트는 120/150으로 유지한다.
+   - `RateLimitingService`는 설정 객체를 주입 받아 동적으로 한도를 계산하고, `enabled=false`일 경우 즉시 통과하도록 한다. 헤더(`X-RateLimit-*`)와 429 응답 메시지는 항상 현재 설정값을 반영한다.
+   - 테스트 전략: RateLimitingFilter 통합 테스트에서 설정 값을 override하여 기대 한도에서 차단되는지 검증, `application-example.yml`에도 샘플 값을 추가해 배포 매뉴얼과 동기화한다.
 
 ### 페이지 구조
 

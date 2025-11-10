@@ -56,6 +56,17 @@ management:
       exposure:
         include: "prometheus,health"
 
+app:
+  security:
+    rate-limit:
+      enabled: true
+      api:
+        requests-per-minute: 120
+        burst-capacity: 150
+      websocket:
+        messages-per-minute: 30
+        burst-capacity: 50
+
 lineagew:
   admin:
     header-name: X-Lineage-Admin-Key

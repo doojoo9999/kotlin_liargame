@@ -13,6 +13,9 @@ class RateLimitingFilter(
 ) : OncePerRequestFilter() {
 
     override fun shouldNotFilter(request: HttpServletRequest): Boolean {
+        if (!rateLimitingService.isEnabled()) {
+            return true
+        }
         val uri = request.requestURI ?: return true
         if (uri.contains("/ws", ignoreCase = true) || uri.contains("/sockjs", ignoreCase = true)) {
             return true
@@ -75,4 +78,3 @@ class RateLimitingFilter(
         )
     }
 }
-

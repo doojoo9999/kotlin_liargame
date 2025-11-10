@@ -19,6 +19,9 @@ class RateLimitingInterceptor(
         handler: Any
     ): Boolean {
         val requestURI = request.requestURI
+        if (!rateLimitingService.isEnabled()) {
+            return true
+        }
         if (shouldSkipRateLimit(requestURI)) {
             return true
         }

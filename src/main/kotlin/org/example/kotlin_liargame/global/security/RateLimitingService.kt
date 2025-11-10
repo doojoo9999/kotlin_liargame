@@ -6,28 +6,27 @@ import java.time.temporal.ChronoUnit
 import java.util.concurrent.ConcurrentHashMap
 
 @Service
-class RateLimitingService {
+class RateLimitingService(
+    private val rateLimitProperties: RateLimitProperties
+) {
     
     private val apiRequestCounts = ConcurrentHashMap<String, MutableList<LocalDateTime>>()
     private val websocketMessageCounts = ConcurrentHashMap<String, MutableList<LocalDateTime>>()
-    
-    // API 요청 제한 설정
-    private val apiRequestsPerMinute = 120
-    private val apiBurstCapacity = 150
-    
-    // WebSocket 메시지 제한 설정
-    private val websocketMessagesPerMinute = 30
-    private val websocketBurstCapacity = 50
+
+    fun isEnabled(): Boolean = rateLimitProperties.enabled
     
     /**
      * API 요청에 대한 Rate Limiting 검사
      */
     fun isApiRequestAllowed(clientId: String): Boolean {
+        if (!isEnabled()) {
+            return true
+        }
         return isRequestAllowed(
             clientId = clientId,
             requestCounts = apiRequestCounts,
-            requestsPerMinute = apiRequestsPerMinute,
-            burstCapacity = apiBurstCapacity
+            requestsPerMinute = rateLimitProperties.api.requestsPerMinute,
+            burstCapacity = rateLimitProperties.api.burstCapacity
         )
     }
     
@@ -35,11 +34,14 @@ class RateLimitingService {
      * WebSocket 메시지에 대한 Rate Limiting 검사
      */
     fun isWebSocketMessageAllowed(clientId: String): Boolean {
+        if (!isEnabled()) {
+            return true
+        }
         return isRequestAllowed(
             clientId = clientId,
             requestCounts = websocketMessageCounts,
-            requestsPerMinute = websocketMessagesPerMinute,
-            burstCapacity = websocketBurstCapacity
+            requestsPerMinute = rateLimitProperties.websocket.messagesPerMinute,
+            burstCapacity = rateLimitProperties.websocket.burstCapacity
         )
     }
     
@@ -147,11 +149,11 @@ class RateLimitingService {
         return RateLimitStatus(
             clientId = clientId,
             apiRequestsInLastMinute = apiRequests,
-            apiRequestsPerMinuteLimit = apiRequestsPerMinute,
+            apiRequestsPerMinuteLimit = rateLimitProperties.api.requestsPerMinute,
             websocketMessagesInLastMinute = websocketMessages,
-            websocketMessagesPerMinuteLimit = websocketMessagesPerMinute,
-            isApiLimited = apiRequests >= apiRequestsPerMinute,
-            isWebSocketLimited = websocketMessages >= websocketMessagesPerMinute
+            websocketMessagesPerMinuteLimit = rateLimitProperties.websocket.messagesPerMinute,
+            isApiLimited = apiRequests >= rateLimitProperties.api.requestsPerMinute,
+            isWebSocketLimited = websocketMessages >= rateLimitProperties.websocket.messagesPerMinute
         )
     }
 }

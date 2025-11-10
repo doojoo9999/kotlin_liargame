@@ -26,7 +26,7 @@ interface PuzzleRepository : JpaRepository<PuzzleEntity, UUID> {
     @Transactional(propagation = Propagation.MANDATORY)
     @Query(
         "update PuzzleEntity p set p.playCount = p.playCount + 1, " +
-            "p.clearCount = p.clearCount + CASE WHEN :clear THEN 1 ELSE 0 END, " +
+            "p.clearCount = p.clearCount + CASE WHEN :clear = true THEN 1 ELSE 0 END, " +
             "p.modifiedAt = CURRENT_TIMESTAMP where p.id = :id"
     )
     fun incrementPlayStats(id: UUID, clear: Boolean): Int

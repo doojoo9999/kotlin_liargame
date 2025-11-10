@@ -1,8 +1,8 @@
 package org.example.kotlin_liargame.global.config
 
+import org.example.kotlin_liargame.global.security.RateLimitProperties
 import org.example.kotlin_liargame.global.security.RateLimitingInterceptor
 import org.example.kotlin_liargame.global.security.SubjectPrincipalArgumentResolver
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
@@ -16,7 +16,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer
 class WebConfig(
     private val rateLimitingInterceptor: RateLimitingInterceptor,
     private val subjectPrincipalArgumentResolver: SubjectPrincipalArgumentResolver,
-    @Value("\${ratelimit.enabled:true}") private val rateLimitEnabled: Boolean
+    private val rateLimitProperties: RateLimitProperties
 ) : WebMvcConfigurer {
 
     @Bean
@@ -25,7 +25,7 @@ class WebConfig(
     }
     
     override fun addInterceptors(registry: InterceptorRegistry) {
-        if (rateLimitEnabled) {
+        if (rateLimitProperties.enabled) {
             registry.addInterceptor(rateLimitingInterceptor)
                 .addPathPatterns("/api/**") // API 경로에만 적용
                 .excludePathPatterns(

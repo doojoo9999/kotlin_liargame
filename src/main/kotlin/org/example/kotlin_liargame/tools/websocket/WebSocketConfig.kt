@@ -1,11 +1,11 @@
 package org.example.kotlin_liargame.tools.websocket
 
+import org.example.kotlin_liargame.global.security.RateLimitProperties
 import org.example.kotlin_liargame.global.security.RateLimitingService
 import org.example.kotlin_liargame.global.security.SessionInfo
 import org.example.kotlin_liargame.global.security.SessionManagementService
 import org.example.kotlin_liargame.tools.websocket.model.StompPrincipal
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Lazy
 import org.springframework.http.server.ServerHttpRequest
@@ -34,7 +34,7 @@ class WebSocketConfig(
     @Lazy private val webSocketActivityInterceptor: WebSocketActivityInterceptor,
     private val sessionUtil: org.example.kotlin_liargame.global.util.SessionUtil,
     private val sessionManagementService: SessionManagementService,
-    @Value("\${ratelimit.enabled:true}") private val rateLimitEnabled: Boolean
+    private val rateLimitProperties: RateLimitProperties
 ) : WebSocketMessageBrokerConfigurer {
     private val logger = LoggerFactory.getLogger(WebSocketConfig::class.java)
     
@@ -299,7 +299,7 @@ class WebSocketConfig(
                             if (sessionId != null) {
                                 // Rate limiting 검사
                                 val clientId = getWebSocketClientId(accessor)
-                                if (rateLimitEnabled && !rateLimitingService.isWebSocketMessageAllowed(clientId)) {
+                                if (rateLimitProperties.enabled && !rateLimitingService.isWebSocketMessageAllowed(clientId)) {
                                     logger.warn("[SECURITY] WebSocket rate limit exceeded for client: {}", clientId)
                                     return null
                                 }

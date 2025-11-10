@@ -11,15 +11,23 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.mock.web.MockHttpServletRequest
 import org.springframework.mock.web.MockHttpServletResponse
 import org.springframework.test.context.ActiveProfiles
+import org.springframework.test.context.TestPropertySource
 
 @SpringBootTest
 @ActiveProfiles("test")
+@TestPropertySource(
+    properties = [
+        "app.security.rate-limit.api.requests-per-minute=5",
+        "app.security.rate-limit.api.burst-capacity=5"
+    ]
+)
 class RateLimitingFilterTest @Autowired constructor(
     private val rateLimitingFilter: RateLimitingFilter,
     private val rateLimitingService: RateLimitingService
 ) {
 
     private val clientIp = "203.0.113.10"
+    private val apiLimit = 5
 
     @AfterEach
     fun tearDown() {
@@ -28,7 +36,7 @@ class RateLimitingFilterTest @Autowired constructor(
 
     @Test
     fun `filter blocks requests after configured threshold`() {
-        repeat(120) {
+        repeat(apiLimit) {
             val request = buildRequest()
             val response = MockHttpServletResponse()
             val chain = AllowingChain()
@@ -68,4 +76,3 @@ class RateLimitingFilterTest @Autowired constructor(
         }
     }
 }
-
