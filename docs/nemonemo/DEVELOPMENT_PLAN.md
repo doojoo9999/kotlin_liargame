@@ -5,8 +5,9 @@
 - **F1** 완료 – `V012__Create_nemonemo_v2_tables.sql` 보강 및 시드 정비, Flyway 적용 확인.
 - **F2** 완료 – SubjectPrincipal 기반 세션 인증·RateLimit 필터·헤더 정리.
 - **F3** 완료 – 퍼즐 업로드 파이프라인 안정화(그리드 밸리데이션/체크섬 중복 처리, ResponseStatusException 매핑, `NemonemoPuzzleV2ControllerTest` 정상화) 및 관리자 검수 API(승인/반려, 리뷰 메타데이터 저장) 확장, 감사 로그(`puzzle_audit_logs`) 기록/테스트 도입.
-- **F4** 진행 중 – 플레이 세션 핵심 API(MVP) 구현 및 MockMvc 회귀 테스트 확보. 서비스 단위 테스트·레이트 리밋 검증·프런트 캔버스 연동은 후속 작업으로 남음.
-- **F5** 착수 – 점수제/리더보드 스펙 구체화(Score 계산 파라미터 외부화, Redis Sorted Set 창구 설계, 주차/월간 윈도우 정의) 및 캐시/DB 하이브리드 전략 초안 작성.
+- **F4** 완료 – 플레이 세션 핵심 API(MVP) 구현, 서비스 단위 테스트/MockMvc 회귀 테스트, RateLimit 필터 검증까지 마무리. (프런트 캔버스·Playwright 연동은 별도 FE 작업으로 이관)
+- **F5** 완료 – 점수제/리더보드 스펙 확정, Idempotency-Key 처리, Redis 캐시/DB fallback 구현 및 단위/통합 테스트 확보.
+- **F6** 완료 – 오늘의 추천 배치/캐시 + 개인화 추천 API(`GET /api/v2/nemonemo/personalized-picks`) 구현.
 
 ## 1) 제품 목표(필수 기능)
 
@@ -174,7 +175,7 @@ final_score = base_score + time_bonus + combo_bonus + perfect_bonus - penalty
 - 최근 7일 (롤링)
 - 월간 (시즌 패스 연동)
 - 작가별 (작가의 퍼즐 평균 점수)
-- Idempotency-Key로 이중 제출 방지
+- Idempotency-Key로 이중 제출 방지 (헤더로 전달된 키를 서버가 저장하고 동일 키 요청 시 직전 결과를 그대로 반환)
 - 중복/부정 사용자를 **제한하지 않음** (정책)
 - Redis Sorted Set으로 실시간 랭킹 관리
 
@@ -207,6 +208,7 @@ final_score = base_score + time_bonus + combo_bonus + perfect_bonus - penalty
 - 후보 풀: 최근 생성된 APPROVED/OFFICIAL 퍼즐 300개 중 `playCount ≥ 50`, `clearRate 20~60%`, `averageRating ≥ 3.5`, `averageTimeMs 4~30분` 구간을 만족하는 퍼즐만 통과시키고, 부족 시 최근 작품으로 폴백한다.
 - 다양성: EASY 1개, MEDIUM 2개, HARD 이상 1개를 우선 채우며 동일 작가, 동일 스타일 연속 노출을 방지한다. 최근 7일간 추천된 퍼즐은 기본적으로 제외하되 후보가 없을 때만 재사용한다.
 - API는 기존 `/api/v2/nemonemo/daily-picks`를 그대로 사용하며, 응답은 `DailyPickResponse(date, items)` 형식으로 유지된다.
+- 개인화 추천: `GET /api/v2/nemonemo/personalized-picks?limit=5` (RequireSubject). 사용자의 최근 Score 기록을 기반으로 선호 난이도/태그/스타일을 추출하고, 이미 플레이한 퍼즐을 제외한 후보를 가중치로 정렬해 반환한다.
 
 ## 7) 업로드 파이프라인(코드 구현)
 
@@ -225,6 +227,7 @@ final_score = base_score + time_bonus + combo_bonus + perfect_bonus - penalty
     - 빈 퍼즐 방지
     - 고립 픽셀 경고 (단일 픽셀이 주변과 연결 없음)
     - 최소 채움 비율 (5% 이상)
+        - `PuzzleGridValidator` 단계에서 즉시 검증: 행·열 길이 확인 후 `ensureFilledCells`로 5% 미만 채움 퍼즐을 400으로 차단하고, `detectIsolatedCells`로 주변 연결이 없는 셀 발견 시 422를 반환한다.
 
 ### 텍스트성 판정 (태깅, 반려 아님)
 - 휴리스틱 + OCR (경량: Tesseract.js)로 분석:
@@ -232,6 +235,7 @@ final_score = base_score + time_bonus + combo_bonus + perfect_bonus - penalty
     - `text_likeness_score`: 0.0 ~ 1.0
     - `tags`: 자동 태그 생성 (예: "animal", "character", "text", "abstract")
 - **이는 검색/추천/노출 가중치 입력으로만 사용** (승격/게시 배제 근거 X)
+        - `PuzzleMetadataResolver`가 `deriveHeuristics`를 통해 텍스트 점수/대칭성/밀도를 계산하고, `content_style`(LETTERFORM/CLI_ASCII/SYMBOLIC/MIXED/GENERIC)과 태그(`textual`, `symmetrical`, `dense` 등)를 자동 산출해 퍼즐 메타데이터에 반영한다.
 
 ### 유일해 검증 (필수)
 - **솔버 알고리즘**:
@@ -242,6 +246,7 @@ final_score = base_score + time_bonus + combo_bonus + perfect_bonus - penalty
     - **복수 해** → 반려 ("유일한 해가 필요합니다. 힌트를 조정해주세요.")
     - **무해결** → 반려 ("풀이 불가능한 퍼즐입니다.")
     - **단일 해** → 통과
+    - **시간 초과** → 반려 (Solver가 30초 내 완료되지 않으면 `PUZZLE_SOLVER_TIMEOUT` 422 응답)
 - 솔루션 데이터는 `puzzle_solutions` 테이블에 저장 (정답 검증용)
 
 ### 난이도 산정
@@ -384,23 +389,14 @@ difficulty_score =
   - 다른 기기에서 이어 하기용. 본인 세션만 접근 가능.
 
 #### 서비스/테스트 메모
-- `PlaySessionService`(신규)에서 create/save/submit 책임 분리.
-- 점수 계산은 MVP에서 단순화(난이도 기반 + perfect 보너스). F5에서 공식 확장.
-- 테스트 전략: 단위(서비스) + MockMvc 흘림(생성→저장→제출→중복 제출). snapshot/submit 에러(403/422)도 커버.
+- `PlaySessionService`가 create/save/submit 책임을 분리하고, `PlaySessionServiceTest`/MockMvc 흐름으로 회귀 테스트 완료.
+- 점수 계산은 MVP에서 단순화(난이도 기반 + perfect 보너스). F5에서 공식 확장 계획 유지.
+- RateLimitFilter/Interceptor에 대한 통합 테스트(`RateLimitingFilterTest`)와 서비스 단위 테스트를 확보하여 F4 범위 내 서버 측은 완료 상태.
 
-#### F4 보완 계획 (통계 동시성 & 세션 정리)
-1. **플레이 통계 원자 업데이트**
-   - `PuzzleRepository.incrementPlayStats`를 JPQL 벌크 업데이트로 유지하되, **반드시 상위 트랜잭션 내에서만 실행**하도록 `Propagation.MANDATORY`를 강제한다.
-   - 업데이트 성공 시점에 `play_count`, `clear_count`, `modified_at`을 동시에 갱신하여 동시 요청에서도 카운터 불일치를 막고, 반환값이 0이면 `PLAY_STATS_UPDATE_FAILED` 예외로 전체 제출을 롤백한다.
-   - 서비스 단위 테스트에서 성공/실패 케이스를 모두 검증하고, MockK에서 점수 계산/저장 경로를 명시적으로 스텁해 실패 원인을 정확히 파악할 수 있도록 정리한다.
-2. **미완료 세션 정리(만료)**
-   - `PlayRepository`에 `finishStaleSessions(subjectKey, cutoff, now)` 메서드를 추가하여 **시작 후 1시간 이상 지난 미완료 세션**을 `finishedAt = now`로 일괄 마킹한다. (동시에 `modified_at`도 갱신)
-   - `PlaySessionService.startPlay` 진입 시 subjectKey 단위로 만료 처리를 먼저 수행해, 오래된 세션 때문에 신규 세션 생성이 막히는 문제를 제거한다.
-   - 만료 로직은 향후 스케줄러로 분리할 수 있도록 service 메서드로 캡슐화하고, 단위 테스트에서 만료 개수/재사용 조건을 검증한다.
-3. **Rate Limit 설정 외부화 + 운영 가이드**
-   - `app.security.rate-limit` 설정을 `application*.yml`에서 관리하고, API/웹소켓별 `requests-per-minute`, `burst-capacity`를 분리한다. 운영 환경은 분당 500/버스트 500, 기본/테스트는 120/150으로 유지한다.
-   - `RateLimitingService`는 설정 객체를 주입 받아 동적으로 한도를 계산하고, `enabled=false`일 경우 즉시 통과하도록 한다. 헤더(`X-RateLimit-*`)와 429 응답 메시지는 항상 현재 설정값을 반영한다.
-   - 테스트 전략: RateLimitingFilter 통합 테스트에서 설정 값을 override하여 기대 한도에서 차단되는지 검증, `application-example.yml`에도 샘플 값을 추가해 배포 매뉴얼과 동기화한다.
+#### F4 보완 메모
+1. **플레이 통계/세션 관리**: `PuzzleRepository.incrementPlayStats` `Propagation.MANDATORY` 적용, `finishStaleSessions`로 1시간 초과 세션 자동 종료(서비스/테스트 반영 완료).
+2. **Rate Limit 외부화**: `app.security.rate-limit` 설정 및 `RateLimitingFilterTest`로 검증 완료.
+3. **남은 FE 후속**: PuzzleCanvas 실제 인터랙션 및 Playwright E2E 연결은 프런트 태스크로 이동 (서버 API는 안정화 완료).
 
 ### F5 점수/리더보드 (설계 초안)
 - **점수 파라미터 외부화**: `nemonemo.scoring.*` 환경 변수로 기본 배점/패널티를 제어하고, 제출 시 서버 시각 기준으로 시간 보너스를 계산한다. `PlaySessionService`는 항상 서버 측 `Instant`를 사용해 플레이 시간을 산출한다.

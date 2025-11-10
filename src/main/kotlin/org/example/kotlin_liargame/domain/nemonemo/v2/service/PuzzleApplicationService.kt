@@ -37,7 +37,8 @@ class PuzzleApplicationService(
     private val metadataResolver: PuzzleMetadataResolver,
     private val puzzleGridValidator: PuzzleGridValidator,
     private val puzzleAuditService: PuzzleAuditService,
-    private val dailyPickService: DailyPickService
+    private val dailyPickService: DailyPickService,
+    private val personalizedRecommendationService: PersonalizedRecommendationService
 ) {
 
     fun listPuzzles(
@@ -285,6 +286,9 @@ class PuzzleApplicationService(
 
     fun getDailyPicks(date: LocalDate = LocalDate.now()): DailyPickResponse =
         dailyPickService.getDailyPick(date)
+
+    fun getPersonalizedPicks(subjectKey: UUID, limit: Int): List<PuzzleSummaryDto> =
+        personalizedRecommendationService.getRecommendations(subjectKey, limit)
 
     @Transactional(readOnly = true)
     fun getReviewQueue(limit: Int): List<PuzzleSummaryDto> {

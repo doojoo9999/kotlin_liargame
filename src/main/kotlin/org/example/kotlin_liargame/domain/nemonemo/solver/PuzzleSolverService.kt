@@ -7,11 +7,33 @@ import kotlin.math.max
 @Service
 class PuzzleSolverService {
 
-    fun solve(rowHints: List<List<Int>>, columnHints: List<List<Int>>): PuzzleSolverResult {
+    fun solve(
+        rowHints: List<List<Int>>,
+        columnHints: List<List<Int>>,
+        timeoutMillis: Long? = null
+    ): PuzzleSolverResult {
         require(rowHints.isNotEmpty()) { "Row hints must not be empty" }
         require(columnHints.isNotEmpty()) { "Column hints must not be empty" }
         val height = rowHints.size
         val width = columnHints.size
+
+        val timeoutNanos = timeoutMillis?.let { millis ->
+            when {
+                millis < 0 -> null
+                millis == 0L -> 0L
+                else -> millis * 1_000_000
+            }
+        }
+        val startNano = System.nanoTime()
+
+        fun checkTimeout() {
+            if (timeoutNanos != null) {
+                val elapsed = System.nanoTime() - startNano
+                if (elapsed > timeoutNanos) {
+                    throw PuzzleSolverTimeoutException("Puzzle solver exceeded ${timeoutMillis}ms time limit")
+                }
+            }
+        }
 
         val rowPatterns = rowHints.map { hints ->
             generateRowPatterns(width, hints)
@@ -23,6 +45,7 @@ class PuzzleSolverService {
         var capturedSolution: Array<BooleanArray>? = null
 
         fun backtrack(rowIndex: Int) {
+            checkTimeout()
             if (solutionsFound >= 2) {
                 return
             }
@@ -38,7 +61,9 @@ class PuzzleSolverService {
 
             val patterns = rowPatterns[rowIndex]
             for (pattern in patterns) {
+                checkTimeout()
                 visitedNodes++
+                checkTimeout()
                 if (columnState.applyRow(rowIndex, pattern)) {
                     currentGrid[rowIndex] = pattern.copyOf()
                     backtrack(rowIndex + 1)

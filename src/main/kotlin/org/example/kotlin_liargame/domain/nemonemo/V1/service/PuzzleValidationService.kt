@@ -4,7 +4,11 @@ import org.example.kotlin_liargame.domain.nemonemo.model.PuzzleDifficulty
 import org.example.kotlin_liargame.domain.nemonemo.model.PuzzleGridCodec
 import org.example.kotlin_liargame.domain.nemonemo.solver.PuzzleSolverResult
 import org.example.kotlin_liargame.domain.nemonemo.solver.PuzzleSolverService
+import org.example.kotlin_liargame.domain.nemonemo.solver.PuzzleSolverTimeoutException
+import org.springframework.beans.factory.annotation.Value
+import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
+import org.springframework.web.server.ResponseStatusException
 import java.security.MessageDigest
 import kotlin.math.log10
 import kotlin.math.max
@@ -12,12 +16,18 @@ import kotlin.math.roundToInt
 
 @Service
 class PuzzleValidationService(
-    private val puzzleSolverService: PuzzleSolverService
+    private val puzzleSolverService: PuzzleSolverService,
+    @Value("\${nemonemo.solver.timeout-ms:30000}")
+    private val solverTimeoutMs: Long
 ) {
 
     fun validateSolution(grid: Array<BooleanArray>): PuzzleValidationResult {
         val hints = generateHints(grid)
-        val solverResult = puzzleSolverService.solve(hints.rows, hints.columns)
+        val solverResult = try {
+            puzzleSolverService.solve(hints.rows, hints.columns, solverTimeoutMs)
+        } catch (ex: PuzzleSolverTimeoutException) {
+            throw ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "PUZZLE_SOLVER_TIMEOUT")
+        }
         val difficulty = inferDifficulty(solverResult)
         val estimatedMinutes = estimateMinutes(grid, solverResult)
         val checksum = computeChecksum(grid)
@@ -91,7 +101,7 @@ class PuzzleValidationService(
         return if (hints.isEmpty()) listOf(0) else hints
     }
 
-    private fun computeChecksum(grid: Array<BooleanArray>): String {
+        private fun computeChecksum(grid: Array<BooleanArray>): String {
         val digest = MessageDigest.getInstance("SHA-256")
         for (row in grid) {
             for (cell in row) {

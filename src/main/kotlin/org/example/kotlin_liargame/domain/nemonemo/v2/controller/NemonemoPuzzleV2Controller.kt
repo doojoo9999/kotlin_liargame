@@ -118,6 +118,14 @@ class NemonemoPuzzleV2Controller(
         puzzleApplicationService.getDailyPicks(date ?: LocalDate.now())
     )
 
+    @GetMapping("/personalized-picks")
+    fun personalizedPicks(
+        @RequireSubject subject: SubjectPrincipal,
+        @RequestParam(defaultValue = "5") limit: Int
+    ) = ResponseEntity.ok(
+        puzzleApplicationService.getPersonalizedPicks(subject.subjectKey, limit)
+    )
+
     @GetMapping("/admin/puzzles/review-queue")
     fun reviewQueue(
         @RequireSubject subject: SubjectPrincipal,

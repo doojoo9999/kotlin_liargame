@@ -350,6 +350,41 @@ class PlaySessionServiceTest {
         verify(exactly = 0) { leaderboardCacheService.recordPlayResult(any()) }
     }
 
+    @Test
+    fun `submit returns cached result when idempotency key matches`() {
+        val puzzle = createPuzzle(PuzzleStatus.APPROVED)
+        val play = PlayEntity(
+            puzzle = puzzle,
+            subjectKey = subjectKey,
+            mode = PuzzleMode.NORMAL,
+            startedAt = Instant.now(),
+            inputEvents = "[]"
+        ).apply {
+            finishedAt = Instant.now()
+            lastSubmissionKey = "abc"
+            lastSubmissionResult = objectMapper.writeValueAsString(
+                PlayResultDto(
+                    puzzleId = puzzle.id,
+                    playId = this.id,
+                    score = 777,
+                    elapsedMs = 1_000,
+                    comboBonus = 0,
+                    perfectClear = true,
+                    leaderboardRank = 5
+                )
+            )
+        }
+        val playId = play.id
+        every { playRepository.findById(playId) } returns Optional.of(play)
+
+        val result = service.submit(playId, subjectKey, PlaySubmitRequest(listOf("#"), 1_000, 0, 0, 0, 0), "abc")
+
+        assertEquals(777, result.score)
+        verify(exactly = 0) { puzzleSolutionRepository.findById(any()) }
+        verify(exactly = 0) { scoreRepository.save(any()) }
+        verify(exactly = 0) { leaderboardCacheService.recordPlayResult(any()) }
+    }
+
     private fun createPuzzle(status: PuzzleStatus): PuzzleEntity =
         PuzzleEntity(
             title = "Puzzle",

@@ -9,6 +9,7 @@ import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleAuditAction
 import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleReviewDecision
 import org.example.kotlin_liargame.domain.nemonemo.v2.model.DailyPickEntity
 import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleContentStyle
+import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleEntity
 import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleMode
 import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleStatus
 import org.example.kotlin_liargame.domain.nemonemo.v2.model.ScoreEntity
@@ -314,6 +315,36 @@ class NemonemoPuzzleV2ControllerTest @Autowired constructor(
                 status { isOk() }
                 jsonPath("$.items[*].id", hasItem(puzzleId.toString()))
                 jsonPath("$.date") { exists() }
+            }
+    }
+
+    @Test
+    fun `personalized picks returns list for subject`() {
+        puzzleRepository.save(
+            PuzzleEntity(
+                title = "Personalized",
+                description = null,
+                width = 5,
+                height = 5,
+                authorId = SUBJECT_KEY,
+                authorAnonId = null,
+                status = PuzzleStatus.APPROVED,
+                contentStyle = PuzzleContentStyle.GENERIC_PIXEL
+            ).apply {
+                difficultyScore = 4.2
+                tags.add("integration")
+                playCount = 200
+                clearCount = 120
+            }
+        )
+
+        mockMvc.get("/api/v2/nemonemo/personalized-picks") {
+            with(asGuest())
+            param("limit", "3")
+        }
+            .andExpect {
+                status { isOk() }
+                jsonPath("$[0].id") { exists() }
             }
     }
 

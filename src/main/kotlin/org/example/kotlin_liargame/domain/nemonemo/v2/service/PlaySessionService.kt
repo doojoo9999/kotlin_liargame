@@ -91,12 +91,15 @@ class PlaySessionService(
     }
 
     @Transactional
-    fun submit(playId: UUID, subjectKey: UUID, request: PlaySubmitRequest): PlayResultDto {
+    fun submit(playId: UUID, subjectKey: UUID, request: PlaySubmitRequest, idempotencyKey: String? = null): PlayResultDto {
         val play = playRepository.findById(playId).orElseThrow {
             ResponseStatusException(HttpStatus.NOT_FOUND, "PLAY_NOT_FOUND")
         }
         if (play.subjectKey != subjectKey) {
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "PLAY_FORBIDDEN")
+        }
+        if (idempotencyKey != null && idempotencyKey == play.lastSubmissionKey && play.lastSubmissionResult != null) {
+            return deserializeResult(play.lastSubmissionResult!!)
         }
         if (play.finishedAt != null) {
             throw ResponseStatusException(HttpStatus.CONFLICT, "PLAY_ALREADY_FINISHED")
@@ -149,6 +152,12 @@ class PlaySessionService(
         }
         val result = scoringService.buildResult(play, breakdown, leaderboardRank, request.elapsedMs)
 
+        if (!idempotencyKey.isNullOrBlank()) {
+            play.lastSubmissionKey = idempotencyKey
+            play.lastSubmissionResult = serializeResult(result)
+            playRepository.save(play)
+        }
+
         leaderboardCacheService.recordPlayResult(
             LeaderboardRecord(
                 subjectKey = subjectKey,
@@ -194,4 +203,9 @@ class PlaySessionService(
     companion object {
         private val STALE_SESSION_TTL: Duration = Duration.ofHours(1)
     }
+
+    private fun serializeResult(result: PlayResultDto): String = objectMapper.writeValueAsString(result)
+
+    private fun deserializeResult(payload: String): PlayResultDto =
+        objectMapper.readValue(payload, PlayResultDto::class.java)
 }

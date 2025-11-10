@@ -62,7 +62,14 @@ class PlayEntity(
     var undoCount: Int = 0,
 
     @Column(name = "combo_count", nullable = false)
-    var comboCount: Int = 0
+    var comboCount: Int = 0,
+
+    @Column(name = "last_submission_key", length = 64)
+    var lastSubmissionKey: String? = null,
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "last_submission_result", columnDefinition = "jsonb")
+    var lastSubmissionResult: String? = null
 ) : BaseEntity() {
 
     @Id
