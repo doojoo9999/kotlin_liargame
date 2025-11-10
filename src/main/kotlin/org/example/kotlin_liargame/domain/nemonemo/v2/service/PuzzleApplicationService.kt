@@ -37,6 +37,7 @@ class PuzzleApplicationService(
     private val metadataResolver: PuzzleMetadataResolver,
     private val puzzleGridValidator: PuzzleGridValidator,
     private val puzzleAuditService: PuzzleAuditService,
+    private val puzzleComplianceService: PuzzleComplianceService,
     private val dailyPickService: DailyPickService,
     private val personalizedRecommendationService: PersonalizedRecommendationService
 ) {
@@ -111,6 +112,9 @@ class PuzzleApplicationService(
         )
 
         metadata.applyTo(savedPuzzle)
+        val complianceFlags = puzzleComplianceService.assess(savedPuzzle, metadata, request)
+        savedPuzzle.complianceFlags.clear()
+        savedPuzzle.complianceFlags.addAll(complianceFlags)
         val updatedPuzzle = puzzleRepository.save(savedPuzzle)
 
         val responseMetadata = PuzzleMetadataDto(

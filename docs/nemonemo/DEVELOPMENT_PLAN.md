@@ -175,7 +175,7 @@ final_score = base_score + time_bonus + combo_bonus + perfect_bonus - penalty
 - 최근 7일 (롤링)
 - 월간 (시즌 패스 연동)
 - 작가별 (작가의 퍼즐 평균 점수)
-- Idempotency-Key로 이중 제출 방지 (헤더로 전달된 키를 서버가 저장하고 동일 키 요청 시 직전 결과를 그대로 반환)
+    - Idempotency-Key로 이중 제출 방지 (헤더로 전달된 키를 서버가 저장하고 동일 키 요청 시 직전 결과를 그대로 반환)
 - 중복/부정 사용자를 **제한하지 않음** (정책)
 - Redis Sorted Set으로 실시간 랭킹 관리
 
@@ -265,6 +265,7 @@ difficulty_score =
     - 이미지 해시 기반 중복 검사
     - 음란물 감지 (간단한 휴리스틱)
     - 저작권 침해 의심 (유명 캐릭터 패턴 매칭)
+- **서버 구현**: `PuzzleComplianceService`가 제목/태그 키워드, text_likeness_score, 패턴 태그를 분석해 `compliance_flags`(`POTENTIAL_ADULT`, `POTENTIAL_COPYRIGHT`, `TEXT_HEAVY` 등)을 저장한다.
 - **수동 검토 큐**: 의심 항목은 관리자 검토 대기
 - **신고 시스템**: 사용자 신고 시 즉시 검토 큐 진입
 - 위반 확인 시 `compliance_flags` 기록 및 블라인드 처리
