@@ -1,5 +1,6 @@
 package org.example.kotlin_liargame.domain.nemonemo.v2.controller
 
+import org.example.kotlin_liargame.domain.nemonemo.v2.dto.LeaderboardWindow
 import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleMode
 import org.example.kotlin_liargame.domain.nemonemo.v2.service.LeaderboardService
 import org.springframework.http.ResponseEntity
@@ -25,7 +26,11 @@ class NemonemoLeaderboardV2Controller(
     )
 
     @GetMapping("/leaderboard/global")
-    fun globalLeaderboard() = ResponseEntity.ok(
-        leaderboardService.fetchRecentGlobalLeaderboard()
+    fun globalLeaderboard(
+        @RequestParam(defaultValue = "GLOBAL") window: LeaderboardWindow,
+        @RequestParam(defaultValue = "NORMAL") mode: PuzzleMode,
+        @RequestParam(defaultValue = "50") limit: Int
+    ) = ResponseEntity.ok(
+        leaderboardService.fetchLeaderboard(window, mode, limit)
     )
 }

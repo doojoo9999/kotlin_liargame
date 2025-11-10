@@ -24,6 +24,7 @@ import org.example.kotlin_liargame.domain.nemonemo.v2.repository.PlayRepository
 import org.example.kotlin_liargame.domain.nemonemo.v2.repository.PuzzleRepository
 import org.example.kotlin_liargame.domain.nemonemo.v2.repository.PuzzleSolutionRepository
 import org.example.kotlin_liargame.domain.nemonemo.v2.repository.ScoreRepository
+import org.example.kotlin_liargame.domain.nemonemo.v2.service.LeaderboardCacheService
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -45,6 +46,7 @@ class PlaySessionServiceTest {
     private lateinit var puzzleSolutionRepository: PuzzleSolutionRepository
     private lateinit var puzzleValidationService: PuzzleValidationService
     private lateinit var scoringService: ScoringService
+    private lateinit var leaderboardCacheService: LeaderboardCacheService
 
     private lateinit var service: PlaySessionService
 
@@ -59,6 +61,7 @@ class PlaySessionServiceTest {
         puzzleSolutionRepository = mockk()
         puzzleValidationService = mockk()
         scoringService = mockk()
+        leaderboardCacheService = mockk()
 
         service = PlaySessionService(
             puzzleRepository = puzzleRepository,
@@ -67,12 +70,14 @@ class PlaySessionServiceTest {
             puzzleSolutionRepository = puzzleSolutionRepository,
             puzzleValidationService = puzzleValidationService,
             scoringService = scoringService,
+            leaderboardCacheService = leaderboardCacheService,
             objectMapper = objectMapper
         )
         every {
             playRepository.findTopByPuzzleIdAndSubjectKeyAndFinishedAtIsNullOrderByStartedAtDesc(any(), any())
         } returns null
         every { playRepository.finishStaleSessions(any(), any(), any()) } returns 0
+        every { leaderboardCacheService.recordPlayResult(any()) } just Runs
     }
 
     @AfterEach
@@ -83,7 +88,8 @@ class PlaySessionServiceTest {
             scoreRepository,
             puzzleSolutionRepository,
             puzzleValidationService,
-            scoringService
+            scoringService,
+            leaderboardCacheService
         )
     }
 
@@ -218,6 +224,7 @@ class PlaySessionServiceTest {
         assertEquals(request.elapsedMs, savedScoreSlot.captured.bestTimeMs)
         verify { puzzleRepository.incrementPlayStats(puzzle.id, true) }
         verify { scoreRepository.save(savedScoreSlot.captured) }
+        verify { leaderboardCacheService.recordPlayResult(any()) }
     }
 
     @Test
@@ -270,6 +277,7 @@ class PlaySessionServiceTest {
         }
 
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, exception.statusCode)
+        verify(exactly = 0) { leaderboardCacheService.recordPlayResult(any()) }
     }
 
     @Test
@@ -306,6 +314,7 @@ class PlaySessionServiceTest {
 
         assertEquals(HttpStatus.UNPROCESSABLE_ENTITY, exception.statusCode)
         verify(exactly = 0) { puzzleRepository.incrementPlayStats(any(), any()) }
+        verify(exactly = 0) { leaderboardCacheService.recordPlayResult(any()) }
     }
 
     @Test
@@ -338,6 +347,7 @@ class PlaySessionServiceTest {
 
         assertEquals(HttpStatus.CONFLICT, exception.statusCode)
         verify(exactly = 0) { puzzleSolutionRepository.findById(any()) }
+        verify(exactly = 0) { leaderboardCacheService.recordPlayResult(any()) }
     }
 
     private fun createPuzzle(status: PuzzleStatus): PuzzleEntity =

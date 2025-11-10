@@ -41,7 +41,10 @@ interface ScoreRepository : JpaRepository<ScoreEntity, ScoreId> {
     fun findByIdSubjectKey(subjectKey: UUID, pageable: Pageable): List<ScoreEntity>
 }
 
-interface DailyPickRepository : JpaRepository<DailyPickEntity, LocalDate>
+interface DailyPickRepository : JpaRepository<DailyPickEntity, LocalDate> {
+    fun findAllByPickDateBetween(start: LocalDate, end: LocalDate): List<DailyPickEntity>
+}
+ 
 
 interface NotificationRepository : JpaRepository<NotificationEntity, UUID> {
     fun findByRecipientKeyOrderByCreatedAtDesc(recipientKey: UUID, pageable: Pageable): List<NotificationEntity>

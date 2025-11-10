@@ -8,6 +8,7 @@ import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PlayResultDto
 import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PlayStartRequest
 import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PlayStartResponse
 import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PlaySubmitRequest
+import org.example.kotlin_liargame.domain.nemonemo.v2.service.LeaderboardCacheService.LeaderboardRecord
 import org.example.kotlin_liargame.domain.nemonemo.v2.model.PlayEntity
 import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleMode
 import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleStatus
@@ -35,6 +36,7 @@ class PlaySessionService(
     private val puzzleSolutionRepository: PuzzleSolutionRepository,
     private val puzzleValidationService: PuzzleValidationService,
     private val scoringService: ScoringService,
+    private val leaderboardCacheService: LeaderboardCacheService,
     private val objectMapper: ObjectMapper
 ) {
 
@@ -145,7 +147,23 @@ class PlaySessionService(
         } else {
             null
         }
-        return scoringService.buildResult(play, breakdown, leaderboardRank, request.elapsedMs)
+        val result = scoringService.buildResult(play, breakdown, leaderboardRank, request.elapsedMs)
+
+        leaderboardCacheService.recordPlayResult(
+            LeaderboardRecord(
+                subjectKey = subjectKey,
+                puzzleId = play.puzzle.id,
+                authorKey = play.puzzle.authorId,
+                mode = play.mode,
+                finalScore = breakdown.finalScore,
+                elapsedMs = request.elapsedMs,
+                comboCount = request.comboCount,
+                mistakes = request.mistakes,
+                finishedAt = play.finishedAt!!
+            )
+        )
+
+        return result
     }
 
     @Transactional(readOnly = true)

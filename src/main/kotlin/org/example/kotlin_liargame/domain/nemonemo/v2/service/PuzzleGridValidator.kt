@@ -43,6 +43,9 @@ class PuzzleGridValidator {
             trimmed
         }
 
+        ensureFilledCells(sanitized)
+        detectIsolatedCells(sanitized)
+
         if (request.tags.size > MAX_TAG_COUNT) {
             throw ResponseStatusException(
                 HttpStatus.BAD_REQUEST,
@@ -62,12 +65,54 @@ class PuzzleGridValidator {
         return sanitized
     }
 
+    private fun ensureFilledCells(grid: List<String>) {
+        val totalCells = grid.size * grid.firstOrNull()?.length.orZero()
+        val filled = grid.sumOf { row -> row.count { it == FILLED } }
+        val ratio = if (totalCells == 0) 0.0 else filled.toDouble() / totalCells.toDouble()
+        if (ratio < MIN_FILLED_RATIO) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "퍼즐에는 최소 5% 이상 채워진 셀이 필요합니다.")
+        }
+    }
+
+    private fun detectIsolatedCells(grid: List<String>) {
+        val height = grid.size
+        val width = grid.firstOrNull()?.length.orZero()
+        for (y in 0 until height) {
+            for (x in 0 until width) {
+                if (grid[y][x] == FILLED && isIsolated(grid, x, y)) {
+                    throw ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "고립된 채움 셀이 감지되었습니다. 주변 셀과 연결되도록 조정해주세요.")
+                }
+            }
+        }
+    }
+
+    private fun isIsolated(grid: List<String>, x: Int, y: Int): Boolean {
+        val height = grid.size
+        val width = grid.firstOrNull()?.length.orZero()
+        for (dy in -1..1) {
+            for (dx in -1..1) {
+                if (dx == 0 && dy == 0) continue
+                val nx = x + dx
+                val ny = y + dy
+                if (nx in 0 until width && ny in 0 until height) {
+                    if (grid[ny][nx] == FILLED) {
+                        return false
+                    }
+                }
+            }
+        }
+        return true
+    }
+
+    private fun Int?.orZero(): Int = this ?: 0
+
     companion object {
         private const val MIN_SIZE = 5
         private const val MAX_SIZE = 50
+        private const val MIN_FILLED_RATIO = 0.05
         private const val MAX_TAG_COUNT = 10
         private const val MAX_TAG_LENGTH = 32
         private val ROW_PATTERN = Regex("^[#.]+$")
+        private const val FILLED = '#'
     }
 }
-

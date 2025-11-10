@@ -6,6 +6,7 @@
 - **F2** 완료 – SubjectPrincipal 기반 세션 인증·RateLimit 필터·헤더 정리.
 - **F3** 완료 – 퍼즐 업로드 파이프라인 안정화(그리드 밸리데이션/체크섬 중복 처리, ResponseStatusException 매핑, `NemonemoPuzzleV2ControllerTest` 정상화) 및 관리자 검수 API(승인/반려, 리뷰 메타데이터 저장) 확장, 감사 로그(`puzzle_audit_logs`) 기록/테스트 도입.
 - **F4** 진행 중 – 플레이 세션 핵심 API(MVP) 구현 및 MockMvc 회귀 테스트 확보. 서비스 단위 테스트·레이트 리밋 검증·프런트 캔버스 연동은 후속 작업으로 남음.
+- **F5** 착수 – 점수제/리더보드 스펙 구체화(Score 계산 파라미터 외부화, Redis Sorted Set 창구 설계, 주차/월간 윈도우 정의) 및 캐시/DB 하이브리드 전략 초안 작성.
 
 ## 1) 제품 목표(필수 기능)
 
@@ -201,6 +202,12 @@ final_score = base_score + time_bonus + combo_bonus + perfect_bonus - penalty
 - `daily_picks(date)` 저장 + Redis/CDN 프리로딩, ETag/Last-Modified 지원
 - **사용자 맞춤 추천** (로그인 사용자): 플레이 히스토리 기반 개인화
 
+#### F6 오늘의 추천 구현 메모
+- 매일 KST 00:05에 `DailyPickScheduler`가 `DailyPickService.generateDailyPick(force=true)`를 호출해 `daily_picks` 레코드를 덮어쓴다.
+- 후보 풀: 최근 생성된 APPROVED/OFFICIAL 퍼즐 300개 중 `playCount ≥ 50`, `clearRate 20~60%`, `averageRating ≥ 3.5`, `averageTimeMs 4~30분` 구간을 만족하는 퍼즐만 통과시키고, 부족 시 최근 작품으로 폴백한다.
+- 다양성: EASY 1개, MEDIUM 2개, HARD 이상 1개를 우선 채우며 동일 작가, 동일 스타일 연속 노출을 방지한다. 최근 7일간 추천된 퍼즐은 기본적으로 제외하되 후보가 없을 때만 재사용한다.
+- API는 기존 `/api/v2/nemonemo/daily-picks`를 그대로 사용하며, 응답은 `DailyPickResponse(date, items)` 형식으로 유지된다.
+
 ## 7) 업로드 파이프라인(코드 구현)
 
 ### 입력 및 검증
@@ -394,6 +401,22 @@ difficulty_score =
    - `app.security.rate-limit` 설정을 `application*.yml`에서 관리하고, API/웹소켓별 `requests-per-minute`, `burst-capacity`를 분리한다. 운영 환경은 분당 500/버스트 500, 기본/테스트는 120/150으로 유지한다.
    - `RateLimitingService`는 설정 객체를 주입 받아 동적으로 한도를 계산하고, `enabled=false`일 경우 즉시 통과하도록 한다. 헤더(`X-RateLimit-*`)와 429 응답 메시지는 항상 현재 설정값을 반영한다.
    - 테스트 전략: RateLimitingFilter 통합 테스트에서 설정 값을 override하여 기대 한도에서 차단되는지 검증, `application-example.yml`에도 샘플 값을 추가해 배포 매뉴얼과 동기화한다.
+
+### F5 점수/리더보드 (설계 초안)
+- **점수 파라미터 외부화**: `nemonemo.scoring.*` 환경 변수로 기본 배점/패널티를 제어하고, 제출 시 서버 시각 기준으로 시간 보너스를 계산한다. `PlaySessionService`는 항상 서버 측 `Instant`를 사용해 플레이 시간을 산출한다.
+- **리더보드 모델링**
+  1. **퍼즐별 랭크**: `scores` 테이블을 단일 소스로 유지하고, 모드별 상위 100명을 JPA로 조회한다. (TIME_ATTACK은 `bestTimeMs` 오름차순, 나머지는 `bestScore` 내림차순)
+  2. **글로벌/주간/월간/작가별**: Redis Sorted Set을 1차 저장소로 사용한다. 키 패턴은 `nemo:lb:{window}:{mode}:{windowId}`로 통일하고, score는 사용자 누적 점수(`zincrby`)를 표현한다. 메타데이터(`combo`, `perfect`, `lastScore`, `updatedAt`)는 Hash(`nemo:lb:meta:{window}:{mode}:{windowId}`)에 JSON으로 저장한다.
+  3. **윈도우 식별 규칙**: Global=고정 키, Weekly=`yyyyMMdd` (해당 주 월요일), Monthly=`yyyyMM`. TTL은 주간 35일, 월간 120일로 설정하여 불필요한 키를 자동 정리한다.
+  4. **작가 랭크**: 퍼즐의 `authorId` 단위로 누적 점수를 더해 인기 작가 순위를 노출한다. 추후 평균 점수/완주율로 확장 예정 (현 단계는 누적 점수 기준).
+
+- **업데이트 파이프라인**: `PlaySessionService.submit`이 성공적으로 종료될 때 `LeaderboardCacheService.recordPlayResult`를 호출하여 (a) 글로벌/주간/월간/작가 Sorted Set 점수를 증가시키고, (b) 메타데이터를 덮어쓴다. Redis가 비활성화된 환경에서는 No-op으로 동작한다.
+- **조회 파이프라인**: `LeaderboardService`는 Redis 데이터가 있으면 그대로 사용하고, 없다면 `ScoreRepository`/`PlayRepository`를 이용해 fallback 집계를 수행한다. 글로벌/주간/월간은 `window` 파라미터로 구분하고, 퍼즐별은 기존 엔드포인트를 유지한다.
+- **API 확장**: `GET /api/v2/nemonemo/leaderboard/global`은 `window`(GLOBAL|WEEKLY|MONTHLY|AUTHOR), `mode`, `limit` 쿼리 파라미터를 수용해 다양한 랭크를 제공하고, 퍼즐별 랭크는 `GET /puzzles/{id}/leaderboard?mode=`로 유지한다.
+- **테스트 전략**:
+  - 서비스 단위 테스트: Redis가 없는 상황에서도 fallback이 동작하는지 검증 (`LeaderboardServiceTest`).
+  - 제출 플로우 테스트: `PlaySessionServiceTest`에서 `LeaderboardCacheService` 호출 여부를 검증하여 누락을 방지한다.
+  - 추후 Redis가 가능한 통합 테스트 환경에서는 Sorted Set 갱신과 TTL 적용을 검증하는 스모크 테스트를 추가한다.
 
 ### 페이지 구조
 

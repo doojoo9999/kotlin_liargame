@@ -3,9 +3,7 @@ package org.example.kotlin_liargame.domain.nemonemo.v2.service
 import org.example.kotlin_liargame.domain.nemonemo.v2.dto.LeaderboardEntryDto
 import org.example.kotlin_liargame.domain.nemonemo.v2.dto.LeaderboardResponse
 import org.example.kotlin_liargame.domain.nemonemo.v2.dto.LeaderboardWindow
-import org.example.kotlin_liargame.domain.nemonemo.v2.model.PlayEntity
 import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleMode
-import org.example.kotlin_liargame.domain.nemonemo.v2.repository.PlayRepository
 import org.example.kotlin_liargame.domain.nemonemo.v2.repository.ScoreRepository
 import org.springframework.stereotype.Service
 import java.time.Instant
@@ -14,7 +12,7 @@ import java.util.UUID
 @Service
 class LeaderboardService(
     private val scoreRepository: ScoreRepository,
-    private val playRepository: PlayRepository
+    private val leaderboardCacheService: LeaderboardCacheService
 ) {
 
     fun fetchPuzzleLeaderboard(
@@ -48,27 +46,61 @@ class LeaderboardService(
         )
     }
 
-    fun fetchRecentGlobalLeaderboard(): LeaderboardResponse {
-        // Placeholder: use latest plays aggregated by score
-        val recentPlays = playRepository.findAll().sortedByDescending { it.createdAt }.take(50)
-        val mapped = recentPlays.mapIndexed { index, play ->
+    fun fetchLeaderboard(
+        window: LeaderboardWindow,
+        mode: PuzzleMode,
+        limit: Int
+    ): LeaderboardResponse {
+        require(window != LeaderboardWindow.PUZZLE) { "Puzzle leaderboards are served via fetchPuzzleLeaderboard" }
+        val normalizedLimit = limit.coerceIn(1, 100)
+        val referenceTime = Instant.now()
+        val cachedEntries = leaderboardCacheService.fetchEntries(window, mode, normalizedLimit, referenceTime)
+        val entries = if (cachedEntries.isNotEmpty()) cachedEntries else fallbackEntries(window, mode, normalizedLimit)
+        return LeaderboardResponse(
+            window = window,
+            mode = mode,
+            entries = entries,
+            generatedAt = referenceTime
+        )
+    }
+
+    private fun fallbackEntries(
+        window: LeaderboardWindow,
+        mode: PuzzleMode,
+        limit: Int
+    ): List<LeaderboardEntryDto> = when (window) {
+        LeaderboardWindow.GLOBAL -> buildGlobalFallback(mode, limit)
+        LeaderboardWindow.WEEKLY -> buildGlobalFallback(mode, limit)
+        LeaderboardWindow.MONTHLY -> buildGlobalFallback(mode, limit)
+        LeaderboardWindow.AUTHOR -> emptyList()
+        LeaderboardWindow.PUZZLE -> emptyList()
+    }
+
+    private fun buildGlobalFallback(
+        mode: PuzzleMode,
+        limit: Int
+    ): List<LeaderboardEntryDto> {
+        val grouped = scoreRepository.findAll()
+            .filter { it.id.mode == mode }
+            .groupBy { it.id.subjectKey }
+            .map { (subjectKey, scores) ->
+                subjectKey to scores.sumOf { it.bestScore ?: 0 }
+            }
+            .sortedByDescending { it.second }
+            .take(limit)
+
+        return grouped.mapIndexed { index, (subjectKey, totalScore) ->
             LeaderboardEntryDto(
                 rank = index + 1,
-                subjectKey = play.subjectKey,
+                subjectKey = subjectKey,
                 nickname = null,
-                score = play.comboCount * 10,
-                timeMs = play.finishedAt?.let { it.toEpochMilli() - play.startedAt.toEpochMilli() },
-                combo = play.comboCount,
-                perfect = play.mistakes == 0,
-                mode = play.mode,
-                updatedAt = play.finishedAt ?: play.startedAt
+                score = totalScore,
+                timeMs = null,
+                combo = 0,
+                perfect = false,
+                mode = mode,
+                updatedAt = Instant.now()
             )
         }
-        return LeaderboardResponse(
-            window = LeaderboardWindow.GLOBAL,
-            mode = PuzzleMode.NORMAL,
-            entries = mapped,
-            generatedAt = Instant.now()
-        )
     }
 }

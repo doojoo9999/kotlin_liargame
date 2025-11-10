@@ -11,7 +11,6 @@ import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleOfficialRequest
 import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleReviewRequest
 import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleReviewResponse
 import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleSummaryDto
-import org.example.kotlin_liargame.domain.nemonemo.v2.model.DailyPickEntity
 import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleAuditAction
 import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleContentStyle
 import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleEntity
@@ -19,7 +18,6 @@ import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleHintEntity
 import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleSolutionEntity
 import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleStatus
 import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleReviewDecision
-import org.example.kotlin_liargame.domain.nemonemo.v2.repository.DailyPickRepository
 import org.example.kotlin_liargame.domain.nemonemo.v2.repository.PuzzleHintRepository
 import org.example.kotlin_liargame.domain.nemonemo.v2.repository.PuzzleRepository
 import org.example.kotlin_liargame.domain.nemonemo.v2.repository.PuzzleSolutionRepository
@@ -36,10 +34,10 @@ class PuzzleApplicationService(
     private val puzzleRepository: PuzzleRepository,
     private val puzzleHintRepository: PuzzleHintRepository,
     private val puzzleSolutionRepository: PuzzleSolutionRepository,
-    private val dailyPickRepository: DailyPickRepository,
     private val metadataResolver: PuzzleMetadataResolver,
     private val puzzleGridValidator: PuzzleGridValidator,
-    private val puzzleAuditService: PuzzleAuditService
+    private val puzzleAuditService: PuzzleAuditService,
+    private val dailyPickService: DailyPickService
 ) {
 
     fun listPuzzles(
@@ -285,29 +283,8 @@ class PuzzleApplicationService(
         )
     }
 
-    fun getDailyPicks(date: LocalDate = LocalDate.now()): DailyPickResponse {
-        val pick = dailyPickRepository.findById(date).orElseGet {
-            dailyPickRepository.save(
-                DailyPickEntity(
-                    pickDate = date,
-                    items = "[]"
-                )
-            )
-        }
-        val puzzleIds = metadataResolver.parseDailyPickItems(pick.items)
-        val summaries = if (puzzleIds.isEmpty()) {
-            puzzleRepository.findByStatusOrderByCreatedAtDesc(PuzzleStatus.APPROVED)
-                .take(5)
-                .map(::toSummary)
-        } else {
-            val resolved = puzzleRepository.findAllById(puzzleIds).associateBy { it.id }
-            puzzleIds.mapNotNull(resolved::get).map(::toSummary)
-        }
-        return DailyPickResponse(
-            date = pick.pickDate.toString(),
-            items = summaries
-        )
-    }
+    fun getDailyPicks(date: LocalDate = LocalDate.now()): DailyPickResponse =
+        dailyPickService.getDailyPick(date)
 
     @Transactional(readOnly = true)
     fun getReviewQueue(limit: Int): List<PuzzleSummaryDto> {

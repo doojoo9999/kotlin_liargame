@@ -21,6 +21,7 @@ import java.util.UUID
 interface PuzzleRepository : JpaRepository<PuzzleEntity, UUID> {
     fun findByStatusOrderByCreatedAtDesc(status: PuzzleStatus): List<PuzzleEntity>
     fun findByOfficialAtAfter(threshold: Instant): List<PuzzleEntity>
+    fun findTop300ByStatusInOrderByCreatedAtDesc(statuses: Collection<PuzzleStatus>): List<PuzzleEntity>
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Transactional(propagation = Propagation.MANDATORY)
