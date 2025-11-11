@@ -8,6 +8,7 @@
 - **F4** 완료 – 플레이 세션 핵심 API(MVP) 구현, 서비스 단위 테스트/MockMvc 회귀 테스트, RateLimit 필터 검증까지 마무리. (프런트 캔버스·Playwright 연동은 별도 FE 작업으로 이관)
 - **F5** 완료 – 점수제/리더보드 스펙 확정, Idempotency-Key 처리, Redis 캐시/DB fallback 구현 및 단위/통합 테스트 확보.
 - **F6** 완료 – 오늘의 추천 배치/캐시 + 개인화 추천 API(`GET /api/v2/nemonemo/personalized-picks`) 구현.
+- **F7** 진행 중 – 프런트엔드 플레이 경험 검증(Playwright `Puzzle autosave` 시나리오 통과) 및 잘못 실행 중이던 다른 Vite 서버 종료로 `/puzzles/:id` 라우팅 충돌 해소.
 
 ## 1) 제품 목표(필수 기능)
 

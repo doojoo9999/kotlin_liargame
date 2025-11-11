@@ -10,7 +10,7 @@ const resolveBaseUrl = () => {
   if (typeof window !== 'undefined' && window.__PLAYWRIGHT_API_BASE__) {
     return window.__PLAYWRIGHT_API_BASE__;
   }
-  return import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/api/v2/nemonemo';
+  return import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:20021/api/v2/nemonemo';
 };
 
 export const apiClient = axios.create({
@@ -19,6 +19,7 @@ export const apiClient = axios.create({
 });
 
 apiClient.interceptors.request.use((config) => {
+  config.baseURL = resolveBaseUrl();
   const anonId = localStorage.getItem('anon_id');
   if (anonId) {
     config.headers = config.headers ?? {};

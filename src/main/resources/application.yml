@@ -5,7 +5,7 @@ spring:
   jpa:
       show-sql: true
       hibernate:
-          ddl-auto: update
+          ddl-auto: validate
           # Set to 'validate' after fixing the schema
           # ddl-auto: validate
       properties:

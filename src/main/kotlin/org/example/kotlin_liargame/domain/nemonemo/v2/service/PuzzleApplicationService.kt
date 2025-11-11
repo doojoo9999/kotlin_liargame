@@ -1,5 +1,6 @@
 package org.example.kotlin_liargame.domain.nemonemo.v2.service
 
+import org.example.kotlin_liargame.domain.config.ContentProperties
 import org.example.kotlin_liargame.domain.nemonemo.v2.dto.DailyPickResponse
 import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleCreateRequest
 import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleCreateResponse
@@ -39,7 +40,8 @@ class PuzzleApplicationService(
     private val puzzleAuditService: PuzzleAuditService,
     private val puzzleComplianceService: PuzzleComplianceService,
     private val dailyPickService: DailyPickService,
-    private val personalizedRecommendationService: PersonalizedRecommendationService
+    private val personalizedRecommendationService: PersonalizedRecommendationService,
+    private val contentProperties: ContentProperties
 ) {
 
     fun listPuzzles(
@@ -72,6 +74,7 @@ class PuzzleApplicationService(
     ): PuzzleCreateResponse {
         val sanitizedGrid = puzzleGridValidator.sanitize(request)
 
+        val autoApprove = !contentProperties.manualApprovalRequired
         val puzzle = PuzzleEntity(
             title = request.title,
             description = request.description,
@@ -82,6 +85,10 @@ class PuzzleApplicationService(
             contentStyle = request.contentStyle ?: PuzzleContentStyle.GENERIC_PIXEL
         ).apply {
             tags.addAll(request.tags)
+            if (autoApprove) {
+                status = PuzzleStatus.APPROVED
+                approvedAt = Instant.now()
+            }
         }
 
         val metadata = metadataResolver.analyzeGrid(sanitizedGrid, puzzle)

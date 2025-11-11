@@ -183,8 +183,8 @@ class PuzzleSolutionEntity(
     @Column(name = "puzzle_id", columnDefinition = "uuid")
     val puzzleId: UUID,
 
-    @Lob
-    @Column(name = "grid_data", nullable = false)
+    @JdbcTypeCode(SqlTypes.BINARY)
+    @Column(name = "grid_data", nullable = false, columnDefinition = "bytea")
     var gridData: ByteArray,
 
     @Column(nullable = false, length = 128)
