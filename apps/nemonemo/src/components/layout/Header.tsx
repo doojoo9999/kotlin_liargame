@@ -8,6 +8,7 @@ const navItems = [
   { to: '/leaderboard', label: '랭킹' },
   { to: '/community', label: '커뮤니티' },
   { to: '/multiplayer', label: '멀티' },
+  { to: '/editor', label: '에디터' },
   { to: '/profile', label: '프로필' }
 ];
 
@@ -37,6 +38,12 @@ const Header = () => {
           ))}
         </nav>
         <div className="flex items-center gap-2">
+          <Link
+            to="/editor"
+            className="rounded-md border border-primary px-3 py-1 text-sm font-semibold text-primary hover:bg-primary/10"
+          >
+            퍼즐 만들기
+          </Link>
           <button className="rounded-md border border-slate-700 px-3 py-1 text-sm hover:border-primary">
             로그인
           </button>

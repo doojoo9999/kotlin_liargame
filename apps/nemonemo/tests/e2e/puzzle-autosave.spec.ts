@@ -110,7 +110,7 @@ const goToPuzzle = async (page: Page) => {
   const fixture = ensureFixture();
   await page.goto(`/puzzles/${fixture.id}`);
   await expect(page.getByRole('heading', { name: fixture.title })).toBeVisible();
-  await expect(page.getByTestId('puzzle-canvas')).toBeVisible();
+  await expect(page.getByTestId('puzzle-board')).toBeVisible();
 };
 
 const triggerManualSave = async (page: Page) => {

@@ -10,7 +10,10 @@ const resolveBaseUrl = () => {
   if (typeof window !== 'undefined' && window.__PLAYWRIGHT_API_BASE__) {
     return window.__PLAYWRIGHT_API_BASE__;
   }
-  return import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:20021/api/v2/nemonemo';
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL;
+  }
+  return '/api/v2/nemonemo';
 };
 
 export const apiClient = axios.create({

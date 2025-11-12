@@ -1,4 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const API_BASE = process.env.PLAYWRIGHT_API_BASE ?? 'http://127.0.0.1:20021/api/v2/nemonemo';
 const WS_BASE = process.env.PLAYWRIGHT_WS_BASE ?? 'ws://127.0.0.1:20021/ws';
@@ -17,6 +19,9 @@ const backendEnv = [
   renderEnv('SPRING_LOCAL_DATABASE_PASSWORD', DB_PASSWORD),
   renderEnv('SPRING_LOCAL_DATABASE_DRIVERCLASS', DB_DRIVER)
 ].join(' ');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const repoRoot = path.resolve(__dirname, '..', '..');
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -28,13 +33,13 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: `bash -lc "cd ../.. && ./gradlew bootJar && ${backendEnv} java -jar build/libs/kotlin_liargame-0.0.1-SNAPSHOT.jar"`,
+      command: `bash -lc "cd ${repoRoot} && ./gradlew bootJar && ${backendEnv} java -jar build/libs/kotlin_liargame-0.0.1-SNAPSHOT.jar"`,
       url: 'http://127.0.0.1:20021/actuator/health',
       reuseExistingServer: !process.env.CI,
       timeout: 180_000
     },
     {
-      command: `bash -lc "${[
+      command: `bash -lc "cd ${__dirname} && ${[
         renderEnv('VITE_APP_BASE', APP_BASE),
         renderEnv('VITE_API_BASE_URL', API_BASE),
         renderEnv('VITE_WEBSOCKET_URL', WS_BASE),

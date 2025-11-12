@@ -8,7 +8,7 @@
 - **F4** 완료 – 플레이 세션 핵심 API(MVP) 구현, 서비스 단위 테스트/MockMvc 회귀 테스트, RateLimit 필터 검증까지 마무리. (프런트 캔버스·Playwright 연동은 별도 FE 작업으로 이관)
 - **F5** 완료 – 점수제/리더보드 스펙 확정, Idempotency-Key 처리, Redis 캐시/DB fallback 구현 및 단위/통합 테스트 확보.
 - **F6** 완료 – 오늘의 추천 배치/캐시 + 개인화 추천 API(`GET /api/v2/nemonemo/personalized-picks`) 구현.
-- **F7** 진행 중 – 프런트엔드 플레이 경험 검증(Playwright `Puzzle autosave` 시나리오 통과) 및 잘못 실행 중이던 다른 Vite 서버 종료로 `/puzzles/:id` 라우팅 충돌 해소.
+- **F7** 진행 중 – 프런트엔드 플레이 경험 검증(Playwright `Puzzle autosave` 실 API 시나리오 통과), 잘못 실행 중이던 다른 Vite 서버 종료로 `/puzzles/:id` 라우팅 충돌 해소, 기본 업로드 에디터(UI + API 연동) 추가, **튜토리얼 퍼즐 라이브러리(5×5·10×10·15×15 각 2종) + solver 검증 스크립트/테스트 연동** 완료.
 
 ## 1) 제품 목표(필수 기능)
 
@@ -58,6 +58,7 @@
     - 난이도별 연습 퍼즐 제공
     - **해법 힌트 시스템** (1회 사용 시 점수 패널티)
     - **풀이 영상 재생** (완성된 퍼즐의 풀이 과정 시각화)
+    - 기본 샘플 데이터: `docs/nemonemo/tutorial_puzzles.json`(사이즈별 2종) → `scripts/nemonemo/seed-tutorial-puzzles.mjs`로 업로드, `TutorialPuzzleManualCheckTest`로 유일해/격자 품질 자동 검증
 
 9. **맵 생성·업로드 파이프라인**:
     - **CLI/ASCII 아트 포함 모든 픽셀 아트 허용**

@@ -1,0 +1,125 @@
+{
+  "updatedAt": "2025-11-11",
+  "puzzles": [
+    {
+      "slug": "tutorial-spark-5x5",
+      "title": "튜토리얼 스파크 5x5",
+      "description": "대각선 번개 느낌의 5×5 연습 퍼즐",
+      "tags": ["tutorial", "easy", "spark"],
+      "contentStyle": "SYMBOLIC",
+      "reference": "Micro nonogram warm-up shared on puzzlers Discord (spark motif).",
+      "grid": [
+        "#.#..",
+        "###.#",
+        "#####",
+        ".####",
+        "##.##"
+      ]
+    },
+    {
+      "slug": "tutorial-steps-5x5",
+      "title": "튜토리얼 스텝 5x5",
+      "description": "계단을 형상화한 5×5 기초 도안",
+      "tags": ["tutorial", "easy", "stairs"],
+      "contentStyle": "SYMBOLIC",
+      "reference": "Based on 'mini stair' pattern from Nonogram beginner PDFs.",
+      "grid": [
+        "...##",
+        "###.#",
+        ".#...",
+        "###.#",
+        "##..#"
+      ]
+    },
+    {
+      "slug": "tutorial-beacon-10x10",
+      "title": "튜토리얼 비컨 10x10",
+      "description": "등대를 연상시키는 수직 실루엣",
+      "tags": ["tutorial", "normal", "beacon"],
+      "contentStyle": "SYMBOLIC",
+      "reference": "Adapted from lighthouse pixel art shared on nonogram gallery sites.",
+      "grid": [
+        "##........",
+        "..#.##...#",
+        ".##......#",
+        "..#......#",
+        "#..####...",
+        "##.####.##",
+        "#....#..##",
+        "#........#",
+        "#...##..#.",
+        ".....#.###"
+      ]
+    },
+    {
+      "slug": "tutorial-terrace-10x10",
+      "title": "튜토리얼 테라스 10x10",
+      "description": "층층이 쌓인 테라스형 패턴",
+      "tags": ["tutorial", "normal", "terrace"],
+      "contentStyle": "SYMBOLIC",
+      "reference": "Remixed from terrace skyline samples on Japanese Picross boards.",
+      "grid": [
+        ".#.#.###.#",
+        ".#.#...#.#",
+        ".#..#....#",
+        ".#.###...#",
+        ".##.###...",
+        "....#..##.",
+        "####.#....",
+        ".#.#.#...#",
+        ".....#...#",
+        "##.....##."
+      ]
+    },
+    {
+      "slug": "tutorial-radiance-15x15",
+      "title": "튜토리얼 레이디언스 15x15",
+      "description": "네온 사인을 본뜬 15×15 패턴",
+      "tags": ["tutorial", "medium", "neon"],
+      "contentStyle": "SYMBOLIC",
+      "reference": "Inspired by neon skyline artwork frequently remixed in Nonogram cafes.",
+      "grid": [
+        "##.###.####.##.",
+        ".#..#..#.####.#",
+        "##.####....####",
+        "###..###...##..",
+        "####.###.####.#",
+        "...#..#.####.##",
+        "......#...##...",
+        ".####..#.######",
+        "######.#.#..##.",
+        "...###.########",
+        "##..##..#.#.#..",
+        "##.#.......###.",
+        ".#.##..##.##...",
+        "###.###.##.##.#",
+        "#...#..##....##"
+      ]
+    },
+    {
+      "slug": "tutorial-citylights-15x15",
+      "title": "튜토리얼 시티라이트 15x15",
+      "description": "야경 실루엣을 본뜬 15×15 패턴",
+      "tags": ["tutorial", "medium", "city"],
+      "contentStyle": "SYMBOLIC",
+      "reference": "Remixed from classic skyline art frequently used in Nonogram workshops.",
+      "grid": [
+        "#.####..###.###",
+        "#.##.#.#..#.###",
+        ".#.#.#.##..#...",
+        "##..##.#####...",
+        "..###..####.#.#",
+        "####..#...#.###",
+        "..##.##........",
+        "#...#.##.###.##",
+        "#.#.####...####",
+        "..#..#..###.##.",
+        "#..##.#####.###",
+        "##.#..###.#####",
+        "#.#..#.######..",
+        ".##.####...#..#",
+        ".....######...#"
+      ]
+    }
+  ]
+}
