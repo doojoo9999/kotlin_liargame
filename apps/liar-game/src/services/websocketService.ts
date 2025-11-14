@@ -1060,6 +1060,7 @@ class WebSocketService {
     const envCandidates = [
       normalizeCandidate(import.meta.env.VITE_WS_BASE_URL as string | undefined),
       normalizeCandidate(import.meta.env.VITE_WS_URL as string | undefined),
+      normalizeCandidate(import.meta.env.VITE_WEBSOCKET_URL as string | undefined),
     ].filter((value): value is string => Boolean(value));
 
     for (const candidate of envCandidates) {

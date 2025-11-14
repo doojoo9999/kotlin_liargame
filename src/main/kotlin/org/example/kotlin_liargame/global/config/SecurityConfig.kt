@@ -80,7 +80,9 @@ class SecurityConfig(
     @Bean
     fun corsConfigurationSource(): CorsConfigurationSource {
         val configuration = CorsConfiguration()
-        configuration.allowedOriginPatterns = getAllowedOriginPatterns()
+        val corsOrigins = getCorsOrigins()
+        configuration.allowedOrigins = corsOrigins.exact.toMutableList()
+        configuration.allowedOriginPatterns = corsOrigins.patterns.toMutableList()
         configuration.allowedMethods = listOf("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
         configuration.allowedHeaders = listOf("*")
         configuration.allowCredentials = true
@@ -90,17 +92,37 @@ class SecurityConfig(
         return source
     }
 
-    private fun getAllowedOriginPatterns(): List<String> {
+    private fun getCorsOrigins(): OriginConfig {
         val profile = System.getProperty("spring.profiles.active") ?: "dev"
-        return when (profile) {
-            "prod" -> listOf(
-                "https://liargame.com",
-                "https://www.liargame.com",
-                "https://api.liargame.com"
-            )
-            "staging" -> listOf("https://staging.liargame.com") + localDevelopmentOrigins()
-            else -> localDevelopmentOrigins()
+        val normalizedProfile = profile.lowercase()
+        val exact = mutableSetOf(
+            "https://liargame.com",
+            "https://www.liargame.com",
+            "https://api.liargame.com",
+            "https://zzirit.kr",
+            "https://www.zzirit.kr"
+        )
+        val patterns = mutableSetOf("https://*.zzirit.kr")
+
+        val devOrigins = localDevelopmentOrigins()
+
+        when (normalizedProfile) {
+            "prod" -> {
+                // production relies on base origins only
+            }
+            "staging" -> {
+                exact += "https://staging.liargame.com"
+                exact += devOrigins
+            }
+            else -> {
+                exact += devOrigins
+            }
         }
+
+        return OriginConfig(
+            exact = exact.toList(),
+            patterns = patterns.toList()
+        )
     }
 
     private fun localDevelopmentOrigins(): List<String> {
@@ -111,9 +133,11 @@ class SecurityConfig(
             addAll(5173..5200)
         }
         val baseOrigins = hosts.flatMap { host -> ports.map { port -> "http://$host:$port" } }
-        return baseOrigins + listOf(
-            "https://zzirit.kr",
-            "https://www.zzirit.kr"
-        )
+        return baseOrigins
     }
+
+    private data class OriginConfig(
+        val exact: List<String>,
+        val patterns: List<String>
+    )
 }

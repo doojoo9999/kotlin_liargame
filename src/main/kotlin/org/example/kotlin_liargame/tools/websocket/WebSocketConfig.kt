@@ -45,8 +45,10 @@ class WebSocketConfig(
     }
     
     override fun registerStompEndpoints(registry: StompEndpointRegistry) {
+        val origins = getAllowedOriginsConfig()
         registry.addEndpoint("/ws")
-            .setAllowedOriginPatterns(*getAllowedOriginPatterns())
+            .setAllowedOrigins(*origins.exact)
+            .setAllowedOriginPatterns(*origins.patterns)
             .setHandshakeHandler(object : DefaultHandshakeHandler() {
                 override fun determineUser(
                     request: ServerHttpRequest,
@@ -135,28 +137,51 @@ class WebSocketConfig(
             .withSockJS()
     }
     
-    private fun getAllowedOriginPatterns(): Array<String> {
+    private fun getAllowedOriginsConfig(): AllowedOrigins {
         val profile = System.getProperty("spring.profiles.active") ?: "dev"
+        val normalizedProfile = profile.lowercase()
 
-        return when (profile) {
-            "prod" -> arrayOf(
-                "https://liargame.com",
-                "https://www.liargame.com",
-                "https://api.liargame.com"
-            )
-            "staging" -> arrayOf(
-                "https://staging.liargame.com",
-                "http://218.150.3.77:3000",
-                "http://218.150.3.77:5173"
-            )
-            else -> arrayOf(
-                "http://218.150.3.77:3000",
-                "http://218.150.3.77:5173",
-                "http://127.0.0.1:3000",
-                "http://127.0.0.1:5173"
-            )
+        val baseExact = mutableSetOf(
+            "https://liargame.com",
+            "https://www.liargame.com",
+            "https://api.liargame.com",
+            "https://zzirit.kr",
+            "https://www.zzirit.kr"
+        )
+        val basePatterns = mutableSetOf("https://*.zzirit.kr")
+
+        val devExact = listOf(
+            "http://218.150.3.77:3000",
+            "http://218.150.3.77:5173",
+            "http://127.0.0.1:3000",
+            "http://127.0.0.1:5173",
+            "http://localhost:3000",
+            "http://localhost:5173"
+        )
+
+        when (normalizedProfile) {
+            "prod" -> {
+                // production uses base sets only
+            }
+            "staging" -> {
+                baseExact += "https://staging.liargame.com"
+                baseExact += devExact
+            }
+            else -> {
+                baseExact += devExact
+            }
         }
+
+        return AllowedOrigins(
+            exact = baseExact.toTypedArray(),
+            patterns = basePatterns.toTypedArray()
+        )
     }
+
+    private data class AllowedOrigins(
+        val exact: Array<String>,
+        val patterns: Array<String>
+    )
 
     override fun configureClientInboundChannel(registration: ChannelRegistration) {
         registration.interceptors(
