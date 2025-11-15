@@ -17,6 +17,8 @@ type GameStoreSnapshot = ReturnType<typeof useGameStore.getState>;
 
 const MAX_LATENCY_SAMPLES = 20;
 const genId = () => (globalThis.crypto?.randomUUID?.() || Math.random().toString(36).slice(2));
+let connectionCallbacksRegistered = false;
+let latencyListenerRegistered = false;
 
 const initialState: ConnectionStoreState = {
   status: 'idle',
@@ -46,25 +48,33 @@ export const useConnectionStore = create<ConnectionStoreState & ConnectionStoreA
         set({ status: 'connecting', error: undefined });
         try {
           await websocketService.connect();
-          websocketService.addConnectionCallback((connected) => {
-            set(s => ({
-              status: connected ? ('connected' as ConnectionStatus) : ('disconnected' as ConnectionStatus),
-              lastConnectedAt: connected ? Date.now() : s.lastConnectedAt,
-              lastDisconnectedAt: connected ? s.lastDisconnectedAt : Date.now(),
-            }));
-            if (connected) {
-              // 재연결 시 큐 처리
-              websocketService.processQueue();
-              get().processQueue();
-            }
-          });
-          // Raw listener -> 간단한 RTT 측정(첫 inbound 기준)
-          websocketService.registerRawListener(raw => {
-            if (raw.type === 'event') {
-              const sample: LatencySample = { id: genId(), sentAt: raw.receivedAt, receivedAt: raw.receivedAt, rtt: 0 };
-              get().recordLatency(sample);
-            }
-          });
+
+          if (!connectionCallbacksRegistered) {
+            websocketService.addConnectionCallback((connected) => {
+              set(s => ({
+                status: connected ? ('connected' as ConnectionStatus) : ('disconnected' as ConnectionStatus),
+                lastConnectedAt: connected ? Date.now() : s.lastConnectedAt,
+                lastDisconnectedAt: connected ? s.lastDisconnectedAt : Date.now(),
+              }));
+              if (connected) {
+                // 재연결 시 큐 처리
+                websocketService.processQueue();
+                get().processQueue();
+              }
+            });
+            connectionCallbacksRegistered = true;
+          }
+
+          if (!latencyListenerRegistered) {
+            websocketService.registerRawListener(raw => {
+              if (raw.type === 'event') {
+                const sample: LatencySample = { id: genId(), sentAt: raw.receivedAt, receivedAt: raw.receivedAt, rtt: 0 };
+                get().recordLatency(sample);
+              }
+            });
+            latencyListenerRegistered = true;
+          }
+
           set({ status: 'connected', lastConnectedAt: Date.now() });
         } catch (e) {
           set({ status: 'error', error: e instanceof Error ? e.message : '연결 실패' });
@@ -94,21 +104,53 @@ export const useConnectionStore = create<ConnectionStoreState & ConnectionStoreA
           useGameStore.setState(optimisticState);
         }
         // 실제 전송 (offline 시 queue)
-        const id = websocketService.safePublish(destination, body) || genId();
-        // pendingMessages 등록
-        const pending: PendingMessage = {
-          id,
-          destination,
-          body,
-          timestamp: Date.now(),
-          attempts: 1,
-          optimisticUpdateId: optimisticId,
-          status: 'sent',
-          lastAttempt: Date.now(),
-        };
-        set(state => ({
-          pendingMessages: { ...state.pendingMessages, [id]: pending },
-        }));
+        const queuedId = websocketService.safePublish(destination, body);
+
+        if (queuedId) {
+          const now = Date.now();
+          const pending: PendingMessage = {
+            id: queuedId,
+            destination,
+            body,
+            timestamp: now,
+            attempts: 0,
+            optimisticUpdateId: optimisticId,
+            status: 'queued',
+            lastAttempt: null,
+          };
+
+          set(state => ({
+            pendingMessages: { ...state.pendingMessages, [queuedId]: pending },
+          }));
+
+          const unsubscribe = websocketService.onMessageDelivered(queuedId, ({ success }) => {
+            set(state => {
+              const next = { ...state.pendingMessages };
+              const current = next[queuedId];
+              if (!current) {
+                return {};
+              }
+
+              delete next[queuedId];
+
+              return { pendingMessages: next };
+            });
+
+            if (!success && optimisticId) {
+              get().rollbackOptimistic(optimisticId);
+            }
+
+            if (!success) {
+              get().addSyncIssue({
+                type: 'VALIDATION_ERROR',
+                description: '메시지 전송에 실패했습니다.',
+                data: { destination },
+              });
+            }
+
+            unsubscribe();
+          });
+        }
       },
       queueMessage: (msg) => {
         const id = msg.id || genId();

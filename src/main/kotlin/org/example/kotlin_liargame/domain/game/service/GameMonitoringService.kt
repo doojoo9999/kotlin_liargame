@@ -3,6 +3,7 @@ package org.example.kotlin_liargame.domain.game.service
 import org.example.kotlin_liargame.domain.game.model.GameEntity
 import org.example.kotlin_liargame.domain.game.model.PlayerEntity
 import org.example.kotlin_liargame.domain.game.model.PlayerReadinessEntity
+import org.example.kotlin_liargame.global.config.GameProperties
 import org.example.kotlin_liargame.tools.websocket.dto.HintSubmittedEvent
 import org.example.kotlin_liargame.tools.websocket.dto.PlayerVotedEvent
 import org.example.kotlin_liargame.tools.websocket.dto.TurnChangedEvent
@@ -13,7 +14,8 @@ import java.time.Instant
 @Service
 class GameMonitoringService(
     private val messagingTemplate: SimpMessagingTemplate,
-    private val gameMessagingService: org.example.kotlin_liargame.global.messaging.GameMessagingService
+    private val gameMessagingService: org.example.kotlin_liargame.global.messaging.GameMessagingService,
+    private val gameProperties: GameProperties
 ) {
 
     fun notifyPlayerJoined(game: GameEntity, newPlayer: PlayerEntity, currentPlayers: List<PlayerEntity>) {
@@ -112,8 +114,14 @@ class GameMonitoringService(
         gameMessagingService.broadcastGameEvent(gameNumber, event)
     }
 
-    fun notifyTurnChanged(gameNumber: Int, currentPlayerId: Long, turnStartedAt: Instant) {
-        val event = TurnChangedEvent(gameNumber = gameNumber, currentPlayerId = currentPlayerId, turnStartedAt = turnStartedAt)
+    fun notifyTurnChanged(gameNumber: Int, currentPlayerId: Long, turnStartedAt: Instant, phaseEndTime: Instant?) {
+        val event = TurnChangedEvent(
+            gameNumber = gameNumber,
+            currentPlayerId = currentPlayerId,
+            turnStartedAt = turnStartedAt,
+            turnTimeoutSeconds = gameProperties.turnTimeoutSeconds,
+            phaseEndTime = phaseEndTime
+        )
         gameMessagingService.broadcastGameEvent(gameNumber, event)
     }
 
@@ -150,6 +158,7 @@ class GameMonitoringService(
             "durationSeconds" to (game.countdownDurationSeconds)
         )
         gameMessagingService.sendRoomUpdate(game.gameNumber, payload)
+        gameMessagingService.broadcastGameEvent(game.gameNumber, payload)
     }
 
     fun notifyCountdownCancelled(game: GameEntity) {
@@ -158,6 +167,7 @@ class GameMonitoringService(
             "gameNumber" to game.gameNumber
         )
         gameMessagingService.sendRoomUpdate(game.gameNumber, payload)
+        gameMessagingService.broadcastGameEvent(game.gameNumber, payload)
     }
 
     fun notifyPlayerConnectionChanged(game: GameEntity, player: PlayerEntity, isConnected: Boolean) {

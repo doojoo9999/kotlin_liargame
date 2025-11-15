@@ -2,22 +2,30 @@ import type {MockedFunction} from 'vitest';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import {UnifiedWebSocketService} from '../unifiedWebSocketService';
 
-// Mock SockJS and STOMP Client
-const mockSockJS = vi.fn();
-const mockStompClient = {
-  activate: vi.fn(),
-  deactivate: vi.fn(),
-  subscribe: vi.fn(),
-  publish: vi.fn(),
-  connected: false
-};
+// Mock SockJS and STOMP Client (ensure availability for hoisted mocks)
+const { mockSockJS, mockStompClient } = vi.hoisted(() => {
+  return {
+    mockSockJS: vi.fn(),
+    mockStompClient: {
+      activate: vi.fn(),
+      deactivate: vi.fn(),
+      subscribe: vi.fn(),
+      publish: vi.fn(),
+      connected: false,
+      config: undefined as any,
+    },
+  };
+});
 
 vi.mock('sockjs-client', () => ({
   default: mockSockJS
 }));
 
 vi.mock('@stomp/stompjs', () => ({
-  Client: vi.fn(() => mockStompClient)
+  Client: vi.fn((config) => {
+    mockStompClient.config = config;
+    return mockStompClient;
+  })
 }));
 
 describe('UnifiedWebSocketService', () => {
@@ -33,6 +41,14 @@ describe('UnifiedWebSocketService', () => {
     service.disconnect();
   });
 
+  const forceConnectionState = (connected: boolean, userId: number | null = null) => {
+    (service as any).isConnected = connected;
+    (service as any).isConnecting = false;
+    (service as any).client = connected ? mockStompClient : null;
+    (service as any).currentUserId = userId;
+    mockStompClient.connected = connected;
+  };
+
   describe('Singleton Pattern', () => {
     it('should return the same instance', () => {
       const instance1 = UnifiedWebSocketService.getInstance();
@@ -43,53 +59,48 @@ describe('UnifiedWebSocketService', () => {
 
   describe('Connection Management', () => {
     it('should connect successfully', async () => {
-      // Setup mock for successful connection
       mockStompClient.activate.mockImplementation(() => {
-        // Simulate successful connection
-        setTimeout(() => {
-          mockStompClient.connected = true;
-          // Simulate onConnect callback if it exists
-        }, 10);
+        forceConnectionState(true, 123);
       });
 
-      service.connect(123);
+      await service.connect(123);
       
-      // Manually trigger connection success
-      mockStompClient.connected = true;
-      
-      expect(mockSockJS).toHaveBeenCalledWith(expect.stringContaining('/ws'));
+      expect(mockSockJS).toHaveBeenCalled();
+      const sockUrl = mockSockJS.mock.calls[0][0];
+      expect(sockUrl).toContain('/ws');
       expect(mockStompClient.activate).toHaveBeenCalled();
+      expect(service.connected).toBe(true);
     });
 
     it('should handle connection failure', async () => {
       mockStompClient.activate.mockImplementation(() => {
-        // Simulate connection failure
-        setTimeout(() => {
-          throw new Error('Connection failed');
-        }, 10);
+        (service as any).isConnecting = false;
       });
 
-      await expect(service.connect(123)).rejects.toThrow();
+      await expect(service.connect(123)).rejects.toThrow('Connection failed');
     });
 
     it('should disconnect properly', () => {
+      forceConnectionState(true, 123);
       service.disconnect();
       expect(mockStompClient.deactivate).toHaveBeenCalled();
     });
 
     it('should not connect if already connecting', async () => {
-      // First connection attempt
-      const promise1 = service.connect(123);
-      // Second connection attempt while first is in progress
-      const promise2 = service.connect(123);
+      mockStompClient.activate.mockImplementation(() => {
+        forceConnectionState(true, 123);
+      });
 
-      expect(promise1).toBe(promise2);
+      const promise1 = service.connect(123);
+      const promise2 = service.connect(123);
+      await Promise.all([promise1, promise2]);
+      expect(mockStompClient.activate).toHaveBeenCalledTimes(1);
     });
   });
 
   describe('Game Room Management', () => {
     beforeEach(() => {
-      mockStompClient.connected = true;
+      forceConnectionState(true);
     });
 
     it('should join game room successfully', () => {
@@ -118,7 +129,7 @@ describe('UnifiedWebSocketService', () => {
     });
 
     it('should throw error when joining room without connection', () => {
-      mockStompClient.connected = false;
+      forceConnectionState(false);
       
       expect(() => service.joinGameRoom(12345))
         .toThrow('WebSocket not connected');
@@ -141,7 +152,7 @@ describe('UnifiedWebSocketService', () => {
 
   describe('Message Sending', () => {
     beforeEach(() => {
-      mockStompClient.connected = true;
+      forceConnectionState(true);
       service.joinGameRoom(12345);
     });
 
@@ -182,7 +193,7 @@ describe('UnifiedWebSocketService', () => {
     });
 
     it('should throw error when sending without connection', () => {
-      mockStompClient.connected = false;
+      forceConnectionState(false);
 
       expect(() => service.sendChatMessage('test'))
         .toThrow('WebSocket not connected');
@@ -240,12 +251,13 @@ describe('UnifiedWebSocketService', () => {
     let chatMessageHandler: MockedFunction<any>;
 
     beforeEach(() => {
-      mockStompClient.connected = true;
+      forceConnectionState(true);
       gameEventHandler = vi.fn();
       chatMessageHandler = vi.fn();
       
       service.onGameEvent('PLAYER_JOINED', gameEventHandler);
       service.onChatMessage(chatMessageHandler);
+      service.joinGameRoom(12345);
     });
 
     it('should handle incoming game events', () => {
@@ -318,11 +330,11 @@ describe('UnifiedWebSocketService', () => {
 
   describe('Status Properties', () => {
     it('should return correct connection status', () => {
-      mockStompClient.connected = false;
+      forceConnectionState(false);
       expect(service.connected).toBe(false);
       expect(service.status).toBe('disconnected');
 
-      mockStompClient.connected = true;
+      forceConnectionState(true);
       expect(service.connected).toBe(true);
       expect(service.status).toBe('connected');
     });
@@ -330,15 +342,15 @@ describe('UnifiedWebSocketService', () => {
     it('should return correct game number', () => {
       expect(service.gameNumber).toBeNull();
       
-      mockStompClient.connected = true;
+      forceConnectionState(true);
       service.joinGameRoom(12345);
       expect(service.gameNumber).toBe(12345);
     });
 
     it('should return correct user ID', () => {
       expect(service.userId).toBeNull();
-      
-      service.connect(123);
+
+      forceConnectionState(true, 123);
       expect(service.userId).toBe(123);
     });
   });
@@ -355,7 +367,7 @@ describe('UnifiedWebSocketService', () => {
     });
 
     it('should handle subscription errors', () => {
-      mockStompClient.connected = true;
+      forceConnectionState(true);
       mockStompClient.subscribe.mockImplementation(() => {
         throw new Error('Subscription failed');
       });

@@ -11,6 +11,8 @@ import type {
     CountdownResponse,
     CreateGameRequest,
     GameMode,
+    GameRecoveryResponse,
+    GameResultResponse,
     GameStateResponse,
     PlayerReadyResponse,
     PlayerResponse,
@@ -533,14 +535,14 @@ export class GameService {
   }
 
   // 게임 상태 복구
-  async recoverGameState(gameNumber: number): Promise<any> {
-    const response = await apiClient.get<any>(`/api/v1/game/recover-state/${gameNumber}`);
+  async recoverGameState(gameNumber: number): Promise<GameRecoveryResponse> {
+    const response = await apiClient.get<GameRecoveryResponse>(`/api/v1/game/recover-state/${gameNumber}`);
     return response;
   }
 
   // 게임 결과 조회  
-  async getGameResult(gameNumber: number): Promise<any> {
-    const response = await apiClient.get<any>(`/api/v1/game/result/${gameNumber}`);
+  async getGameResult(gameNumber: number): Promise<GameResultResponse> {
+    const response = await apiClient.get<GameResultResponse>(`/api/v1/game/result/${gameNumber}`);
     return response;
   }
 

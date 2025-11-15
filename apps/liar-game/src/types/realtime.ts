@@ -223,6 +223,14 @@ export interface DefenseSubmittedPayload {
   [key: string]: unknown
 }
 
+export interface TurnChangedPayload {
+  currentPlayerId?: PlayerIdentifier
+  turnStartedAt?: string
+  turnTimeoutSeconds?: number
+  phaseEndTime?: string
+  [key: string]: unknown
+}
+
 export interface ScoreEntry {
   playerId: PlayerIdentifier
   score: number
@@ -319,6 +327,7 @@ export type GameEventPayloadMap = {
   HINT_SUBMITTED: HintProvidedPayload
   VOTE_CAST: VoteCastPayload
   DEFENSE_SUBMITTED: DefenseSubmittedPayload
+  TURN_CHANGED: TurnChangedPayload
   ROUND_ENDED: RoundEndedPayload
   GAME_ENDED: GameEndedPayload
   PHASE_CHANGED: PhaseChangedPayload

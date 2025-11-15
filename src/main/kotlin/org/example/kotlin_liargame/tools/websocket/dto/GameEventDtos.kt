@@ -23,5 +23,7 @@ data class TurnChangedEvent(
     val gameNumber: Int,
     val currentPlayerId: Long,
     val turnStartedAt: Instant,
+    val turnTimeoutSeconds: Long,
+    val phaseEndTime: Instant?,
     val timestamp: Instant = Instant.now()
 )

@@ -216,8 +216,8 @@ export const PlayerStatusPanel: React.FC<PlayerStatusPanelProps> = ({
                           <Badge
                             variant="secondary"
                             className={`text-xs ${roleConfig.bgColor} ${roleConfig.color}`}
-                            aria-label={badgeAriaLabel}
                           >
+                            <span className="sr-only">{badgeAriaLabel}</span>
                             <div className="flex items-center space-x-1" aria-hidden="true">
                               {roleConfig.icon}
                               <span>{roleConfig.label}</span>

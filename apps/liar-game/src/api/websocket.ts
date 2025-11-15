@@ -143,13 +143,17 @@ export class GameWebSocketClient {
   }
 
   // Connection Management
-  async connect(gameNumber?: number, playerId?: string): Promise<void> {
+  async connect(gameNumber?: number | null, playerId?: string | null): Promise<void> {
     if (this.connectionState === 'connected' || this.connectionState === 'connecting') {
       return
     }
 
-    this.gameNumber = gameNumber || null
-    this.playerId = playerId || null
+    if (typeof gameNumber !== 'undefined') {
+      this.gameNumber = gameNumber ?? null
+    }
+    if (typeof playerId !== 'undefined') {
+      this.playerId = playerId ?? null
+    }
     this.connectionState = 'connecting'
     this.emit('CONNECT', { state: 'connecting' })
 

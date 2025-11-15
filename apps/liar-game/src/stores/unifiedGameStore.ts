@@ -8,10 +8,11 @@ import type {
     GamePhase as BackendGamePhase,
     GameState as BackendGameState,
     GameStateResponse,
+    GameRecoveryResponse,
 } from '../types/backendTypes';
 import type {FrontendPlayer} from '../types';
 import type {GameRoomInfo, JoinGameRequest} from '../types/api';
-import type {ChatMessage, ChatMessageType, GameEvent, ScoreEntry} from '../types/realtime';
+import type {ChatMessage, ChatMessageType, GameEvent, ScoreEntry, TurnChangedPayload} from '../types/realtime';
 
 export type RoundUxStage = 'waiting' | 'speech' | 'debate' | 'vote' | 'results';
 
@@ -92,6 +93,7 @@ export interface Defense {
 
 
 const CHAT_MESSAGE_LIMIT = 200;
+const DEFAULT_TURN_TIME_SECONDS = 60;
 const CHAT_TYPES: readonly ChatMessageType[] = ['DISCUSSION', 'HINT', 'DEFENSE', 'SYSTEM', 'POST_ROUND', 'WAITING_ROOM', 'GENERAL'] as const;
 
 const normalizeChatType = (value: unknown): ChatMessageType => {
@@ -378,6 +380,7 @@ interface GameActions {
   // State Synchronization
   setCurrentGameState: (state: GameStateResponse) => void;
   updateFromGameState: (gameState: GameStateResponse) => void;
+  applyRecoverySnapshot: (snapshot: GameRecoveryResponse) => void;
 
   // Event Handlers
   handleGameEvent: (event: GameEvent) => void;
@@ -1206,6 +1209,91 @@ export const useGameStore = create<UnifiedGameStore>()(
             }));
           }
         },
+        applyRecoverySnapshot: (snapshot) => {
+          if (!snapshot) {
+            return;
+          }
+
+          const scoreboardEntries = snapshot.scoreboard ?? [];
+          if (scoreboardEntries.length > 0) {
+            const recoveredScores: Record<string, number> = {};
+            scoreboardEntries.forEach(entry => {
+              recoveredScores[String(entry.userId)] = entry.score;
+            });
+
+            set((state) => ({
+              scores: { ...state.scores, ...recoveredScores },
+            }));
+          }
+
+          if (typeof snapshot.gameCurrentRound === 'number' && snapshot.gameCurrentRound > 0) {
+            set((state) => ({
+              currentRound: snapshot.gameCurrentRound,
+              totalRounds: Math.max(state.totalRounds, snapshot.gameCurrentRound),
+            }));
+          }
+
+          if (snapshot.currentPhase) {
+            const mappedPhase = mapGamePhase(snapshot.currentPhase);
+            set({ gamePhase: mappedPhase });
+            get().setRoundStage(mapPhaseToStage(mappedPhase), { force: true });
+          }
+
+          const defenseSnapshot = snapshot.defense;
+          if (defenseSnapshot?.defenseText && defenseSnapshot.accusedPlayerId != null) {
+            const defenderId = String(defenseSnapshot.accusedPlayerId);
+            const defenderName = defenseSnapshot.accusedPlayerNickname ?? 'Unknown';
+            const hasExisting = get().defenses.some(
+              (entry) => entry.defenderId === defenderId && entry.defense === defenseSnapshot.defenseText
+            );
+            if (!hasExisting) {
+              get().addDefense(defenderId, defenderName, defenseSnapshot.defenseText);
+            }
+          }
+
+          if (defenseSnapshot?.hasActiveFinalVoting) {
+            set((state) => ({
+              voting: {
+                ...state.voting,
+                isActive: true,
+                phase: 'SURVIVAL_VOTE',
+              },
+            }));
+          }
+
+          const finalRecords = snapshot.finalVotingRecord?.length
+            ? snapshot.finalVotingRecord
+            : defenseSnapshot?.finalVotingRecord;
+
+          if (finalRecords && finalRecords.length > 0) {
+            const votes = finalRecords.reduce<Record<string, number>>((acc, record) => {
+              const key = record.voteForExecution ? 'EXECUTION' : 'SURVIVAL';
+              acc[key] = (acc[key] ?? 0) + 1;
+              return acc;
+            }, {});
+
+            set((state) => ({
+              voting: {
+                ...state.voting,
+                results: {
+                  votes,
+                },
+              },
+            }));
+          }
+
+          if (snapshot.phaseEndTime) {
+            const endTime = new Date(snapshot.phaseEndTime).getTime();
+            const now = Date.now();
+            const timeRemaining = Math.max(0, Math.floor((endTime - now) / 1000));
+            set((state) => ({
+              timer: {
+                ...state.timer,
+                timeRemaining,
+              },
+            }));
+          }
+        },
 
         // Event Handlers
         handleGameEvent: (event: GameEvent) => {
@@ -1409,8 +1497,6 @@ export const useGameStore = create<UnifiedGameStore>()(
             }
 
             case 'ROUND_ENDED': {
-              get().setGamePhase('GAME_OVER');
-
               const scoreEntries = event.payload.scores ?? event.payload.finalScores;
               if (Array.isArray(scoreEntries) && scoreEntries.length > 0) {
                 const newScores: Record<string, number> = {};
@@ -1455,6 +1541,53 @@ export const useGameStore = create<UnifiedGameStore>()(
               }
 
               get().setRoundStage('results', { force: true });
+              break;
+            }
+
+            case 'TURN_CHANGED': {
+              const payload = event.payload as TurnChangedPayload;
+              const resolvedPlayerId = payload.currentPlayerId != null
+                ? resolvePlayerByIdentifier(payload.currentPlayerId)
+                : null;
+
+              if (resolvedPlayerId) {
+                set({ currentTurnPlayerId: resolvedPlayerId });
+                const player = state.players.find((candidate) => candidate.id === resolvedPlayerId);
+                if (player) {
+                  set({ currentPlayer: player });
+                }
+              }
+
+              const configuredTotal = typeof payload.turnTimeoutSeconds === 'number' && payload.turnTimeoutSeconds > 0
+                ? payload.turnTimeoutSeconds
+                : DEFAULT_TURN_TIME_SECONDS;
+
+              const phaseEndTimestamp = typeof payload.phaseEndTime === 'string'
+                ? Date.parse(payload.phaseEndTime)
+                : Number.NaN;
+
+              let timeRemaining = configuredTotal;
+              if (!Number.isNaN(phaseEndTimestamp)) {
+                timeRemaining = Math.max(0, Math.floor((phaseEndTimestamp - Date.now()) / 1000));
+              } else if (payload.turnStartedAt) {
+                const startedAt = Date.parse(payload.turnStartedAt);
+                if (!Number.isNaN(startedAt)) {
+                  const elapsed = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+                  timeRemaining = Math.max(0, configuredTotal - elapsed);
+                }
+              }
+
+              set({
+                timer: {
+                  isActive: true,
+                  totalTime: configuredTotal,
+                  timeRemaining,
+                  phase: 'SPEECH',
+                },
+              });
+
+              get().setGamePhase('SPEECH');
+              get().setRoundStage('speech', { force: true });
               break;
             }
 

@@ -104,6 +104,11 @@ exports[`PlayerStatusPanel stories > matches snapshot for default story 1`] = `
                       <span
                         class="inline-flex items-center rounded-full border px-2.5 py-0.5 font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent hover:bg-secondary/80 text-xs bg-purple-100 text-purple-600"
                       >
+                        <span
+                          class="sr-only"
+                        >
+                          호스트 방장
+                        </span>
                         <div
                           aria-hidden="true"
                           class="flex items-center space-x-1"
@@ -223,6 +228,11 @@ exports[`PlayerStatusPanel stories > matches snapshot for default story 1`] = `
                       <span
                         class="inline-flex items-center rounded-full border px-2.5 py-0.5 font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent hover:bg-secondary/80 text-xs bg-blue-100 text-blue-600"
                       >
+                        <span
+                          class="sr-only"
+                        >
+                          시민 A 시민
+                        </span>
                         <div
                           aria-hidden="true"
                           class="flex items-center space-x-1"
@@ -349,6 +359,11 @@ exports[`PlayerStatusPanel stories > matches snapshot for default story 1`] = `
                       <span
                         class="inline-flex items-center rounded-full border px-2.5 py-0.5 font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent hover:bg-secondary/80 text-xs bg-red-100 text-red-600"
                       >
+                        <span
+                          class="sr-only"
+                        >
+                          의심받는 라이어 의심받는 중
+                        </span>
                         <div
                           aria-hidden="true"
                           class="flex items-center space-x-1"
@@ -485,6 +500,11 @@ exports[`PlayerStatusPanel stories > matches snapshot for default story 1`] = `
                       <span
                         class="inline-flex items-center rounded-full border px-2.5 py-0.5 font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent hover:bg-secondary/80 text-xs bg-blue-100 text-blue-600"
                       >
+                        <span
+                          class="sr-only"
+                        >
+                          오프라인 플레이어 시민
+                        </span>
                         <div
                           aria-hidden="true"
                           class="flex items-center space-x-1"
@@ -751,6 +771,11 @@ exports[`PlayerStatusPanel stories > matches snapshot for liar perspective story
                       <span
                         class="inline-flex items-center rounded-full border px-2.5 py-0.5 font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent hover:bg-secondary/80 text-xs bg-purple-100 text-purple-600"
                       >
+                        <span
+                          class="sr-only"
+                        >
+                          호스트 방장
+                        </span>
                         <div
                           aria-hidden="true"
                           class="flex items-center space-x-1"
@@ -870,6 +895,11 @@ exports[`PlayerStatusPanel stories > matches snapshot for liar perspective story
                       <span
                         class="inline-flex items-center rounded-full border px-2.5 py-0.5 font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent hover:bg-secondary/80 text-xs bg-blue-100 text-blue-600"
                       >
+                        <span
+                          class="sr-only"
+                        >
+                          시민 A 시민
+                        </span>
                         <div
                           aria-hidden="true"
                           class="flex items-center space-x-1"
@@ -988,6 +1018,11 @@ exports[`PlayerStatusPanel stories > matches snapshot for liar perspective story
                       <span
                         class="inline-flex items-center rounded-full border px-2.5 py-0.5 font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent hover:bg-secondary/80 text-xs bg-red-100 text-red-600"
                       >
+                        <span
+                          class="sr-only"
+                        >
+                          의심받는 라이어 의심받는 중
+                        </span>
                         <div
                           aria-hidden="true"
                           class="flex items-center space-x-1"
@@ -1131,6 +1166,11 @@ exports[`PlayerStatusPanel stories > matches snapshot for liar perspective story
                       <span
                         class="inline-flex items-center rounded-full border px-2.5 py-0.5 font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent hover:bg-secondary/80 text-xs bg-blue-100 text-blue-600"
                       >
+                        <span
+                          class="sr-only"
+                        >
+                          오프라인 플레이어 시민
+                        </span>
                         <div
                           aria-hidden="true"
                           class="flex items-center space-x-1"

@@ -141,7 +141,7 @@ class GameProgressService(
         }
 
         // notifyTurnChanged에 전달되는 currentPlayerId는 userId여야 함
-        gameMonitoringService.notifyTurnChanged(game.gameNumber, nextPlayer.userId, game.turnStartedAt!!)
+        gameMonitoringService.notifyTurnChanged(game.gameNumber, nextPlayer.userId, game.turnStartedAt!!, game.phaseEndTime)
     }
 
     @Transactional

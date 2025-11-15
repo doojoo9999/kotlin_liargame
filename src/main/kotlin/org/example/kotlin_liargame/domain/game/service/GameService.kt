@@ -881,7 +881,7 @@ class GameService(
             "newOwner" to nextOwner.nickname,
             "message" to "${oldOwnerNickname}님이 시간 내에 게임을 시작하지 않아 강퇴되었습니다. 새로운 방장은 ${nextOwner.nickname}님입니다."
         )
-        gameMonitoringService.broadcastGameState(game, message)
+        gameMonitoringService.broadcastGameEvent(gameNumber, message)
 
         // 채팅으로도 알림
         chatService.sendSystemMessage(game, "${oldOwnerNickname}님이 방장 권한을 박탈당했습니다. 새로운 방장: ${nextOwner.nickname}님")
@@ -991,7 +991,7 @@ class GameService(
             "extendedUntil" to extendedUntil.toString(),
             "message" to "게임 시작 시간이 5분 연장되었습니다."
         )
-        gameMonitoringService.broadcastGameState(game, message)
+        gameMonitoringService.broadcastGameEvent(gameNumber, message)
 
         // 채팅으로도 알림
         chatService.sendSystemMessage(game, "방장이 게임 시작 시간을 연장했습니다. (+5분)")

@@ -6,6 +6,7 @@ import {useConnectionStore} from '@/stores/connectionStore'
 import {useGameplayStore} from '@/stores/gameplayStore'
 import {gameMonitoring} from '@/services/gameMonitoring'
 import type {ConnectionStatus} from '@/types/store'
+import type {GameRecoveryResponse} from '@/types/backendTypes'
 
 const LATENCY_WARNING_COOLDOWN = 15_000
 
@@ -29,6 +30,7 @@ export function useGameRecovery() {
 
   const gameNumber = useGameStore((state) => state.gameNumber)
   const updateFromGameState = useGameStore((state) => state.updateFromGameState)
+  const applyRecoverySnapshot = useGameStore((state) => state.applyRecoverySnapshot)
   const loadChatHistory = useGameStore((state) => state.loadChatHistory)
 
   const hydrateFromSnapshot = useGameplayStore((state) => state.actions.hydrateFromSnapshot)
@@ -53,6 +55,16 @@ export function useGameRecovery() {
           recoveryInFlight.current = (async () => {
             const startedAt = Date.now()
             try {
+              let recoverySnapshot: GameRecoveryResponse | null = null
+              try {
+                recoverySnapshot = await gameService.recoverGameState(gameNumber)
+                if (recoverySnapshot) {
+                  applyRecoverySnapshot(recoverySnapshot)
+                }
+              } catch (recoveryError) {
+                console.warn('[useGameRecovery] Failed to load recovery snapshot', recoveryError)
+              }
+
               const snapshot = await gameService.getGameState(gameNumber)
               updateFromGameState(snapshot)
               hydrateFromSnapshot(snapshot)
@@ -78,9 +90,15 @@ export function useGameRecovery() {
               })
             } catch (error) {
               const message = error instanceof Error ? error.message : '복구 요청에 실패했습니다.'
-              toast.error('게임 상태 복구 실패', {
-                description: message
-              })
+              if (recoverySnapshot) {
+                toast.warning('게임 상태 일부만 복원되었습니다', {
+                  description: message
+                })
+              } else {
+                toast.error('게임 상태 복구 실패', {
+                  description: message
+                })
+              }
 
               gameMonitoring.emit({
                 type: 'RECOVERY_FAILED',
@@ -98,7 +116,7 @@ export function useGameRecovery() {
 
       previousStatusRef.current = status
     }
-  }, [status, gameNumber, updateFromGameState, hydrateFromSnapshot, loadChatHistory])
+  }, [status, gameNumber, updateFromGameState, hydrateFromSnapshot, loadChatHistory, applyRecoverySnapshot])
 
   // Surface high latency or queued message indicators
   useEffect(() => {

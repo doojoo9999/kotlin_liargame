@@ -174,6 +174,52 @@ export function GameFlowManager({ onReturnToLobby, onNextRound }: GameFlowManage
       )
     })
 
+    const unsubscribeCountdownStarted = websocketService.onGameEvent('COUNTDOWN_STARTED', (event) => {
+      const durationSeconds = Number(event.payload?.durationSeconds ?? 0)
+      const endTime = typeof event.payload?.endTime === 'string' ? Date.parse(event.payload.endTime) : null
+      const computedRemaining = endTime ? Math.max(0, Math.round((endTime - Date.now()) / 1000)) : durationSeconds
+      const remaining = Number.isFinite(computedRemaining) ? computedRemaining : 0
+
+      useGameStore.getState().startTimer(Math.max(remaining, 0), 'COUNTDOWN')
+      toast.info('게임 시작 카운트다운이 시작되었습니다.', {
+        description: remaining > 0 ? `${remaining}초 후에 시작됩니다.` : undefined
+      })
+      appendActivity(makeActivity('system', event, '게임 시작 카운트다운이 시작되었습니다.', true))
+    })
+
+    const unsubscribeCountdownCancelled = websocketService.onGameEvent('COUNTDOWN_CANCELLED', (event) => {
+      useGameStore.getState().stopTimer()
+      toast.warning('카운트다운이 취소되었습니다.')
+      appendActivity(makeActivity('system', event, '게임 시작 카운트다운이 취소되었습니다.', false))
+    })
+
+    const unsubscribeTimeExtended = websocketService.onGameEvent('TIME_EXTENDED', (event) => {
+      const extendedUntilMs = typeof event.payload?.extendedUntil === 'string'
+        ? Date.parse(event.payload.extendedUntil)
+        : Number.NaN
+      const extendedDate = Number.isFinite(extendedUntilMs) ? new Date(extendedUntilMs) : null
+      const description = extendedDate
+        ? `새 시작 예정 시각: ${extendedDate.toLocaleTimeString()}`
+        : (event.payload?.message as string | undefined)
+
+      if (extendedDate) {
+        const remainingSeconds = Math.max(0, Math.round((extendedDate.getTime() - Date.now()) / 1000))
+        const store = useGameStore.getState()
+        if (store.gamePhase === 'WAITING_FOR_PLAYERS') {
+          if (remainingSeconds > 0) {
+            store.startTimer(remainingSeconds, 'COUNTDOWN')
+          } else {
+            store.stopTimer()
+          }
+        }
+      }
+
+      toast.success('게임 시작 시간이 연장되었습니다.', {
+        description
+      })
+      appendActivity(makeActivity('system', event, '게임 시작 시간이 연장되었습니다.', false))
+    })
+
     const unsubscribePhase = websocketService.onPhaseChanged((event) => {
       if (event.type !== 'PHASE_CHANGED') return
 
@@ -202,6 +248,9 @@ export function GameFlowManager({ onReturnToLobby, onNextRound }: GameFlowManage
       unsubscribeHint()
       unsubscribeVote()
       unsubscribeDefense()
+      unsubscribeCountdownStarted()
+      unsubscribeCountdownCancelled()
+      unsubscribeTimeExtended()
       unsubscribePhase()
       unsubscribeRound()
       unsubscribeRoomDeleted()

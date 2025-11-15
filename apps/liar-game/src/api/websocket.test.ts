@@ -54,6 +54,12 @@ describe('GameWebSocketClient', () => {
     });
   });
 
+  const connectClient = async (gameNumber = 1, playerId = 'test-player') => {
+    const connectPromise = client.connect(gameNumber, playerId);
+    mockWs.mockConnect();
+    await connectPromise;
+  };
+
   afterEach(() => {
     client?.disconnect();
     vi.clearAllTimers();
@@ -83,14 +89,7 @@ describe('GameWebSocketClient', () => {
     it('should include game parameters in WebSocket URL', async () => {
       mockLocalStorage.getItem.mockReturnValue('auth-token-123');
       
-      const connectPromise = client.connect(42, 'player-123');
-      
-      setTimeout(() => {
-        mockWs = (WebSocket as any).mock.results[0].value;
-        mockWs.onopen?.(new Event('open'));
-      }, 50);
-
-      await connectPromise;
+      await connectClient(42, 'player-123');
 
       // Check that WebSocket was called with correct URL
       const wsCall = (WebSocket as any).mock.calls[0];
@@ -101,7 +100,7 @@ describe('GameWebSocketClient', () => {
     });
 
     it('should disconnect gracefully', async () => {
-      await client.connect(1, 'test-player');
+      await connectClient();
       
       const disconnectHandler = vi.fn();
       client.on('DISCONNECT', disconnectHandler);
@@ -119,15 +118,7 @@ describe('GameWebSocketClient', () => {
 
   describe('Event System', () => {
     beforeEach(async () => {
-      const connectPromise = client.connect(1, 'test-player');
-      
-      setTimeout(() => {
-        mockWs = (WebSocket as any).mock.results[0].value;
-        mockWs.readyState = WebSocket.OPEN;
-        mockWs.onopen?.(new Event('open'));
-      }, 50);
-
-      await connectPromise;
+      await connectClient();
     });
 
     it('should register and unregister event handlers', () => {
@@ -211,15 +202,7 @@ describe('GameWebSocketClient', () => {
 
   describe('Message Sending', () => {
     beforeEach(async () => {
-      const connectPromise = client.connect(1, 'test-player');
-      
-      setTimeout(() => {
-        mockWs = (WebSocket as any).mock.results[0].value;
-        mockWs.readyState = WebSocket.OPEN;
-        mockWs.onopen?.(new Event('open'));
-      }, 50);
-
-      await connectPromise;
+      await connectClient();
     });
 
     it('should send messages successfully', () => {
@@ -256,15 +239,7 @@ describe('GameWebSocketClient', () => {
 
   describe('Convenience Methods', () => {
     beforeEach(async () => {
-      const connectPromise = client.connect(1, 'test-player');
-      
-      setTimeout(() => {
-        mockWs = (WebSocket as any).mock.results[0].value;
-        mockWs.readyState = WebSocket.OPEN;
-        mockWs.onopen?.(new Event('open'));
-      }, 50);
-
-      await connectPromise;
+      await connectClient();
     });
 
     it('should join room correctly', () => {
@@ -343,15 +318,7 @@ describe('GameWebSocketClient', () => {
 
   describe('Reconnection Logic', () => {
     it('should attempt reconnection on unexpected disconnect', async () => {
-      const connectPromise = client.connect(1, 'test-player');
-      
-      setTimeout(() => {
-        mockWs = (WebSocket as any).mock.results[0].value;
-        mockWs.readyState = WebSocket.OPEN;
-        mockWs.onopen?.(new Event('open'));
-      }, 50);
-
-      await connectPromise;
+      await connectClient();
 
       const reconnectHandler = vi.fn();
       client.on('RECONNECT', reconnectHandler);
@@ -368,15 +335,7 @@ describe('GameWebSocketClient', () => {
     });
 
     it('should not reconnect on normal disconnect', async () => {
-      const connectPromise = client.connect(1, 'test-player');
-      
-      setTimeout(() => {
-        mockWs = (WebSocket as any).mock.results[0].value;
-        mockWs.readyState = WebSocket.OPEN;
-        mockWs.onopen?.(new Event('open'));
-      }, 50);
-
-      await connectPromise;
+      await connectClient();
 
       const reconnectHandler = vi.fn();
       client.on('RECONNECT', reconnectHandler);
@@ -388,15 +347,7 @@ describe('GameWebSocketClient', () => {
     });
 
     it('should give up after max reconnection attempts', async () => {
-      const connectPromise = client.connect(1, 'test-player');
-      
-      setTimeout(() => {
-        mockWs = (WebSocket as any).mock.results[0].value;
-        mockWs.readyState = WebSocket.OPEN;
-        mockWs.onopen?.(new Event('open'));
-      }, 50);
-
-      await connectPromise;
+      await connectClient();
 
       const errorHandler = vi.fn();
       client.on('ERROR', errorHandler);
@@ -415,22 +366,10 @@ describe('GameWebSocketClient', () => {
   });
 
   describe('Heartbeat Management', () => {
-    beforeEach(async () => {
-      const connectPromise = client.connect(1, 'test-player');
-      
-      setTimeout(() => {
-        mockWs = (WebSocket as any).mock.results[0].value;
-        mockWs.readyState = WebSocket.OPEN;
-        mockWs.onopen?.(new Event('open'));
-      }, 50);
-
-      await connectPromise;
-    });
-
     it('should send heartbeat messages', async () => {
       vi.useFakeTimers();
-      
-      // Fast-forward time to trigger heartbeat
+      await connectClient();
+
       vi.advanceTimersByTime(1000);
 
       expect(mockWs.send).toHaveBeenCalledWith(
@@ -440,7 +379,8 @@ describe('GameWebSocketClient', () => {
       vi.useRealTimers();
     });
 
-    it('should handle heartbeat responses', () => {
+    it('should handle heartbeat responses', async () => {
+      await connectClient();
       const heartbeatMessage: WebSocketMessage = {
         type: 'HEARTBEAT',
         timestamp: '2024-01-01T00:00:00Z',
@@ -466,12 +406,12 @@ describe('GameWebSocketClient', () => {
       expect(client.getReconnectAttempts()).toBe(0);
     });
 
-    it('should update game context', () => {
+    it('should update game context', async () => {
       client.updateGameContext(999, 'new-player');
+      const connectPromise = client.connect();
+      mockWs.mockConnect();
+      await connectPromise;
 
-      client.connect();
-      
-      // Should use updated context in connection URL
       const wsCall = (WebSocket as any).mock.calls[0];
       const url = wsCall[0];
       expect(url).toContain('gameNumber=999');
@@ -512,18 +452,10 @@ describe('GameWebSocketClient', () => {
     });
 
     it('should handle message sending errors', async () => {
-      const connectPromise = client.connect(1, 'test-player');
-      
-      setTimeout(() => {
-        mockWs = (WebSocket as any).mock.results[0].value;
-        mockWs.readyState = WebSocket.OPEN;
-        mockWs.send = vi.fn().mockImplementation(() => {
-          throw new Error('Send failed');
-        });
-        mockWs.onopen?.(new Event('open'));
-      }, 50);
-
-      await connectPromise;
+      await connectClient();
+      mockWs.send = vi.fn().mockImplementation(() => {
+        throw new Error('Send failed');
+      });
 
       const errorHandler = vi.fn();
       client.on('ERROR', errorHandler);

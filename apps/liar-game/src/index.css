@@ -71,7 +71,8 @@
 .chat-scroll-area {
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--primary, #7650ff) 40%, transparent) transparent;
-  scrollbar-gutter: stable both-edges;
+  /* keep right gutter reserved to stop horizontal jumps when scrollbars appear */
+  scrollbar-gutter: stable;
 }
 
 .chat-scroll-area::-webkit-scrollbar {

@@ -13,15 +13,17 @@ type MockConnectionState = {
   clearSyncIssues: () => void;
 };
 
-const createConnectionState = (overrides: Partial<MockConnectionState> = {}): MockConnectionState => ({
-  status: 'idle',
-  avgLatency: undefined,
-  messageQueue: [],
-  pendingMessages: {},
-  syncIssues: [],
-  clearSyncIssues: vi.fn(),
-  ...overrides,
-});
+function createConnectionState(overrides: Partial<MockConnectionState> = {}): MockConnectionState {
+  return {
+    status: 'idle',
+    avgLatency: undefined,
+    messageQueue: [],
+    pendingMessages: {},
+    syncIssues: [],
+    clearSyncIssues: vi.fn(),
+    ...overrides,
+  };
+}
 
 const connectionStoreState = vi.hoisted(() => ({
   state: createConnectionState(),

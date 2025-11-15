@@ -29,6 +29,10 @@ interface RawWebSocketPayload {
 }
 
 type RawListener = (payload: RawWebSocketPayload) => void;
+type DeliveryResult = {
+  id: string;
+  success: boolean;
+};
 
 class WebSocketService {
   private client: StompClient | null = null;
@@ -56,6 +60,7 @@ class WebSocketService {
   private maxMessageAttempts = 3;
   private outboundListeners: ((msg: { destination: string; body: any; sentAt: number }) => void)[] = [];
   private rawListeners: RawListener[] = [];
+  private pendingDeliveryListeners: Map<string, Array<(result: DeliveryResult) => void>> = new Map();
   private pingInterval: NodeJS.Timeout | null = null;
   private lastHeartbeatAck = Date.now();
   private pendingGameSubscriptions: Map<string, { userId?: string; attempts: number }> = new Map();
@@ -173,6 +178,9 @@ class WebSocketService {
     this.reconnectAttempts = 0;
     
     // Drop any queued messages; listeners stay registered for future reconnects
+    if (this.messageQueue.length > 0) {
+      this.messageQueue.forEach(msg => this.notifyMessageDelivery({ id: msg.id, success: false }));
+    }
     this.messageQueue = [];
     this.pendingGameSubscriptions.clear();
     this.lobbySubscriptionPending = false;
@@ -367,6 +375,43 @@ class WebSocketService {
     return () => {
       this.rawListeners = this.rawListeners.filter(l => l !== listener);
     };
+  }
+
+  public onMessageDelivered(messageId: string, callback: (result: DeliveryResult) => void): () => void {
+    const listeners = this.pendingDeliveryListeners.get(messageId) ?? [];
+    listeners.push(callback);
+    this.pendingDeliveryListeners.set(messageId, listeners);
+
+    return () => {
+      const stored = this.pendingDeliveryListeners.get(messageId);
+      if (!stored) {
+        return;
+      }
+      const next = stored.filter(listener => listener !== callback);
+      if (next.length === 0) {
+        this.pendingDeliveryListeners.delete(messageId);
+      } else {
+        this.pendingDeliveryListeners.set(messageId, next);
+      }
+    };
+  }
+
+  private notifyMessageDelivery(result: DeliveryResult): void {
+    const listeners = this.pendingDeliveryListeners.get(result.id);
+    if (!listeners || listeners.length === 0) {
+      this.pendingDeliveryListeners.delete(result.id);
+      return;
+    }
+
+    listeners.forEach(listener => {
+      try {
+        listener(result);
+      } catch (error) {
+        console.error('Delivery listener error:', error);
+      }
+    });
+
+    this.pendingDeliveryListeners.delete(result.id);
   }
 
   public processQueue(): void {
@@ -799,6 +844,7 @@ class WebSocketService {
         }));
 
         console.log(`Successfully sent queued message ${message.id}`);
+        this.notifyMessageDelivery({ id: message.id, success: true });
 
       } catch (error) {
         console.error(`Failed to send queued message ${message.id}, attempt ${message.attempts}:`, error);
@@ -808,6 +854,7 @@ class WebSocketService {
           toRetry.push(message);
         } else {
           console.error(`Dropping message ${message.id} after ${message.attempts} failed attempts`);
+          this.notifyMessageDelivery({ id: message.id, success: false });
         }
       }
     }
@@ -825,6 +872,9 @@ class WebSocketService {
     if (this.messageQueue.length >= this.maxQueue) {
       const removed = this.messageQueue.shift();
       console.warn('Message queue full, removed oldest message:', removed?.id);
+      if (removed) {
+        this.notifyMessageDelivery({ id: removed.id, success: false });
+      }
     }
 
     const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
