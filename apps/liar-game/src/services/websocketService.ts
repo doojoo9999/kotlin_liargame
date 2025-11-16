@@ -566,6 +566,10 @@ class WebSocketService {
     return this.onGameEvent('GAME_ENDED', callback);
   }
 
+  public onNextRound(callback: (event: GameEvent) => void): () => void {
+    return this.onGameEvent('NEXT_ROUND', callback);
+  }
+
   // 상태 확인 메서드들
   public getConnectionStatus(): boolean {
     return this.isConnected;

@@ -9,6 +9,7 @@ import type {
     GameState as BackendGameState,
     GameStateResponse,
     GameRecoveryResponse,
+    NextRoundResponse,
 } from '../types/backendTypes';
 import type {FrontendPlayer} from '../types';
 import type {GameRoomInfo, JoinGameRequest} from '../types/api';
@@ -1459,8 +1460,17 @@ export const useGameStore = create<UnifiedGameStore>()(
                 defenses: [],
                 roundHasStarted: true,
                 currentRoundSummary: null,
+                voting: {
+                  isActive: false,
+                  phase: null,
+                  votes: {},
+                  targetPlayerId: undefined,
+                  results: undefined,
+                },
+                userVote: null,
               });
 
+              get().setGamePhase('SPEECH');
               get().setRoundStage('speech', { force: true });
 
               if (typeof timeLimit === 'number' && timeLimit > 0) {
@@ -1588,6 +1598,39 @@ export const useGameStore = create<UnifiedGameStore>()(
 
               get().setGamePhase('SPEECH');
               get().setRoundStage('speech', { force: true });
+              break;
+            }
+
+            case 'NEXT_ROUND': {
+              const payload = (event.payload ?? event) as NextRoundResponse;
+              const nextRound = typeof payload.currentRound === 'number' ? payload.currentRound : state.currentRound + 1;
+              set({ currentRound: nextRound });
+
+              set({
+                roundHasStarted: false,
+                currentRoundSummary: null,
+                hints: [],
+                votes: [],
+                defenses: [],
+                voting: {
+                  isActive: false,
+                  phase: null,
+                  votes: {},
+                  targetPlayerId: undefined,
+                  results: undefined,
+                },
+                userVote: null,
+              });
+
+              get().setGamePhase('SPEECH');
+              get().setRoundStage('speech', { force: true });
+              get().stopTimer();
+
+              if (payload.message) {
+                toast.success(`라운드 ${nextRound}가 시작됩니다.`, {
+                  description: payload.message,
+                });
+              }
               break;
             }
 
