@@ -599,6 +599,7 @@ class WebSocketService {
       `game-events-${gameId}`,
       `player-status-${gameId}`,
       `game-status-${gameId}`,
+      `next-round-${gameId}`,
       `chat-${gameId}`,
       `chat-legacy-${gameId}`
     ];
@@ -637,6 +638,12 @@ class WebSocketService {
       this.handleGameEvent.bind(this)
     );
     this.subscriptions.set(`game-status-${gameId}`, gameStatusSub);
+
+    const nextRoundSub = client.subscribe(
+      `/topic/game/${gameId}/next-round`,
+      (message) => this.handleNextRoundMessage(gameId, message)
+    );
+    this.subscriptions.set(`next-round-${gameId}`, nextRoundSub);
 
     const chatTopic = `/topic/chat.${gameId}`;
     const chatSub = client.subscribe(
@@ -1618,26 +1625,29 @@ class WebSocketService {
         }
         return;
       }
-
-      if (import.meta.env.DEV) {
-        console.log('Received game event:', event);
-      }
-
-      this.notifyRawListeners({
-        type: 'event',
-        data: event,
-        receivedAt: Date.now(),
-        destination: message.headers?.destination,
-      });
-
-      const callbacks = this.eventCallbacks.get(event.type) || [];
-      callbacks.forEach(callback => callback(event));
-
-      const allCallbacks = this.eventCallbacks.get('*') || [];
-      allCallbacks.forEach(callback => callback(event));
+      this.emitGameEvent(event, message.headers?.destination);
     } catch (error) {
       console.error('Error parsing game event:', error);
     }
+  }
+
+  private emitGameEvent(event: GameEvent, destination?: string): void {
+    if (import.meta.env.DEV) {
+      console.log('Received game event:', event);
+    }
+
+    this.notifyRawListeners({
+      type: 'event',
+      data: event,
+      receivedAt: Date.now(),
+      destination,
+    });
+
+    const callbacks = this.eventCallbacks.get(event.type) || [];
+    callbacks.forEach(callback => callback(event));
+
+    const allCallbacks = this.eventCallbacks.get('*') || [];
+    allCallbacks.forEach(callback => callback(event));
   }
 
   private handleChatMessage(message: IMessage): void {
@@ -1677,6 +1687,26 @@ class WebSocketService {
 
     } catch (error) {
       console.error('Error parsing chat message:', error);
+    }
+  }
+
+  private handleNextRoundMessage(gameId: string, message: IMessage): void {
+    try {
+      const payload = message.body ? JSON.parse(message.body) : null;
+      if (!payload) {
+        return;
+      }
+
+      const event: GameEvent = {
+        type: 'NEXT_ROUND',
+        gameId,
+        payload,
+        timestamp: Date.now(),
+      };
+
+      this.emitGameEvent(event, message.headers?.destination);
+    } catch (error) {
+      console.error('Error handling next round message:', error);
     }
   }
 

@@ -1,4 +1,16 @@
-import type {GamePhase, GameStateResponse, PlayerRole} from './backendTypes'
+import type {
+  GamePhase,
+  GameStateResponse,
+  NextRoundResponse,
+  PlayerRole,
+  FinalVotingResultResponse
+} from './backendTypes'
+import type {
+  VotingStartMessage,
+  VotingProgressMessage,
+  FinalVotingStartMessage,
+  FinalVotingProgressMessage
+} from './contracts/gameplay'
 
 // 백엔드 신규/강화 API에 맞춘 타입들
 
@@ -329,6 +341,12 @@ export type GameEventPayloadMap = {
   DEFENSE_SUBMITTED: DefenseSubmittedPayload
   TURN_CHANGED: TurnChangedPayload
   ROUND_ENDED: RoundEndedPayload
+  NEXT_ROUND: NextRoundResponse
+  VOTING_START: VotingStartMessage
+  FINAL_VOTING_START: FinalVotingStartMessage
+  VOTING_PROGRESS: VotingProgressMessage
+  FINAL_VOTING_PROGRESS: FinalVotingProgressMessage
+  FINAL_VOTING_RESULT: FinalVotingResultResponse
   GAME_ENDED: GameEndedPayload
   PHASE_CHANGED: PhaseChangedPayload
   TIMER_UPDATE: TimerUpdatePayload

@@ -1,5 +1,6 @@
 import {create} from 'zustand';
 import {devtools, persist} from 'zustand/middleware';
+import {toast} from 'sonner';
 import {gameService} from '../api/gameApi';
 import {useAuthStore} from './authStore';
 import type {
@@ -10,10 +11,17 @@ import type {
     GameStateResponse,
     GameRecoveryResponse,
     NextRoundResponse,
+    FinalVotingResultResponse,
 } from '../types/backendTypes';
 import type {FrontendPlayer} from '../types';
 import type {GameRoomInfo, JoinGameRequest} from '../types/api';
 import type {ChatMessage, ChatMessageType, GameEvent, ScoreEntry, TurnChangedPayload} from '../types/realtime';
+import type {
+    FinalVotingProgressMessage,
+    FinalVotingStartMessage,
+    VotingProgressMessage,
+    VotingStartMessage
+} from '../types/contracts/gameplay';
 
 export type RoundUxStage = 'waiting' | 'speech' | 'debate' | 'vote' | 'results';
 
@@ -50,6 +58,9 @@ export interface VotingState {
   phase: 'LIAR_VOTE' | 'SURVIVAL_VOTE' | null;
   votes: Record<string, string>;
   targetPlayerId?: string;
+  currentVotes?: number;
+  totalParticipants?: number;
+  requiredVotes?: number;
   results?: {
     votes: Record<string, number>;
     actualLiar?: string;
@@ -621,6 +632,10 @@ const initialState: GameState = {
     isActive: false,
     phase: null,
     votes: {},
+    targetPlayerId: undefined,
+    currentVotes: 0,
+    totalParticipants: 0,
+    requiredVotes: undefined,
     results: undefined,
   },
   chatMessages: [],
@@ -784,7 +799,10 @@ export const useGameStore = create<UnifiedGameStore>()(
             phase,
             votes: {},
             targetPlayerId,
-            results: undefined
+            currentVotes: 0,
+            totalParticipants: get().players.filter(player => player.isAlive !== false).length,
+            requiredVotes: undefined,
+            results: undefined,
           }
         }),
         stopVoting: () => set((state) => ({
@@ -1051,6 +1069,11 @@ export const useGameStore = create<UnifiedGameStore>()(
         setCurrentGameState: (currentGameState) => set({ currentGameState }),
         updateFromGameState: (gameState) => {
           if (!gameState) return;
+
+          if (!Array.isArray((gameState as GameStateResponse).players)) {
+            console.warn('[unifiedGameStore] Ignoring malformed game state update', gameState);
+            return;
+          }
 
           const scoreboard = new Map<number, number>(
             (gameState.scoreboard ?? []).map((entry) => [entry.userId, entry.score])
@@ -1465,6 +1488,9 @@ export const useGameStore = create<UnifiedGameStore>()(
                   phase: null,
                   votes: {},
                   targetPlayerId: undefined,
+                  currentVotes: 0,
+                  totalParticipants: state.players.filter((player) => player.isAlive !== false).length,
+                  requiredVotes: undefined,
                   results: undefined,
                 },
                 userVote: null,
@@ -1503,6 +1529,94 @@ export const useGameStore = create<UnifiedGameStore>()(
               const resolvedId = defenderId ?? playerId ?? 'unknown';
               const resolvedName = defenderName ?? playerName ?? '익명';
               get().addDefense(String(resolvedId), resolvedName, defense ?? '');
+              break;
+            }
+
+            case 'VOTING_START': {
+              const payload = event.payload as VotingStartMessage;
+              const participantCount = Array.isArray(payload.availablePlayers) ? payload.availablePlayers.length : get().players.filter((player) => player.isAlive !== false).length;
+              const requiredVotes = participantCount > 0 ? Math.floor(participantCount / 2) + 1 : undefined;
+
+              set((state) => ({
+                voting: {
+                  ...state.voting,
+                  isActive: true,
+                  phase: 'LIAR_VOTE',
+                  votes: {},
+                  targetPlayerId: undefined,
+                  results: undefined,
+                  currentVotes: 0,
+                  totalParticipants: participantCount,
+                  requiredVotes,
+                },
+              }));
+
+              if (typeof payload.votingTimeLimit === 'number' && payload.votingTimeLimit > 0) {
+                get().startTimer(payload.votingTimeLimit, 'VOTING_FOR_LIAR');
+              }
+              get().setGamePhase('VOTING_FOR_LIAR');
+              get().setRoundStage('vote', { force: true });
+              break;
+            }
+
+            case 'VOTING_PROGRESS': {
+              const payload = event.payload as VotingProgressMessage;
+              const total = payload.totalCount ?? get().voting.totalParticipants ?? get().players.filter((player) => player.isAlive !== false).length;
+              const requiredVotes = total && total > 0 ? Math.floor(total / 2) + 1 : get().voting.requiredVotes;
+
+              set((state) => ({
+                voting: {
+                  ...state.voting,
+                  isActive: true,
+                  phase: 'LIAR_VOTE',
+                  currentVotes: payload.votedCount ?? state.voting.currentVotes ?? 0,
+                  totalParticipants: total ?? state.voting.totalParticipants,
+                  requiredVotes: requiredVotes ?? state.voting.requiredVotes,
+                },
+              }));
+              break;
+            }
+
+            case 'FINAL_VOTING_START': {
+              const payload = event.payload as FinalVotingStartMessage;
+              const targetId = payload.accusedPlayerId != null ? String(payload.accusedPlayerId) : undefined;
+              const total = get().players.filter((player) => player.isAlive !== false).length;
+
+              set((state) => ({
+                voting: {
+                  ...state.voting,
+                  isActive: true,
+                  phase: 'SURVIVAL_VOTE',
+                  votes: {},
+                  targetPlayerId: targetId,
+                  results: undefined,
+                  currentVotes: 0,
+                  totalParticipants: total,
+                  requiredVotes: undefined,
+                },
+              }));
+
+              if (typeof payload.votingTimeLimit === 'number' && payload.votingTimeLimit > 0) {
+                get().startTimer(payload.votingTimeLimit, 'VOTING_FOR_SURVIVAL');
+              }
+              get().setGamePhase('VOTING_FOR_SURVIVAL');
+              get().setRoundStage('vote', { force: true });
+              break;
+            }
+
+            case 'FINAL_VOTING_PROGRESS': {
+              const payload = event.payload as FinalVotingProgressMessage;
+              const total = payload.totalCount ?? get().voting.totalParticipants ?? get().players.filter((player) => player.isAlive !== false).length;
+
+              set((state) => ({
+                voting: {
+                  ...state.voting,
+                  isActive: true,
+                  phase: 'SURVIVAL_VOTE',
+                  currentVotes: payload.votedCount ?? state.voting.currentVotes ?? 0,
+                  totalParticipants: total ?? state.voting.totalParticipants,
+                },
+              }));
               break;
             }
 
@@ -1601,6 +1715,31 @@ export const useGameStore = create<UnifiedGameStore>()(
               break;
             }
 
+            case 'FINAL_VOTING_RESULT': {
+              const payload = event.payload as FinalVotingResultResponse;
+              const executionKey = payload.isExecuted ? 'EXECUTION' : 'SURVIVAL';
+              const votesRecord: Record<string, number> = {
+                EXECUTION: payload.executionVotes,
+                SURVIVAL: payload.survivalVotes,
+              };
+
+              set((state) => ({
+                voting: {
+                  ...state.voting,
+                  isActive: false,
+                  currentVotes: payload.executionVotes + payload.survivalVotes,
+                  totalParticipants: payload.totalVotes,
+                  results: {
+                    votes: votesRecord,
+                    winners: payload.isExecuted ? ['CITIZENS'] : ['LIARS'],
+                    actualLiar: state.currentLiar ?? undefined,
+                  },
+                },
+              }));
+              get().setRoundStage('results', { force: true });
+              break;
+            }
+
             case 'NEXT_ROUND': {
               const payload = (event.payload ?? event) as NextRoundResponse;
               const nextRound = typeof payload.currentRound === 'number' ? payload.currentRound : state.currentRound + 1;
@@ -1617,6 +1756,9 @@ export const useGameStore = create<UnifiedGameStore>()(
                   phase: null,
                   votes: {},
                   targetPlayerId: undefined,
+                  currentVotes: 0,
+                  totalParticipants: state.players.filter((player) => player.isAlive !== false).length,
+                  requiredVotes: undefined,
                   results: undefined,
                 },
                 userVote: null,
@@ -1775,7 +1917,18 @@ export const useGameStore = create<UnifiedGameStore>()(
           chatMessages: [],
           chatLoading: false,
           chatError: null,
-          scores: {}
+          scores: {},
+          userVote: null,
+          voting: {
+            isActive: false,
+            phase: null,
+            votes: {},
+            targetPlayerId: undefined,
+            currentVotes: 0,
+            totalParticipants: 0,
+            requiredVotes: undefined,
+            results: undefined,
+          }
         })
       }),
       {
