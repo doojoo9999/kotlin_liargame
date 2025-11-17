@@ -1143,6 +1143,8 @@ export const useGameStore = create<UnifiedGameStore>()(
 
           }, {});
 
+          const alivePlayersCount = mappedPlayers.filter((player) => player.isAlive !== false).length;
+
 
 
           const turnOrder = (gameState.turnOrder ?? []).map((value) => value.toString());
@@ -1216,20 +1218,58 @@ export const useGameStore = create<UnifiedGameStore>()(
 
           get().setRoundStage(mapPhaseToStage(mappedPhase));
 
+          if (mappedPhase === 'VOTING_FOR_LIAR') {
+            set((state) => ({
+              voting: {
+                ...state.voting,
+                isActive: true,
+                phase: 'LIAR_VOTE',
+                totalParticipants: alivePlayersCount,
+                requiredVotes: Math.floor(alivePlayersCount / 2) + 1,
+              },
+            }));
+          } else if (mappedPhase === 'VOTING_FOR_SURVIVAL') {
+            set((state) => ({
+              voting: {
+                ...state.voting,
+                isActive: true,
+                phase: 'SURVIVAL_VOTE',
+                totalParticipants: alivePlayersCount,
+              },
+            }));
+          }
+
 
 
           // Update timer if available
           if (gameState.phaseEndTime) {
-            // Calculate time remaining from phaseEndTime
             const endTime = new Date(gameState.phaseEndTime).getTime();
             const now = Date.now();
             const timeRemaining = Math.max(0, Math.floor((endTime - now) / 1000));
+            const resolvedPhase = mappedPhase ?? get().gamePhase ?? '';
 
+            set((state) => {
+              const previousTotal = state.timer.phase === resolvedPhase && state.timer.totalTime >= timeRemaining
+                ? state.timer.totalTime
+                : Math.max(timeRemaining, state.timer.totalTime ?? timeRemaining);
+
+              return {
+                timer: {
+                  isActive: timeRemaining > 0,
+                  phase: resolvedPhase,
+                  totalTime: previousTotal,
+                  timeRemaining,
+                },
+              };
+            });
+          } else if (mappedPhase === 'WAITING_FOR_PLAYERS') {
             set((state) => ({
               timer: {
                 ...state.timer,
-                timeRemaining
-              }
+                isActive: false,
+                timeRemaining: 0,
+                phase: mappedPhase,
+              },
             }));
           }
         },
@@ -1257,10 +1297,29 @@ export const useGameStore = create<UnifiedGameStore>()(
             }));
           }
 
+          let recoveryPhase: ReturnType<typeof mapGamePhase> | null = null;
           if (snapshot.currentPhase) {
-            const mappedPhase = mapGamePhase(snapshot.currentPhase);
-            set({ gamePhase: mappedPhase });
-            get().setRoundStage(mapPhaseToStage(mappedPhase), { force: true });
+            recoveryPhase = mapGamePhase(snapshot.currentPhase);
+            set({ gamePhase: recoveryPhase });
+            get().setRoundStage(mapPhaseToStage(recoveryPhase), { force: true });
+          }
+
+          if (recoveryPhase === 'VOTING_FOR_LIAR' || recoveryPhase === 'VOTING_FOR_SURVIVAL') {
+            const aliveFromScoreboard = (snapshot.scoreboard ?? []).filter((entry) => entry.isAlive !== false).length;
+            const aliveFallback = get().players.filter((player) => player.isAlive !== false).length;
+            const resolvedAlive = aliveFromScoreboard || aliveFallback;
+
+            set((state) => ({
+              voting: {
+                ...state.voting,
+                isActive: true,
+                phase: recoveryPhase === 'VOTING_FOR_LIAR' ? 'LIAR_VOTE' : 'SURVIVAL_VOTE',
+                totalParticipants: resolvedAlive,
+                requiredVotes: recoveryPhase === 'VOTING_FOR_LIAR'
+                  ? Math.floor(resolvedAlive / 2) + 1
+                  : state.voting.requiredVotes,
+              },
+            }));
           }
 
           const defenseSnapshot = snapshot.defense;
@@ -1310,12 +1369,22 @@ export const useGameStore = create<UnifiedGameStore>()(
             const endTime = new Date(snapshot.phaseEndTime).getTime();
             const now = Date.now();
             const timeRemaining = Math.max(0, Math.floor((endTime - now) / 1000));
-            set((state) => ({
-              timer: {
-                ...state.timer,
-                timeRemaining,
-              },
-            }));
+            const targetPhase = recoveryPhase ?? get().gamePhase ?? '';
+
+            set((state) => {
+              const previousTotal = state.timer.phase === targetPhase && state.timer.totalTime >= timeRemaining
+                ? state.timer.totalTime
+                : Math.max(timeRemaining, state.timer.totalTime ?? timeRemaining);
+
+              return {
+                timer: {
+                  isActive: timeRemaining > 0,
+                  phase: targetPhase,
+                  totalTime: previousTotal,
+                  timeRemaining,
+                },
+              };
+            });
           }
         },
 

@@ -26,6 +26,7 @@ interface PlayerCardProps {
   showVoteCount?: boolean
   votes?: number
   className?: string
+  size?: 'default' | 'compact'
 }
 
 export function PlayerCard({ 
@@ -35,7 +36,8 @@ export function PlayerCard({
   selected = false,
   disabled = false,
   showVoteCount = false,
-  className 
+  className,
+  size = 'default'
 }: PlayerCardProps) {
   const isHost = Boolean(player.isHost)
   const isReady = Boolean(player.isReady)
@@ -76,16 +78,19 @@ export function PlayerCard({
         )}
         onClick={handleClick}
       >
-        <CardContent className="p-4">
-          <div className="flex items-center space-x-3">
+        <CardContent className={cn(size === 'compact' ? 'p-3' : 'p-4')}>
+          <div className={cn(
+            'flex items-center',
+            size === 'compact' ? 'space-x-2' : 'space-x-3'
+          )}>
             {/* Avatar */}
             <div className="relative">
               <Avatar className={cn(
-                "h-10 w-10",
+                size === 'compact' ? 'h-8 w-8' : 'h-10 w-10',
                 player.isLiar && variant === 'results' && "ring-2 ring-red-500"
               )}>
                 <AvatarFallback className={cn(
-                  "font-bold text-sm",
+                  size === 'compact' ? 'font-semibold text-xs' : 'font-bold text-sm',
                   isHost && "bg-primary text-primary-foreground",
                   isCurrentUser && !isHost && "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
                   player.isLiar && variant === 'results' && "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"
@@ -106,7 +111,10 @@ export function PlayerCard({
 
             {/* Player Info */}
             <div className="flex-1 min-w-0">
-              <div className="flex items-center space-x-2">
+              <div className={cn(
+                'flex items-center space-x-2',
+                size === 'compact' && 'text-sm'
+              )}>
                 <span className={cn(
                   "font-medium truncate",
                   isCurrentUser && "text-blue-600 dark:text-blue-400"
@@ -136,7 +144,10 @@ export function PlayerCard({
               </div>
 
               {/* Status Row */}
-              <div className="flex items-center space-x-2 mt-1">
+              <div className={cn(
+                'flex items-center space-x-2 mt-1',
+                size === 'compact' && 'text-[11px]'
+              )}>
                 {/* Lobby Variant - Ready Status */}
                 {variant === 'lobby' && (
                   <div className="flex items-center space-x-1">

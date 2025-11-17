@@ -1,5 +1,7 @@
 package org.example.kotlin_liargame.domain.game.service
 
+import org.example.kotlin_liargame.domain.game.dto.response.PlayerVotingInfo
+import org.example.kotlin_liargame.domain.game.dto.response.VotingStartMessage
 import org.example.kotlin_liargame.domain.game.model.GameEntity
 import org.example.kotlin_liargame.domain.game.model.PlayerEntity
 import org.example.kotlin_liargame.domain.game.model.PlayerReadinessEntity
@@ -127,6 +129,25 @@ class GameMonitoringService(
             phaseEndTime = phaseEndTime
         )
         gameMessagingService.broadcastGameEvent(gameNumber, event)
+    }
+
+    fun notifyVotingStarted(game: GameEntity, voters: List<PlayerEntity>, votingTimeSeconds: Long) {
+        val payload = VotingStartMessage(
+            gameNumber = game.gameNumber,
+            availablePlayers = voters.map { PlayerVotingInfo(id = it.userId, nickname = it.nickname) },
+            votingTimeLimit = votingTimeSeconds.toInt(),
+            timestamp = Instant.now()
+        )
+
+        val eventMessage = mapOf(
+            "type" to "VOTING_START",
+            "gameNumber" to game.gameNumber,
+            "gameId" to game.gameNumber.toString(),
+            "timestamp" to Instant.now().toString(),
+            "payload" to payload
+        )
+
+        gameMessagingService.broadcastGameEvent(game.gameNumber, eventMessage)
     }
 
     fun notifyPlayerReadyStateChanged(

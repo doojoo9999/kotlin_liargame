@@ -17,7 +17,6 @@ import org.springframework.context.annotation.Lazy
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.scheduling.TaskScheduler
 import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
 
@@ -42,8 +41,8 @@ class VotingService(
         // 1단계: 게임 상태 변경 (트랜잭션 내에서 완료 후 커밋)
         val savedGame = updateGameToVotingPhase(game)
 
-        // 2단계: 메시지 전송 및 브로드캐스트 (새로운 트랜잭션에서 최신 데이터 조회)
-        sendVotingMessages(savedGame.gameNumber)
+        // 2단계: 메시지 전송 및 브로드캐스트 (같은 트랜잭션 내 상태 사용)
+        publishVotingPhaseStarted(savedGame)
     }
 
     @Transactional
@@ -89,15 +88,14 @@ class VotingService(
         return savedGame
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    open fun sendVotingMessages(gameNumber: Int) {
+    private fun publishVotingPhaseStarted(game: GameEntity) {
+        sendVotingMessages(game)
+        sendVotingStartEvent(game)
+    }
+
+    open fun sendVotingMessages(game: GameEntity) {
         println("[VotingService] === SENDING VOTING MESSAGES ===")
-
-        // 새로운 트랜잭션에서 최신 게임 상태 조회
-        val game = gameRepository.findByGameNumber(gameNumber)
-            ?: throw RuntimeException("Game not found")
-
-        println("[VotingService] Fresh game state loaded: phase=${game.currentPhase}")
+        println("[VotingService] Broadcasting voting start for game ${game.gameNumber}, phase=${game.currentPhase}")
 
         // 투표 시작 시스템 메시지 전송
         try {
@@ -125,6 +123,16 @@ class VotingService(
         }
 
         println("[VotingService] === VOTING PHASE STARTED SUCCESSFULLY ===")
+    }
+
+    private fun sendVotingStartEvent(game: GameEntity) {
+        runCatching {
+            val alivePlayers = playerRepository.findByGameAndIsAlive(game, true)
+            gameMonitoringService.notifyVotingStarted(game, alivePlayers, gameProperties.votingTimeSeconds)
+        }.onFailure { ex ->
+            println("[VotingService] ERROR: Failed to emit voting start event: ${ex.message}")
+            ex.printStackTrace()
+        }
     }
 
 

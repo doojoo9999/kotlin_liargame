@@ -1,11 +1,12 @@
-import {useState} from 'react'
+import {useMemo, useState, type ChangeEvent} from 'react'
 import {AnimatePresence, motion} from 'framer-motion'
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card'
 import {Button} from '@/components/ui/button'
 import {Progress} from '@/components/ui/progress'
 import {VotingPlayerCard} from './PlayerCard'
-import {AlertCircle, Clock, Target, Users} from 'lucide-react'
+import {AlertCircle, Clock, LayoutGrid, List, Target, Users} from 'lucide-react'
 import {cn} from '@/lib/utils'
+import {Input} from '@/components/ui/input'
 
 interface Player {
   id: string
@@ -45,6 +46,25 @@ export function VotingPanel({
   className
 }: VotingPanelProps) {
   const [isConfirming, setIsConfirming] = useState(false)
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const [searchTerm, setSearchTerm] = useState('')
+  const normalizedQuery = searchTerm.trim().toLowerCase()
+
+  const filteredPlayers = useMemo(() => {
+    const candidates = players.filter(player => showResults || !player.isCurrentUser)
+    if (!normalizedQuery) {
+      return candidates
+    }
+    return candidates.filter(player => player.nickname.toLowerCase().includes(normalizedQuery))
+  }, [players, normalizedQuery, showResults])
+
+  const orderedPlayers = useMemo(() => {
+    return [...filteredPlayers].sort((a, b) => {
+      const aValue = a.hasVoted ? 1 : 0
+      const bValue = b.hasVoted ? 1 : 0
+      return aValue - bValue
+    })
+  }, [filteredPlayers])
   
   // Calculate voting progress
   const votedCount = players.filter(p => p.hasVoted).length
@@ -68,6 +88,9 @@ export function VotingPanel({
   }
 
   const selectedPlayer = players.find(p => p.id === selectedPlayerId)
+
+  const handleLayoutChange = (mode: 'grid' | 'list') => setViewMode(mode)
+  const handleSearchChange = (event: ChangeEvent<HTMLInputElement>) => setSearchTerm(event.target.value)
 
   return (
     <div className={cn("space-y-6", className)}>
@@ -148,39 +171,98 @@ export function VotingPanel({
       {/* Player Selection */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <CardTitle className="text-lg">
             {showResults ? '투표 결과' : '라이어 지목'}
-          </CardTitle>
-          {!showResults && (
-            <CardDescription>
-              라이어라고 생각하는 플레이어를 클릭하세요
-            </CardDescription>
-          )}
+              </CardTitle>
+              {!showResults && (
+                <CardDescription>
+                  라이어라고 생각하는 플레이어를 클릭하세요
+                </CardDescription>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                {filteredPlayers.length}/{showResults ? players.length : players.filter(p => !p.isCurrentUser).length}명 표시
+              </span>
+              <div className="inline-flex rounded-md border bg-muted/40 p-1">
+                <Button
+                  type="button"
+                  variant={viewMode === 'grid' ? 'default' : 'ghost'}
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  onClick={() => handleLayoutChange('grid')}
+                  aria-pressed={viewMode === 'grid'}
+                >
+                  <span className="sr-only">격자 보기</span>
+                  <LayoutGrid className="h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant={viewMode === 'list' ? 'default' : 'ghost'}
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  onClick={() => handleLayoutChange('list')}
+                  aria-pressed={viewMode === 'list'}
+                >
+                  <span className="sr-only">목록 보기</span>
+                  <List className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            <AnimatePresence>
-              {players
-                .filter(p => !p.isCurrentUser) // Can't vote for yourself
-                .map((player) => (
-                <motion.div
-                  key={player.id}
-                  layout
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                >
-                  <VotingPlayerCard
-                    player={player}
-                    onVote={hasVoted || showResults ? undefined : onVote}
-                    selected={selectedPlayerId === player.id}
-                    disabled={isLoading || hasVoted}
-                    showVoteCount={showResults}
-                    votes={votingResults?.[player.id] || 0}
-                  />
-                </motion.div>
-              ))}
-            </AnimatePresence>
+          <div className="space-y-4">
+            <Input
+              value={searchTerm}
+              onChange={handleSearchChange}
+              placeholder="닉네임으로 검색"
+              className="h-10"
+            />
+            <div
+              className={cn(
+                'min-h-[240px]',
+                viewMode === 'grid'
+                  ? 'grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 auto-rows-fr max-h-[60vh] overflow-y-auto pr-2'
+                  : 'flex flex-col gap-2 max-h-[60vh] overflow-y-auto pr-2'
+              )}
+            >
+              <AnimatePresence>
+                {orderedPlayers.length === 0 ? (
+                  <motion.div
+                    key="empty"
+                    className="col-span-full flex flex-col items-center justify-center text-center text-sm text-muted-foreground py-12"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                  >
+                    표시할 플레이어가 없습니다.
+                  </motion.div>
+                ) : (
+                  orderedPlayers
+                    .map((player) => (
+                      <motion.div
+                        key={player.id}
+                        layout
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                      >
+                        <VotingPlayerCard
+                          player={player}
+                          onVote={hasVoted || showResults ? undefined : onVote}
+                          selected={selectedPlayerId === player.id}
+                          disabled={isLoading || hasVoted}
+                          showVoteCount={showResults}
+                          votes={votingResults?.[player.id] || 0}
+                          size={viewMode === 'grid' ? 'compact' : 'default'}
+                        />
+                      </motion.div>
+                    ))
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         </CardContent>
       </Card>
