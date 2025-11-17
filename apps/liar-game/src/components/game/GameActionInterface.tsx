@@ -18,7 +18,8 @@ import {
     Target
 } from 'lucide-react';
 import {AnimatePresence, motion} from 'framer-motion';
-import type {GamePhase, Player} from '@/stores';
+import type {Player} from '@/stores';
+import type {GamePhase} from '@/types/backendTypes';
 import {toast} from 'sonner';
 
 interface GameActionInterfaceProps {
@@ -164,7 +165,7 @@ export const GameActionInterface: React.FC<GameActionInterfaceProps> = ({
     }
   };
 
-  const withValidation = <T extends unknown>(condition: boolean, message: string, action: () => Promise<T>) => {
+  const withValidation = <T,>(condition: boolean, message: string, action: () => Promise<T>) => {
     if (!condition) {
       setError(message);
       return Promise.reject(new Error(message));

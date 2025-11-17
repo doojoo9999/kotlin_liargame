@@ -1717,7 +1717,6 @@ export const useGameStore = create<UnifiedGameStore>()(
 
             case 'FINAL_VOTING_RESULT': {
               const payload = event.payload as FinalVotingResultResponse;
-              const executionKey = payload.isExecuted ? 'EXECUTION' : 'SURVIVAL';
               const votesRecord: Record<string, number> = {
                 EXECUTION: payload.executionVotes,
                 SURVIVAL: payload.survivalVotes,

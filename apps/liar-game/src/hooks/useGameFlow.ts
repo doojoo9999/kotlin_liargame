@@ -45,7 +45,7 @@ export const useGameFlow = () => {
       setLoading(false);
       throw error;
     }
-  }, [gameNumber, setLoading, setError]);
+  }, [gameNumber, setLoading, setError, refreshGameState]);
 
   // 라이어 투표
   const voteForLiar = useCallback(async (targetUserId: number) => {
@@ -80,7 +80,7 @@ export const useGameFlow = () => {
       setLoading(false);
       throw error;
     }
-  }, [gameNumber, currentPlayer, players, setLoading, setError, addVote]);
+  }, [gameNumber, currentPlayer, players, setLoading, setError, addVote, refreshGameState]);
 
   // 변론 제출
   const submitDefense = useCallback(async (defenseText: string) => {
@@ -102,7 +102,7 @@ export const useGameFlow = () => {
       setLoading(false);
       throw error;
     }
-  }, [gameNumber, setLoading, setError]);
+  }, [gameNumber, setLoading, setError, refreshGameState]);
 
   // 변론 즉시 종료
   const endDefensePhase = useCallback(async () => {
@@ -124,7 +124,7 @@ export const useGameFlow = () => {
       setLoading(false);
       throw error;
     }
-  }, [gameNumber, setLoading, setError]);
+  }, [gameNumber, setLoading, setError, refreshGameState]);
 
   // 최종 투표 (처형/생존)
   const castFinalVote = useCallback(async (voteForExecution: boolean) => {
@@ -146,7 +146,7 @@ export const useGameFlow = () => {
       setLoading(false);
       throw error;
     }
-  }, [gameNumber, setLoading, setError]);
+  }, [gameNumber, setLoading, setError, refreshGameState]);
 
   // 라이어의 단어 추측
   const guessWord = useCallback(async (guess: string) => {
@@ -168,7 +168,7 @@ export const useGameFlow = () => {
       setLoading(false);
       throw error;
     }
-  }, [gameNumber, setLoading, setError]);
+  }, [gameNumber, setLoading, setError, refreshGameState]);
 
   // 라운드 종료
   const endRound = useCallback(async () => {
@@ -190,7 +190,7 @@ export const useGameFlow = () => {
       setLoading(false);
       throw error;
     }
-  }, [gameNumber, setLoading, setError]);
+  }, [gameNumber, setLoading, setError, refreshGameState]);
 
   // 게임 결과 조회
   const getGameResult = useCallback(async () => {

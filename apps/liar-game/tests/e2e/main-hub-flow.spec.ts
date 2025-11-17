@@ -1,19 +1,5 @@
-import {type BrowserContext, expect, type Locator, type Page, type Route, test} from '@playwright/test';
-import type {
-    GameStateResponse,
-    PlayerReadyResponse,
-    PlayerResponse,
-    ScoreboardEntry,
-} from '../../src/types/backendTypes';
-import type {
-    DefenseResponse,
-    FinalVoteResponse,
-    GameResult,
-    GuessResponse,
-    HintSubmissionResponse,
-    RoundEndResponse,
-    VoteResponse,
-} from '../../src/types/gameFlow';
+import {type BrowserContext, expect, type Locator, type Page, test} from '@playwright/test';
+import type {GameStateResponse} from '../../src/types/backendTypes';
 import {MockBackend, type StateKey} from './support/mockBackend';
 
 const MAIN_PAGE_URL = process.env.MAIN_PAGE_URL ?? process.env.LIAR_GAME_BASE_URL ?? 'http://localhost:5173';
@@ -144,7 +130,7 @@ test.describe('Main hub to liar game end-to-end', () => {
 
     await page.goto(MAIN_PAGE_URL);
 
-    let liarGamePage = await navigateToLiarGame(page, context);
+    const liarGamePage = await navigateToLiarGame(page, context);
     await liarGamePage.bringToFront();
     await liarGamePage.waitForLoadState('domcontentloaded');
 
