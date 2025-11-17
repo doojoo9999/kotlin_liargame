@@ -18,6 +18,10 @@ class GameMonitoringService(
     private val gameProperties: GameProperties
 ) {
 
+    fun broadcastEvent(gameNumber: Int, payload: Any) {
+        gameMessagingService.broadcastGameEvent(gameNumber, payload)
+    }
+
     fun notifyPlayerJoined(game: GameEntity, newPlayer: PlayerEntity, currentPlayers: List<PlayerEntity>) {
         val roomPayload = mapOf(
             "type" to "PLAYER_JOINED",
