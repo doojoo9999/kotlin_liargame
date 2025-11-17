@@ -493,8 +493,11 @@ class DefenseService(
             gameNumber,
             "최종 투표 시간이 종료되었습니다. 투표하지 않은 플레이어는 랜덤으로 처리됩니다."
         )
-        
-        processFinalVotingResults(gameNumber)
+
+        runCatching { processFinalVotingResults(gameNumber) }
+            .onFailure { ex ->
+                logger.warn("[DefenseService] Failed to finalize voting after timeout for game {}: {}", gameNumber, ex.message)
+            }
     }
     
     private fun checkAllPlayersFinalVoted(gameNumber: Int): Boolean {
@@ -514,28 +517,29 @@ class DefenseService(
         gameMessagingService.sendProgressUpdate(gameNumber, votedPlayers, totalPlayers, "FINAL_VOTING")
     }
     
-    fun processFinalVotingResults(gameNumber: Int): FinalVotingResultResponse {
+    fun processFinalVotingResults(gameNumber: Int): FinalVotingResultResponse? {
         // 1. 멱등성 보장을 위한 락 획득
         if (!gameStateService.acquireFinalVotingProcessLock(gameNumber)) {
-            throw IllegalStateException("Final voting result processing is already in progress or completed")
+            logger.warn("[DefenseService] Final voting already processed or lock held for game {}. Skipping additional processing.", gameNumber)
+            return null
         }
-        
-        // 2. 권한/페이즈 검증 - DEFENDING 또는 VOTING_FOR_SURVIVAL 페이즈에서만 허용
-        val game = gameRepository.findByGameNumber(gameNumber)
-            ?: throw IllegalArgumentException("Game not found")
-        
-        if (game.currentPhase != GamePhase.DEFENDING && game.currentPhase != GamePhase.VOTING_FOR_SURVIVAL) {
-            gameStateService.releaseFinalVotingProcessLock(gameNumber)
-            throw IllegalStateException("Final voting can only be processed during DEFENDING or VOTING_FOR_SURVIVAL phase")
-        }
-        
-        val votingStatus = gameStateService.getFinalVotingStatus(gameNumber)
-            ?: throw IllegalStateException("No final voting data found")
-            
-        val defenseStatus = gameStateService.getDefenseStatus(gameNumber)
-            ?: throw IllegalStateException("No defense status found")
-        
-        gameStateService.setFinalVotingTimer(gameNumber, false)
+
+        try {
+            // 2. 권한/페이즈 검증 - DEFENDING 또는 VOTING_FOR_SURVIVAL 페이즈에서만 허용
+            val game = gameRepository.findByGameNumber(gameNumber)
+                ?: throw IllegalArgumentException("Game not found")
+
+            if (game.currentPhase != GamePhase.DEFENDING && game.currentPhase != GamePhase.VOTING_FOR_SURVIVAL) {
+                throw IllegalStateException("Final voting can only be processed during DEFENDING or VOTING_FOR_SURVIVAL phase")
+            }
+
+            val votingStatus = gameStateService.getFinalVotingStatus(gameNumber)
+                ?: throw IllegalStateException("No final voting data found")
+
+            val defenseStatus = gameStateService.getDefenseStatus(gameNumber)
+                ?: throw IllegalStateException("No defense status found")
+
+            gameStateService.setFinalVotingTimer(gameNumber, false)
 
         val executionVotes = votingStatus.values.count { it == true }
         val survivalVotes = votingStatus.values.count { it == false }
@@ -721,12 +725,13 @@ class DefenseService(
             votingService.startVotingPhase(gameAfterVoting)
         }
         
-        // 3. 락 해제
-        gameStateService.releaseFinalVotingProcessLock(gameNumber)
-        
+        // 3. 락 해제는 finally 블록에서 처리
         return response
+    } finally {
+        gameStateService.releaseFinalVotingProcessLock(gameNumber)
     }
-    
+}
+
     /**
      * 최종 투표 결과를 계산하는 순수 함수 (테스트 가능)
      *
