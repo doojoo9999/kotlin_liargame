@@ -8,6 +8,8 @@ import {Crown, Home, Medal, RotateCcw, Share2, Star, Target, Trophy} from 'lucid
 import {useToast} from '@/hooks/useToast'
 import {useGameStore} from '@/stores'
 import {useShallow} from 'zustand/react/shallow'
+import {gameService} from '@/api/gameApi'
+import type {GameResultResponse, PlayerResponse} from '@/types/backendTypes'
 
 interface PlayerScore {
   id: string
@@ -57,15 +59,12 @@ export function MainResultsPage() {
 
       try {
         setIsLoading(true)
-        // TODO: Replace with actual API endpoint
-        const response = await fetch(`/api/game/${gameId}/results`)
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch game results')
+        const numericGameId = Number.parseInt(gameId, 10)
+        if (Number.isNaN(numericGameId)) {
+          throw new Error('Invalid game id')
         }
-
-        const results = await response.json()
-        setGameResults(results)
+        const apiResult = await gameService.getGameResult(numericGameId)
+        setGameResults(transformGameResult(apiResult))
       } catch (error) {
         console.error('Failed to fetch game results:', error)
         toast({
@@ -362,4 +361,35 @@ export function MainResultsPage() {
       </div>
     </div>
   )
+}
+
+function transformGameResult(result: GameResultResponse) {
+  const combinePlayers = (players: PlayerResponse[], role: 'CITIZEN' | 'LIAR') =>
+    players.map((player) => ({
+      id: String(player.id ?? player.userId ?? Math.random()),
+      nickname: player.nickname ?? 'Unknown',
+      totalScore: player.score ?? 0,
+      roundScores: [],
+      roundsWon: 0,
+      timesLiar: role === 'LIAR' ? 1 : 0,
+      timesDetected: 0,
+      timesEvaded: 0,
+      rank: 0,
+      isCurrentUser: false,
+    }))
+
+  const players = [
+    ...combinePlayers(result.citizens ?? [], 'CITIZEN'),
+    ...combinePlayers(result.liars ?? [], 'LIAR'),
+  ].sort((a, b) => b.totalScore - a.totalScore)
+
+  return {
+    isComplete: true,
+    totalRounds: result.rounds ?? players.length,
+    winner: result.winningTeam,
+    players: players.map((player, index) => ({
+      ...player,
+      rank: index + 1,
+    })),
+  }
 }

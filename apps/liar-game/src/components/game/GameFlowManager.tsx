@@ -275,11 +275,12 @@ export function GameFlowManager({ onReturnToLobby, onNextRound }: GameFlowManage
   const handleSubmitHint = useCallback(async (hint: string) => {
     if (!gameNumber || !currentPlayer) return
 
-    addHint(currentPlayer.id, currentPlayer.nickname, hint)
     try {
       await submitHintRequest(hint)
+      addHint(currentPlayer.id, currentPlayer.nickname, hint)
     } catch (error) {
       console.error('Failed to send hint action:', error)
+      toast.error('힌트를 전송하지 못했습니다. 다시 시도해주세요.')
     }
   }, [addHint, currentPlayer, gameNumber, submitHintRequest])
 
@@ -300,23 +301,25 @@ export function GameFlowManager({ onReturnToLobby, onNextRound }: GameFlowManage
       return
     }
 
-    castVote(currentPlayer.id, resolvedTargetId)
-    setUserVote(resolvedTargetId)
     try {
       await voteForLiarRequest(resolvedTargetUserId)
+      castVote(currentPlayer.id, resolvedTargetId)
+      setUserVote(resolvedTargetId)
     } catch (error) {
       console.error('Failed to send vote action:', error)
+      toast.error('투표 요청이 실패했습니다. 다시 시도해주세요.')
     }
   }, [castVote, currentPlayer, gameNumber, players, setUserVote, voteForLiarRequest])
 
   const handleSubmitDefense = useCallback(async (defense: string) => {
     if (!gameNumber || !currentPlayer) return
 
-    addDefense(currentPlayer.id, currentPlayer.nickname, defense)
     try {
       await submitDefenseRequest(defense)
+      addDefense(currentPlayer.id, currentPlayer.nickname, defense)
     } catch (error) {
       console.error('Failed to send defense action:', error)
+      toast.error('변론 전송에 실패했습니다. 다시 시도해주세요.')
     }
   }, [addDefense, currentPlayer, gameNumber, submitDefenseRequest])
 

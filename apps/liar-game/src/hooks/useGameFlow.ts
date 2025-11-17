@@ -22,6 +22,7 @@ export const useGameFlow = () => {
     setError,
     addVote,
     setChatMessages,
+    refreshGameState,
   } = useGameStore();
 
   // 힌트 제출
@@ -35,10 +36,8 @@ export const useGameFlow = () => {
 
     try {
       const response = await gameFlowService.submitHint(gameNumber, hint);
-
-      // WebSocket을 통해 실시간 업데이트가 올 것이므로 여기서는 로딩만 해제
+      await refreshGameState().catch(() => {});
       setLoading(false);
-
       return response;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : '힌트 제출에 실패했습니다.';
@@ -60,7 +59,6 @@ export const useGameFlow = () => {
     try {
       const response = await gameFlowService.castVoteForLiar(gameNumber, targetUserId);
 
-      // 투표 상태 업데이트
       if (currentPlayer) {
         const target = players.find(player =>
           player.userId === targetUserId || player.id === targetUserId.toString()
@@ -73,6 +71,7 @@ export const useGameFlow = () => {
         )
       }
 
+      await refreshGameState().catch(() => {});
       setLoading(false);
       return response;
     } catch (error) {
@@ -94,6 +93,7 @@ export const useGameFlow = () => {
 
     try {
       const response = await gameFlowService.submitDefense(gameNumber, defenseText);
+      await refreshGameState().catch(() => {});
       setLoading(false);
       return response;
     } catch (error) {
@@ -115,6 +115,7 @@ export const useGameFlow = () => {
 
     try {
       const response = await gameFlowService.endDefensePhase(gameNumber);
+      await refreshGameState().catch(() => {});
       setLoading(false);
       return response;
     } catch (error) {
@@ -136,6 +137,7 @@ export const useGameFlow = () => {
 
     try {
       const response = await gameFlowService.castFinalVote(gameNumber, voteForExecution);
+      await refreshGameState().catch(() => {});
       setLoading(false);
       return response;
     } catch (error) {
@@ -157,6 +159,7 @@ export const useGameFlow = () => {
 
     try {
       const response = await gameFlowService.guessWord(gameNumber, guess);
+      await refreshGameState().catch(() => {});
       setLoading(false);
       return response;
     } catch (error) {
@@ -178,6 +181,7 @@ export const useGameFlow = () => {
 
     try {
       const response = await gameFlowService.endRound(gameNumber);
+      await refreshGameState().catch(() => {});
       setLoading(false);
       return response;
     } catch (error) {

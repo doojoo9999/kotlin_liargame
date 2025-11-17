@@ -164,6 +164,14 @@ export const GameActionInterface: React.FC<GameActionInterfaceProps> = ({
     }
   };
 
+  const withValidation = <T extends unknown>(condition: boolean, message: string, action: () => Promise<T>) => {
+    if (!condition) {
+      setError(message);
+      return Promise.reject(new Error(message));
+    }
+    return action();
+  };
+
   const handleSubmit = async () => {
     if (isSubmitting) return;
     setIsSubmitting(true);
@@ -172,52 +180,29 @@ export const GameActionInterface: React.FC<GameActionInterfaceProps> = ({
     try {
       switch (gamePhase) {
         case 'SPEECH':
-          if (!inputValue.trim()) {
-            setError('힌트를 입력해주세요');
-            return;
-          }
-          await onSubmitHint(inputValue.trim());
+          await withValidation(Boolean(inputValue.trim()), '힌트를 입력해주세요', () => onSubmitHint(inputValue.trim()));
           break;
-
         case 'VOTING_FOR_LIAR':
-          if (!selectedPlayer) {
-            setError('투표할 플레이어를 선택해주세요');
-            return;
-          }
-          await onVotePlayer(selectedPlayer);
+          await withValidation(Boolean(selectedPlayer), '투표할 플레이어를 선택해주세요', () => onVotePlayer(selectedPlayer));
           break;
-
         case 'DEFENDING':
-          if (!inputValue.trim()) {
-            setError('변론을 입력해주세요');
-            return;
-          }
-          await onSubmitDefense(inputValue.trim());
+          await withValidation(Boolean(inputValue.trim()), '변론을 입력해주세요', () => onSubmitDefense(inputValue.trim()));
           break;
-
         case 'VOTING_FOR_SURVIVAL':
-          if (finalVote === null) {
-            setError('투표를 선택해주세요');
-            return;
-          }
-          await onCastFinalVote(finalVote);
+          await withValidation(finalVote !== null, '투표를 선택해주세요', () => onCastFinalVote(Boolean(finalVote)));
           break;
-
         case 'GUESSING_WORD':
-          if (!inputValue.trim()) {
-            setError('추측하는 단어를 입력해주세요');
-            return;
-          }
-          await onGuessWord(inputValue.trim());
+          await withValidation(Boolean(inputValue.trim()), '추측하는 단어를 입력해주세요', () => onGuessWord(inputValue.trim()));
           break;
       }
-      
-      // Reset form after successful submission
+
       setInputValue('');
       setSelectedPlayer('');
       setFinalVote(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다');
+      if (err instanceof Error && err.message) {
+        setError(err.message);
+      }
     } finally {
       setIsSubmitting(false);
     }

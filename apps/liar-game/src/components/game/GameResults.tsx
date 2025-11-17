@@ -17,22 +17,25 @@ interface GameResultsProps {
 
 export const GameResults: React.FC<GameResultsProps> = ({
   gameResult,
-
   currentRound,
   totalRounds,
   onNextRound,
   onReturnToLobby,
 }) => {
-  const [result, setResult] = useState<GameResult | null>(gameResult || null);
+  const [result, setResult] = useState<GameResult | null>(gameResult ?? null);
   const { getGameResult, isLoading } = useGameFlow();
 
   useEffect(() => {
+    if (gameResult) {
+      setResult(gameResult);
+      return;
+    }
     if (!result && !isLoading) {
       getGameResult()
         .then(setResult)
         .catch(console.error);
     }
-  }, [result, isLoading, getGameResult]);
+  }, [gameResult, result, isLoading, getGameResult]);
 
   if (isLoading || !result) {
     return (
