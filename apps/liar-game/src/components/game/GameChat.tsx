@@ -351,10 +351,10 @@ export const GameChat: React.FC<GameChatProps> = ({
   }, [])
 
   const containerClasses = [
-    'flex w-full max-w-full flex-col overflow-hidden rounded-xl border border-border/70 shadow-lg motion-safe:transition-all motion-safe:duration-200',
+    'flex w-full max-w-full flex-col overflow-hidden rounded-2xl border border-border/60 bg-card/95 shadow-lg shadow-black/5 motion-safe:transition-all motion-safe:duration-200',
     isExpanded
-      ? 'fixed left-1/2 top-1/2 z-50 w-[min(1200px,95vw)] h-[74vh] -translate-x-1/2 -translate-y-1/2 bg-background/95 backdrop-blur-md'
-      : 'relative mx-auto w-full max-w-[1120px] h-[46vh] min-h-[18rem] sm:h-[52vh] sm:min-h-[20rem]',
+      ? 'fixed left-1/2 top-1/2 z-50 w-[min(1100px,95vw)] h-[78vh] -translate-x-1/2 -translate-y-1/2 bg-background/98 p-4 backdrop-blur-xl'
+      : 'relative mx-auto w-full max-w-[1100px] h-[42vh] min-h-[16rem] sm:h-[48vh] sm:min-h-[19rem]',
     className,
   ]
     .filter(Boolean)
@@ -363,7 +363,7 @@ export const GameChat: React.FC<GameChatProps> = ({
   const sendErrorId = sendError ? `${accessibilityId}-send-error` : undefined
 
   const unreadButtonClasses = [
-    'absolute bottom-3 right-4 flex items-center gap-2 rounded-full bg-primary/90 px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-lg',
+    'absolute bottom-3 right-3 inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-background/95 px-3 py-1 text-xs font-medium text-primary shadow-xl shadow-primary/10 backdrop-blur',
     prefersReducedMotion
       ? hasUnread
         ? 'pointer-events-auto opacity-100'
@@ -392,19 +392,19 @@ export const GameChat: React.FC<GameChatProps> = ({
 
   return (
     <Card className={containerClasses}>
-      <CardHeader className="border-b border-border/60 bg-muted/30 pb-3 pt-3">
-        <CardTitle className="flex items-center justify-between text-base font-semibold sm:text-lg">
+      <CardHeader className="space-y-0 border-b border-border/60 bg-muted/20 px-4 py-2.5">
+        <CardTitle className="flex items-center justify-between text-sm font-semibold sm:text-base">
           <div className="flex items-center gap-2 text-sm font-semibold sm:text-base">
             <MessageCircle className="h-5 w-5 text-primary" />
             <span>게임 채팅</span>
             {messageCount > 0 && (
-              <Badge variant="secondary" className="rounded-full px-2 py-0.5 text-xs">
+              <Badge variant="secondary" className="rounded-full px-2 py-0 text-xs">
                 {messageCount}
               </Badge>
             )}
             {isLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
           </div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
             <span className="flex items-center gap-1">
               <Users className="h-4 w-4" />
               {onlineCount}
@@ -413,7 +413,7 @@ export const GameChat: React.FC<GameChatProps> = ({
               variant="ghost"
               size="sm"
               onClick={() => setIsExpanded((prev) => !prev)}
-              className="h-7 px-2 text-xs"
+              className="h-7 rounded-full px-2 text-xs"
               aria-pressed={isExpanded}
               aria-label="채팅창 크기 전환"
               title="채팅창 크기 전환"
@@ -424,13 +424,13 @@ export const GameChat: React.FC<GameChatProps> = ({
         </CardTitle>
       </CardHeader>
 
-      <CardContent className="flex h-full min-h-0 flex-1 flex-col gap-3">
-        <div className="flex h-full min-h-0 flex-1 flex-col gap-3 overflow-hidden">
+      <CardContent className="flex h-full min-h-0 flex-1 flex-col gap-2.5 px-4 py-3">
+        <div className="flex h-full min-h-0 flex-1 flex-col gap-2.5 overflow-hidden">
           {error && (
-            <div className="flex items-center justify-between gap-3 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div className="flex items-center justify-between gap-3 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-[13px] leading-tight text-destructive">
               <span className="truncate">{error}</span>
               {onReloadHistory && (
-                <Button variant="outline" size="xs" onClick={handleReloadHistory} className="h-7">
+                <Button variant="outline" size="xs" onClick={handleReloadHistory} className="h-7 px-2 text-[12px]">
                   <RefreshCw className="mr-1 h-3 w-3" /> 다시 시도
                 </Button>
               )}
@@ -442,9 +442,9 @@ export const GameChat: React.FC<GameChatProps> = ({
             role="region"
             aria-label="채팅 메시지 영역"
             tabIndex={0}
-            className={`relative flex h-full flex-1 overflow-y-auto rounded-2xl border border-border/60 bg-muted/40 px-4 py-4 shadow-inner transition-colors scroll-smooth chat-scroll-area ${
-            isExpanded ? 'max-h-[74vh]' : ''
-          }`}
+            className={`chat-scroll-area relative flex h-full flex-1 overflow-y-auto rounded-2xl border border-border/50 bg-muted/30 px-3 py-3 shadow-inner transition-colors sm:px-4 sm:py-4 ${
+              isExpanded ? 'max-h-[70vh]' : ''
+            }`}
           >
             {!hasMessages ? (
               <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
@@ -452,7 +452,7 @@ export const GameChat: React.FC<GameChatProps> = ({
               </div>
             ) : (
               <div
-                className="space-y-2.5 sm:space-y-3"
+                className="space-y-1.5 sm:space-y-2"
                 role="log"
                 aria-live="polite"
                 aria-relevant="additions text"
@@ -533,42 +533,52 @@ export const GameChat: React.FC<GameChatProps> = ({
                   })()
                   const isHighlighted = highlightedMessageId === message.id
                   const highlightClasses = isHighlighted ? 'ring-2 ring-primary/50 shadow-[0_0_0_4px_rgba(59,130,246,0.18)]' : ''
+                  const bubbleWidthClass = isSystemMessage
+                    ? 'w-full'
+                    : 'w-fit max-w-full sm:max-w-[85%] lg:max-w-[70%]'
+                  const bubblePadding = isSystemMessage
+                    ? 'px-4 py-2 sm:px-5 sm:py-2.5'
+                    : 'px-3 py-1.5 sm:px-3.5 sm:py-2'
 
                   return (
                     <div key={message.id} className={`flex ${justifyClass}`}>
                       <div className={`flex w-full flex-col gap-1.5 ${alignmentClasses}`}>
                         <div
-                          className={`rounded-2xl border px-3.5 py-1.5 transition-all duration-150 ${bubbleTone} ${highlightClasses}`}
+                          className={`rounded-2xl border text-sm leading-snug transition-all duration-150 ${bubbleTone} ${bubblePadding} ${highlightClasses} ${bubbleWidthClass}`}
                           data-message-type={message.type}
                           data-highlighted={isHighlighted}
                         >
-                          <div className="flex w-full items-start gap-2">
-                            <Avatar className="h-6 w-6 shrink-0 shadow-sm ring-1 ring-border/40">
+                          <div className="flex w-full items-start gap-1.5 sm:gap-2">
+                            <Avatar className="h-6 w-6 shrink-0 shadow-sm ring-1 ring-border/30">
                               <AvatarFallback className="text-xs uppercase">{avatarInitial}</AvatarFallback>
                             </Avatar>
-                            <div className="flex min-w-0 flex-1 items-center gap-2">
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-sm font-semibold leading-none tracking-tight">{displayName}</span>
+                            <div className="flex min-w-0 flex-1 flex-col gap-1">
+                              <div className="flex flex-wrap items-center gap-1 text-[13px] font-semibold leading-tight">
+                                <span className="text-[13px] font-semibold leading-tight">{displayName}</span>
                                 {badgeConfigs.map(({ label, variant }) => (
-                                  <Badge key={label} variant={variant} className="rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wide">
+                                  <Badge
+                                    key={label}
+                                    variant={variant}
+                                    className="rounded-full px-2 py-0 text-[12px] uppercase leading-none tracking-wide"
+                                  >
                                     {label}
                                   </Badge>
                                 ))}
                                 {typeLabel && (
                                   <Badge
                                     variant="outline"
-                                    className={`rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wide ${typeBadgeTone}`}
+                                    className={`rounded-full px-2 py-0 text-[12px] uppercase leading-none tracking-wide ${typeBadgeTone}`}
                                   >
                                     {typeLabel}
                                   </Badge>
                                 )}
+                                <span className="ml-auto shrink-0 text-[12px] font-normal text-muted-foreground/80">
+                                  {formatTimestamp(message.timestamp)}
+                                </span>
                               </div>
-                              <p className={`min-w-0 flex-1 whitespace-pre-wrap break-words text-[13.5px] leading-tight sm:text-[14px] ${contentTone}`}>
+                              <p className={`min-w-0 whitespace-pre-wrap break-words text-[13px] leading-snug ${contentTone}`}>
                                 {message.content}
                               </p>
-                              <span className="shrink-0 text-[11px] text-muted-foreground">
-                                {formatTimestamp(message.timestamp)}
-                              </span>
                             </div>
                             {showReport && (
                               <Button
@@ -605,18 +615,20 @@ export const GameChat: React.FC<GameChatProps> = ({
         </div>
 
         {typingNames.length > 0 && (
-          <div className="text-xs italic text-muted-foreground">
+          <div className="text-[12px] italic text-muted-foreground/90">
             {typingNames.join(', ')} 님이 입력 중...
           </div>
         )}
 
         <form className="flex flex-col gap-1.5" onSubmit={handleComposerSubmit} noValidate>
           <div
-            className={`group flex items-center gap-2 rounded-2xl border border-border/60 bg-background/90 px-3 py-1.5 motion-safe:transition-all motion-safe:duration-200 ${isInputFocused ? 'border-primary/70 shadow-[0_0_0_3px_rgba(59,130,246,0.18)]' : ''} ${justSent ? 'border-emerald-500/60 shadow-[0_0_0_3px_rgba(16,185,129,0.18)]' : ''}`}
+            className={`group flex items-center gap-2 rounded-2xl border border-border/50 bg-background/95 px-3 py-1.5 shadow-[0_1px_3px_rgba(15,23,42,0.08)] transition-all ${
+              isInputFocused ? 'border-primary/60 ring-1 ring-primary/20' : ''
+            } ${justSent ? 'border-emerald-500/60 ring-emerald-400/30' : ''}`}
           >
             <Input
               ref={inputRef}
-              className="h-10 flex-1 border-none bg-transparent text-base shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+              className="h-10 flex-1 border-none bg-transparent text-[14px] leading-tight shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
               placeholder={
                 canSendMessage ? '메시지를 입력해 주세요...' : '투표 중에는 채팅을 보낼 수 없어요'
               }
@@ -640,18 +652,20 @@ export const GameChat: React.FC<GameChatProps> = ({
               type="submit"
               disabled={!canSendMessage || isSending || draft.trim().length === 0}
               size="sm"
-              className={`relative h-10 px-4 motion-safe:transition-all motion-safe:duration-200 ${justSent ? 'bg-emerald-500 text-emerald-50 hover:bg-emerald-500' : ''}`}
+              className={`relative h-10 rounded-xl px-4 text-sm transition-colors ${
+                justSent ? 'bg-emerald-500 text-emerald-50 hover:bg-emerald-500' : ''
+              }`}
             >
               {isSending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : justSent ? (
                 <Check className="h-4 w-4" />
               ) : (
-                <Send className="h-4 w-4 motion-safe:transition-transform motion-safe:duration-200 motion-safe:group-hover:translate-x-0.5" />
+                <Send className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
               )}
             </Button>
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-1.5 text-[10.5px] text-muted-foreground">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-[12px] text-muted-foreground">
             <div className="flex items-center gap-2">
               <span className="whitespace-nowrap">Shift+Enter로 줄바꿈</span>
               <span className={`whitespace-nowrap transition-colors ${characterCountTone}`} aria-live="polite">
@@ -667,7 +681,9 @@ export const GameChat: React.FC<GameChatProps> = ({
                     type="button"
                     variant={isSelected ? 'secondary' : 'ghost'}
                     size="xs"
-                    className="h-7 px-3"
+                    className={`h-7 rounded-full px-3 text-[12px] ${
+                      isSelected ? 'bg-primary/15 text-primary shadow-inner' : 'text-muted-foreground'
+                    }`}
                     onClick={() => setSelectedType(value)}
                     aria-pressed={isSelected}
                     disabled={isSending}
@@ -680,7 +696,7 @@ export const GameChat: React.FC<GameChatProps> = ({
           </div>
           <div className="min-h-[1.25rem]" aria-live="assertive">
             {sendError && (
-              <div id={sendErrorId} role="alert" className="flex items-center justify-between gap-3 rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-1.5 text-xs text-destructive">
+              <div id={sendErrorId} role="alert" className="flex items-center justify-between gap-3 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-[12px] text-destructive">
                 <span className="truncate">{sendError}</span>
                 <Button variant="outline" size="xs" onClick={handleRetry} disabled={isSending}>
                   다시 보내기
@@ -694,7 +710,7 @@ export const GameChat: React.FC<GameChatProps> = ({
         </span>
 
         {!canSendMessage && (
-          <div className="text-center text-xs text-muted-foreground">
+          <div className="text-center text-[12px] text-muted-foreground">
             투표 단계에서는 채팅을 보낼 수 없어요
           </div>
         )}
