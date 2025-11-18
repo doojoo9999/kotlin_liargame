@@ -37,6 +37,20 @@ function resolveWebSocketUrl(explicitUrl: string | undefined, baseHttpUrl: strin
 const baseURL = normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL, DEFAULT_API_BASE_URL)
 const wsURL = resolveWebSocketUrl(import.meta.env.VITE_WEBSOCKET_URL, baseURL)
 
+export class ApiError extends Error {
+  status: number
+  statusText: string
+  data: Record<string, unknown> | null
+
+  constructor(message: string, options: { status: number; statusText: string; data?: Record<string, unknown> | null }) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = options.status
+    this.statusText = options.statusText
+    this.data = options.data ?? null
+  }
+}
+
 // API configuration
 export const API_CONFIG = {
   BASE_URL: baseURL,
@@ -284,7 +298,11 @@ class ApiClient {
           typeof errorData.text === 'string' ? errorData.text :
           `HTTP ${response.status}: ${response.statusText}`;
 
-        throw new Error(errorMessage);
+        throw new ApiError(errorMessage, {
+          status: response.status,
+          statusText: response.statusText,
+          data: errorData,
+        });
       }
 
       const responseData = await response.json();

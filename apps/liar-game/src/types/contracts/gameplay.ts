@@ -39,6 +39,7 @@ export interface PlayerResponse {
   defense?: string | null
   votesReceived?: number | null
   hasVoted: boolean
+  score?: number
 }
 
 export interface ScoreboardEntry {

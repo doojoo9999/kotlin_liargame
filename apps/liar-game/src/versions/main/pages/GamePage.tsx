@@ -7,6 +7,7 @@ import {Card, CardContent} from '@/components/ui/card'
 import {Button} from '@/components/ui/button'
 import {ArrowLeft} from 'lucide-react'
 import {gameService} from '@/api/gameApi'
+import {ApiError} from '@/api/client'
 import {useToast} from '@/hooks/useToast'
 
 export function MainGamePage() {
@@ -26,19 +27,100 @@ export function MainGamePage() {
   const [isLoading, setIsLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
 
+  const handleReturnToLobby = React.useCallback((options?: { skipServer?: boolean }) => {
+    const shouldSkipServer = options?.skipServer ?? false
+    const currentState = useGameStore.getState()
+    const activeGameNumber = currentState.gameNumber ?? gameNumber
+
+    if (!shouldSkipServer && activeGameNumber) {
+      void leaveGame().catch((leaveError) => {
+        console.error('Failed to leave game in background:', leaveError)
+        const description = leaveError instanceof Error ? leaveError.message : '게임에서 나갈 수 없습니다'
+        toast({
+          title: '게임 나가기 실패',
+          description,
+          variant: 'destructive',
+        })
+      })
+    }
+
+    resetGame()
+    navigate('/lobby', { replace: true })
+  }, [gameNumber, leaveGame, navigate, resetGame, toast])
+
+  const handleGameAccessError = React.useCallback((cause: unknown) => {
+    let shouldRedirect = false
+    let title = '게임을 불러올 수 없습니다'
+    let description = '게임 상태를 불러오는 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.'
+
+    if (cause instanceof ApiError) {
+      const payload = cause.data ?? null
+      const userFriendly = payload && typeof payload['userFriendlyMessage'] === 'string'
+        ? String(payload['userFriendlyMessage'])
+        : undefined
+      const errorCode = payload && typeof payload['errorCode'] === 'string'
+        ? String(payload['errorCode'])
+        : undefined
+
+      if (cause.status === 404) {
+        title = '게임을 찾을 수 없습니다'
+        description = userFriendly ?? '게임방이 삭제되었거나 존재하지 않습니다.'
+        shouldRedirect = true
+      } else if (cause.status === 403) {
+        title = '게임에 참여할 수 없습니다'
+        if (errorCode === 'PLAYER_NOT_IN_GAME') {
+          description = userFriendly ?? '참여 중인 플레이어만 접근할 수 있는 방입니다. 초대나 비밀번호가 필요한 방일 수 있습니다.'
+        } else {
+          description = userFriendly ?? '이 게임에 접근할 권한이 없습니다.'
+        }
+        shouldRedirect = true
+      } else if (cause.status === 409) {
+        title = '게임에 입장할 수 없습니다'
+        description = userFriendly ?? '게임이 이미 진행 중이거나 입장 조건을 충족하지 않습니다.'
+        shouldRedirect = true
+      } else {
+        description = userFriendly ?? cause.message
+      }
+    } else if (cause instanceof Error) {
+      description = cause.message
+    }
+
+    toast({
+      title,
+      description,
+      variant: 'destructive',
+    })
+
+    if (shouldRedirect) {
+      handleReturnToLobby({ skipServer: true })
+    }
+
+    return { shouldRedirect, message: description }
+  }, [toast, handleReturnToLobby])
+
   // 게임 상태 초기화 및 복원
   React.useEffect(() => {
     const initializeGame = async () => {
       if (!gameId) {
-        setError('게임 ID가 없습니다')
         setIsLoading(false)
+        toast({
+          title: '잘못된 접근입니다',
+          description: '게임 ID가 제공되지 않았습니다.',
+          variant: 'destructive',
+        })
+        handleReturnToLobby({ skipServer: true })
         return
       }
 
-      const gameIdNumber = parseInt(gameId)
-      if (isNaN(gameIdNumber)) {
-        setError('잘못된 게임 ID입니다')
+      const gameIdNumber = Number.parseInt(gameId, 10)
+      if (Number.isNaN(gameIdNumber)) {
         setIsLoading(false)
+        toast({
+          title: '잘못된 게임 ID입니다',
+          description: '숫자로 된 올바른 게임 번호를 입력해주세요.',
+          variant: 'destructive',
+        })
+        handleReturnToLobby({ skipServer: true })
         return
       }
 
@@ -62,41 +144,18 @@ export function MainGamePage() {
         setIsLoading(false)
       } catch (error) {
         console.error('Failed to initialize game:', error)
-        setError(error instanceof Error ? error.message : '게임을 불러올 수 없습니다')
+        const result = handleGameAccessError(error)
+        if (!result.shouldRedirect) {
+          setError(result.message)
+        } else {
+          setError(null)
+        }
         setIsLoading(false)
-
-        // 게임을 찾을 수 없는 경우 토스트 메시지 표시
-        toast({
-          title: "게임을 찾을 수 없습니다",
-          description: "게임이 존재하지 않거나 종료되었습니다",
-          variant: "destructive",
-        })
       }
     }
 
     initializeGame()
-  }, [gameId, gameNumber, setGameNumber, updateFromGameState, hydrateFromSnapshot, toast])
-
-  const handleReturnToLobby = (options?: { skipServer?: boolean }) => {
-    const shouldSkipServer = options?.skipServer ?? false
-    const currentState = useGameStore.getState()
-    const activeGameNumber = currentState.gameNumber ?? gameNumber
-
-    if (!shouldSkipServer && activeGameNumber) {
-      void leaveGame().catch((error) => {
-        console.error('Failed to leave game in background:', error)
-        const description = error instanceof Error ? error.message : '게임에서 나갈 수 없습니다'
-        toast({
-          title: '게임 나가기 실패',
-          description,
-          variant: 'destructive',
-        })
-      })
-    }
-
-    resetGame()
-    navigate('/lobby', { replace: true })
-  }
+  }, [gameId, gameNumber, handleGameAccessError, handleReturnToLobby, hydrateFromSnapshot, setGameNumber, toast, updateFromGameState])
 
   const handleNextRound = () => {
     // 다음 라운드 로직은 백엔드에서 처리되므로 여기서는 별도 작업 불필요
