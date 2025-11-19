@@ -3,7 +3,7 @@ import {motion} from 'framer-motion'
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card'
 import {Badge} from '@/components/ui/badge'
 import {Separator} from '@/components/ui/separator'
-import type {Player, RoundSummaryEntry} from '@/stores/unifiedGameStore'
+import type {Player, RoundSummaryEntry} from '@/stores/unified/types'
 
 interface RoundSummaryPanelProps {
   summary: RoundSummaryEntry

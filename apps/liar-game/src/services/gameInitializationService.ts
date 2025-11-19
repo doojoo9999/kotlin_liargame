@@ -5,7 +5,7 @@
  */
 
 import {gameService} from '@/api/gameApi'
-import {useGameStore} from '@/stores/unifiedGameStore'
+import {useGameStore} from '@/stores'
 import {toast} from 'sonner'
 import type {CreateGameRequest, GameMode} from '@/types/backendTypes'
 

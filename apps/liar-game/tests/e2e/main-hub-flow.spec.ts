@@ -67,7 +67,7 @@ async function navigateToLiarGame(page: Page, context: BrowserContext): Promise<
 async function syncGameState(page: Page, snapshot: GameStateResponse): Promise<void> {
   await page.evaluate(async (state) => {
     const [gameStoreModule, gameplayStoreModule] = await Promise.all([
-      import('/src/stores/unifiedGameStore.ts'),
+      import('/src/stores/index.ts'),
       import('/src/stores/gameplayStore.ts'),
     ]);
     const gameStore = gameStoreModule.useGameStore.getState();
@@ -178,7 +178,7 @@ test.describe('Main hub to liar game end-to-end', () => {
     backend.markPlayerReady(2, true);
     backend.markPlayerReady(3, true);
     await liarGamePage.evaluate(async () => {
-      const {useGameStore} = await import('/src/stores/unifiedGameStore.ts');
+      const {useGameStore} = await import('/src/stores/index.ts');
       const store = useGameStore.getState();
       store.handlePlayerReady('2', true);
       store.handlePlayerReady('3', true);
@@ -244,7 +244,7 @@ test.describe('Main hub to liar game end-to-end', () => {
 
     const resultResponse = liarGamePage.waitForResponse(resp => resp.url().includes(`/api/v1/game/result/${GAME_NUMBER}`));
     await liarGamePage.evaluate(async () => {
-      const {useGameStore} = await import('/src/stores/unifiedGameStore.ts');
+      const {useGameStore} = await import('/src/stores/index.ts');
       const store = useGameStore.getState();
       store.setLoading = () => {};
       useGameStore.setState({isLoading: false});

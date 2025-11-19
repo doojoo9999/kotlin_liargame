@@ -4,7 +4,7 @@ import {Card, CardContent} from '@/components/ui/card'
 import {Badge} from '@/components/ui/badge'
 import {Progress} from '@/components/ui/progress'
 import type {GamePhase} from '@/types/backendTypes'
-import type {GameTimer, RoundUxStage} from '@/stores/unifiedGameStore'
+import type {GameTimer, RoundUxStage} from '@/stores/unified/types'
 
 interface RoundStageTimelineProps {
   round: number

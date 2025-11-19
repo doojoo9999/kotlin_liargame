@@ -1,7 +1,7 @@
 import {describe, expect, it, vi} from 'vitest';
 import {render, screen, within} from '@/test/utils/test-utils';
 import {RoundStageTimeline} from './RoundStageTimeline';
-import type {GameTimer, RoundUxStage} from '@/stores/unifiedGameStore';
+import type {GameTimer, RoundUxStage} from '@/stores/unified/types';
 
 vi.mock('framer-motion', () => ({
   motion: {

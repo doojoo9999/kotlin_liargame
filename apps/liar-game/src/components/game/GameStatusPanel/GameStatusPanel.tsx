@@ -5,7 +5,8 @@ import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
 import {Badge} from '@/components/ui/badge';
 import {Progress} from '@/components/ui/progress';
 import {cn} from '@/lib/utils';
-import useGameStore from '../../../stores/gameStore';
+import {useGameFlowStore} from '@/stores';
+import {useShallow} from 'zustand/react/shallow';
 
 export interface GameStatusPanelProps {
   className?: string;
@@ -16,9 +17,10 @@ const GamePhaseIndicator: React.FC<{
   phase: string;
   timeRemaining: number;
 }> = ({ phase, timeRemaining }) => {
-  const getPhaseInfo = (phase: string) => {
-    switch (phase) {
+  const getPhaseInfo = (value: string) => {
+    switch (value) {
       case 'WAITING':
+      case 'WAITING_FOR_PLAYERS':
         return {
           icon: Users,
           text: '대기 중',
@@ -33,6 +35,7 @@ const GamePhaseIndicator: React.FC<{
           bgColor: 'bg-blue-100 dark:bg-blue-900/20'
         };
       case 'PROVIDING_HINTS':
+      case 'SPEECH':
         return {
           icon: MessageSquare,
           text: '힌트 제공',
@@ -40,9 +43,11 @@ const GamePhaseIndicator: React.FC<{
           bgColor: 'bg-green-100 dark:bg-green-900/20'
         };
       case 'VOTING':
+      case 'VOTING_FOR_LIAR':
+      case 'VOTING_FOR_SURVIVAL':
         return {
           icon: Vote,
-          text: '투표 진행',
+          text: value === 'VOTING_FOR_SURVIVAL' ? '생존 투표' : '투표 진행',
           color: 'text-orange-500',
           bgColor: 'bg-orange-100 dark:bg-orange-900/20'
         };
@@ -61,16 +66,24 @@ const GamePhaseIndicator: React.FC<{
           bgColor: 'bg-yellow-100 dark:bg-yellow-900/20'
         };
       case 'GAME_ENDED':
+      case 'GAME_OVER':
         return {
           icon: Trophy,
           text: '게임 종료',
           color: 'text-red-500',
           bgColor: 'bg-red-100 dark:bg-red-900/20'
         };
+      case 'GUESSING_WORD':
+        return {
+          icon: Clock,
+          text: '단어 추리',
+          color: 'text-indigo-500',
+          bgColor: 'bg-indigo-100 dark:bg-indigo-900/20'
+        };
       default:
         return {
           icon: Clock,
-          text: phase,
+          text: value,
           color: 'text-gray-500',
           bgColor: 'bg-gray-100 dark:bg-gray-800'
         };
@@ -131,17 +144,33 @@ export const GameStatusPanel: React.FC<GameStatusPanelProps> = ({
   className,
   showDetails = true
 }) => {
+  const selectStatusPanelState = useShallow((state) => ({
+    gameNumber: state.gameNumber,
+    currentRound: state.currentRound,
+    totalRounds: state.totalRounds,
+    gamePhase: state.gamePhase,
+    isLiar: state.isLiar,
+    currentTopic: state.currentTopic,
+    timer: state.timer,
+    hints: state.hints,
+    votes: state.votes,
+    defenses: state.defenses,
+  }));
+
   const {
-    currentRoom,
+    gameNumber,
+    currentRound,
+    totalRounds,
+    gamePhase,
     isLiar,
-    currentCategory,
-    timeRemaining,
+    currentTopic,
+    timer,
     hints,
     votes,
-    defenses
-  } = useGameStore();
+    defenses,
+  } = useGameFlowStore(selectStatusPanelState);
 
-  if (!currentRoom) {
+  if (!gameNumber) {
     return (
       <Card className={cn("", className)}>
         <CardContent className="p-6 text-center">
@@ -153,9 +182,10 @@ export const GameStatusPanel: React.FC<GameStatusPanelProps> = ({
     );
   }
 
-  const gamePhase = currentRoom.state;
-  const currentRound = currentRoom.currentRound;
-  const totalRounds = currentRoom.totalRounds;
+  const timeRemaining = timer?.timeRemaining ?? 0;
+  const safeHints = hints ?? [];
+  const safeVotes = votes ?? [];
+  const safeDefenses = defenses ?? [];
 
   return (
     <Card className={cn("", className)}>
@@ -183,7 +213,7 @@ export const GameStatusPanel: React.FC<GameStatusPanelProps> = ({
         />
 
         {/* Current Category */}
-        {currentCategory && (
+        {currentTopic && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -193,7 +223,7 @@ export const GameStatusPanel: React.FC<GameStatusPanelProps> = ({
               현재 주제
             </div>
             <div className="text-lg font-bold text-blue-900 dark:text-blue-100">
-              {currentCategory}
+              {currentTopic}
             </div>
           </motion.div>
         )}
@@ -203,7 +233,7 @@ export const GameStatusPanel: React.FC<GameStatusPanelProps> = ({
             {/* Hints Count */}
             <div className="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
               <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                {hints.length}
+                {safeHints.length}
               </div>
               <div className="text-xs text-green-600 dark:text-green-400">
                 힌트
@@ -213,7 +243,7 @@ export const GameStatusPanel: React.FC<GameStatusPanelProps> = ({
             {/* Votes Count */}
             <div className="text-center p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
               <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-                {votes.length}
+                {safeVotes.length}
               </div>
               <div className="text-xs text-orange-600 dark:text-orange-400">
                 투표
@@ -223,7 +253,7 @@ export const GameStatusPanel: React.FC<GameStatusPanelProps> = ({
             {/* Defenses Count */}
             <div className="text-center p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
               <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                {defenses.length}
+                {safeDefenses.length}
               </div>
               <div className="text-xs text-purple-600 dark:text-purple-400">
                 변론
@@ -233,7 +263,7 @@ export const GameStatusPanel: React.FC<GameStatusPanelProps> = ({
         )}
 
         {/* Recent Activity */}
-        {showDetails && (hints.length > 0 || votes.length > 0 || defenses.length > 0) && (
+        {showDetails && (safeHints.length > 0 || safeVotes.length > 0 || safeDefenses.length > 0) && (
           <div className="space-y-2">
             <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
               최근 활동
@@ -242,7 +272,7 @@ export const GameStatusPanel: React.FC<GameStatusPanelProps> = ({
             <div className="space-y-1 max-h-32 overflow-y-auto">
               <AnimatePresence>
                 {/* Recent Hints */}
-                {hints.slice(-3).map((hint, index) => (
+                {safeHints.slice(-3).map((hint, index) => (
                   <motion.div
                     key={`hint-${hint.timestamp}-${index}`}
                     initial={{ opacity: 0, x: -20 }}
@@ -255,7 +285,7 @@ export const GameStatusPanel: React.FC<GameStatusPanelProps> = ({
                 ))}
 
                 {/* Recent Votes */}
-                {votes.slice(-3).map((vote, index) => (
+                {safeVotes.slice(-3).map((vote, index) => (
                   <motion.div
                     key={`vote-${vote.voterId}-${index}`}
                     initial={{ opacity: 0, x: -20 }}
@@ -269,7 +299,7 @@ export const GameStatusPanel: React.FC<GameStatusPanelProps> = ({
                 ))}
 
                 {/* Recent Defenses */}
-                {defenses.slice(-3).map((defense, index) => (
+                {safeDefenses.slice(-3).map((defense, index) => (
                   <motion.div
                     key={`defense-${defense.timestamp}-${index}`}
                     initial={{ opacity: 0, x: -20 }}

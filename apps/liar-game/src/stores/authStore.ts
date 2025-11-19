@@ -14,7 +14,7 @@ async function leaveActiveGameIfNeeded(): Promise<void> {
   }
 
   try {
-    const {useGameStore} = await import('./unifiedGameStore');
+    const {useGameStore} = await import('./index');
     const {leaveGame, resetGame} = useGameStore.getState();
 
     if (typeof leaveGame === 'function') {

@@ -8,9 +8,9 @@ import {Badge} from '@/components/ui/badge';
 import {Avatar, AvatarFallback} from '@/components/ui/avatar';
 import {ScrollArea} from '@/components/ui/scroll-area';
 import {cn} from '@/lib/utils';
-import useGameStore from '../../../stores/gameStore';
-import {useGameWebSocket} from '../../../hooks/useGameWebSocket';
-import type {ChatMessage} from '../../../types/realtime';
+import {useChatStore, useGameFlowStore, usePlayerStore} from '@/stores';
+import {useGameWebSocket} from '@/hooks/useGameWebSocket';
+import type {ChatMessage} from '@/types/realtime';
 
 export interface ChatBoxProps {
   className?: string;
@@ -137,11 +137,13 @@ export const ChatBox: React.FC<ChatBoxProps> = ({
   const isComposingRef = useRef(false);
   const pendingSendRef = useRef(false);
 
-  const {
-    chatMessages,
-    currentRoom,
-    currentPlayerId
-  } = useGameStore();
+  const chatMessages = useChatStore((state) => state.chatMessages);
+  const players = usePlayerStore((state) => state.players);
+  const currentPlayer = usePlayerStore((state) => state.currentPlayer);
+  const gameNumber = useGameFlowStore((state) => state.gameNumber);
+  const maxPlayers = useGameFlowStore((state) => state.maxPlayers);
+  const hasActiveGame = Boolean(gameNumber);
+  const currentPlayerId = currentPlayer?.id ?? null;
 
   const {
     isConnected,
@@ -163,7 +165,7 @@ export const ChatBox: React.FC<ChatBoxProps> = ({
 
   const handleSendMessage = async () => {
     const trimmed = messageInput.trim();
-    if (!trimmed || !isConnected || !currentRoom) {
+    if (!trimmed || !isConnected || !hasActiveGame) {
       return;
     }
 
@@ -216,7 +218,7 @@ export const ChatBox: React.FC<ChatBoxProps> = ({
   };
 
   const displayMessages = chatMessages.slice(-maxMessages);
-  const currentPlayerName = currentRoom?.players.find(p => p.id === currentPlayerId)?.name;
+  const currentPlayerName = currentPlayer?.nickname ?? players.find(p => p.id === currentPlayerId)?.nickname;
 
   const connectionStatus = () => {
     if (!isConnected) {
@@ -274,12 +276,12 @@ export const ChatBox: React.FC<ChatBoxProps> = ({
               onCompositionStart={handleCompositionStart}
               onCompositionEnd={handleCompositionEnd}
               placeholder={isConnected ? "메시지 입력..." : "연결 대기 중..."}
-              disabled={!isConnected || !currentRoom}
+              disabled={!isConnected || !hasActiveGame}
               className="flex-1"
             />
             <Button
               type="submit"
-              disabled={!messageInput.trim() || !isConnected || !currentRoom}
+              disabled={!messageInput.trim() || !isConnected || !hasActiveGame}
               size="sm"
             >
               <Send className="w-4 h-4" />
@@ -339,12 +341,12 @@ export const ChatBox: React.FC<ChatBoxProps> = ({
               onCompositionStart={handleCompositionStart}
               onCompositionEnd={handleCompositionEnd}
               placeholder={isConnected ? "메시지를 입력하세요..." : "연결 대기 중..."}
-              disabled={!isConnected || !currentRoom}
+              disabled={!isConnected || !hasActiveGame}
               className="flex-1"
             />
             <Button
               type="submit"
-              disabled={!messageInput.trim() || !isConnected || !currentRoom}
+              disabled={!messageInput.trim() || !isConnected || !hasActiveGame}
             >
               <Send className="w-4 h-4" />
               전송
@@ -360,21 +362,21 @@ export const ChatBox: React.FC<ChatBoxProps> = ({
       </Card>
 
       {/* Player List (if enabled) */}
-      {showPlayerList && currentRoom && (
+      {showPlayerList && hasActiveGame && (
         <Card className="w-64">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="w-5 h-5" />
               참가자
               <Badge variant="secondary">
-                {currentRoom.players.length}/{currentRoom.maxPlayers}
+                {players.length}/{maxPlayers}
               </Badge>
             </CardTitle>
           </CardHeader>
 
           <CardContent>
             <div className="space-y-2">
-              {currentRoom.players.map((player) => (
+              {players.map((player) => (
                 <div
                   key={player.id}
                   className={cn(
@@ -386,13 +388,13 @@ export const ChatBox: React.FC<ChatBoxProps> = ({
                 >
                   <Avatar className="w-8 h-8">
                     <AvatarFallback className="text-xs">
-                      {player.name.charAt(0).toUpperCase()}
+                      {player.nickname?.charAt(0).toUpperCase() ?? '?'}
                     </AvatarFallback>
                   </Avatar>
 
                   <div className="flex-1">
                     <div className="text-sm font-medium">
-                      {player.name}
+                      {player.nickname ?? '플레이어'}
                       {player.id === currentPlayerId && " (나)"}
                     </div>
                     <div className="flex gap-1">
