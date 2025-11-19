@@ -1,5 +1,5 @@
 // Unified service exports
-export { unifiedWebSocketService as websocketService } from './unifiedWebSocketService'
+export { websocketService } from './websocketService'
 export { authService } from './authService'
 
 // Game API services
@@ -8,8 +8,5 @@ export { wordService } from '../api/wordApi'
 export { subjectService } from '../api/subjectApi'
 export { adminApi } from '../api/adminApi'
 
-// Legacy services - deprecated, use unified services instead
-export { default as websocketServiceLegacy } from './websocketService'
-export { RealtimeService } from './realtimeService'
 export { GameFlowService } from './gameFlowService'
 export { EnhancedGameService } from './gameServiceEnhanced'

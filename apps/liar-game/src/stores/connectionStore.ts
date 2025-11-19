@@ -10,7 +10,7 @@ import type {
     PendingMessage,
     SyncIssue,
 } from '@/types/store';
-import {websocketService} from '@/services/websocketService';
+import {websocketService, GAME_ACTION_QUEUE_TTL_MS, CHAT_QUEUE_TTL_MS} from '@/services/websocketService';
 import {useGameStore} from '@/stores';
 
 type GameStoreSnapshot = ReturnType<typeof useGameStore.getState>;
@@ -19,6 +19,8 @@ const MAX_LATENCY_SAMPLES = 20;
 const genId = () => (globalThis.crypto?.randomUUID?.() || Math.random().toString(36).slice(2));
 let connectionCallbacksRegistered = false;
 let latencyListenerRegistered = false;
+const resolveQueueTtl = (destination: string): number =>
+  destination.includes('/game/') ? GAME_ACTION_QUEUE_TTL_MS : CHAT_QUEUE_TTL_MS;
 
 const initialState: ConnectionStoreState = {
   status: 'idle',
@@ -169,9 +171,38 @@ export const useConnectionStore = create<ConnectionStoreState & ConnectionStoreA
         const { messageQueue, processingQueue } = get();
         if (processingQueue || get().status !== 'connected') return;
         if (!messageQueue.length) return;
-        set({ processingQueue: true });
+        const now = Date.now();
+        const freshQueue: OutgoingMessage[] = [];
+        const staleQueue: OutgoingMessage[] = [];
+
+        for (const msg of messageQueue) {
+          const ttl = resolveQueueTtl(msg.destination);
+          if (now - msg.timestamp > ttl) {
+            staleQueue.push(msg);
+          } else {
+            freshQueue.push(msg);
+          }
+        }
+
+        if (staleQueue.length) {
+          staleQueue.forEach((msg) => {
+            console.warn('[connectionStore] Dropping stale queued message', msg);
+            get().addSyncIssue({
+              type: 'OUT_OF_ORDER',
+              description: '연결 복구 중 만료된 요청을 취소했습니다.',
+              data: { destination: msg.destination, queuedAt: msg.timestamp },
+            });
+          });
+        }
+
+        if (!freshQueue.length) {
+          set({ messageQueue: [], processingQueue: false });
+          return;
+        }
+
+        set({ processingQueue: true, messageQueue: freshQueue });
         const remaining: OutgoingMessage[] = [];
-        for (const m of messageQueue) {
+        for (const m of freshQueue) {
           try {
             websocketService.safePublish(m.destination, m.body);
           } catch {

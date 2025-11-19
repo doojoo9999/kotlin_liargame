@@ -1,5 +1,6 @@
 package org.example.kotlin_liargame.tools.websocket
 
+import jakarta.servlet.http.HttpSession
 import org.example.kotlin_liargame.global.security.RateLimitProperties
 import org.example.kotlin_liargame.global.security.RateLimitingService
 import org.example.kotlin_liargame.global.security.SessionInfo
@@ -18,10 +19,15 @@ import org.springframework.messaging.simp.config.MessageBrokerRegistry
 import org.springframework.messaging.simp.stomp.StompCommand
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor
 import org.springframework.messaging.support.ChannelInterceptor
+import org.springframework.web.socket.CloseStatus
 import org.springframework.web.socket.WebSocketHandler
+import org.springframework.web.socket.WebSocketSession
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer
+import org.springframework.web.socket.config.annotation.WebSocketTransportRegistration
+import org.springframework.web.socket.handler.WebSocketHandlerDecorator
+import org.springframework.web.socket.handler.WebSocketHandlerDecoratorFactory
 import org.springframework.web.socket.server.HandshakeInterceptor
 import org.springframework.web.socket.server.support.DefaultHandshakeHandler
 
@@ -107,6 +113,14 @@ class WebSocketConfig(
                     wsHandler: WebSocketHandler,
                     attributes: MutableMap<String, Any>
                 ): Boolean {
+                    if (rateLimitProperties.enabled) {
+                        val clientId = resolveHandshakeClientId(request)
+                        if (!rateLimitingService.isWebSocketHandshakeAllowed(clientId)) {
+                            logger.warn("[SECURITY] WebSocket handshake rate limit exceeded for client {}", clientId)
+                            return false
+                        }
+                    }
+
                     if (request is ServletServerHttpRequest) {
                         val httpSession = request.servletRequest.getSession(false)
                         if (httpSession != null) {
@@ -135,6 +149,53 @@ class WebSocketConfig(
                 }
             })
             .withSockJS()
+    }
+
+    override fun configureWebSocketTransport(registration: WebSocketTransportRegistration) {
+        registration.setMessageSizeLimit(64 * 1024)
+        registration.setSendBufferSizeLimit(128 * 1024)
+        registration.setSendTimeLimit(15_000)
+        registration.addDecoratorFactory(webSocketTrackingDecoratorFactory())
+    }
+
+    private fun webSocketTrackingDecoratorFactory(): WebSocketHandlerDecoratorFactory {
+        return WebSocketHandlerDecoratorFactory { handler ->
+            object : WebSocketHandlerDecorator(handler) {
+                override fun afterConnectionEstablished(session: WebSocketSession) {
+                    webSocketSessionManager.registerNativeSession(session)
+                    super.afterConnectionEstablished(session)
+                }
+
+                override fun afterConnectionClosed(session: WebSocketSession, closeStatus: CloseStatus) {
+                    webSocketSessionManager.unregisterNativeSession(session.id)
+                    super.afterConnectionClosed(session, closeStatus)
+                }
+            }
+        }
+    }
+
+    private fun resolveHandshakeClientId(request: ServerHttpRequest): String {
+        if (request is ServletServerHttpRequest) {
+            val servletRequest = request.servletRequest
+            val httpSessionId = servletRequest.getSession(false)?.id ?: servletRequest.requestedSessionId
+            val forwarded = servletRequest.getHeader("X-Forwarded-For")
+                ?.split(",")
+                ?.firstOrNull()
+                ?.trim()
+                ?.takeIf { it.isNotEmpty() }
+            val remoteAddr = forwarded ?: servletRequest.remoteAddr
+
+            if (!httpSessionId.isNullOrBlank()) {
+                return "http-session:$httpSessionId"
+            }
+
+            if (!remoteAddr.isNullOrBlank()) {
+                return "ip:$remoteAddr"
+            }
+        }
+
+        val fallback = request.remoteAddress?.address?.hostAddress ?: "unknown"
+        return "remote:$fallback"
     }
     
     private fun getAllowedOriginsConfig(): AllowedOrigins {
@@ -199,59 +260,18 @@ class WebSocketConfig(
 
                             try {
 
-                                val httpSession = accessor.sessionAttributes?.get("HTTP.SESSION") as? jakarta.servlet.http.HttpSession
+                                val httpSession = accessor.sessionAttributes?.get("HTTP.SESSION") as? HttpSession
 
                                 val httpSessionId = httpSession?.id ?: accessor.sessionAttributes?.get("HTTP.SESSION.ID") as? String
                                 var sessionInfo = accessor.sessionAttributes?.get("SESSION_INFO") as? SessionInfo
 
-                                var resolvedUserId: Long? = null
-                                var resolvedNickname: String? = null
-
-                                if (httpSession != null) {
-                                    var userId = sessionUtil.getUserId(httpSession)
-                                    var nickname = sessionUtil.getUserNickname(httpSession)
-
-                                    if (userId == null || nickname == null) {
-                                        logger.warn("Initial session data not found during WebSocket connect, attempting retry...")
-                                        Thread.sleep(50)
-
-                                        userId = sessionUtil.getUserId(httpSession)
-                                        nickname = sessionUtil.getUserNickname(httpSession)
-
-                                        if (userId == null || nickname == null) {
-                                            Thread.sleep(100)
-                                            userId = sessionUtil.getUserId(httpSession)
-                                            nickname = sessionUtil.getUserNickname(httpSession)
-                                        }
-                                    }
-
-                                    if (userId == null && httpSessionId != null) {
-                                        if (sessionInfo == null) {
-                                            sessionInfo = sessionManagementService.getSessionInfoById(httpSessionId)
-                                        }
-                                        sessionInfo?.let { info ->
-                                            if (sessionManagementService.rehydrateSession(httpSession, info)) {
-                                                userId = info.userId
-                                                nickname = info.nickname
-                                            }
-                                        }
-                                    }
-
-                                    resolvedUserId = userId
-                                    resolvedNickname = nickname
-
-                                } else {
-                                    if (sessionInfo == null && httpSessionId != null) {
-                                        sessionInfo = sessionManagementService.getSessionInfoById(httpSessionId)
-                                    }
-                                    sessionInfo?.let { info ->
-                                        resolvedUserId = info.userId
-                                        resolvedNickname = info.nickname
-                                    }
-                                }
+                                val resolvedContext = resolveSessionContext(httpSession, httpSessionId, sessionInfo)
+                                val resolvedUserId = resolvedContext.userId
+                                val resolvedNickname = resolvedContext.nickname
+                                sessionInfo = resolvedContext.sessionInfo ?: sessionInfo
 
                                 if (resolvedUserId != null) {
-                                    val userIdForConnection = resolvedUserId!!
+                                    val userIdForConnection = resolvedUserId
                                     val nicknameForConnection = resolvedNickname
 
                                     accessor.sessionAttributes = accessor.sessionAttributes ?: mutableMapOf()
@@ -374,5 +394,39 @@ class WebSocketConfig(
 
         // 3. 기본값
         return "unknown:${System.currentTimeMillis()}"
+    }
+
+    private data class ResolvedSessionContext(
+        val userId: Long?,
+        val nickname: String?,
+        val sessionInfo: SessionInfo?
+    )
+
+    private fun resolveSessionContext(
+        httpSession: HttpSession?,
+        httpSessionId: String?,
+        existingSessionInfo: SessionInfo?
+    ): ResolvedSessionContext {
+        var sessionInfo = existingSessionInfo
+
+        if (httpSession != null) {
+            val userId = sessionUtil.getUserId(httpSession)
+            val nickname = sessionUtil.getUserNickname(httpSession)
+            if (userId != null) {
+                return ResolvedSessionContext(userId, nickname, sessionInfo)
+            }
+
+            val storedInfo = sessionInfo ?: httpSessionId?.let { sessionManagementService.getSessionInfoById(it) }
+            if (storedInfo != null && sessionManagementService.rehydrateSession(httpSession, storedInfo)) {
+                sessionInfo = storedInfo
+                return ResolvedSessionContext(storedInfo.userId, storedInfo.nickname, sessionInfo)
+            }
+        }
+
+        if (sessionInfo == null && httpSessionId != null) {
+            sessionInfo = sessionManagementService.getSessionInfoById(httpSessionId)
+        }
+
+        return ResolvedSessionContext(sessionInfo?.userId, sessionInfo?.nickname, sessionInfo)
     }
 }

@@ -1,15 +1,17 @@
 package org.example.kotlin_liargame.tools.websocket
 
+import org.example.kotlin_liargame.global.security.SessionManagementService
+import org.slf4j.LoggerFactory
 import org.springframework.messaging.Message
 import org.springframework.messaging.MessageChannel
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor
 import org.springframework.messaging.support.ChannelInterceptor
 import org.springframework.stereotype.Component
-import org.slf4j.LoggerFactory
 
 @Component
 class WebSocketActivityInterceptor(
-    private val connectionManager: WebSocketConnectionManager
+    private val connectionManager: WebSocketConnectionManager,
+    private val sessionManagementService: SessionManagementService
 ) : ChannelInterceptor {
 
     private val logger = LoggerFactory.getLogger(WebSocketActivityInterceptor::class.java)
@@ -22,7 +24,10 @@ class WebSocketActivityInterceptor(
         if (sessionId != null && !isHeartbeatMessage(accessor)) {
             try {
                 connectionManager.updateLastActivity(sessionId)
-                // 매우 빈번한 활동 감지 로그 제거
+                val userId = accessor.sessionAttributes?.get("userId") as? Long
+                if (userId != null) {
+                    sessionManagementService.markUserActivity(userId)
+                }
             } catch (e: Exception) {
                 logger.error("Error updating activity for session {}: {}", sessionId, e.message, e)
             }

@@ -7,17 +7,48 @@ const SESSION_REFRESH_INTERVAL = 15 * 60 * 1000;
 
 // 사용자 활동 감지 이벤트들
 const ACTIVITY_EVENTS = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
+const MODAL_LOGOUT_GRACE_MS = 15 * 1000;
 
 export function useSessionManager() {
   const { isAuthenticated, checkAuth, logout } = useAuthStore();
   const { isAnyModalOpen, activeModals } = useModal();
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastActivityRef = useRef<number>(Date.now());
+  const pendingLogoutRef = useRef(false);
+  const deferredLogoutTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // 사용자 활동 감지
   const updateActivity = () => {
     lastActivityRef.current = Date.now();
   };
+
+  const cancelDeferredLogout = useCallback(() => {
+    pendingLogoutRef.current = false;
+    if (deferredLogoutTimerRef.current) {
+      clearTimeout(deferredLogoutTimerRef.current);
+      deferredLogoutTimerRef.current = null;
+    }
+  }, []);
+
+  const requestDeferredLogout = useCallback(() => {
+    if (pendingLogoutRef.current && deferredLogoutTimerRef.current) {
+      return;
+    }
+
+    pendingLogoutRef.current = true;
+    if (deferredLogoutTimerRef.current) {
+      clearTimeout(deferredLogoutTimerRef.current);
+    }
+
+    deferredLogoutTimerRef.current = setTimeout(() => {
+      deferredLogoutTimerRef.current = null;
+      if (!pendingLogoutRef.current) {
+        return;
+      }
+      pendingLogoutRef.current = false;
+      void logout();
+    }, MODAL_LOGOUT_GRACE_MS);
+  }, [logout]);
 
   // 세션 갱신 함수
   const refreshSession = useCallback(async () => {
@@ -38,13 +69,22 @@ export function useSessionManager() {
       // 모달이 열려있는 경우 로그아웃도 연기 (사용자가 작업을 잃지 않도록)
       if (isAnyModalOpen) {
         console.warn('[SessionManager] Deferring logout - modal open, will retry after modal closes');
+        requestDeferredLogout();
         return;
       }
 
       // 세션 갱신 실패 시 로그아웃 처리
+      cancelDeferredLogout();
       await logout();
     }
-  }, [activeModals, checkAuth, isAnyModalOpen, isAuthenticated, logout]);
+  }, [activeModals, cancelDeferredLogout, checkAuth, isAnyModalOpen, isAuthenticated, logout, requestDeferredLogout]);
+
+  useEffect(() => {
+    if (!isAnyModalOpen && pendingLogoutRef.current) {
+      cancelDeferredLogout();
+      void logout();
+    }
+  }, [cancelDeferredLogout, isAnyModalOpen, logout]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -53,6 +93,7 @@ export function useSessionManager() {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
+      cancelDeferredLogout();
       return;
     }
 
@@ -83,8 +124,9 @@ export function useSessionManager() {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
+      cancelDeferredLogout();
     };
-  }, [activeModals, checkAuth, isAuthenticated, isAnyModalOpen, logout, refreshSession]);
+  }, [activeModals, cancelDeferredLogout, checkAuth, isAuthenticated, isAnyModalOpen, logout, refreshSession]);
 
   return {
     refreshSession,

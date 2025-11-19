@@ -1,5 +1,5 @@
 // Legacy enhanced WebSocket service placeholder kept for compatibility.
-// The real-time functionality is now handled by unifiedWebSocketService.
+// The real-time functionality now lives in websocketService.
 // This stub avoids legacy TypeScript errors while we migrate callers.
 export interface WebSocketConfig {
   endpoint?: string

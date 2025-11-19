@@ -7,6 +7,8 @@ import org.example.kotlin_liargame.global.util.SessionUtil
 import org.slf4j.LoggerFactory
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor
 import org.springframework.stereotype.Component
+import org.springframework.web.socket.CloseStatus
+import org.springframework.web.socket.WebSocketSession
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArraySet
@@ -21,13 +23,17 @@ class WebSocketSessionManager(
     private val sessionMap = ConcurrentHashMap<String, SessionSnapshot>()
     private val userSessions = ConcurrentHashMap<Long, MutableSet<String>>()
     private val playerGameMap = ConcurrentHashMap<Long, Int>()
+    private val httpSessionIndex = ConcurrentHashMap<String, MutableSet<String>>()
+    private val nativeSessions = ConcurrentHashMap<String, WebSocketSession>()
 
     fun storeSession(webSocketSessionId: String, httpSession: HttpSession) {
         val userId = resolveUserId(httpSession, webSocketSessionId) ?: return
+        val nickname = sessionUtil.getUserNickname(httpSession)
+            ?: sessionManagementService.getSessionInfoById(httpSession.id)?.nickname
         storeSnapshot(
             webSocketSessionId = webSocketSessionId,
             userId = userId,
-            nickname = sessionUtil.getUserNickname(httpSession),
+            nickname = nickname,
             httpSessionId = httpSession.id
         )
     }
@@ -57,6 +63,7 @@ class WebSocketSessionManager(
 
         sessionMap[webSocketSessionId] = snapshot
         userSessions.computeIfAbsent(userId) { CopyOnWriteArraySet() }.add(webSocketSessionId)
+        httpSessionIndex.computeIfAbsent(httpSessionId) { CopyOnWriteArraySet() }.add(webSocketSessionId)
         logger.debug("Stored WebSocket session {} for user {} (nickname={})", webSocketSessionId, userId, nickname)
     }
 
@@ -66,6 +73,10 @@ class WebSocketSessionManager(
             userSessions[snapshot.userId]?.remove(webSocketSessionId)
             if (userSessions[snapshot.userId]?.isEmpty() == true) {
                 userSessions.remove(snapshot.userId)
+            }
+            httpSessionIndex[snapshot.httpSessionId]?.remove(webSocketSessionId)
+            if (httpSessionIndex[snapshot.httpSessionId]?.isEmpty() == true) {
+                httpSessionIndex.remove(snapshot.httpSessionId)
             }
             logger.debug("Removed WebSocket session {} for user {}", webSocketSessionId, snapshot.userId)
         } else {
@@ -77,6 +88,9 @@ class WebSocketSessionManager(
     fun getSession(webSocketSessionId: String): SessionSnapshot? = sessionMap[webSocketSessionId]
 
     fun getSessionsForUser(userId: Long): Set<String> = userSessions[userId]?.toSet() ?: emptySet()
+
+    fun getSessionIdsByHttpSessionId(httpSessionId: String): Set<String> =
+        httpSessionIndex[httpSessionId]?.toSet() ?: emptySet()
 
     fun getUserId(webSocketSessionId: String): Long? = sessionMap[webSocketSessionId]?.userId
 
@@ -133,24 +147,35 @@ class WebSocketSessionManager(
 
     fun getActiveSessionCount(): Int = sessionMap.size
 
+    fun registerNativeSession(session: WebSocketSession) {
+        nativeSessions[session.id] = session
+    }
+
+    fun unregisterNativeSession(sessionId: String) {
+        nativeSessions.remove(sessionId)
+    }
+
+    fun closeNativeSession(
+        sessionId: String,
+        closeStatus: CloseStatus = CloseStatus.NORMAL
+    ): Boolean {
+        val session = nativeSessions.remove(sessionId)
+        if (session == null) {
+            removeSession(sessionId)
+            return false
+        }
+
+        if (session.isOpen) {
+            runCatching { session.close(closeStatus) }
+                .onFailure { logger.warn("Failed to close WebSocket session {}: {}", sessionId, it.message) }
+        }
+
+        removeSession(sessionId)
+        return true
+    }
+
     private fun resolveUserId(httpSession: HttpSession, sessionId: String): Long? {
-        var userId = sessionUtil.getUserId(httpSession)
-        if (userId != null) {
-            return userId
-        }
-
-        logger.warn("Initial session data not found for WebSocket {}, retrying...", sessionId)
-        sleepSafely(50)
-        userId = sessionUtil.getUserId(httpSession)
-        if (userId != null) {
-            return userId
-        }
-
-        sleepSafely(100)
-        userId = sessionUtil.getUserId(httpSession)
-        if (userId != null) {
-            return userId
-        }
+        sessionUtil.getUserId(httpSession)?.let { return it }
 
         sessionManagementService.getSessionInfoById(httpSession.id)?.let { info ->
             if (sessionManagementService.rehydrateSession(httpSession, info)) {
@@ -158,16 +183,8 @@ class WebSocketSessionManager(
             }
         }
 
-        logger.warn("No userId found in HTTP session for WebSocket {} even after retries", sessionId)
+        logger.warn("No userId found in HTTP session for WebSocket {}", sessionId)
         return null
-    }
-
-    private fun sleepSafely(millis: Long) {
-        try {
-            Thread.sleep(millis)
-        } catch (ie: InterruptedException) {
-            Thread.currentThread().interrupt()
-        }
     }
 
     data class SessionSnapshot(

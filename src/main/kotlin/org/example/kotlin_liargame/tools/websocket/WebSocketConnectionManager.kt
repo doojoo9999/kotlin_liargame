@@ -22,7 +22,8 @@ class WebSocketConnectionManager(
     @Lazy private val messagingTemplate: SimpMessagingTemplate,
     private val taskScheduler: TaskScheduler,
     @Lazy private val gamePlayerService: GamePlayerService,
-    @Lazy private val enhancedConnectionService: EnhancedConnectionService
+    @Lazy private val enhancedConnectionService: EnhancedConnectionService,
+    @Lazy private val webSocketSessionManager: WebSocketSessionManager
 ) {
     private val logger = LoggerFactory.getLogger(WebSocketConnectionManager::class.java)
 
@@ -283,6 +284,7 @@ class WebSocketConnectionManager(
         heartbeatTasks.remove(sessionId)?.cancel(false)
         cancelFinalizer(sessionId)
         reconnectionAttempts.remove(sessionId)
+        webSocketSessionManager.removeSession(sessionId)
     }
 
     private fun cancelFinalizer(sessionId: String) {

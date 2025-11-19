@@ -16,6 +16,7 @@ class SessionManagementService(
     private val activeSessions = ConcurrentHashMap<String, SessionInfo>()
     
     private val sessionIdToNickname = ConcurrentHashMap<String, String>()
+    private val userIdToNickname = ConcurrentHashMap<Long, String>()
 
     fun registerSession(session: HttpSession, nickname: String, userId: Long): SessionRegistrationResult {
         try {
@@ -35,6 +36,7 @@ class SessionManagementService(
                 // 기존 세션 정보를 메모리에서 제거
                 activeSessions.remove(nickname)
                 sessionIdToNickname.remove(existingSession.sessionId)
+                userIdToNickname.remove(existingSession.userId)
 
                 // Spring Security의 SessionRegistry에서도 기존 세션 제거
                 sessionRegistry.getAllSessions(nickname, false).forEach { sessionInfo ->
@@ -60,6 +62,7 @@ class SessionManagementService(
 
             activeSessions[nickname] = sessionInfo
             sessionIdToNickname[sessionId] = nickname
+            userIdToNickname[userId] = nickname
 
             // 세션 데이터 저장 (예외 처리 추가)
             try {
@@ -91,6 +94,7 @@ class SessionManagementService(
                 // 세션 데이터 설정 실패 시 메모리에서 세션 정보 제거
                 activeSessions.remove(nickname)
                 sessionIdToNickname.remove(sessionId)
+                userIdToNickname.remove(userId)
                 return SessionRegistrationResult.FAILED
             }
 
@@ -201,6 +205,7 @@ class SessionManagementService(
         val sessionInfo = activeSessions.remove(nickname)
         if (sessionInfo != null) {
             sessionIdToNickname.remove(sessionInfo.sessionId)
+            userIdToNickname.remove(sessionInfo.userId)
             // Spring Security의 SessionRegistry를 사용하여 실제 HttpSession을 무효화
             sessionRegistry.getSessionInformation(sessionInfo.sessionId)?.expireNow()
             logger.info("Session invalidated for user: {}", nickname)
@@ -210,7 +215,8 @@ class SessionManagementService(
     fun invalidateSessionById(sessionId: String) {
         val nickname = sessionIdToNickname.remove(sessionId)
         if (nickname != null) {
-            activeSessions.remove(nickname)
+            val removed = activeSessions.remove(nickname)
+            removed?.let { userIdToNickname.remove(it.userId) }
             logger.info("Session invalidated by ID: {}", sessionId)
         }
     }
@@ -262,6 +268,7 @@ class SessionManagementService(
                 sessionIdToNickname[session.id] = sessionInfo.nickname
                 sessionInfo = sessionInfo.copy(sessionId = session.id)
                 activeSessions[sessionInfo.nickname] = sessionInfo
+                userIdToNickname[sessionInfo.userId] = sessionInfo.nickname
             }
 
             val now = LocalDateTime.now()
@@ -296,6 +303,13 @@ class SessionManagementService(
     fun getSessionInfoById(sessionId: String): SessionInfo? {
         val nickname = sessionIdToNickname[sessionId] ?: return null
         return activeSessions[nickname]
+    }
+
+    fun markUserActivity(userId: Long) {
+        val nickname = userIdToNickname[userId] ?: return
+        activeSessions[nickname]?.let { sessionInfo ->
+            sessionInfo.lastActivity = LocalDateTime.now()
+        }
     }
 
     fun getActiveSessionInfo(nickname: String): SessionInfo? {

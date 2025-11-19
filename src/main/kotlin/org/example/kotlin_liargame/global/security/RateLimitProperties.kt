@@ -17,6 +17,8 @@ data class RateLimitProperties(
 
     data class WebsocketRateLimit(
         var messagesPerMinute: Int = 30,
-        var burstCapacity: Int = 50
+        var burstCapacity: Int = 50,
+        var handshakesPerMinute: Int = 15,
+        var handshakeBurstCapacity: Int = 20
     )
 }

@@ -12,6 +12,7 @@ class RateLimitingService(
     
     private val apiRequestCounts = ConcurrentHashMap<String, MutableList<LocalDateTime>>()
     private val websocketMessageCounts = ConcurrentHashMap<String, MutableList<LocalDateTime>>()
+    private val websocketHandshakeCounts = ConcurrentHashMap<String, MutableList<LocalDateTime>>()
 
     fun isEnabled(): Boolean = rateLimitProperties.enabled
     
@@ -42,6 +43,21 @@ class RateLimitingService(
             requestCounts = websocketMessageCounts,
             requestsPerMinute = rateLimitProperties.websocket.messagesPerMinute,
             burstCapacity = rateLimitProperties.websocket.burstCapacity
+        )
+    }
+
+    /**
+     * WebSocket 핸드셰이크에 대한 Rate Limiting 검사
+     */
+    fun isWebSocketHandshakeAllowed(clientId: String): Boolean {
+        if (!isEnabled()) {
+            return true
+        }
+        return isRequestAllowed(
+            clientId = clientId,
+            requestCounts = websocketHandshakeCounts,
+            requestsPerMinute = rateLimitProperties.websocket.handshakesPerMinute,
+            burstCapacity = rateLimitProperties.websocket.handshakeBurstCapacity
         )
     }
     
@@ -89,6 +105,7 @@ class RateLimitingService(
     fun resetClientRequests(clientId: String) {
         apiRequestCounts.remove(clientId)
         websocketMessageCounts.remove(clientId)
+        websocketHandshakeCounts.remove(clientId)
     }
     
     /**
@@ -99,6 +116,7 @@ class RateLimitingService(
         
         cleanupRequestMap(apiRequestCounts, now)
         cleanupRequestMap(websocketMessageCounts, now)
+        cleanupRequestMap(websocketHandshakeCounts, now)
     }
     
     private fun cleanupRequestMap(
@@ -145,15 +163,26 @@ class RateLimitingService(
                 }
             }
         } ?: 0
-        
+
+        val websocketHandshakes = websocketHandshakeCounts[clientId]?.let { requests ->
+            synchronized(requests) {
+                requests.count { request ->
+                    ChronoUnit.SECONDS.between(request, now) <= 60
+                }
+            }
+        } ?: 0
+
         return RateLimitStatus(
             clientId = clientId,
             apiRequestsInLastMinute = apiRequests,
             apiRequestsPerMinuteLimit = rateLimitProperties.api.requestsPerMinute,
             websocketMessagesInLastMinute = websocketMessages,
             websocketMessagesPerMinuteLimit = rateLimitProperties.websocket.messagesPerMinute,
+            websocketHandshakesInLastMinute = websocketHandshakes,
+            websocketHandshakesPerMinuteLimit = rateLimitProperties.websocket.handshakesPerMinute,
             isApiLimited = apiRequests >= rateLimitProperties.api.requestsPerMinute,
-            isWebSocketLimited = websocketMessages >= rateLimitProperties.websocket.messagesPerMinute
+            isWebSocketLimited = websocketMessages >= rateLimitProperties.websocket.messagesPerMinute,
+            isHandshakeLimited = websocketHandshakes >= rateLimitProperties.websocket.handshakesPerMinute
         )
     }
 }
@@ -164,6 +193,9 @@ data class RateLimitStatus(
     val apiRequestsPerMinuteLimit: Int,
     val websocketMessagesInLastMinute: Int,
     val websocketMessagesPerMinuteLimit: Int,
+    val websocketHandshakesInLastMinute: Int,
+    val websocketHandshakesPerMinuteLimit: Int,
     val isApiLimited: Boolean,
-    val isWebSocketLimited: Boolean
+    val isWebSocketLimited: Boolean,
+    val isHandshakeLimited: Boolean
 )

@@ -34,6 +34,11 @@ type DeliveryResult = {
   success: boolean;
 };
 
+export const GAME_ACTION_QUEUE_TTL_MS = 8000;
+export const CHAT_QUEUE_TTL_MS = 30000;
+const STOMP_HEARTBEAT_MS = 10000;
+const SESSION_CHECK_ENDPOINT = '/api/v1/auth/check';
+
 class WebSocketService {
   private client: StompClient | null = null;
   private isConnected = false;
@@ -75,6 +80,7 @@ class WebSocketService {
     legacy: 'websocket-session-id',
   } as const;
   private readonly connectionNoticeIds = new Set<string>();
+  private httpBaseUrl: string | null = null;
 
   constructor() {
     this.setupClient();
@@ -840,6 +846,21 @@ class WebSocketService {
     // Process all queued messages
     while (this.messageQueue.length > 0) {
       const message = this.messageQueue.shift()!;
+      const age = Date.now() - message.timestamp;
+      const ttl = this.getQueueTtl(message.destination);
+      if (age > ttl) {
+        console.warn('Dropping stale queued message', {
+          id: message.id,
+          destination: message.destination,
+          age,
+          ttl,
+        });
+        if (message.destination.includes('/game/')) {
+          toast.warning('오프라인 동안 보낸 요청이 만료되어 취소되었습니다. 다시 시도해주세요.');
+        }
+        this.notifyMessageDelivery({ id: message.id, success: false });
+        continue;
+      }
       message.attempts++;
 
       try {
@@ -1152,8 +1173,8 @@ class WebSocketService {
     }
 
     const defaultCandidates = [
-      normalizeCandidate('http://218.150.3.77:20021'),
-      normalizeCandidate('http://218.150.3.77:8080'),
+      normalizeCandidate('http://localhost:20021'),
+      normalizeCandidate('http://localhost:8080'),
     ].filter((value): value is string => Boolean(value));
 
     for (const candidate of defaultCandidates) {
@@ -1172,8 +1193,30 @@ class WebSocketService {
     return '/ws';
   }
 
+  private extractHttpBase(candidate: string): string | null {
+    try {
+      const base = typeof window !== 'undefined'
+        ? new URL(candidate, window.location.origin)
+        : new URL(candidate);
+      base.pathname = '';
+      base.search = '';
+      base.hash = '';
+      return base.toString().replace(/\/$/, '');
+    } catch (error) {
+      if (import.meta.env.DEV) {
+        console.warn('Failed to derive HTTP base from websocket URL', candidate, error);
+      }
+      return null;
+    }
+  }
+
+  private getQueueTtl(destination: string): number {
+    return destination.includes('/game/') ? GAME_ACTION_QUEUE_TTL_MS : CHAT_QUEUE_TTL_MS;
+  }
+
   private setupClient(): void {
     const socketUrl = this.resolveWebSocketUrl();
+    this.httpBaseUrl = this.extractHttpBase(socketUrl);
     const socketOptions: (SockJS.Options & {
       withCredentials?: boolean;
       transportOptions?: Record<string, { withCredentials: boolean }>;
@@ -1207,8 +1250,8 @@ class WebSocketService {
       onConnect: this.onConnect.bind(this),
       onDisconnect: this.onDisconnect.bind(this),
       onStompError: this.onError.bind(this),
-      heartbeatIncoming: 4000,
-      heartbeatOutgoing: 4000,
+      heartbeatIncoming: STOMP_HEARTBEAT_MS,
+      heartbeatOutgoing: STOMP_HEARTBEAT_MS,
       reconnectDelay: 0, // We handle reconnection manually
     };
 
@@ -1282,8 +1325,59 @@ class WebSocketService {
     }
 
     this.connectionState = 'reconnecting';
+    void this.scheduleReconnectAttempt();
+  }
+
+  private async verifySessionStillValid(): Promise<boolean> {
+    if (typeof fetch === 'undefined') {
+      return true;
+    }
+
+    const base = this.httpBaseUrl ?? (typeof window !== 'undefined' ? window.location.origin : null);
+    if (!base) {
+      return true;
+    }
+
+    try {
+      const response = await fetch(`${base}${SESSION_CHECK_ENDPOINT}`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: { 'Accept': 'application/json' },
+      });
+      if (response.ok) {
+        return true;
+      }
+      if (response.status === 401 || response.status === 403) {
+        return false;
+      }
+      return true;
+    } catch (error) {
+      console.warn('Session validation request failed', error);
+      // Assume the session is still valid to avoid accidental logouts due to transient issues
+      return true;
+    }
+  }
+
+  private handleExpiredSessionDuringReconnect(): void {
+    this.connectionState = 'disconnected';
+    this.isConnected = false;
+    this.clearStoredSessionId();
+    this.clearConnectionNotices();
+    toast.error('세션이 만료되어 실시간 연결을 종료했습니다. 다시 로그인해주세요.');
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('auth-session-expired', { detail: { reason: 'session-expired' } }));
+    }
+  }
+
+  private async scheduleReconnectAttempt(): Promise<void> {
+    const sessionValid = await this.verifySessionStillValid();
+    if (!sessionValid) {
+      this.handleExpiredSessionDuringReconnect();
+      return;
+    }
+
     this.reconnectAttempts++;
-    
+
     // Exponential backoff with jitter and max delay cap
     const baseDelay = this.baseReconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
     const jitter = Math.random() * 1000; // Add randomness to prevent thundering herd
@@ -1292,22 +1386,24 @@ class WebSocketService {
     console.log(`Attempting reconnection ${this.reconnectAttempts}/${this.maxReconnectAttempts} in ${Math.round(delay)}ms`);
     toast.info(`재연결 시도 중... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
 
-    setTimeout(() => {
-      if (this.connectionState === 'reconnecting') {
-        try {
-          // Setup fresh client for reconnection
-          this.setupClient();
-          if (this.client) {
-            this.client.activate();
-          }
-        } catch (error) {
-          console.error('Error during reconnection setup:', error);
-          this.connectionState = 'disconnected';
-          // Retry after a short delay
-          setTimeout(() => this.attemptReconnection(), 1000);
-        }
+    await new Promise(resolve => setTimeout(resolve, delay));
+
+    if (this.connectionState !== 'reconnecting') {
+      return;
+    }
+
+    try {
+      // Setup fresh client for reconnection
+      this.setupClient();
+      if (this.client) {
+        this.client.activate();
       }
-    }, delay);
+    } catch (error) {
+      console.error('Error during reconnection setup:', error);
+      this.connectionState = 'disconnected';
+      // Retry after a short delay
+      setTimeout(() => this.attemptReconnection(), 1000);
+    }
   }
 
   private handleLobbyMessage(message: IMessage): void {
