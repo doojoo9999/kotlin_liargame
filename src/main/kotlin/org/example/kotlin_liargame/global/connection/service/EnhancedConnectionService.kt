@@ -4,7 +4,7 @@ import org.example.kotlin_liargame.domain.game.model.enum.GameState
 import org.example.kotlin_liargame.domain.game.repository.GameRepository
 import org.example.kotlin_liargame.domain.game.repository.PlayerRepository
 import org.example.kotlin_liargame.domain.game.service.GameMonitoringService
-import org.example.kotlin_liargame.domain.game.service.GameService
+import org.example.kotlin_liargame.domain.game.service.GamePlayerService
 import org.example.kotlin_liargame.global.connection.dto.ConnectionStability
 import org.example.kotlin_liargame.global.connection.dto.PlayerConnectionStatus
 import org.example.kotlin_liargame.global.connection.model.ConnectionLogEntity
@@ -27,7 +27,7 @@ class EnhancedConnectionService(
     private val playerRepository: PlayerRepository,
     private val gameMonitoringService: GameMonitoringService,
     private val taskScheduler: TaskScheduler,
-    @Lazy private val gameService: GameService
+    @Lazy private val gamePlayerService: GamePlayerService
 ) {
     private val logger = LoggerFactory.getLogger(this::class.java)
 
@@ -130,7 +130,7 @@ class EnhancedConnectionService(
         )
         gameMonitoringService.broadcastGameState(game, payload)
 
-        runCatching { gameService.cleanupPlayerByUserId(userId) }
+        runCatching { gamePlayerService.cleanupPlayerByUserId(userId) }
             .onFailure { logger.error("Failed to clean up player {} after grace period", userId, it) }
     }
 

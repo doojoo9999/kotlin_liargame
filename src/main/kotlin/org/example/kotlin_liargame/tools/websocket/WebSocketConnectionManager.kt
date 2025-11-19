@@ -1,6 +1,6 @@
 package org.example.kotlin_liargame.tools.websocket
 
-import org.example.kotlin_liargame.domain.game.service.GameService
+import org.example.kotlin_liargame.domain.game.service.GamePlayerService
 import org.example.kotlin_liargame.global.connection.service.EnhancedConnectionService
 import org.example.kotlin_liargame.tools.websocket.dto.ConnectionMessage
 import org.example.kotlin_liargame.tools.websocket.dto.ConnectionState
@@ -21,7 +21,7 @@ import java.util.concurrent.ScheduledFuture
 class WebSocketConnectionManager(
     @Lazy private val messagingTemplate: SimpMessagingTemplate,
     private val taskScheduler: TaskScheduler,
-    @Lazy private val gameService: GameService,
+    @Lazy private val gamePlayerService: GamePlayerService,
     @Lazy private val enhancedConnectionService: EnhancedConnectionService
 ) {
     private val logger = LoggerFactory.getLogger(WebSocketConnectionManager::class.java)
@@ -85,11 +85,11 @@ class WebSocketConnectionManager(
         heartbeatTasks.remove(sessionId)?.cancel(false)
 
         connectionState.userId?.let { userId ->
-            runCatching { gameService.handlePlayerDisconnection(userId) }
+            runCatching { gamePlayerService.handlePlayerDisconnection(userId) }
                 .onFailure { logger.error("Failed to mark user {} as disconnected", userId, it) }
 
             runCatching {
-                gameService.findPlayerInActiveGame(userId)?.let { player ->
+                gamePlayerService.findPlayerInActiveGame(userId)?.let { player ->
                     enhancedConnectionService.handleDisconnection(userId, player.game.gameNumber)
                 }
             }.onFailure { logger.error("Enhanced disconnection handling failed for user {}", userId, it) }
@@ -148,11 +148,11 @@ class WebSocketConnectionManager(
             )
         )
 
-        runCatching { gameService.handlePlayerReconnection(userId) }
+        runCatching { gamePlayerService.handlePlayerReconnection(userId) }
             .onFailure { logger.error("Failed to mark user {} as reconnected", userId, it) }
 
         runCatching {
-            gameService.findPlayerInActiveGame(userId)?.let { player ->
+            gamePlayerService.findPlayerInActiveGame(userId)?.let { player ->
                 enhancedConnectionService.handleReconnection(userId, player.game.gameNumber)
             }
         }.onFailure { logger.error("Enhanced reconnection handling failed for user {}", userId, it) }

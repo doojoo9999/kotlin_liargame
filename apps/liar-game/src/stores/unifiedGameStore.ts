@@ -1,4 +1,5 @@
 import {create} from 'zustand';
+import type { StateCreator } from 'zustand';
 import {devtools, persist} from 'zustand/middleware';
 import {toast} from 'sonner';
 import {gameService} from '../api/gameApi';
@@ -23,215 +24,20 @@ import type {
     VotingProgressMessage,
     VotingStartMessage
 } from '../types/contracts/gameplay';
+import { mergeChatMessages, normalizeChatMessage } from './unified/chatUtils'
 
-export type RoundUxStage = 'waiting' | 'speech' | 'debate' | 'vote' | 'results';
-
-export interface RoundSummaryEntry {
-  round: number;
-  topic: string | null;
-  suspectedPlayerId?: string | null;
-  scoreboard: Array<{
-    playerId: string;
-    nickname: string;
-    score: number;
-    isAlive: boolean;
-  }>;
-  winningTeam?: 'CITIZENS' | 'LIARS' | 'UNKNOWN';
-  concludedAt: number;
-}
-
-// Unified Player interface
-export interface Player extends FrontendPlayer {
-  score: number;
-}
-
-// Game Timer interface
-export interface GameTimer {
-  isActive: boolean;
-  timeRemaining: number;
-  totalTime: number;
-  phase: string;
-}
-
-// Voting State interface
-export interface VotingState {
-  isActive: boolean;
-  phase: 'LIAR_VOTE' | 'SURVIVAL_VOTE' | null;
-  votes: Record<string, string>;
-  targetPlayerId?: string;
-  currentVotes?: number;
-  totalParticipants?: number;
-  requiredVotes?: number;
-  results?: {
-    votes: Record<string, number>;
-    actualLiar?: string;
-    winners?: string[];
-  };
-}
-
-// Game Results interface
-export interface GameResults {
-  liarId: string;
-  liarName: string;
-  topic: string;
-  votes: Record<string, number>;
-  liarWon: boolean;
-  roundScores: Record<string, number>;
-}
-
-// Hint interface
-export interface Hint {
-  playerId: string;
-  playerName: string;
-  hint: string;
-  timestamp: number;
-}
-
-// Vote interface
-export interface Vote {
-  voterId: string;
-  voterName: string;
-  targetId: string;
-  targetName: string;
-}
-
-// Defense interface
-export interface Defense {
-  defenderId: string;
-  defenderName: string;
-  defense: string;
-  timestamp: number;
-}
-
-
-
-const CHAT_MESSAGE_LIMIT = 200;
 const DEFAULT_TURN_TIME_SECONDS = 60;
-const CHAT_TYPES: readonly ChatMessageType[] = ['DISCUSSION', 'HINT', 'DEFENSE', 'SYSTEM', 'POST_ROUND', 'WAITING_ROOM', 'GENERAL'] as const;
-
-const normalizeChatType = (value: unknown): ChatMessageType => {
-  if (typeof value === 'string') {
-    const normalized = value.trim().toUpperCase();
-    if ((CHAT_TYPES as readonly string[]).includes(normalized)) {
-      return normalized as ChatMessageType;
-    }
-    if (normalized === 'ANNOUNCEMENT' || normalized === 'NOTICE') {
-      return 'SYSTEM';
-    }
-  }
-  return 'DISCUSSION';
-};
-
-const toFiniteNumber = (value: unknown): number | null => {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value;
-  }
-  if (typeof value === 'string') {
-    const parsed = Number.parseInt(value, 10);
-    if (!Number.isNaN(parsed)) {
-      return parsed;
-    }
-  }
-  return null;
-};
-
-const toOptionalString = (value: unknown): string | null => {
-  if (typeof value === 'string') {
-    const trimmed = value.trim();
-    return trimmed.length > 0 ? trimmed : null;
-  }
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value.toString();
-  }
-  return null;
-};
-
-const resolvePlayerByIdentifiers = (players: Player[], identifiers: Array<string | number | null | undefined>): Player | undefined => {
-  for (const identifier of identifiers) {
-    if (identifier == null) {
-      continue;
-    }
-    const normalized = typeof identifier === 'number' ? identifier.toString() : identifier;
-    const match = players.find((player) => {
-      if (player.id === normalized) return true;
-      if (player.userId != null && player.userId.toString() === normalized) return true;
-      if (player.nickname === normalized) return true;
-      return false;
-    });
-    if (match) {
-      return match;
-    }
-  }
-  return undefined;
-};
-
-const normalizeChatMessage = (
-  rawMessage: Partial<ChatMessage> | Record<string, unknown>,
-  players: Player[],
-  defaultGameNumber: number | null
-): ChatMessage => {
-  const candidate = rawMessage as Record<string, unknown>;
-
-  const type = normalizeChatType(candidate['type'] ?? candidate['messageType'] ?? candidate['category']);
-  const timestamp = toFiniteNumber(candidate['timestamp'] ?? candidate['createdAt'] ?? candidate['time']) ?? Date.now();
-  const rawGameNumber = toFiniteNumber(candidate['gameNumber'] ?? candidate['gameId'] ?? candidate['roomId']);
-  const gameNumber = rawGameNumber ?? (defaultGameNumber ?? 0);
-
-  const userId = toFiniteNumber(candidate['userId'] ?? candidate['playerUserId'] ?? candidate['senderUserId']) ?? undefined;
-  const rawPlayerId = toOptionalString(candidate['playerId'] ?? candidate['playerID'] ?? candidate['playerUuid'] ?? candidate['senderId']);
-  const rawNickname = toOptionalString(
-    candidate['playerNickname']
-    ?? candidate['playerNicknameSnapshot']
-    ?? candidate['playerName']
-    ?? candidate['nickname']
-  );
-  const content = toOptionalString(candidate['content'] ?? candidate['message'] ?? candidate['body'] ?? '') ?? '';
-
-  const fallbackIdPart = rawPlayerId ?? (typeof userId === 'number' ? userId.toString() : type);
-  const id =
-    toOptionalString(candidate['id'] ?? candidate['messageId'] ?? candidate['eventId'] ?? candidate['uuid'])
-    ?? `${gameNumber}-${timestamp}-${fallbackIdPart}`;
-
-  const resolvedPlayer = resolvePlayerByIdentifiers(players, [rawPlayerId, rawNickname, userId]);
-
-  const playerId = resolvedPlayer?.id ?? rawPlayerId ?? (typeof userId === 'number' ? userId.toString() : undefined);
-  const nickname =
-    resolvedPlayer?.nickname
-    ?? rawNickname
-    ?? (type === 'SYSTEM' ? 'SYSTEM' : `플레이어 ${playerId ?? (typeof userId === 'number' ? userId : '?')}`);
-
-  return {
-    id: id.toString(),
-    gameNumber,
-    playerId: playerId ?? undefined,
-    userId,
-    playerNickname: nickname,
-    nickname,
-    playerName: resolvedPlayer?.nickname ?? rawNickname ?? undefined,
-    content,
-    message: content,
-    gameId: toOptionalString(candidate['gameId']) ?? (gameNumber ? gameNumber.toString() : undefined),
-    roomId: toOptionalString(candidate['roomId'] ?? candidate['channelId'] ?? candidate['topic']) ?? undefined,
-    timestamp,
-    type,
-  };
-};
-
-const mergeChatMessages = (existing: ChatMessage[], next: ChatMessage[]): ChatMessage[] => {
-  if (!next.length) {
-    return existing;
-  }
-  const map = new Map<string, ChatMessage>();
-  for (const message of existing) {
-    map.set(message.id, message);
-  }
-  for (const message of next) {
-    map.set(message.id, message);
-  }
-  return Array.from(map.values())
-    .sort((a, b) => a.timestamp - b.timestamp)
-    .slice(-CHAT_MESSAGE_LIMIT);
-};
+import type {
+    Defense,
+    GameResults,
+    GameTimer,
+    Hint,
+    Player,
+    RoundSummaryEntry,
+    RoundUxStage,
+    VotingState,
+    Vote
+} from './unified/types';
 
 
 // Main Game State interface
@@ -307,13 +113,6 @@ interface GameActions {
   setGameId: (gameId: string) => void;
   setGameNumber: (gameNumber: number) => void;
   setSessionCode: (code: string) => void;
-  setCurrentPlayer: (player: Player) => void;
-  
-  // Player Management
-  updatePlayers: (players: Player[]) => void;
-  addPlayer: (player: Player) => void;
-  removePlayer: (playerId: string) => void;
-  updatePlayer: (playerId: string, updates: Partial<Player>) => void;
 
   // Game Flow
   setGamePhase: (phase: GameState['gamePhase']) => void;
@@ -347,19 +146,6 @@ interface GameActions {
   stopVoting: () => void;
   castVote: (playerId: string, targetId: string) => void;
   setVotingResults: (results: VotingState['results']) => void;
-
-  // Chat Management
-  addChatMessage: (message: ChatMessage) => void;
-  setChatMessages: (messages: ChatMessage[]) => void;
-  ingestChatMessage: (message: Partial<ChatMessage> | Record<string, unknown>) => void;
-  loadChatHistory: (limit?: number) => Promise<ChatMessage[]>;
-  sendChatMessage: (message: string, type?: ChatMessageType) => Promise<void>;
-  clearChat: () => void;
-
-  // Typing Indicators
-  addTypingPlayer: (playerId: string) => void;
-  removeTypingPlayer: (playerId: string) => void;
-  clearTypingPlayers: () => void;
 
   // Connection Management
   setConnectionState: (connected: boolean) => void;
@@ -416,7 +202,37 @@ interface GameActions {
   resetGameData: () => void;
 }
 
-type UnifiedGameStore = GameState & GameActions;
+type PlayerSlice = Pick<GameState, 'players' | 'currentPlayer'> & {
+  setCurrentPlayer: (player: Player | null) => void;
+  updatePlayers: (players: Player[]) => void;
+  addPlayer: (player: Player) => void;
+  removePlayer: (playerId: string) => void;
+  updatePlayer: (playerId: string, updates: Partial<Player>) => void;
+};
+
+interface ChatSlice {
+  chatMessages: ChatMessage[];
+  chatLoading: boolean;
+  chatError: string | null;
+  typingPlayers: Set<string>;
+  addChatMessage: (message: ChatMessage) => void;
+  setChatMessages: (messages: ChatMessage[]) => void;
+  ingestChatMessage: (message: Partial<ChatMessage> | Record<string, unknown>) => void;
+  loadChatHistory: (limit?: number) => Promise<ChatMessage[]>;
+  sendChatMessage: (message: string, type?: ChatMessageType) => Promise<void>;
+  clearChat: () => void;
+  addTypingPlayer: (playerId: string) => void;
+  removeTypingPlayer: (playerId: string) => void;
+  clearTypingPlayers: () => void;
+}
+
+type UnifiedGameStore = GameState & GameActions & PlayerSlice & ChatSlice;
+type StoreSlice<T> = StateCreator<
+  UnifiedGameStore,
+  [['zustand/devtools', never], ['zustand/persist', unknown]],
+  [],
+  T
+>;
 
 // Helper function to map backend game state
 const mapGamePhase = (
@@ -588,13 +404,11 @@ const isIdentifierSelf = (value: unknown, players: Player[], auth: AuthIdentifie
 };
 
 // Initial state
-const initialState: GameState = {
+const baseInitialState: Omit<GameState, 'players' | 'currentPlayer' | 'chatMessages' | 'chatLoading' | 'chatError' | 'typingPlayers'> = {
   // Session
   gameId: null,
   gameNumber: null,
   sessionCode: null,
-  players: [],
-  currentPlayer: null,
 
   // Configuration
   maxPlayers: 6,
@@ -639,10 +453,6 @@ const initialState: GameState = {
     requiredVotes: undefined,
     results: undefined,
   },
-  chatMessages: [],
-  chatLoading: false,
-  chatError: null,
-  typingPlayers: new Set(),
 
   // Connection
   isConnected: false,
@@ -668,6 +478,138 @@ const initialState: GameState = {
   currentGameState: null,
 };
 
+const getPlayerSliceInitialState = () => ({
+  players: [] as Player[],
+  currentPlayer: null as Player | null
+});
+
+const getChatSliceInitialState = () => ({
+  chatMessages: [] as ChatMessage[],
+  chatLoading: false,
+  chatError: null as string | null,
+  typingPlayers: new Set<string>()
+});
+
+const createPlayerSlice: StoreSlice<PlayerSlice> = (set, get) => ({
+  ...getPlayerSliceInitialState(),
+  setCurrentPlayer: (currentPlayer) => set({ currentPlayer }),
+  updatePlayers: (players) => set({ players }),
+  addPlayer: (player) => set((state) => {
+    const existingIndex = state.players.findIndex(existing => {
+      if (existing.id === player.id) {
+        return true;
+      }
+      if (existing.userId != null && player.userId != null && existing.userId === player.userId) {
+        return true;
+      }
+      if (existing.nickname && player.nickname && existing.nickname === player.nickname) {
+        return true;
+      }
+      return false;
+    });
+
+    if (existingIndex >= 0) {
+      const players = [...state.players];
+      players[existingIndex] = { ...players[existingIndex], ...player };
+      return { players };
+    }
+
+    return { players: [...state.players, player] };
+  }),
+  removePlayer: (playerId) => set((state) => ({
+    players: state.players.filter(p => p.id !== playerId)
+  })),
+  updatePlayer: (playerId, updates) => set((state) => {
+    const players = state.players.map((player) =>
+      player.id === playerId ? { ...player, ...updates } : player
+    );
+
+    const currentPlayer = state.currentPlayer?.id === playerId
+      ? { ...state.currentPlayer, ...updates }
+      : state.currentPlayer;
+
+    return { players, currentPlayer };
+  })
+});
+
+const createChatSlice: StoreSlice<ChatSlice> = (set, get) => ({
+  ...getChatSliceInitialState(),
+  addChatMessage: (message) => set((state) => ({
+    chatMessages: mergeChatMessages(state.chatMessages, [message])
+  })),
+  setChatMessages: (chatMessages) => set({
+    chatMessages: mergeChatMessages([], chatMessages)
+  }),
+  ingestChatMessage: (message) => {
+    const { players, gameNumber } = get();
+    const normalized = normalizeChatMessage(message, players, gameNumber);
+    set((state) => ({
+      chatMessages: mergeChatMessages(state.chatMessages, [normalized])
+    }));
+  },
+  loadChatHistory: async (limit = 50) => {
+    const { gameNumber } = get();
+    if (!gameNumber) {
+      return [];
+    }
+
+    set({ chatLoading: true, chatError: null });
+    try {
+      const { gameFlowService } = await import('../services/gameFlowService');
+      const messages = await gameFlowService.getChatHistory(gameNumber, limit);
+      const players = get().players;
+      const normalized = messages.map((msg) => normalizeChatMessage(msg, players, gameNumber));
+      set({
+        chatMessages: mergeChatMessages([], normalized),
+        chatLoading: false,
+        chatError: null,
+      });
+      return normalized;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load chat history';
+      set({ chatLoading: false, chatError: errorMessage });
+      throw error;
+    }
+  },
+  sendChatMessage: async (message, type = 'DISCUSSION') => {
+    const trimmed = (message ?? '').trim();
+    if (!trimmed) {
+      return;
+    }
+
+    const { gameNumber, currentPlayer } = get();
+    if (!gameNumber) {
+      throw new Error('게임 번호가 없습니다.');
+    }
+
+    try {
+      const nickname = currentPlayer?.nickname ?? useAuthStore.getState().nickname ?? undefined;
+      const { websocketService } = await import('../services/websocketService');
+      websocketService.sendChatMessage(gameNumber.toString(), trimmed, {
+        nickname,
+        type,
+      });
+    } catch (error) {
+      console.error('Failed to send chat message:', error);
+      throw error;
+    }
+  },
+  clearChat: () => set({
+    chatMessages: [],
+    chatLoading: false,
+    chatError: null,
+  }),
+  addTypingPlayer: (playerId) => set((state) => ({
+    typingPlayers: new Set([...state.typingPlayers, playerId])
+  })),
+  removeTypingPlayer: (playerId) => set((state) => {
+    const newSet = new Set(state.typingPlayers);
+    newSet.delete(playerId);
+    return { typingPlayers: newSet };
+  }),
+  clearTypingPlayers: () => set({ typingPlayers: new Set() })
+});
+
 const safeUnsubscribeFromGame = (gameNumber: number | null) => {
   if (gameNumber == null) {
     return;
@@ -684,55 +626,14 @@ export const useGameStore = create<UnifiedGameStore>()(
   devtools(
     persist(
       (set, get) => ({
-        ...initialState,
+        ...baseInitialState,
+        ...createPlayerSlice(set, get),
+        ...createChatSlice(set, get),
 
         // Session Actions
         setGameId: (gameId) => set({ gameId }),
         setGameNumber: (gameNumber) => set({ gameNumber }),
         setSessionCode: (sessionCode) => set({ sessionCode }),
-        setCurrentPlayer: (currentPlayer) => set({ currentPlayer }),
-
-        // Player Management
-        updatePlayers: (players) => set({ players }),
-        addPlayer: (player) => set((state) => {
-          const existingIndex = state.players.findIndex(existing => {
-            if (existing.id === player.id) {
-              return true;
-            }
-            if (existing.userId != null && player.userId != null && existing.userId === player.userId) {
-              return true;
-            }
-            if (existing.nickname && player.nickname && existing.nickname === player.nickname) {
-              return true;
-            }
-            return false;
-          });
-
-          if (existingIndex >= 0) {
-            const players = [...state.players];
-            players[existingIndex] = { ...players[existingIndex], ...player };
-            return { players };
-          }
-
-          return { players: [...state.players, player] };
-        }),
-        removePlayer: (playerId) => set((state) => ({
-          players: state.players.filter(p => p.id !== playerId)
-        })),
-        updatePlayer: (playerId, updates) => set((state) => {
-          const players = state.players.map((player) =>
-            player.id === playerId ? { ...player, ...updates } : player
-          );
-
-          const currentPlayer = state.currentPlayer?.id === playerId
-            ? { ...state.currentPlayer, ...updates }
-            : state.currentPlayer;
-
-          return {
-            players,
-            currentPlayer,
-          };
-        }),
 
         // Game Flow
         setGamePhase: (gamePhase) => {
@@ -829,84 +730,6 @@ export const useGameStore = create<UnifiedGameStore>()(
         setVotingResults: (results) => set((state) => ({
           voting: { ...state.voting, results }
         })),
-
-        // Chat Management
-        addChatMessage: (message) => set((state) => ({
-          chatMessages: mergeChatMessages(state.chatMessages, [message])
-        })),
-        setChatMessages: (chatMessages) => set({
-          chatMessages: mergeChatMessages([], chatMessages)
-        }),
-        ingestChatMessage: (message) => {
-          const { players, gameNumber } = get();
-          const normalized = normalizeChatMessage(message, players, gameNumber);
-          set((state) => ({
-            chatMessages: mergeChatMessages(state.chatMessages, [normalized])
-          }));
-        },
-        loadChatHistory: async (limit = 50) => {
-          const { gameNumber } = get();
-          if (!gameNumber) {
-            return [];
-          }
-
-          set({ chatLoading: true, chatError: null });
-          try {
-            const { gameFlowService } = await import('../services/gameFlowService');
-            const messages = await gameFlowService.getChatHistory(gameNumber, limit);
-            const players = get().players;
-            const normalized = messages.map((msg) => normalizeChatMessage(msg, players, gameNumber));
-            set({
-              chatMessages: mergeChatMessages([], normalized),
-              chatLoading: false,
-              chatError: null,
-            });
-            return normalized;
-          } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Failed to load chat history';
-            set({ chatLoading: false, chatError: errorMessage });
-            throw error;
-          }
-        },
-        sendChatMessage: async (message, type = 'DISCUSSION') => {
-          const trimmed = (message ?? '').trim();
-          if (!trimmed) {
-            return;
-          }
-
-          const { gameNumber, currentPlayer } = get();
-          if (!gameNumber) {
-            throw new Error('게임 번호가 없습니다.');
-          }
-
-          try {
-            const nickname = currentPlayer?.nickname ?? useAuthStore.getState().nickname ?? undefined;
-            const { websocketService } = await import('../services/websocketService');
-            websocketService.sendChatMessage(gameNumber.toString(), trimmed, {
-              nickname,
-              type,
-            });
-          } catch (error) {
-            console.error('Failed to send chat message:', error);
-            throw error;
-          }
-        },
-        clearChat: () => set({
-          chatMessages: [],
-          chatLoading: false,
-          chatError: null,
-        }),
-
-        // Typing Indicators
-        addTypingPlayer: (playerId) => set((state) => ({
-          typingPlayers: new Set([...state.typingPlayers, playerId])
-        })),
-        removeTypingPlayer: (playerId) => set((state) => {
-          const newSet = new Set(state.typingPlayers);
-          newSet.delete(playerId);
-          return { typingPlayers: newSet };
-        }),
-        clearTypingPlayers: () => set({ typingPlayers: new Set() }),
 
         // Connection Management
         setConnectionState: (isConnected) => set({ isConnected }),
@@ -1987,33 +1810,41 @@ export const useGameStore = create<UnifiedGameStore>()(
         resetGame: () => {
           const currentGameNumber = get().gameNumber;
           safeUnsubscribeFromGame(currentGameNumber);
-          set({ ...initialState, typingPlayers: new Set() });
+          set({
+            ...baseInitialState,
+            ...getPlayerSliceInitialState(),
+            ...getChatSliceInitialState()
+          });
         },
         resetVote: () => set({ userVote: null }),
-        resetGameData: () => set({
-          hints: [],
-          votes: [],
-          defenses: [],
-          currentTopic: null,
-          currentWord: null,
-          currentLiar: null,
-          isLiar: false,
-          chatMessages: [],
-          chatLoading: false,
-          chatError: null,
-          scores: {},
-          userVote: null,
-          voting: {
-            isActive: false,
-            phase: null,
-            votes: {},
-            targetPlayerId: undefined,
-            currentVotes: 0,
-            totalParticipants: 0,
-            requiredVotes: undefined,
-            results: undefined,
-          }
-        })
+        resetGameData: () => {
+          const chatDefaults = getChatSliceInitialState();
+          set({
+            hints: [],
+            votes: [],
+            defenses: [],
+            currentTopic: null,
+            currentWord: null,
+            currentLiar: null,
+            isLiar: false,
+            scores: {},
+            userVote: null,
+            chatMessages: chatDefaults.chatMessages,
+            chatLoading: chatDefaults.chatLoading,
+            chatError: chatDefaults.chatError,
+            typingPlayers: chatDefaults.typingPlayers,
+            voting: {
+              isActive: false,
+              phase: null,
+              votes: {},
+              targetPlayerId: undefined,
+              currentVotes: 0,
+              totalParticipants: 0,
+              requiredVotes: undefined,
+              results: undefined,
+            }
+          });
+        }
       }),
       {
         name: 'unified-game-store',
@@ -2034,3 +1865,97 @@ export const useGameStore = create<UnifiedGameStore>()(
   )
 );
 
+const selectChatSlice = (state: UnifiedGameStore) => ({
+  chatMessages: state.chatMessages,
+  chatLoading: state.chatLoading,
+  chatError: state.chatError,
+  typingPlayers: state.typingPlayers,
+  addChatMessage: state.addChatMessage,
+  setChatMessages: state.setChatMessages,
+  ingestChatMessage: state.ingestChatMessage,
+  loadChatHistory: state.loadChatHistory,
+  sendChatMessage: state.sendChatMessage,
+  clearChat: state.clearChat,
+  addTypingPlayer: state.addTypingPlayer,
+  removeTypingPlayer: state.removeTypingPlayer,
+  clearTypingPlayers: state.clearTypingPlayers,
+});
+
+const selectPlayerSlice = (state: UnifiedGameStore) => ({
+  players: state.players,
+  currentPlayer: state.currentPlayer,
+  setCurrentPlayer: state.setCurrentPlayer,
+  updatePlayers: state.updatePlayers,
+  addPlayer: state.addPlayer,
+  removePlayer: state.removePlayer,
+  updatePlayer: state.updatePlayer,
+});
+
+const selectGameFlowSlice = (state: UnifiedGameStore) => ({
+  gameId: state.gameId,
+  gameNumber: state.gameNumber,
+  sessionCode: state.sessionCode,
+  maxPlayers: state.maxPlayers,
+  timeLimit: state.timeLimit,
+  currentRound: state.currentRound,
+  totalRounds: state.totalRounds,
+  gamePhase: state.gamePhase,
+  currentTurnPlayerId: state.currentTurnPlayerId,
+  turnOrder: state.turnOrder,
+  currentTopic: state.currentTopic,
+  currentWord: state.currentWord,
+  currentLiar: state.currentLiar,
+  isLiar: state.isLiar,
+  hints: state.hints,
+  votes: state.votes,
+  defenses: state.defenses,
+  userVote: state.userVote,
+  gameResults: state.gameResults,
+  scores: state.scores,
+  timer: state.timer,
+  voting: state.voting,
+  roundStage: state.roundStage,
+  roundStageEnteredAt: state.roundStageEnteredAt,
+  roundHasStarted: state.roundHasStarted,
+  roundSummaries: state.roundSummaries,
+  currentRoundSummary: state.currentRoundSummary,
+  isLoading: state.isLoading,
+  error: state.error,
+  setGamePhase: state.setGamePhase,
+  setGameMode: state.setGameMode,
+  setCurrentTopic: state.setCurrentTopic,
+  setCurrentWord: state.setCurrentWord,
+  setCurrentLiar: state.setCurrentLiar,
+  setIsLiar: state.setIsLiar,
+  setCurrentTurnPlayer: state.setCurrentTurnPlayer,
+  setTurnOrder: state.setTurnOrder,
+  addHint: state.addHint,
+  addVote: state.addVote,
+  addDefense: state.addDefense,
+  setUserVote: state.setUserVote,
+  setGameResults: state.setGameResults,
+  setScore: state.setScore,
+  addScore: state.addScore,
+  resetScores: state.resetScores,
+  updateTimer: state.updateTimer,
+  startTimer: state.startTimer,
+  stopTimer: state.stopTimer,
+  startVoting: state.startVoting,
+  stopVoting: state.stopVoting,
+  castVote: state.castVote,
+  setVotingResults: state.setVotingResults,
+  setRoundStage: state.setRoundStage,
+  addRoundSummary: state.addRoundSummary,
+  clearRoundSummaries: state.clearRoundSummaries,
+});
+
+export const useChatStore = <T>(selector: (slice: ReturnType<typeof selectChatSlice>) => T) =>
+  useGameStore((state) => selector(selectChatSlice(state)));
+
+export const usePlayerStore = <T>(selector: (slice: ReturnType<typeof selectPlayerSlice>) => T) =>
+  useGameStore((state) => selector(selectPlayerSlice(state)));
+
+export const useGameFlowStore = <T>(selector: (slice: ReturnType<typeof selectGameFlowSlice>) => T) =>
+  useGameStore((state) => selector(selectGameFlowSlice(state)));
+
+export type { Player, RoundSummaryEntry, RoundUxStage } from './unified/types';

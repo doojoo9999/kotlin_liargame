@@ -18,6 +18,7 @@ import org.springframework.web.server.ResponseStatusException
 class GlobalExceptionHandler(
     private val messagingTemplate: SimpMessagingTemplate
 ) {
+    private val logger = org.slf4j.LoggerFactory.getLogger(GlobalExceptionHandler::class.java)
     
     @ExceptionHandler(HttpMessageNotReadableException::class)
     fun handleHttpMessageNotReadableException(
@@ -34,8 +35,7 @@ class GlobalExceptionHandler(
             )
         )
         
-        println("[ERROR] JSON parsing error: ${ex.mostSpecificCause?.message ?: ex.message}")
-        ex.printStackTrace()
+        logger.error("JSON parsing error: {}", ex.mostSpecificCause?.message ?: ex.message, ex)
         
         return ResponseEntity(errorResponse, HttpStatus.BAD_REQUEST)
     }
@@ -53,7 +53,7 @@ class GlobalExceptionHandler(
             details = mapOf("fieldErrors" to fieldErrors)
         )
         
-        println("[ERROR] Validation error: $fieldErrors")
+        logger.error("Validation error: {}", fieldErrors)
         
         return ResponseEntity(errorResponse, HttpStatus.BAD_REQUEST)
     }
@@ -72,13 +72,19 @@ class GlobalExceptionHandler(
             )
         )
         
-        println("[ERROR] ${ex.errorCode}: ${ex.message}")
+        logger.error("{}: {}", ex.errorCode, ex.message)
         
         val httpStatus = when (ex) {
             is GameNotFoundException -> HttpStatus.NOT_FOUND
             is PlayerNotInGameException, is InvalidTurnException -> HttpStatus.FORBIDDEN
             is RoomFullException -> HttpStatus.BAD_REQUEST
             is GameAlreadyStartedException -> HttpStatus.CONFLICT
+            is UserAlreadyInGameException, is UserAlreadyOwnsGameException -> HttpStatus.CONFLICT
+            is SessionAuthenticationException -> HttpStatus.UNAUTHORIZED
+            is GameOwnerOnlyActionException, is GameRoundMismatchException -> HttpStatus.BAD_REQUEST
+            is GameStateUnavailableException -> HttpStatus.CONFLICT
+            is RoomNumberAllocationException -> HttpStatus.SERVICE_UNAVAILABLE
+            is ChatArchivalException, is GameCleanupException -> HttpStatus.INTERNAL_SERVER_ERROR
             else -> HttpStatus.INTERNAL_SERVER_ERROR
         }
         
@@ -99,7 +105,7 @@ class GlobalExceptionHandler(
             )
         )
         
-        println("[ERROR] IllegalArgumentException: ${ex.message}")
+        logger.error("IllegalArgumentException: {}", ex.message)
         
         return ResponseEntity(errorResponse, HttpStatus.BAD_REQUEST)
     }
@@ -119,7 +125,7 @@ class GlobalExceptionHandler(
             )
         )
 
-        println("[ERROR] DuplicateBossException: ${ex.message}")
+        logger.error("DuplicateBossException: {}", ex.message)
 
         return ResponseEntity(errorResponse, HttpStatus.CONFLICT)
     }
@@ -140,7 +146,7 @@ class GlobalExceptionHandler(
             )
         )
 
-        println("[ERROR] ResponseStatusException(${status.value()}): ${ex.reason}")
+        logger.error("ResponseStatusException({}): {}", status.value(), ex.reason)
 
         return ResponseEntity(errorResponse, status)
     }
@@ -151,51 +157,14 @@ class GlobalExceptionHandler(
         request: WebRequest
     ): ResponseEntity<ErrorResponse> {
         val errorResponse = ErrorResponse(
-            errorCode = "INVALID_STATE",
-            message = ex.message ?: "Invalid state",
-            userFriendlyMessage = "현재 상태에서는 해당 작업을 수행할 수 없습니다.",
-            details = mapOf(
-                "path" to request.getDescription(false)
-            )
+            errorCode = "ILLEGAL_STATE",
+            message = ex.message ?: "Illegal state",
+            userFriendlyMessage = "게임 상태가 올바르지 않습니다."
         )
-        
-        println("[ERROR] IllegalStateException: ${ex.message}")
-        
-        return ResponseEntity(errorResponse, HttpStatus.CONFLICT)
-    }
-    
-    @ExceptionHandler(Exception::class)
-    fun handleGenericException(
-        ex: Exception,
-        request: WebRequest
-    ): ResponseEntity<ErrorResponse> {
-        val errorResponse = ErrorResponse(
-            errorCode = "INTERNAL_ERROR",
-            message = "Internal server error",
-            userFriendlyMessage = "서버 내부 오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
-            details = mapOf(
-                "path" to request.getDescription(false),
-                "exceptionType" to ex.javaClass.simpleName
-            )
-        )
-        
-        println("[ERROR] Unhandled exception: ${ex.message}")
-        ex.printStackTrace()
-        
-        return ResponseEntity(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR)
-    }
-    
-    @MessageExceptionHandler(GameException::class)
-    fun handleWebSocketGameException(ex: GameException): ErrorResponse {
-        val errorResponse = ErrorResponse(
-            errorCode = ex.errorCode,
-            message = ex.message,
-            userFriendlyMessage = ex.userFriendlyMessage
-        )
-        
-        println("[WEBSOCKET_ERROR] ${ex.errorCode}: ${ex.message}")
-        
-        return errorResponse
+
+        logger.error("IllegalStateException: {}", ex.message)
+
+        return ResponseEntity(errorResponse, HttpStatus.BAD_REQUEST)
     }
     
     @MessageExceptionHandler(Exception::class)
@@ -206,8 +175,7 @@ class GlobalExceptionHandler(
             userFriendlyMessage = "실시간 통신 중 오류가 발생했습니다."
         )
         
-        println("[WEBSOCKET_ERROR] Unhandled WebSocket exception: ${ex.message}")
-        ex.printStackTrace()
+        logger.error("[WEBSOCKET_ERROR] Unhandled WebSocket exception: {}", ex.message, ex)
         
         return errorResponse
     }

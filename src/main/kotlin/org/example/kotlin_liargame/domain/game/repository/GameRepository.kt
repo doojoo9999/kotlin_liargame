@@ -14,6 +14,8 @@ interface GameRepository : JpaRepository<GameEntity, Long> {
     
     @Query("SELECT g FROM GameEntity g WHERE g.gameNumber = :gameNumber")
     fun findByGameNumber(gameNumber: Int) : GameEntity?
+
+    fun existsByGameNumber(gameNumber: Int): Boolean
     
     // Optimized query with JOIN FETCH to avoid N+1 problem
     @Query("SELECT g FROM GameEntity g LEFT JOIN FETCH g.citizenSubject LEFT JOIN FETCH g.liarSubject WHERE g.gameNumber = :gameNumber")

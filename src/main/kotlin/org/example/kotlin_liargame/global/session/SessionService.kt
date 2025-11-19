@@ -1,6 +1,7 @@
 package org.example.kotlin_liargame.global.session
 
 import jakarta.servlet.http.HttpSession
+import org.example.kotlin_liargame.global.exception.SessionAuthenticationException
 import org.example.kotlin_liargame.global.util.SessionUtil
 import org.springframework.stereotype.Service
 
@@ -15,7 +16,7 @@ class SessionService(
      */
     fun getCurrentUserId(session: HttpSession): Long {
         return sessionUtil.getUserId(session)
-            ?: throw RuntimeException("Not authenticated")
+            ?: throw SessionAuthenticationException()
     }
 
     /**
@@ -32,7 +33,7 @@ class SessionService(
      */
     fun getCurrentUserNickname(session: HttpSession): String {
         return sessionUtil.getUserNickname(session)
-            ?: throw RuntimeException("Not authenticated")
+            ?: throw SessionAuthenticationException()
     }
 
     /**

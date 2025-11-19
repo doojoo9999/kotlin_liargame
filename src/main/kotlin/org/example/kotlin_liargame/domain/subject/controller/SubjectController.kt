@@ -1,10 +1,12 @@
 package org.example.kotlin_liargame.domain.subject.controller
 
 import org.example.kotlin_liargame.domain.subject.dto.request.SubjectRequest
+import org.example.kotlin_liargame.domain.subject.dto.response.SubjectApplyResponse
 import org.example.kotlin_liargame.domain.subject.dto.response.SubjectResponse
 import org.example.kotlin_liargame.domain.subject.exception.SubjectAlreadyExistsException
 import org.example.kotlin_liargame.domain.subject.service.SubjectService
 import org.example.kotlin_liargame.domain.word.exception.ForbiddenWordException
+import org.example.kotlin_liargame.global.dto.ApiMessageResponse
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
@@ -16,13 +18,15 @@ class SubjectController (
 ) {
 
     @PostMapping("/applysubj")
-    fun applySubject(@RequestBody request: SubjectRequest): ResponseEntity<Any> {
+    fun applySubject(@RequestBody request: SubjectRequest): ResponseEntity<SubjectApplyResponse> {
         val savedSubject = subjectService.applySubject(request)
-        return ResponseEntity.ok(mapOf(
-            "success" to true,
-            "id" to savedSubject.id,
-            "name" to savedSubject.content
-        ))
+        return ResponseEntity.ok(
+            SubjectApplyResponse(
+                success = true,
+                id = savedSubject.id,
+                name = savedSubject.content
+            )
+        )
     }
 
     @DeleteMapping("/delsubj/{id}")
@@ -46,23 +50,20 @@ class SubjectController (
     }
 
     @ExceptionHandler(SubjectAlreadyExistsException::class)
-    fun handleSubjectAlreadyExistsException(e: SubjectAlreadyExistsException): ResponseEntity<Map<String, String?>> {
-        return ResponseEntity
-            .status(HttpStatus.CONFLICT)
-            .body(mapOf("message" to e.message))
+    fun handleSubjectAlreadyExistsException(e: SubjectAlreadyExistsException): ResponseEntity<ApiMessageResponse> {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+            .body(ApiMessageResponse(success = false, message = e.message ?: "이미 등록된 주제입니다."))
     }
 
     @ExceptionHandler(ForbiddenWordException::class)
-    fun handleForbiddenWordException(e: ForbiddenWordException): ResponseEntity<Map<String, String?>> {
-        return ResponseEntity
-            .status(HttpStatus.BAD_REQUEST)
-            .body(mapOf("message" to e.message))
+    fun handleForbiddenWordException(e: ForbiddenWordException): ResponseEntity<ApiMessageResponse> {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+            .body(ApiMessageResponse(success = false, message = e.message ?: "허용되지 않은 단어입니다."))
     }
 
     @ExceptionHandler(Exception::class)
-    fun handleGeneralException(e: Exception): ResponseEntity<Map<String, String?>> {
-        return ResponseEntity
-            .badRequest()
-            .body(mapOf("message" to "알 수 없는 오류가 발생했습니다."))
+    fun handleGeneralException(e: Exception): ResponseEntity<ApiMessageResponse> {
+        return ResponseEntity.badRequest()
+            .body(ApiMessageResponse(success = false, message = "알 수 없는 오류가 발생했습니다.", details = mapOf("error" to (e.message ?: "unknown"))))
     }
 }

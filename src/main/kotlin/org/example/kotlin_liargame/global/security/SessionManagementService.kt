@@ -1,6 +1,7 @@
 package org.example.kotlin_liargame.global.security
 
 import jakarta.servlet.http.HttpSession
+import org.slf4j.LoggerFactory
 import org.springframework.security.core.session.SessionRegistry
 import java.time.LocalDateTime
 import java.util.concurrent.ConcurrentHashMap
@@ -10,6 +11,7 @@ class SessionManagementService(
     private val sessionDataManager: SessionDataManager,
     private val sessionRegistry: SessionRegistry // Inject SessionRegistry
 ) {
+    private val logger = LoggerFactory.getLogger(this::class.java)
 
     private val activeSessions = ConcurrentHashMap<String, SessionInfo>()
     
@@ -29,7 +31,7 @@ class SessionManagementService(
                     return SessionRegistrationResult.SUCCESS
                 }
 
-                println("[SECURITY] Concurrent login detected for nickname: $nickname. Previous session invalidated.")
+                logger.info("Concurrent login detected for nickname: {}. Previous session invalidated.", nickname)
                 // 기존 세션 정보를 메모리에서 제거
                 activeSessions.remove(nickname)
                 sessionIdToNickname.remove(existingSession.sessionId)
@@ -42,7 +44,7 @@ class SessionManagementService(
 
             // 새 세션 등록 전에 세션 유효성 확인
             if (isSessionInvalid(session)) {
-                println("[ERROR] Cannot register session - session is already invalidated")
+                logger.error("Cannot register session - session is already invalidated")
                 return SessionRegistrationResult.FAILED
             }
 
@@ -81,11 +83,11 @@ class SessionManagementService(
 
                 session.maxInactiveInterval = 1800 // 30분
 
-                println("[SECURITY] Session registered for user: $nickname (ID: $userId) using JSON serialization")
+                logger.info("Session registered for user: {} (ID: {}) using JSON serialization", nickname, userId)
                 return SessionRegistrationResult.SUCCESS
 
             } catch (e: Exception) {
-                println("[ERROR] Failed to set session data: ${e.message}")
+                logger.error("Failed to set session data: {}", e.message, e)
                 // 세션 데이터 설정 실패 시 메모리에서 세션 정보 제거
                 activeSessions.remove(nickname)
                 sessionIdToNickname.remove(sessionId)
@@ -93,7 +95,7 @@ class SessionManagementService(
             }
 
         } catch (e: Exception) {
-            println("[ERROR] Session registration failed for user $nickname: ${e.message}")
+            logger.error("Session registration failed for user {}: {}", nickname, e.message, e)
             return SessionRegistrationResult.FAILED
         }
     }
@@ -110,7 +112,7 @@ class SessionManagementService(
                 permissions = permissions
             )
             sessionDataManager.setAdminSession(session, adminSessionData)
-            println("[SECURITY] Admin session registered for user: $nickname")
+            logger.info("Admin session registered for user: {}", nickname)
         }
 
         return result
@@ -201,7 +203,7 @@ class SessionManagementService(
             sessionIdToNickname.remove(sessionInfo.sessionId)
             // Spring Security의 SessionRegistry를 사용하여 실제 HttpSession을 무효화
             sessionRegistry.getSessionInformation(sessionInfo.sessionId)?.expireNow()
-            println("[SECURITY] Session invalidated for user: $nickname")
+            logger.info("Session invalidated for user: {}", nickname)
         }
     }
     
@@ -209,7 +211,7 @@ class SessionManagementService(
         val nickname = sessionIdToNickname.remove(sessionId)
         if (nickname != null) {
             activeSessions.remove(nickname)
-            println("[SECURITY] Session invalidated by ID: $sessionId")
+            logger.info("Session invalidated by ID: {}", sessionId)
         }
     }
 
@@ -217,7 +219,7 @@ class SessionManagementService(
         val userSessionData = sessionDataManager.getUserSession(session)
         if (userSessionData != null) {
             invalidateSession(userSessionData.nickname)
-            println("[SECURITY] User logged out: ${userSessionData.nickname}")
+            logger.info("User logged out: {}", userSessionData.nickname)
         }
 
         sessionDataManager.clearUserSession(session)
@@ -225,7 +227,7 @@ class SessionManagementService(
         try {
             session.invalidate()
         } catch (e: IllegalStateException) {
-            println("[SECURITY] Session already invalidated during logout: ${e.message}")
+            logger.warn("Session already invalidated during logout: {}", e.message)
         }
     }
 
@@ -246,7 +248,7 @@ class SessionManagementService(
         }
         
         if (expiredSessions.isNotEmpty()) {
-            println("[CLEANUP] Cleaned up ${expiredSessions.size} expired sessions")
+            logger.info("Cleaned up {} expired sessions", expiredSessions.size)
         }
     }
     
@@ -286,7 +288,7 @@ class SessionManagementService(
             )
             true
         } catch (e: Exception) {
-            println("[WARN] Failed to rehydrate session ${session.id}: ${e.message}")
+            logger.warn("Failed to rehydrate session {}: {}", session.id, e.message)
             false
         }
     }

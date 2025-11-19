@@ -13,8 +13,9 @@ import org.example.kotlin_liargame.domain.game.model.enum.GameState
 import org.example.kotlin_liargame.domain.game.repository.GameRepository
 import org.example.kotlin_liargame.domain.game.repository.GameSubjectRepository
 import org.example.kotlin_liargame.domain.game.repository.PlayerRepository
+import org.example.kotlin_liargame.domain.game.service.GamePlayerService
 import org.example.kotlin_liargame.domain.game.service.GameProgressService
-import org.example.kotlin_liargame.domain.game.service.GameService
+import org.example.kotlin_liargame.domain.game.service.GameRoomService
 import org.example.kotlin_liargame.domain.subject.dto.request.SubjectRequest
 import org.example.kotlin_liargame.domain.subject.model.enum.ContentStatus
 import org.example.kotlin_liargame.domain.subject.repository.SubjectRepository
@@ -56,7 +57,8 @@ class LiarGameFullFlowSimulationTest {
     @Autowired lateinit var playerRepository: PlayerRepository
     @Autowired lateinit var gameSubjectRepository: GameSubjectRepository
 
-    @Autowired lateinit var gameService: GameService
+    @Autowired lateinit var gameRoomService: GameRoomService
+    @Autowired lateinit var gamePlayerService: GamePlayerService
     @Autowired lateinit var gameProgressService: GameProgressService
     @Autowired lateinit var sessionDataManager: org.example.kotlin_liargame.global.security.SessionDataManager
     @Autowired lateinit var sessionManagementService: org.example.kotlin_liargame.global.security.SessionManagementService
@@ -219,7 +221,7 @@ class LiarGameFullFlowSimulationTest {
                 useRandomSubjects = true,   // 랜덤 선택 경로
                 randomSubjectCount = 1
             )
-            gameService.createGameRoom(req, session)
+            gameRoomService.createGameRoom(req, session)
         } catch (e: Exception) {
             throw AssertionError("createRoom (service) failed: ${e::class.simpleName}: ${e.message}", e)
         }
@@ -228,7 +230,7 @@ class LiarGameFullFlowSimulationTest {
     // 서비스 레이어 직접 호출로 상세 예외 메시지 확인
     private fun joinRoom(session: MockHttpSession, gameNumber: Int) {
         try {
-            gameService.joinGame(JoinGameRequest(gameNumber), session)
+            gamePlayerService.joinGame(JoinGameRequest(gameNumber), session)
         } catch (e: Exception) {
             throw AssertionError("joinRoom (service) failed: ${e::class.simpleName}: ${e.message}", e)
         }

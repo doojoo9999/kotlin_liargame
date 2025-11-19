@@ -24,7 +24,9 @@ import org.springframework.web.bind.annotation.*
 @RestController
 @RequestMapping("/api/v1/game")
 class GameController(
-    private val gameService: GameService,
+    private val gameRoomService: GameRoomService,
+    private val gamePlayerService: GamePlayerService,
+    private val gamePlayService: GamePlayService,
     private val gameProgressService: GameProgressService,
     private val votingService: VotingService,
     private val defenseService: DefenseService,
@@ -39,10 +41,11 @@ class GameController(
     private val enhancedConnectionService: org.example.kotlin_liargame.global.connection.service.EnhancedConnectionService,
     private val gameCleanupService: GameCleanupService
 ) {
+    private val logger = org.slf4j.LoggerFactory.getLogger(GameController::class.java)
     
     @PostMapping("/create")
     fun createGameRoom(@Valid @RequestBody request: CreateGameRoomRequest, session: HttpSession): ResponseEntity<Int> {
-        val gameNumber = gameService.createGameRoom(request, session)
+        val gameNumber = gameRoomService.createGameRoom(request, session)
 
         // 게임 생성 후 WebSocket 세션 정보 갱신
         refreshAllWebSocketSessions(session)
@@ -53,28 +56,26 @@ class GameController(
     @PostMapping("/join")
     fun joinGame(@Valid @RequestBody request: JoinGameRequest, session: HttpSession): ResponseEntity<GameStateResponse> {
         return try {
-            val response = gameService.joinGame(request, session)
+            val response = gamePlayerService.joinGame(request, session)
 
             // 게임 입장 성공 후 WebSocket 세션 정보 갱신
             refreshAllWebSocketSessions(session)
 
             ResponseEntity.ok(response)
         } catch (e: GameNotFoundException) {
-            println("[ERROR] Game not found: ${e.message}")
+            logger.error("Game not found: {}", e.message)
             ResponseEntity.status(404).body(null)
         } catch (e: GameAlreadyStartedException) {
-            println("[ERROR] Game already started: ${e.message}")
+            logger.error("Game already started: {}", e.message)
             ResponseEntity.status(409).body(null)
         } catch (e: RoomFullException) {
-            println("[ERROR] Room is full: ${e.message}")
+            logger.error("Room is full: {}", e.message)
             ResponseEntity.status(409).body(null)
         } catch (e: RuntimeException) {
-            println("[ERROR] Runtime exception during join: ${e.message}")
-            e.printStackTrace()
+            logger.error("Runtime exception during join: {}", e.message, e)
             ResponseEntity.badRequest().body(null)
         } catch (e: Exception) {
-            println("[ERROR] Unexpected error during join: ${e.message}")
-            e.printStackTrace()
+            logger.error("Unexpected error during join: {}", e.message, e)
             ResponseEntity.status(500).body(null)
         }
     }
@@ -83,10 +84,10 @@ class GameController(
     @PostMapping("/leave")
     fun leaveGame(@Valid @RequestBody request: LeaveGameRequest, session: HttpSession): ResponseEntity<Boolean> {
         return try {
-            val response = gameService.leaveGame(request, session)
+            val response = gamePlayerService.leaveGame(request, session)
             ResponseEntity.ok(response)
         } catch (e: Exception) {
-            println("[ERROR] Failed to leave game: ${e.message}")
+            logger.error("Failed to leave game: {}", e.message)
             ResponseEntity.badRequest().body(null)
         }
     }
@@ -98,7 +99,7 @@ class GameController(
             val gameState = gameProgressService.startGame(session)
             ResponseEntity.ok(gameState)
         } catch (e: Exception) {
-            println("[ERROR] Failed to start game: ${e.message}")
+            logger.error("Failed to start game: {}", e.message)
             ResponseEntity.badRequest().body(null)
         }
     }
@@ -164,89 +165,81 @@ class GameController(
 
     @GetMapping("/{gameNumber}")
     fun getGameState(@PathVariable gameNumber: Int, session: HttpSession): ResponseEntity<GameStateResponse> {
-        val response = gameService.getGameState(gameNumber, session)
+        val response = gamePlayService.getGameState(gameNumber, session)
         return ResponseEntity.ok(response)
     }
     
     @GetMapping("/result/{gameNumber}")
     fun getGameResult(@PathVariable gameNumber: Int, session: HttpSession): ResponseEntity<GameResultResponse> {
-        val response = gameService.getGameResult(gameNumber, session)
+        val response = gamePlayService.getGameResult(gameNumber)
         return ResponseEntity.ok(response)
     }
     
     @PostMapping("/end-of-round")
     fun endOfRound(@RequestBody request: EndOfRoundRequest, session: HttpSession): ResponseEntity<GameStateResponse> {
-        val response = gameService.endOfRound(request, session)
+        val response = gamePlayService.endOfRound(request, session)
         return ResponseEntity.ok(response)
     }
     
     @GetMapping("/rooms")
     fun getAllGameRooms(session: HttpSession): ResponseEntity<GameRoomListResponse> {
-        val response = gameService.getAllGameRooms(session)
+        val response = gameRoomService.getAllGameRooms(session)
         return ResponseEntity.ok(response)
     }
 
     @PostMapping("/admin/cleanup/orphaned")
-    fun cleanupOrphanedGames(): ResponseEntity<Map<String, Any>> {
+    @Operation(summary = "고아 게임방 정리", description = "플레이어가 모두 이탈했거나 오래된 게임방을 일괄 정리합니다.")
+    fun cleanupOrphanedGames(): ResponseEntity<CleanupSummaryResponse> {
         return try {
             val cleanedCount = gameCleanupService.cleanupOrphanedGames()
-            ResponseEntity.ok(mapOf(
-                "success" to true,
-                "cleanedCount" to cleanedCount,
-                "message" to "Cleaned $cleanedCount orphaned games"
-            ))
+            ResponseEntity.ok(
+                CleanupSummaryResponse(success = true, cleanedCount = cleanedCount, message = "Cleaned $cleanedCount orphaned games")
+            )
         } catch (e: Exception) {
-            ResponseEntity.status(500).body(mapOf(
-                "success" to false as Any,
-                "error" to (e.message ?: "Unknown error") as Any
-            ))
+            ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(CleanupSummaryResponse(success = false, cleanedCount = 0, message = e.message ?: "Unknown error"))
         }
     }
 
     @PostMapping("/cleanup/user-data")
-    fun cleanupUserGameData(session: HttpSession): ResponseEntity<Map<String, Any>> {
+    @Operation(summary = "사용자 게임 데이터 정리", description = "현재 세션과 연결된 오래된 게임/플레이어 데이터를 정리합니다.")
+    fun cleanupUserGameData(session: HttpSession): ResponseEntity<UserGameCleanupResponse> {
         return try {
             val userId = sessionUtil.getUserId(session)
-                ?: return ResponseEntity.status(401).body(mapOf(
-                    "success" to false as Any,
-                    "error" to "Not authenticated" as Any
-                ))
-            
+                ?: return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
+                    UserGameCleanupResponse(success = false, message = "Not authenticated")
+                )
+
             val nickname = sessionUtil.getUserNickname(session) ?: "Unknown"
-            val success = gameService.cleanupStaleGameData(userId, nickname)
-            
-            ResponseEntity.ok(mapOf(
-                "success" to success,
-                "message" to if (success) "User game data cleaned up successfully" else "Cleanup failed"
-            ))
+            val success = gamePlayerService.cleanupStaleGameData(userId, nickname)
+            val message = if (success) {
+                "User game data cleaned up successfully"
+            } else {
+                "Cleanup failed"
+            }
+            ResponseEntity.ok(UserGameCleanupResponse(success = success, message = message))
         } catch (e: Exception) {
-            ResponseEntity.status(500).body(mapOf(
-                "success" to false as Any,
-                "error" to (e.message ?: "Unknown error") as Any
-            ))
+            ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(UserGameCleanupResponse(success = false, message = e.message ?: "Unknown error"))
         }
     }
 
     @DeleteMapping("/admin/cleanup/game/{gameNumber}")
-    fun forceCleanupGame(@PathVariable gameNumber: Int): ResponseEntity<Map<String, Any>> {
+    @Operation(summary = "특정 게임 강제 정리", description = "지정한 게임 번호의 모든 리소스를 관리자 권한으로 제거합니다.")
+    fun forceCleanupGame(@PathVariable gameNumber: Int): ResponseEntity<ForceCleanupResponse> {
         return try {
             val success = gameCleanupService.forceCleanupGame(gameNumber)
             if (success) {
-                ResponseEntity.ok(mapOf(
-                    "success" to true,
-                    "message" to "Game $gameNumber has been forcefully cleaned up"
-                ))
+                ResponseEntity.ok(
+                    ForceCleanupResponse(success = true, message = "Game $gameNumber has been forcefully cleaned up")
+                )
             } else {
-                ResponseEntity.status(404).body(mapOf(
-                    "success" to false,
-                    "error" to "Game $gameNumber not found"
-                ))
+                ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ForceCleanupResponse(success = false, message = "Game $gameNumber not found"))
             }
         } catch (e: Exception) {
-            ResponseEntity.status(500).body(mapOf(
-                "success" to false as Any,
-                "error" to (e.message ?: "Unknown error") as Any
-            ))
+            ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ForceCleanupResponse(success = false, message = e.message ?: "Unknown error"))
         }
     }
     
@@ -294,30 +287,29 @@ class GameController(
         session: HttpSession
     ): ResponseEntity<GameStateResponse> {
         return try {
-            println("[DEBUG] endDefense called with gameNumber: ${request.gameNumber}")
+            logger.debug("endDefense called with gameNumber: {}", request.gameNumber)
 
             val userId = sessionUtil.getUserId(session)
-            println("[DEBUG] Retrieved userId from session: $userId")
+            logger.debug("Retrieved userId from session: {}", userId)
 
             if (userId == null) {
-                println("[ERROR] User not authenticated - session userId is null")
+                logger.error("User not authenticated - session userId is null")
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(null)
             }
 
             val response = defenseService.endDefense(request.gameNumber, userId)
-            println("[DEBUG] defenseService.endDefense completed successfully")
+            logger.debug("defenseService.endDefense completed successfully")
 
             ResponseEntity.ok(response)
 
         } catch (e: IllegalArgumentException) {
-            println("[ERROR] IllegalArgumentException in endDefense: ${e.message}")
+            logger.error("IllegalArgumentException in endDefense: {}", e.message)
             ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null)
         } catch (e: IllegalStateException) {
-            println("[ERROR] IllegalStateException in endDefense: ${e.message}")
+            logger.error("IllegalStateException in endDefense: {}", e.message)
             ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null)
         } catch (e: Exception) {
-            println("[ERROR] Unexpected exception in endDefense: ${e.message}")
-            e.printStackTrace()
+            logger.error("Unexpected exception in endDefense: {}", e.message, e)
             val status = errorHandler.getStatusForException(e)
             ResponseEntity.status(status).body(null)
         }
@@ -366,7 +358,7 @@ class GameController(
                 ?: return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(recoveryResponseFactory.buildUnauthorizedResponse(gameNumber))
 
-            val recoveryData = gameService.recoverGameState(gameNumber, userId)
+            val recoveryData = gamePlayService.recoverGameState(gameNumber, userId)
             ResponseEntity.ok(recoveryData)
 
         } catch (e: Exception) {
@@ -390,7 +382,7 @@ class GameController(
             votingService.castVote(gameNumber, userId, request.targetUserId)
 
         } catch (e: Exception) {
-            println("[ERROR] WebSocket vote failed: ${e.message}")
+            logger.error("WebSocket vote failed: {}", e.message)
             // 에러는 서비스 레벨에서 WebSocket으로 전송됨
         }
     }
@@ -408,7 +400,7 @@ class GameController(
             gameResultService.submitLiarGuess(gameNumber, userId, request.guess)
             
         } catch (e: Exception) {
-            println("[ERROR] WebSocket topic guess failed: ${e.message}")
+            logger.error("WebSocket topic guess failed: {}", e.message)
         }
     }
 
@@ -422,25 +414,14 @@ class GameController(
     fun kickOwnerAndTransferOwnership(
         @PathVariable gameNumber: Int,
         session: HttpSession
-    ): ResponseEntity<Map<String, Any>> {
+    ): ResponseEntity<OwnerKickResponse> {
         return try {
-            val result = gameService.kickOwnerAndTransferOwnership(gameNumber)
-            ResponseEntity.ok(mapOf(
-                "success" to true as Any,
-                "message" to "방장이 강퇴되고 권한이 이양되었습니다." as Any,
-                "newOwner" to result.newOwner as Any,
-                "kickedPlayer" to result.kickedPlayer as Any
-            ))
+            val result = gamePlayerService.kickOwnerAndTransferOwnership(gameNumber)
+            ResponseEntity.ok(result)
         } catch (e: IllegalArgumentException) {
-            ResponseEntity.badRequest().body(mapOf(
-                "success" to false as Any,
-                "message" to (e.message ?: "잘못된 요청입니다.") as Any
-            ))
+            ResponseEntity.status(HttpStatus.BAD_REQUEST).build()
         } catch (e: Exception) {
-            ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(mapOf(
-                "success" to false as Any,
-                "message" to "방장 강퇴 처리 중 오류가 발생했습니다." as Any
-            ))
+            ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build()
         }
     }
 
@@ -449,25 +430,15 @@ class GameController(
     fun extendGameStartTime(
         @PathVariable gameNumber: Int,
         session: HttpSession
-    ): ResponseEntity<Map<String, Any>> {
+    ): ResponseEntity<TimeExtensionResponse> {
         return try {
             val userId = sessionUtil.getUserId(session)
-            val result = gameService.extendGameStartTime(gameNumber, userId)
-            ResponseEntity.ok(mapOf(
-                "success" to true as Any,
-                "message" to "게임 시작 시간이 5분 연장되었습니다." as Any,
-                "extendedUntil" to result.extendedUntil as Any
-            ))
+            val result = gamePlayService.extendGameStartTime(gameNumber, userId)
+            ResponseEntity.ok(result)
         } catch (e: IllegalArgumentException) {
-            ResponseEntity.badRequest().body(mapOf(
-                "success" to false as Any,
-                "message" to (e.message ?: "잘못된 요청입니다.") as Any
-            ))
+            ResponseEntity.status(HttpStatus.BAD_REQUEST).build()
         } catch (e: Exception) {
-            ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(mapOf(
-                "success" to false as Any,
-                "message" to "시간 연장 처리 중 오류가 발생했습니다." as Any
-            ))
+            ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build()
         }
     }
 
@@ -531,11 +502,11 @@ class GameController(
         try {
             val userId = sessionUtil.getUserId(httpSession)
             if (userId != null) {
-                println("[DEBUG] Attempting to refresh WebSocket sessions for userId: $userId")
+                logger.debug("Attempting to refresh WebSocket sessions for userId: {}", userId)
                 webSocketSessionManager.refreshSessionsForUser(userId, httpSession)
             }
         } catch (e: Exception) {
-            println("[WARN] Failed to refresh WebSocket sessions: ${e.message}")
+            logger.warn("Failed to refresh WebSocket sessions: {}", e.message)
         }
     }
 }

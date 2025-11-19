@@ -9,7 +9,7 @@ import org.example.kotlin_liargame.domain.game.repository.GameRepository
 import org.example.kotlin_liargame.domain.game.repository.GameSubjectRepository
 import org.example.kotlin_liargame.domain.game.repository.PlayerRepository
 import org.example.kotlin_liargame.domain.game.service.GameMonitoringService
-import org.example.kotlin_liargame.domain.game.service.GameService
+import org.example.kotlin_liargame.domain.game.service.GamePlayerService
 import org.example.kotlin_liargame.domain.subject.model.enum.ContentStatus
 import org.example.kotlin_liargame.domain.subject.repository.SubjectRepository
 import org.example.kotlin_liargame.domain.user.model.UserEntity
@@ -34,7 +34,7 @@ class AdminService(
     private val gameSubjectRepository: GameSubjectRepository,
     private val wordRepository: WordRepository,
     private val gameMonitoringService: GameMonitoringService,
-    private val gameService: GameService,
+    private val gamePlayerService: GamePlayerService,
     private val chatService: ChatService,
     private val meterRegistry: MeterRegistry,
     private val passwordEncoder: PasswordEncoder,
@@ -158,7 +158,7 @@ class AdminService(
         val player = playerRepository.findByGameAndUserId(game, userId)
             ?: throw IllegalArgumentException("해당 유저가 게임에 참여하고 있지 않습니다.")
 
-        gameService.leaveGameAsSystem(gameNumber, userId)
+        gamePlayerService.leaveGameAsSystem(gameNumber, userId)
 
         val kickMessage = mapOf("type" to "PLAYER_KICKED_BY_ADMIN", "message" to "${player.nickname}님이 관리자에 의해 강제 퇴장되었습니다.")
         gameMonitoringService.broadcastGameState(game, kickMessage)
@@ -454,7 +454,7 @@ class AdminService(
     @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
     fun cleanupSinglePlayer(gameNumber: Int, userId: Long) {
         try {
-            gameService.leaveGameAsSystem(gameNumber, userId)
+            gamePlayerService.leaveGameAsSystem(gameNumber, userId)
         } catch (e: Exception) {
             logger.error("단일 플레이어 정리 실패: gameNumber={}, userId={}", gameNumber, userId, e)
             throw e

@@ -9,6 +9,7 @@ import org.example.kotlin_liargame.domain.game.repository.GameRepository
 import org.example.kotlin_liargame.domain.game.repository.PlayerRepository
 import org.example.kotlin_liargame.global.redis.EnhancedLiarGuessStatus
 import org.example.kotlin_liargame.global.redis.GameStateService
+import org.slf4j.LoggerFactory
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.scheduling.TaskScheduler
 import org.springframework.stereotype.Service
@@ -31,6 +32,8 @@ class TopicGuessService(
     private val gameMessagingService: org.example.kotlin_liargame.global.messaging.GameMessagingService
 ) {
     
+    private val logger = LoggerFactory.getLogger(TopicGuessService::class.java)
+
     // ScheduledFuture와 ReentrantLock은 직렬화가 어려우므로 로컬에서 관리
     private val timerTasks = ConcurrentHashMap<Int, ScheduledFuture<*>>()
     private val gameLocks = ConcurrentHashMap<Int, ReentrantLock>()
@@ -162,7 +165,7 @@ class TopicGuessService(
             }
             return false
         } catch (e: Exception) {
-            println("[ERROR] Failed to handle guess timeout for game $gameNumber: ${e.message}")
+            logger.error("Failed to handle guess timeout for game {}: {}", gameNumber, e.message, e)
             return false
         }
     }
@@ -256,7 +259,7 @@ class TopicGuessService(
                     }
                 }
             } catch (e: Exception) {
-                println("[ERROR] Timer error for game $gameNumber: ${e.message}")
+                logger.error("Timer error for game {}: {}", gameNumber, e.message, e)
             }
         }, Instant.now().plusSeconds(1), java.time.Duration.ofSeconds(1))
         

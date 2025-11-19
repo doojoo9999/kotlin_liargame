@@ -9,14 +9,10 @@ import type {
     RoundSummaryEntry,
     RoundUxStage,
     VotingState
-} from '@/stores/unifiedGameStore'
+} from '@/stores/unified/types'
 import type {ChatMessage} from '@/types/realtime'
 
-type GameStoreSnapshot = ReturnType<typeof useGameStore.getState>
-
-type StoreActions = Pick<GameStoreSnapshot, 'addHint' | 'castVote' | 'addDefense' | 'setUserVote' | 'sendChatMessage' | 'loadChatHistory' | 'startGame' | 'toggleReady'>
-
-export interface GameLayoutViewModel extends StoreActions {
+export interface GameLayoutViewModel {
   gameId: string | null
   gameNumber: number | null
   sessionCode: string | null
@@ -51,6 +47,14 @@ export interface GameLayoutViewModel extends StoreActions {
   roundSummaries: RoundSummaryEntry[]
   currentRoundSummary: RoundSummaryEntry | null
   scoreboardEntries: ScoreboardEntry[]
+  addHint: ReturnType<typeof useGameStore.getState>['addHint']
+  castVote: ReturnType<typeof useGameStore.getState>['castVote']
+  addDefense: ReturnType<typeof useGameStore.getState>['addDefense']
+  setUserVote: ReturnType<typeof useGameStore.getState>['setUserVote']
+  sendChatMessage: ReturnType<typeof useGameStore.getState>['sendChatMessage']
+  loadChatHistory: ReturnType<typeof useGameStore.getState>['loadChatHistory']
+  startGame: ReturnType<typeof useGameStore.getState>['startGame']
+  toggleReady: ReturnType<typeof useGameStore.getState>['toggleReady']
 }
 
 export function useGameLayoutViewModel(): GameLayoutViewModel {

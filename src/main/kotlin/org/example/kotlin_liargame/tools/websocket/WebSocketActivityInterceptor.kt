@@ -5,11 +5,14 @@ import org.springframework.messaging.MessageChannel
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor
 import org.springframework.messaging.support.ChannelInterceptor
 import org.springframework.stereotype.Component
+import org.slf4j.LoggerFactory
 
 @Component
 class WebSocketActivityInterceptor(
     private val connectionManager: WebSocketConnectionManager
 ) : ChannelInterceptor {
+
+    private val logger = LoggerFactory.getLogger(WebSocketActivityInterceptor::class.java)
 
     override fun preSend(message: Message<*>, channel: MessageChannel): Message<*>? {
         val accessor = SimpMessageHeaderAccessor.wrap(message)
@@ -21,7 +24,7 @@ class WebSocketActivityInterceptor(
                 connectionManager.updateLastActivity(sessionId)
                 // 매우 빈번한 활동 감지 로그 제거
             } catch (e: Exception) {
-                println("[ACTIVITY] Error updating activity for session $sessionId: ${e.message}")
+                logger.error("Error updating activity for session {}: {}", sessionId, e.message, e)
             }
         }
 

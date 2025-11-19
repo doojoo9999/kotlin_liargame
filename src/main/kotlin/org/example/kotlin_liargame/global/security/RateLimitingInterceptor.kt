@@ -3,6 +3,7 @@ package org.example.kotlin_liargame.global.security
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import org.example.kotlin_liargame.global.util.SessionUtil
+import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Component
 import org.springframework.web.servlet.HandlerInterceptor
@@ -12,6 +13,7 @@ class RateLimitingInterceptor(
     private val rateLimitingService: RateLimitingService,
     private val sessionUtil: SessionUtil
 ) : HandlerInterceptor {
+    private val logger = LoggerFactory.getLogger(this::class.java)
     
     override fun preHandle(
         request: HttpServletRequest,
@@ -136,7 +138,7 @@ class RateLimitingInterceptor(
         response.writer.write(errorResponse)
         response.addHeader("Retry-After", "60")
 
-        println("[SECURITY] Rate limit exceeded for client: $clientId, requests: ${status.apiRequestsInLastMinute}/${status.apiRequestsPerMinuteLimit}")
+        logger.warn("Rate limit exceeded for client: {}, requests: {}/{}", clientId, status.apiRequestsInLastMinute, status.apiRequestsPerMinuteLimit)
     }
 
     private fun addRateLimitHeaders(response: HttpServletResponse, clientId: String) {

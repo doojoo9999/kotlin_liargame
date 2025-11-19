@@ -10,6 +10,7 @@ import org.example.kotlin_liargame.domain.chat.model.enum.ChatMessageType
 import org.example.kotlin_liargame.domain.chat.service.ChatService
 import org.example.kotlin_liargame.domain.game.service.GameProgressService
 import org.example.kotlin_liargame.global.util.SessionUtil
+import org.slf4j.LoggerFactory
 import org.springframework.http.ResponseEntity
 import org.springframework.messaging.handler.annotation.MessageMapping
 import org.springframework.messaging.handler.annotation.Payload
@@ -25,6 +26,7 @@ class ChatController(
     private val gameProgressService: GameProgressService,
     private val sessionUtil: SessionUtil
 ) {
+    private val logger = LoggerFactory.getLogger(this::class.java)
 
     @PostMapping("/send")
     fun sendMessage(
@@ -53,7 +55,7 @@ class ChatController(
 
             // 중요한 에러만 로그 출력
         } catch (e: Exception) {
-            println("[ERROR] WebSocket chat message handling failed: ${e.message}")
+            logger.error("WebSocket chat message handling failed: {}", e.message, e)
             throw e
         }
     }
