@@ -3,6 +3,7 @@ import {devtools, persist} from 'zustand/middleware';
 import {toast} from 'sonner';
 import {gameService} from '../api/gameApi';
 import {useAuthStore} from './authStore';
+import {websocketService} from '@/services/websocketService';
 import type {
     CreateGameRequest,
     GameMode,
@@ -665,6 +666,17 @@ const initialState: GameState = {
   gameListError: null,
   availableGameModes: [],
   currentGameState: null,
+};
+
+const safeUnsubscribeFromGame = (gameNumber: number | null) => {
+  if (gameNumber == null) {
+    return;
+  }
+  try {
+    websocketService.unsubscribeFromGame(gameNumber.toString());
+  } catch (error) {
+    console.warn('[unifiedGameStore] Failed to unsubscribe from game', { gameNumber, error });
+  }
 };
 
 // Create the unified store
@@ -1972,7 +1984,11 @@ export const useGameStore = create<UnifiedGameStore>()(
         }),
 
         // Reset Actions
-        resetGame: () => set({ ...initialState, typingPlayers: new Set() }),
+        resetGame: () => {
+          const currentGameNumber = get().gameNumber;
+          safeUnsubscribeFromGame(currentGameNumber);
+          set({ ...initialState, typingPlayers: new Set() });
+        },
         resetVote: () => set({ userVote: null }),
         resetGameData: () => set({
           hints: [],
