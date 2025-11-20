@@ -44,6 +44,11 @@ spring:
   websocket:
     allowed-origins: "*"
 
+  # 테스트에서는 스케줄러를 비활성화하여 테이블 생성/삭제 시점에 쿼리 오류가 나지 않도록 함
+  task:
+    scheduling:
+      enabled: false
+
   session:
     store-type: memory # 테스트용 메모리 세션
 

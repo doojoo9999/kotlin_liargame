@@ -1,43 +1,24 @@
 package org.example.kotlin_liargame.domain.nemonemo.v2
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.opentable.db.postgres.embedded.EmbeddedPostgres
 import jakarta.transaction.Transactional
 import org.example.kotlin_liargame.domain.nemonemo.service.PuzzleValidationService
+import org.example.kotlin_liargame.domain.nemonemo.v2.controller.NemonemoPuzzleV2Controller
 import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleCreateRequest
 import org.example.kotlin_liargame.domain.nemonemo.v2.dto.PuzzleReviewRequest
-import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleAuditAction
-import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleReviewDecision
-import org.example.kotlin_liargame.domain.nemonemo.v2.model.DailyPickEntity
-import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleContentStyle
-import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleEntity
-import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleMode
-import org.example.kotlin_liargame.domain.nemonemo.v2.model.PuzzleStatus
-import org.example.kotlin_liargame.domain.nemonemo.v2.model.ScoreEntity
-import org.example.kotlin_liargame.domain.nemonemo.v2.model.ScoreId
-import org.example.kotlin_liargame.domain.nemonemo.v2.repository.DailyPickRepository
-import org.example.kotlin_liargame.domain.nemonemo.v2.repository.PuzzleAuditLogRepository
-import org.example.kotlin_liargame.domain.nemonemo.v2.repository.PuzzleHintRepository
-import org.example.kotlin_liargame.domain.nemonemo.v2.repository.PuzzleRepository
-import org.example.kotlin_liargame.domain.nemonemo.v2.repository.PuzzleSolutionRepository
-import org.example.kotlin_liargame.domain.nemonemo.v2.repository.PlayRepository
-import org.example.kotlin_liargame.domain.nemonemo.v2.repository.ScoreRepository
+import org.example.kotlin_liargame.domain.nemonemo.v2.model.*
+import org.example.kotlin_liargame.domain.nemonemo.v2.repository.*
 import org.example.kotlin_liargame.domain.nemonemo.v2.service.PuzzleApplicationService
-import org.example.kotlin_liargame.domain.nemonemo.v2.controller.NemonemoPuzzleV2Controller
-import org.example.kotlin_liargame.global.security.SessionDataManager
-import org.example.kotlin_liargame.global.security.UserSessionData
-import org.junit.jupiter.api.BeforeEach
-import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNull
-import org.junit.jupiter.api.Assertions.assertTrue
-import org.springframework.beans.factory.annotation.Autowired
-import com.opentable.db.postgres.embedded.EmbeddedPostgres
+import org.example.kotlin_liargame.global.security.*
 import org.hamcrest.Matchers.hasItem
 import org.hamcrest.Matchers.hasItems
-import org.junit.jupiter.api.AfterAll
-import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.*
+import org.junit.jupiter.api.Assertions.*
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.core.MethodParameter
 import org.springframework.http.MediaType
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf
@@ -48,23 +29,13 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.patch
 import org.springframework.test.web.servlet.post
-import org.springframework.test.web.servlet.request.RequestPostProcessor
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders
-import org.springframework.test.web.servlet.setup.MockMvcBuilders
-import org.springframework.core.MethodParameter
-import org.springframework.web.bind.support.WebDataBinderFactory
-import org.springframework.web.context.request.NativeWebRequest
-import org.springframework.web.method.support.HandlerMethodArgumentResolver
-import org.springframework.web.method.support.ModelAndViewContainer
-import org.example.kotlin_liargame.global.security.RequireSubject
+import org.springframework.test.web.servlet.request.RequestPostProcessor
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers
+import org.springframework.test.web.servlet.setup.MockMvcBuilders
+import org.springframework.web.method.support.HandlerMethodArgumentResolver
 import java.time.Instant
-import java.time.LocalDate
-import java.util.UUID
-import org.example.kotlin_liargame.global.security.SubjectPrincipal
-import org.example.kotlin_liargame.global.security.SubjectPrincipalResolver
-import org.junit.jupiter.api.Assertions.assertNotNull
-import org.junit.jupiter.api.assertThrows
+import java.util.*
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -97,7 +68,8 @@ class NemonemoPuzzleV2ControllerTest @Autowired constructor(
             registry.add("spring.datasource.username") { "postgres" }
             registry.add("spring.datasource.password") { "postgres" }
             registry.add("spring.datasource.driver-class-name") { "org.postgresql.Driver" }
-            registry.add("spring.jpa.hibernate.ddl-auto") { "create-drop" }
+            // Avoid drop-on-close to prevent shutdown errors when embedded PG is already closed
+            registry.add("spring.jpa.hibernate.ddl-auto") { "create" }
             registry.add("spring.jpa.properties.hibernate.dialect") { "org.hibernate.dialect.PostgreSQLDialect" }
             registry.add("spring.jpa.properties.hibernate.jdbc.lob.non_contextual_creation") { "true" }
         }

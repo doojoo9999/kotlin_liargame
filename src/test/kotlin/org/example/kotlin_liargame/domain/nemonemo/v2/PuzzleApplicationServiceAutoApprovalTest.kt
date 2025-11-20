@@ -39,7 +39,8 @@ class PuzzleApplicationServiceAutoApprovalTest @Autowired constructor(
             registry.add("spring.datasource.username") { "postgres" }
             registry.add("spring.datasource.password") { "postgres" }
             registry.add("spring.datasource.driver-class-name") { "org.postgresql.Driver" }
-            registry.add("spring.jpa.hibernate.ddl-auto") { "create-drop" }
+            // Avoid drop-on-close to prevent shutdown errors when embedded PG is already closed
+            registry.add("spring.jpa.hibernate.ddl-auto") { "create" }
             registry.add("spring.jpa.properties.hibernate.dialect") { "org.hibernate.dialect.PostgreSQLDialect" }
             registry.add("spring.jpa.properties.hibernate.jdbc.lob.non_contextual_creation") { "true" }
         }

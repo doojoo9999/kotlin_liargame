@@ -10,13 +10,11 @@ import org.springframework.boot.runApplication
 import org.springframework.cache.annotation.EnableCaching
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing
-import org.springframework.scheduling.annotation.EnableScheduling
 
 @SpringBootApplication(scanBasePackages = ["org.example.kotlin_liargame", "org.example.lineagew"])
 @EntityScan(basePackages = ["org.example.kotlin_liargame", "org.example.lineagew"])
 @EnableJpaRepositories(basePackages = ["org.example.kotlin_liargame", "org.example.lineagew"])
 @EnableJpaAuditing
-@EnableScheduling
 @EnableCaching
 @EnableConfigurationProperties(value = [GameProperties::class, GameStateStorageProperties::class, LineagewAdminProperties::class])
 class KotlinLiargameApplication
