@@ -1,13 +1,13 @@
-import React, {useEffect, useState} from 'react';
-import {motion} from 'framer-motion';
-import {Card, CardContent} from '@/components/ui/card';
-import {Progress} from '@/components/ui/progress';
-import {Badge} from '@/components/ui/badge';
-import {AlertCircle, CheckCircle, Clock, Wifi, WifiOff} from 'lucide-react';
-import {cn} from '@/lib/utils';
-import {useGameFlowStore} from '@/stores';
-import {useShallow} from 'zustand/react/shallow';
-import {useConnectionStore} from '@/stores/connectionStore';
+import React, { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
+import { Card, CardContent } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
+import { AlertCircle, CheckCircle, Clock, Wifi, WifiOff } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { useGameFlowStore } from '@/stores';
+import { useShallow } from 'zustand/react/shallow';
+import { useConnectionStore } from '@/stores/connectionStore';
 
 interface GameTimerProps {
   showProgress?: boolean;
@@ -31,7 +31,7 @@ export const GameTimer: React.FC<GameTimerProps> = ({
   })))
 
   const isConnected = useConnectionStore((state) => state.status === 'connected')
-  
+
   const { isActive, timeRemaining, totalTime, phase } = timer
   const [displayTime, setDisplayTime] = useState(timeRemaining);
   const [lastSyncTime, setLastSyncTime] = useState(Date.now());
@@ -52,9 +52,9 @@ export const GameTimer: React.FC<GameTimerProps> = ({
     const interval = setInterval(() => {
       const elapsed = Math.floor((Date.now() - lastSyncTime) / 1000);
       const calculatedTime = Math.max(0, timeRemaining - elapsed);
-      
+
       setDisplayTime(calculatedTime);
-      
+
       // Call onTimeUp when time reaches 0
       if (calculatedTime <= 0) {
         clearInterval(interval);
@@ -146,7 +146,7 @@ export const GameTimer: React.FC<GameTimerProps> = ({
       >
         <StatusIcon className={config.icon} />
         <span className={cn("font-mono font-bold", config.text)}>
-          {formatTime(displayTime)}
+          {displayTime === 0 && isActive ? "Waiting..." : formatTime(displayTime)}
         </span>
       </motion.div>
     );
@@ -172,7 +172,7 @@ export const GameTimer: React.FC<GameTimerProps> = ({
                   {getPhaseTitle()}
                 </Badge>
               </div>
-              
+
               {/* Connection Status */}
               <div className="flex items-center space-x-1">
                 {isConnected ? (
@@ -185,7 +185,7 @@ export const GameTimer: React.FC<GameTimerProps> = ({
                 </span>
               </div>
             </div>
-            
+
             <div className="flex items-center justify-center space-x-2">
               <StatusIcon className={cn(
                 config.icon,
@@ -199,10 +199,14 @@ export const GameTimer: React.FC<GameTimerProps> = ({
                 isCritical && "text-red-500",
                 isWarning && !isCritical && "text-orange-500"
               )}>
-                {formatTime(displayTime)}
+                {displayTime === 0 && isActive ? (
+                  <span className="text-sm">Waiting...</span>
+                ) : (
+                  formatTime(displayTime)
+                )}
               </span>
             </div>
-            
+
             <div className="space-y-2">
               <p className={cn(
                 "text-sm font-medium",
@@ -212,9 +216,9 @@ export const GameTimer: React.FC<GameTimerProps> = ({
               )}>
                 {phase}
               </p>
-              
+
               {showProgress && (
-                <Progress 
+                <Progress
                   value={getProgressPercentage()}
                   className={cn(
                     "h-2",

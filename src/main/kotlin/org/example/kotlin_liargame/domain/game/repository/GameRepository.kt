@@ -25,6 +25,10 @@ interface GameRepository : JpaRepository<GameEntity, Long> {
     @Query("SELECT g FROM GameEntity g WHERE g.gameNumber = :gameNumber")
     fun findByGameNumberWithLock(gameNumber: Int): GameEntity?
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT g FROM GameEntity g WHERE g.id = :id")
+    fun findByIdWithLock(@Param("id") id: Long): java.util.Optional<GameEntity>
+
     @Query("SELECT g FROM GameEntity g WHERE g.gameState != :gameState")
     fun findByGameStateNot(gameState: GameState): List<GameEntity>
 

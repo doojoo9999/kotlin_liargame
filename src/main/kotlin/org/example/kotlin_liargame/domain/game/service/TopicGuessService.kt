@@ -29,7 +29,8 @@ class TopicGuessService(
     private val taskScheduler: TaskScheduler,
     private val gameProperties: org.example.kotlin_liargame.global.config.GameProperties,
     private val gameStateService: GameStateService,
-    private val gameMessagingService: org.example.kotlin_liargame.global.messaging.GameMessagingService
+    private val gameMessagingService: org.example.kotlin_liargame.global.messaging.GameMessagingService,
+    @org.springframework.context.annotation.Lazy private val gameResultService: GameResultService
 ) {
     
     private val logger = LoggerFactory.getLogger(TopicGuessService::class.java)
@@ -81,6 +82,10 @@ class TopicGuessService(
     
     fun submitLiarGuess(gameNumber: Int, liarPlayerId: Long, guess: String): LiarGuessResultResponse {
         try {
+            // Lock the game first
+            val game = gameRepository.findByGameNumberWithLock(gameNumber)
+                ?: throw IllegalArgumentException("Game not found: $gameNumber")
+
             val guessStatus = gameStateService.getLiarGuessStatus(gameNumber)
                 ?: throw IllegalStateException("No liar guess phase active for game $gameNumber")
             
@@ -96,8 +101,7 @@ class TopicGuessService(
             timerTasks[gameNumber]?.cancel(false)
             timerTasks.remove(gameNumber)
             
-            val game = gameRepository.findByGameNumber(gameNumber)
-                ?: throw IllegalArgumentException("Game not found: $gameNumber")
+            // Game is already loaded with lock above
             
             val correctAnswer = game.citizenSubject?.content ?: ""
             
@@ -161,6 +165,14 @@ class TopicGuessService(
                 )
                 
                 sendModeratorMessage(gameNumber, "시간 초과! 라이어가 주제를 맞추지 못했습니다.")
+                
+                // 게임 종료 처리 위임
+                gameResultService.endGameWithCitizenVictory(
+                    gameNumber = gameNumber,
+                    reasonOverride = "라이어 시간 초과로 시민 승리",
+                    liarGuessCorrect = false
+                )
+                
                 return true
             }
             return false

@@ -35,7 +35,8 @@ class GameProgressService(
         val player = playerRepository.findByNickname(nickname)
             ?: throw RuntimeException("게임에 참여하지 않았습니다. 먼저 게임방에 입장해주세요.")
 
-        val game = player.game
+        val game = gameRepository.findByGameNumberWithLock(player.game.gameNumber)
+            ?: throw RuntimeException("Game not found")
 
         if (game.gameOwner != nickname) {
             throw RuntimeException("게임 시작 권한이 없습니다. 방장만 게임을 시작할 수 있습니다.")
@@ -89,6 +90,7 @@ class GameProgressService(
         return gameStateResponse
     }
 
+    @Transactional
     fun startNewTurn(game: GameEntity) {
         // Guard: only proceed when in SPEECH phase
         if (game.currentPhase != org.example.kotlin_liargame.domain.game.model.enum.GamePhase.SPEECH) {
@@ -121,6 +123,13 @@ class GameProgressService(
             game.currentTurnIndex += 1
             gameRepository.save(game)
 
+            // Prevent infinite recursion with a safety counter or check
+            if (game.currentTurnIndex >= turnOrder.size * 2) {
+                println("[GameProgressService] ERROR: Infinite loop detected in startNewTurn. Ending turn.")
+                votingService.startVotingPhase(game)
+                return
+            }
+            
             startNewTurn(game)
             return
         }
@@ -146,7 +155,7 @@ class GameProgressService(
 
     @Transactional
     fun forceNextTurn(gameId: Long) {
-        val game = gameRepository.findById(gameId).orElse(null) ?: return
+        val game = gameRepository.findByIdWithLock(gameId).orElse(null) ?: return
         
         // Guard: only proceed when in SPEECH phase
         if (game.currentPhase != org.example.kotlin_liargame.domain.game.model.enum.GamePhase.SPEECH) {
@@ -252,7 +261,7 @@ class GameProgressService(
 
     @Transactional
     fun giveHint(req: GiveHintRequest, session: HttpSession): GameStateResponse {
-        val game = gameRepository.findByGameNumber(req.gameNumber)
+        val game = gameRepository.findByGameNumberWithLock(req.gameNumber)
             ?: throw RuntimeException("Game not found")
 
         val userId = sessionService.getCurrentUserId(session)

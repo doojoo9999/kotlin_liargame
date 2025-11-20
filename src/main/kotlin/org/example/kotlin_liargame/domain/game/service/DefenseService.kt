@@ -88,7 +88,11 @@ class DefenseService(
         )
     }
     
+    @Transactional
     fun submitDefense(gameNumber: Int, userId: Long, defenseText: String): DefenseSubmissionResponse {
+        // Lock the game first to prevent concurrent submissions or timeouts
+        val game = gameRepository.findByGameNumberWithLock(gameNumber)
+            ?: throw IllegalArgumentException("Game not found")
         val defenseStatus = gameStateService.getDefenseStatus(gameNumber)
             ?: throw IllegalStateException("No defense phase active")
             
@@ -104,8 +108,9 @@ class DefenseService(
             throw IllegalStateException("Defense time has expired")
         }
         
-        val game = gameRepository.findByGameNumber(gameNumber)
-            ?: throw IllegalArgumentException("Game not found")
+        // Game is already loaded with lock above
+        // val game = gameRepository.findByGameNumber(gameNumber)
+        //    ?: throw IllegalArgumentException("Game not found")
         val player = playerRepository.findByGameAndUserId(game, userId)
             ?: throw IllegalArgumentException("Player not found")
 
@@ -144,11 +149,12 @@ class DefenseService(
         )
     }
     
+    @Transactional
     fun endDefense(gameNumber: Int, userId: Long): GameStateResponse {
         println("[DEBUG] DefenseService.endDefense called - gameNumber: $gameNumber, userId: $userId")
 
         // 1. 권한/페이즈 검증 - DEFENDING 페이즈에서만 허용
-        val game = gameRepository.findByGameNumber(gameNumber)
+        val game = gameRepository.findByGameNumberWithLock(gameNumber)
             ?: throw IllegalArgumentException("Game not found")
             
         println("[DEBUG] Game found - currentPhase: ${game.currentPhase}")

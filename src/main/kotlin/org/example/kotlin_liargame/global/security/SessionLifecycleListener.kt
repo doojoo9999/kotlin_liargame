@@ -3,15 +3,13 @@ package org.example.kotlin_liargame.global.security
 import jakarta.servlet.http.HttpSessionEvent
 import jakarta.servlet.http.HttpSessionListener
 import org.example.kotlin_liargame.domain.game.service.GamePlayerService
-import org.example.kotlin_liargame.tools.websocket.WebSocketDisconnectService
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
 @Component
 class SessionLifecycleListener(
     private val sessionManagementService: SessionManagementService,
-    private val gamePlayerService: GamePlayerService,
-    private val webSocketDisconnectService: WebSocketDisconnectService
+    private val gamePlayerService: GamePlayerService
 ) : HttpSessionListener {
 
     private val logger = LoggerFactory.getLogger(SessionLifecycleListener::class.java)
@@ -28,7 +26,6 @@ class SessionLifecycleListener(
 
         if (sessionInfo != null) {
             sessionManagementService.invalidateSession(sessionInfo.nickname)
-            webSocketDisconnectService.disconnectByUserId(sessionInfo.userId)
 
             try {
                 gamePlayerService.cleanupPlayerByUserId(sessionInfo.userId)
@@ -42,7 +39,6 @@ class SessionLifecycleListener(
             }
         } else {
             sessionManagementService.invalidateSessionById(sessionId)
-            webSocketDisconnectService.disconnectByHttpSessionId(sessionId)
         }
     }
 }

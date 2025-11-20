@@ -17,7 +17,7 @@ class TurnTimeoutService(
     private val topicGuessService: TopicGuessService
 ) {
 
-    @Scheduled(fixedRate = 5000) // Check every 5 seconds for better responsiveness
+    @Scheduled(fixedRate = 1000) // Check every 1 second for better responsiveness
     @Transactional
     fun checkTurnTimeouts() {
         val inProgressGames = gameRepository.findByGameState(org.example.kotlin_liargame.domain.game.model.enum.GameState.IN_PROGRESS)
@@ -41,7 +41,7 @@ class TurnTimeoutService(
                         GamePhase.VOTING_FOR_LIAR -> {
                             println("[TIMEOUT] Voting timeout detected for game: ${game.gameNumber}, phaseEndTime: $phaseEndTime, currentTime: $now")
                             try {
-                                votingService.forceVotingPhaseEnd(game)
+                                votingService.forceVotingPhaseEnd(game.gameNumber)
                                 println("[TIMEOUT] Successfully forced voting phase end for game: ${game.gameNumber}")
                             } catch (e: Exception) {
                                 println("[TIMEOUT] Error forcing voting phase end for game: ${game.gameNumber}, error: ${e.message}")

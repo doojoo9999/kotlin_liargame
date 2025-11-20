@@ -145,6 +145,10 @@ class VotingService(
             throw RuntimeException("Game is not in progress")
         }
 
+        if (game.currentPhase != GamePhase.VOTING_FOR_LIAR) {
+            throw RuntimeException("Voting is not currently active (Current phase: ${game.currentPhase})")
+        }
+
         val voter = playerRepository.findByGameAndUserId(game, voterUserId)
             ?: throw RuntimeException("You are not in this game")
 
@@ -335,9 +339,22 @@ class VotingService(
     }
 
     @Transactional
-    fun forceVotingPhaseEnd(game: GameEntity) {
+    fun forceVotingPhaseEnd(gameNumber: Int) {
         println("[VotingService] === FORCING VOTING PHASE END ===")
+        
+        val game = gameRepository.findByGameNumberWithLock(gameNumber)
+            ?: throw RuntimeException("Game not found: $gameNumber")
+
         println("[VotingService] Game: ${game.gameNumber}, Current phase: ${game.currentPhase}")
+
+        // Double-check phase and time inside lock to prevent race conditions
+        if (game.currentPhase != GamePhase.VOTING_FOR_LIAR) {
+             println("[VotingService] Game is no longer in VOTING_FOR_LIAR phase (current: ${game.currentPhase}). Skipping timeout.")
+             return
+        }
+        
+        // Optional: Check time again if strict precision is needed, but phase check is usually sufficient
+        // if (game.phaseEndTime != null && Instant.now().isBefore(game.phaseEndTime)) { ... }
 
         try {
             // 투표하지 않은 플레이어들의 상태를 VOTED로 변경 (빈 투표로 처리)

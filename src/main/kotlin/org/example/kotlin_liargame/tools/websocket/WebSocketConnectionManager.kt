@@ -1,5 +1,6 @@
 package org.example.kotlin_liargame.tools.websocket
 
+import jakarta.servlet.http.HttpSession
 import org.example.kotlin_liargame.domain.game.service.GamePlayerService
 import org.example.kotlin_liargame.global.connection.service.EnhancedConnectionService
 import org.example.kotlin_liargame.tools.websocket.dto.ConnectionMessage
@@ -9,9 +10,12 @@ import org.example.kotlin_liargame.tools.websocket.dto.HeartbeatMessage
 import org.example.kotlin_liargame.tools.websocket.enum.ConnectionStatus
 import org.slf4j.LoggerFactory
 import org.springframework.context.annotation.Lazy
+import org.springframework.context.event.EventListener
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.scheduling.TaskScheduler
+import org.springframework.security.web.session.HttpSessionDestroyedEvent
 import org.springframework.stereotype.Component
+import org.springframework.web.socket.CloseStatus
 import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
@@ -196,6 +200,33 @@ class WebSocketConnectionManager(
                 Duration.between(state.connectedAt, endTime).seconds
             }.takeIf { it.isNotEmpty() }?.average() ?: 0.0
         )
+    }
+
+    @EventListener
+    fun handleHttpSessionDestroyed(event: HttpSessionDestroyedEvent) {
+        val session = event.session ?: return
+        cleanupSocketsForHttpSession(session)
+    }
+
+    private fun cleanupSocketsForHttpSession(httpSession: HttpSession) {
+        val httpSessionId = httpSession.id
+        val sessionIds = webSocketSessionManager.getSessionIdsByHttpSessionId(httpSessionId)
+        if (sessionIds.isEmpty()) {
+            return
+        }
+
+        sessionIds.forEach { sessionId ->
+            val closed = webSocketSessionManager.closeNativeSession(sessionId, CloseStatus.SESSION_NOT_RELIABLE)
+            handleDisconnection(sessionId)
+
+            if (closed) {
+                logger.info(
+                    "[CONNECTION] Closed WebSocket session {} due to HTTP session logout/expiry ({})",
+                    sessionId,
+                    httpSessionId
+                )
+            }
+        }
     }
 
     private fun startHeartbeatMonitoring(sessionId: String) {
