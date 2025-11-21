@@ -514,19 +514,24 @@ export const GameChat: React.FC<GameChatProps> = ({
                     )
                   }
 
-                  return (
-                    <div key={message.id} className={`flex ${justifyClass}`}>
-                      <div className={`flex w-full flex-col gap-1.5 ${alignmentClasses}`}>
+                return (
+                  <div key={message.id} className={`flex ${justifyClass}`}>
+                    <div className={`flex w-full flex-col gap-1.5 ${alignmentClasses}`}>
+                      <div
+                        className={`flex items-start gap-2 px-1 text-[12px] text-muted-foreground/80 ${
+                          isSelf ? 'justify-end' : ''
+                        }`}
+                      >
+                        {!isSelf && (
+                          <Avatar className="h-7 w-7 shrink-0 border border-white/10 bg-[#1f1f2b] text-foreground/80 shadow-sm">
+                            <AvatarFallback className="text-xs uppercase">{avatarInitial}</AvatarFallback>
+                          </Avatar>
+                        )}
                         <div
-                          className={`flex items-center gap-2 px-1 text-[12px] text-muted-foreground/80 ${
-                            isSelf ? 'justify-end' : ''
+                          className={`flex max-w-full flex-wrap items-start gap-2 ${
+                            isSelf ? 'justify-end text-right' : 'justify-start text-left'
                           }`}
                         >
-                          {!isSelf && (
-                            <Avatar className="h-7 w-7 shrink-0 border border-white/10 bg-[#1f1f2b] text-foreground/80 shadow-sm">
-                              <AvatarFallback className="text-xs uppercase">{avatarInitial}</AvatarFallback>
-                            </Avatar>
-                          )}
                           <div className="flex items-center gap-1 text-[13px] font-semibold tracking-wide text-foreground">
                             <span>{displayName}</span>
                             {isHostMessage && <Crown className="h-3.5 w-3.5 text-amber-400" aria-label="방장" />}
@@ -537,6 +542,17 @@ export const GameChat: React.FC<GameChatProps> = ({
                                 {typeLabel}
                               </span>
                             )}
+                          </div>
+                          <div className={`relative ${bubbleWidthClass}`}>
+                            <div
+                              className={`rounded-2xl text-sm leading-relaxed transition-all duration-150 ${bubbleTone} ${bubblePadding} ${highlightClasses}`}
+                              data-message-type={message.type}
+                              data-highlighted={isHighlighted}
+                            >
+                              <p className={`whitespace-pre-wrap break-words text-[13px] leading-snug ${contentTone}`}>
+                                {messageBody}
+                              </p>
+                            </div>
                           </div>
                           {showReport && (
                             <Button
@@ -551,22 +567,11 @@ export const GameChat: React.FC<GameChatProps> = ({
                             </Button>
                           )}
                         </div>
+                      </div>
 
-                        <div className={`relative ${bubbleWidthClass}`}>
-                          <div
-                            className={`rounded-2xl text-sm leading-relaxed transition-all duration-150 ${bubbleTone} ${bubblePadding} ${highlightClasses}`}
-                            data-message-type={message.type}
-                            data-highlighted={isHighlighted}
-                          >
-                            <p className={`min-w-0 whitespace-pre-wrap break-words text-[13px] leading-snug ${contentTone}`}>
-                              {messageBody}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div
-                          className={`px-1 text-[11px] text-muted-foreground/70 ${
-                            isSelf ? 'text-right' : 'text-left'
+                      <div
+                        className={`px-1 text-[11px] text-muted-foreground/70 ${
+                          isSelf ? 'text-right' : 'text-left'
                           }`}
                         >
                           {formatTimestamp(message.timestamp)}
