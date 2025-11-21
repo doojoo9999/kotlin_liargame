@@ -4,7 +4,7 @@ import {Input} from '@/components/ui/input'
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card'
 import {Avatar, AvatarFallback} from '@/components/ui/avatar'
 import {Badge} from '@/components/ui/badge'
-import {ArrowDown, Check, Flag, Loader2, MessageCircle, RefreshCw, Send, Users} from 'lucide-react'
+import {ArrowDown, Check, Crown, Flag, Loader2, MessageCircle, RefreshCw, Send, Users} from 'lucide-react'
 import {toast} from 'sonner'
 import type {ChatMessage, ChatMessageType} from '@/types/realtime'
 import type {Player} from '@/stores'
@@ -42,17 +42,6 @@ const formatTimestamp = (timestamp: number) => {
     minute: '2-digit',
     hour12: false,
   }).format(new Date(timestamp))
-}
-
-const messageToneMap: Record<ChatMessageType | 'DEFAULT', string> = {
-  DISCUSSION: 'border-border/70 bg-background/95 text-foreground',
-  GENERAL: 'border-border/70 bg-background/95 text-foreground',
-  HINT: 'border-sky-500/50 bg-sky-50 text-sky-900 shadow-sm dark:bg-sky-500/15 dark:text-sky-100',
-  DEFENSE: 'border-rose-500/60 bg-rose-50 text-rose-900 shadow-sm dark:bg-rose-500/15 dark:text-rose-100',
-  SYSTEM: 'border-red-500/60 bg-red-50 text-red-900 shadow-sm dark:bg-red-500/20 dark:text-red-100',
-  POST_ROUND: 'border-amber-500/60 bg-amber-50 text-amber-900 shadow-sm dark:bg-amber-500/15 dark:text-amber-100',
-  WAITING_ROOM: 'border-border/70 bg-background/95 text-foreground',
-  DEFAULT: 'border-border/70 bg-background/95 text-foreground',
 }
 
 const SENDABLE_MESSAGE_TYPES: ChatMessageType[] = ['DISCUSSION', 'HINT', 'DEFENSE']
@@ -351,9 +340,9 @@ export const GameChat: React.FC<GameChatProps> = ({
   }, [])
 
   const containerClasses = [
-    'flex w-full max-w-full flex-col overflow-hidden rounded-2xl border border-border/60 bg-card/95 shadow-lg shadow-black/5 motion-safe:transition-all motion-safe:duration-200',
+    'flex w-full max-w-full flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#141421]/95 shadow-[0_22px_48px_rgba(0,0,0,0.45)] backdrop-blur-xl motion-safe:transition-all motion-safe:duration-200',
     isExpanded
-      ? 'fixed left-1/2 top-1/2 z-50 w-[min(1100px,95vw)] h-[78vh] -translate-x-1/2 -translate-y-1/2 bg-background/98 p-4 backdrop-blur-xl'
+      ? 'fixed left-1/2 top-1/2 z-50 w-[min(1100px,95vw)] h-[78vh] -translate-x-1/2 -translate-y-1/2 bg-[#0f0f17]/98 p-5'
       : 'relative mx-auto w-full max-w-[1100px] h-[42vh] min-h-[16rem] sm:h-[48vh] sm:min-h-[19rem]',
     className,
   ]
@@ -392,9 +381,9 @@ export const GameChat: React.FC<GameChatProps> = ({
 
   return (
     <Card className={containerClasses}>
-      <CardHeader className="space-y-0 border-b border-border/60 bg-muted/20 px-4 py-2.5">
-        <CardTitle className="flex items-center justify-between text-sm font-semibold sm:text-base">
-          <div className="flex items-center gap-2 text-sm font-semibold sm:text-base">
+      <CardHeader className="space-y-0 border-b border-white/10 bg-transparent px-5 py-3">
+        <CardTitle className="flex items-center justify-between text-base font-semibold sm:text-lg">
+          <div className="flex items-center gap-2 text-base font-semibold sm:text-lg">
             <MessageCircle className="h-5 w-5 text-primary" />
             <span>게임 채팅</span>
             {messageCount > 0 && (
@@ -424,7 +413,7 @@ export const GameChat: React.FC<GameChatProps> = ({
         </CardTitle>
       </CardHeader>
 
-      <CardContent className="flex h-full min-h-0 flex-1 flex-col gap-2.5 px-4 py-3">
+      <CardContent className="flex h-full min-h-0 flex-1 flex-col gap-2.5 px-5 py-4">
         <div className="flex h-full min-h-0 flex-1 flex-col gap-2.5 overflow-hidden">
           {error && (
             <div className="flex items-center justify-between gap-3 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-[13px] leading-tight text-destructive">
@@ -442,7 +431,7 @@ export const GameChat: React.FC<GameChatProps> = ({
             role="region"
             aria-label="채팅 메시지 영역"
             tabIndex={0}
-            className={`chat-scroll-area relative flex h-full flex-1 overflow-y-auto rounded-2xl border border-border/50 bg-muted/30 px-3 py-3 shadow-inner transition-colors sm:px-4 sm:py-4 ${
+            className={`chat-scroll-area relative flex h-full flex-1 overflow-y-auto rounded-2xl border border-white/10 bg-[#0f1119]/70 px-3 py-3 shadow-inner transition-colors sm:px-4 sm:py-4 ${
               isExpanded ? 'max-h-[70vh]' : ''
             }`}
           >
@@ -470,129 +459,117 @@ export const GameChat: React.FC<GameChatProps> = ({
                   const displayName = isSystemMessage
                     ? '시스템'
                     : player?.nickname ?? message.playerNickname ?? '플레이어'
-                  const badgeConfigs: Array<{ label: string; variant: 'default' | 'secondary' | 'outline' }> = []
-                  if (isSystemMessage) {
-                    badgeConfigs.push({ label: '시스템', variant: 'outline' })
-                  } else {
-                    if (player?.isHost) {
-                      badgeConfigs.push({ label: '방장', variant: 'default' })
-                    }
-                    const isViewerSamePlayer = currentPlayer?.id === player?.id
-                    if (isViewerSamePlayer && player?.role === 'LIAR') {
-                      badgeConfigs.push({ label: '라이어', variant: 'outline' })
-                    }
-                    if (isViewerSamePlayer && player?.role === 'CITIZEN') {
-                      badgeConfigs.push({ label: '시민', variant: 'outline' })
-                    }
-                  }
-                  if (isSelf) {
-                    badgeConfigs.push({ label: '나', variant: 'secondary' })
-                  }
+                  const messageBody = message.content ?? message.message ?? ''
                   const typeLabel =
                     message.type === 'DISCUSSION' || message.type === 'GENERAL' || message.type === 'WAITING_ROOM'
                       ? null
                       : typeLabelMap[message.type]
                   const showReport = !isSelf && message.type !== 'SYSTEM'
                   const avatarInitial = displayName.charAt(0).toUpperCase()
-                  const bubbleTone = (() => {
-                    if (isSystemMessage) {
-                      return 'border-red-500/70 bg-red-50 text-red-900 shadow-sm dark:bg-red-500/20 dark:text-red-100'
-                    }
-                    if (isHostMessage) {
-                      return 'border-red-400/60 bg-red-50 text-red-900 shadow-sm dark:bg-red-500/15 dark:text-red-100'
-                    }
-                    if (isSelf) {
-                      return 'border-primary/70 bg-primary text-primary-foreground shadow-lg shadow-primary/20'
-                    }
-                    return messageToneMap[message.type] ?? messageToneMap.DEFAULT
-                  })()
                   const justifyClass = isSelf ? 'justify-end' : 'justify-start'
                   const alignmentClasses = isSelf ? 'items-end text-right' : 'items-start text-left'
-                  const contentTone = (() => {
-                    if (isSystemMessage || isHostMessage) {
-                      return 'text-red-900 dark:text-red-100'
+                  const isHighlighted = highlightedMessageId === message.id
+                  const bubbleWidthClass = isSystemMessage
+                    ? 'w-full'
+                    : 'w-fit max-w-full sm:max-w-[82%] lg:max-w-[70%]'
+                  const bubblePadding = isSystemMessage
+                    ? 'px-4 py-2.5 sm:px-5 sm:py-3'
+                    : 'px-4 py-3 sm:px-5 sm:py-3.5'
+                  const bubbleTone = (() => {
+                    if (isSystemMessage) {
+                      return 'border border-amber-400/50 bg-[#2a1f1f] text-amber-50 shadow-[0_10px_30px_rgba(255,164,94,0.18)]'
                     }
                     if (isSelf) {
-                      return 'text-primary-foreground/95'
+                      return 'border border-[#a78bfa]/70 bg-gradient-to-br from-[#7c3aed] via-[#6b4cff] to-[#4c1d95] text-white shadow-[0_18px_40px_rgba(124,58,237,0.32)]'
                     }
-                    return 'text-foreground/90'
+                    return 'border border-white/10 bg-[#1b1c24]/95 text-foreground shadow-[0_16px_38px_rgba(0,0,0,0.32)]'
                   })()
+                  const contentTone = isSelf ? 'text-white' : 'text-foreground/90'
                   const typeBadgeTone = (() => {
                     switch (message.type) {
                       case 'HINT':
-                        return 'border-sky-500 text-sky-700 dark:border-sky-400 dark:text-sky-200'
+                        return 'border-sky-400/60 bg-sky-500/15 text-sky-100'
                       case 'DEFENSE':
-                        return 'border-rose-500 text-rose-600 dark:border-rose-400 dark:text-rose-200'
-                      case 'SYSTEM':
-                        return 'border-red-500 text-red-600 dark:border-red-400 dark:text-red-200'
+                        return 'border-rose-400/60 bg-rose-500/15 text-rose-100'
                       case 'POST_ROUND':
-                        return 'border-amber-500 text-amber-700 dark:border-amber-400 dark:text-amber-200'
+                        return 'border-amber-400/60 bg-amber-500/15 text-amber-100'
                       default:
-                        return 'border-muted-foreground/40 text-muted-foreground'
+                        return 'border-white/15 bg-white/5 text-muted-foreground'
                     }
                   })()
-                  const isHighlighted = highlightedMessageId === message.id
-                  const highlightClasses = isHighlighted ? 'ring-2 ring-primary/50 shadow-[0_0_0_4px_rgba(59,130,246,0.18)]' : ''
-                  const bubbleWidthClass = isSystemMessage
-                    ? 'w-full'
-                    : 'w-fit max-w-full sm:max-w-[85%] lg:max-w-[70%]'
-                  const bubblePadding = isSystemMessage
-                    ? 'px-4 py-2 sm:px-5 sm:py-2.5'
-                    : 'px-3 py-1.5 sm:px-3.5 sm:py-2'
+                  const highlightClasses = isHighlighted ? 'ring-2 ring-primary/50 shadow-[0_0_0_4px_rgba(124,77,255,0.25)]' : ''
+
+                  if (isSystemMessage) {
+                    return (
+                      <div key={message.id} className="flex justify-center">
+                        <div
+                          className={`w-full max-w-xl rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-center text-sm font-medium text-amber-50 shadow-[0_12px_28px_rgba(0,0,0,0.35)] ${highlightClasses}`}
+                        >
+                          {messageBody}
+                          <div className="mt-1 text-[11px] font-normal text-amber-100/80">
+                            {formatTimestamp(message.timestamp)}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  }
 
                   return (
                     <div key={message.id} className={`flex ${justifyClass}`}>
                       <div className={`flex w-full flex-col gap-1.5 ${alignmentClasses}`}>
                         <div
-                          className={`rounded-2xl border text-sm leading-snug transition-all duration-150 ${bubbleTone} ${bubblePadding} ${highlightClasses} ${bubbleWidthClass}`}
-                          data-message-type={message.type}
-                          data-highlighted={isHighlighted}
+                          className={`flex items-center gap-2 px-1 text-[12px] text-muted-foreground/80 ${
+                            isSelf ? 'justify-end' : ''
+                          }`}
                         >
-                          <div className="flex w-full items-start gap-1.5 sm:gap-2">
-                            <Avatar className="h-6 w-6 shrink-0 shadow-sm ring-1 ring-border/30">
+                          {!isSelf && (
+                            <Avatar className="h-7 w-7 shrink-0 border border-white/10 bg-[#1f1f2b] text-foreground/80 shadow-sm">
                               <AvatarFallback className="text-xs uppercase">{avatarInitial}</AvatarFallback>
                             </Avatar>
-                            <div className="flex min-w-0 flex-1 flex-col gap-1">
-                              <div className="flex flex-wrap items-center gap-1 text-[13px] font-semibold leading-tight">
-                                <span className="text-[13px] font-semibold leading-tight">{displayName}</span>
-                                {badgeConfigs.map(({ label, variant }) => (
-                                  <Badge
-                                    key={label}
-                                    variant={variant}
-                                    className="rounded-full px-2 py-0 text-[12px] uppercase leading-none tracking-wide"
-                                  >
-                                    {label}
-                                  </Badge>
-                                ))}
-                                {typeLabel && (
-                                  <Badge
-                                    variant="outline"
-                                    className={`rounded-full px-2 py-0 text-[12px] uppercase leading-none tracking-wide ${typeBadgeTone}`}
-                                  >
-                                    {typeLabel}
-                                  </Badge>
-                                )}
-                                <span className="ml-auto shrink-0 text-[12px] font-normal text-muted-foreground/80">
-                                  {formatTimestamp(message.timestamp)}
-                                </span>
-                              </div>
-                              <p className={`min-w-0 whitespace-pre-wrap break-words text-[13px] leading-snug ${contentTone}`}>
-                                {message.content}
-                              </p>
-                            </div>
-                            {showReport && (
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-6 w-6 text-muted-foreground transition-colors hover:text-foreground"
-                                onClick={() => handleReport(message)}
-                                aria-label="신고"
-                                title="메시지 신고"
+                          )}
+                          <div className="flex items-center gap-1 text-[13px] font-semibold tracking-wide text-foreground">
+                            <span>{displayName}</span>
+                            {isHostMessage && <Crown className="h-3.5 w-3.5 text-amber-400" aria-label="방장" />}
+                            {typeLabel && (
+                              <span
+                                className={`ml-1 inline-flex items-center gap-1 rounded-full border px-2 py-[2px] text-[10px] font-semibold uppercase leading-none ${typeBadgeTone}`}
                               >
-                                <Flag className="h-3 w-3" />
-                              </Button>
+                                {typeLabel}
+                              </span>
                             )}
                           </div>
+                          {showReport && (
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="ml-1 h-6 w-6 text-muted-foreground transition-colors hover:text-foreground"
+                              onClick={() => handleReport(message)}
+                              aria-label="신고"
+                              title="메시지 신고"
+                            >
+                              <Flag className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
+
+                        <div className={`relative ${bubbleWidthClass}`}>
+                          <div
+                            className={`rounded-2xl text-sm leading-relaxed transition-all duration-150 ${bubbleTone} ${bubblePadding} ${highlightClasses}`}
+                            data-message-type={message.type}
+                            data-highlighted={isHighlighted}
+                          >
+                            <p className={`min-w-0 whitespace-pre-wrap break-words text-[13px] leading-snug ${contentTone}`}>
+                              {messageBody}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div
+                          className={`px-1 text-[11px] text-muted-foreground/70 ${
+                            isSelf ? 'text-right' : 'text-left'
+                          }`}
+                        >
+                          {formatTimestamp(message.timestamp)}
                         </div>
                       </div>
                     </div>

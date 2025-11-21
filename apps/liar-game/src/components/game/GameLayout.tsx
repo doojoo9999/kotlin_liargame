@@ -272,8 +272,8 @@ export function GameLayout({
 
   const contextCards = (
     <div className="flex min-h-0 flex-col gap-4">
-      <Card className="border-border/60 bg-card/70 shadow-sm">
-        <CardContent className="space-y-4 pt-4">
+      <Card className="border-white/10 bg-[#181823]/90 shadow-[0_16px_36px_rgba(0,0,0,0.38)]">
+        <CardContent className="space-y-4 px-5 py-5">
           <div className="flex flex-col gap-2">
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="secondary" className="bg-primary/10 text-primary">
@@ -303,16 +303,16 @@ export function GameLayout({
       </Card>
 
       {actionSlot && (
-        <Card className="border-border/60 shadow-sm">
-          <CardContent className="pt-4">
+        <Card className="border-white/10 bg-[#181823]/90 shadow-[0_12px_28px_rgba(0,0,0,0.32)]">
+          <CardContent className="px-5 pb-5 pt-4">
             {actionSlot}
           </CardContent>
         </Card>
       )}
 
       {currentPhase !== 'WAITING_FOR_PLAYERS' && (
-        <Card className="border-border/60 shadow-sm">
-          <CardContent className="space-y-4 pt-4">
+        <Card className="border-white/10 bg-[#181823]/90 shadow-[0_12px_28px_rgba(0,0,0,0.32)]">
+          <CardContent className="space-y-4 px-5 pb-5 pt-4">
             <GameActionInterface
               gamePhase={currentPhase}
               currentPlayer={currentPlayer}
@@ -335,8 +335,8 @@ export function GameLayout({
       )}
 
       {currentPhase === 'GAME_OVER' && (
-        <Card className="border-border/60 shadow-sm">
-          <CardContent className="pt-4">
+        <Card className="border-white/10 bg-[#181823]/90 shadow-[0_12px_28px_rgba(0,0,0,0.32)]">
+          <CardContent className="px-5 pb-5 pt-4">
             <GameResults
               currentRound={currentRound}
               totalRounds={totalRounds}
@@ -380,14 +380,14 @@ export function GameLayout({
               <ConnectionStatus compact className="text-xs" />
             </div>
           </div>
-          <div className="flex flex-col gap-2 rounded-2xl border border-border/50 bg-card/60 px-4 py-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-2 text-sm text-foreground">
-              <Badge variant="outline" className="rounded-full px-2 py-1 text-xs">
+          <div className="flex flex-col gap-2 rounded-2xl border border-white/10 bg-[#1b1b24]/85 px-5 py-4 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between shadow-[0_18px_42px_rgba(0,0,0,0.38)]">
+            <div className="flex items-center gap-2 text-base font-semibold text-foreground">
+              <Badge variant="outline" className="rounded-full px-2 py-1 text-[11px] tracking-wide">
                 {stageLabel}
               </Badge>
               <span>{stageDescription}</span>
             </div>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
               <span>다음 단계: {nextStageHint}</span>
               {roundStageEnteredAt && (
                 <span aria-hidden="true" className="hidden sm:inline">•</span>

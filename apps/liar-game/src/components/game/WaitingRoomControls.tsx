@@ -48,11 +48,11 @@ export function WaitingRoomControls({
   }
 
   return (
-    <div className="rounded-lg border border-dashed border-muted-foreground/40 bg-card/70 px-4 py-3 shadow-sm">
+    <div className="rounded-2xl border border-white/10 bg-[#181823]/90 px-5 py-4 shadow-[0_12px_28px_rgba(0,0,0,0.35)]">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Users className="h-4 w-4" aria-hidden="true" />
-          <span className="font-medium text-foreground">
+          <span className="font-semibold text-foreground">
             {readyPlayers}/{totalPlayers} 준비 완료
           </span>
           <Badge variant="outline" className="text-[11px]">
@@ -63,9 +63,13 @@ export function WaitingRoomControls({
         <div className="flex items-center gap-2">
           <Button
             size="sm"
-            variant={isReady ? 'secondary' : 'default'}
             onClick={onToggleReady}
             disabled={isTogglePending}
+            className={`h-10 rounded-xl px-4 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(139,92,246,0.25)] transition-all ${
+              isReady
+                ? 'bg-[#3b3c4a] hover:bg-[#444558]'
+                : 'bg-gradient-to-r from-[#8b5cf6] via-[#9c6cf6] to-[#a855f7] hover:from-[#9d6df6] hover:to-[#b46cf6]'
+            } disabled:cursor-not-allowed disabled:opacity-70`}
           >
             {isTogglePending ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -80,6 +84,11 @@ export function WaitingRoomControls({
               size="sm"
               onClick={onStartGame}
               disabled={!canStartGame || isStartPending || needsMorePlayers}
+              className={`h-10 rounded-xl px-4 text-sm font-semibold transition-all ${
+                !canStartGame || needsMorePlayers
+                  ? 'border border-white/10 bg-[#252633] text-muted-foreground shadow-none'
+                  : 'bg-emerald-500 text-emerald-50 shadow-[0_10px_24px_rgba(16,185,129,0.25)] hover:bg-emerald-400'
+              } disabled:cursor-not-allowed disabled:opacity-75`}
             >
               {isStartPending ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -92,20 +101,22 @@ export function WaitingRoomControls({
         </div>
       </div>
 
-      <p className="mt-2 text-xs text-muted-foreground" aria-live="polite">
+      <p className="mt-2 text-[12px] text-muted-foreground/80" aria-live="polite">
         {statusMessage}
       </p>
 
-      <div className="mt-3 flex flex-wrap gap-2" aria-label="플레이어 준비 상태">
+      <div className="mt-3 flex flex-wrap gap-2.5" aria-label="플레이어 준비 상태">
         {players.map((player) => {
           const ready = Boolean(player.isReady)
           const isPlayerHost = Boolean(player.isHost)
           return (
             <span
               key={player.id}
-              className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs ${ready
-                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                : 'border-muted-foreground/20 bg-muted text-muted-foreground'} ${player.id === currentPlayer?.id ? 'ring-1 ring-primary/40' : ''}`}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium tracking-tight ${
+                ready
+                  ? 'border-emerald-300/50 bg-emerald-500/10 text-emerald-200'
+                  : 'border-white/10 bg-[#20212c] text-muted-foreground'
+              } ${player.id === currentPlayer?.id ? 'ring-1 ring-primary/50' : ''}`}
             >
               {ready ? (
                 <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
@@ -114,7 +125,7 @@ export function WaitingRoomControls({
               )}
               <span>{player.nickname}</span>
               {isPlayerHost && (
-                <Crown className="h-3 w-3 text-amber-500" aria-label="방장" />
+                <Crown className="h-3.5 w-3.5 text-amber-400" aria-label="방장" />
               )}
             </span>
           )
