@@ -471,7 +471,7 @@ export const GameChat: React.FC<GameChatProps> = ({
                   const isHighlighted = highlightedMessageId === message.id
                   const bubbleWidthClass = isSystemMessage
                     ? 'w-full'
-                    : 'w-fit max-w-full sm:max-w-[82%] lg:max-w-[70%]'
+                    : 'w-auto max-w-full sm:max-w-[85%] lg:max-w-[80%]'
                   const bubblePadding = isSystemMessage
                     ? 'px-4 py-2.5 sm:px-5 sm:py-3'
                     : 'px-4 py-3 sm:px-5 sm:py-3.5'
@@ -549,7 +549,7 @@ export const GameChat: React.FC<GameChatProps> = ({
                               data-message-type={message.type}
                               data-highlighted={isHighlighted}
                             >
-                              <p className={`whitespace-pre-wrap break-words text-[13px] leading-snug ${contentTone}`}>
+                              <p className={`whitespace-pre-wrap break-words break-all text-[13px] leading-snug ${contentTone}`}>
                                 {messageBody}
                               </p>
                             </div>
