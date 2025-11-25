@@ -1,8 +1,8 @@
-import { Grid } from '../../utils/grid';
+import { useMemo } from 'react';
 import { PALETTE, GRID_SIZE } from '../../styles/theme';
 import { Block } from './Block';
 import type { GhostState } from '../../hooks/useGameLogic';
-import { useMemo } from 'react';
+import type { Grid } from '../../utils/grid';
 
 interface BoardProps {
   grid: Grid;

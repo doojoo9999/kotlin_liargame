@@ -1,8 +1,6 @@
 import { create } from 'zustand';
 import {
   BLOCK_LIBRARY,
-  BlockInstance,
-  Grid,
   canPlaceBlock,
   checkGameOver,
   createEmptyGrid,
@@ -11,6 +9,7 @@ import {
   rotateShape,
   scorePlacement
 } from '../utils/grid';
+import type { BlockInstance, Grid } from '../utils/grid';
 
 export type GameStatus = 'playing' | 'gameover';
 
@@ -70,10 +69,25 @@ export const useGameStore = create<GameState>((set, get) => ({
   placeBlock: (id, x, y) => {
     const state = get();
     const target = state.tray.find((block) => block.id === id);
-    if (!target) return { success: false, cleared: { rows: [], cols: [] }, scoreGained: 0, gameOver: false };
+    if (!target)
+      return {
+        success: false,
+        cleared: { rows: [], cols: [] },
+        scoreGained: 0,
+        gameOver: false,
+        combo: state.combo,
+        linesCleared: 0
+      };
 
     if (!canPlaceBlock(state.grid, target.shape, x, y)) {
-      return { success: false, cleared: { rows: [], cols: [] }, scoreGained: 0, gameOver: false };
+      return {
+        success: false,
+        cleared: { rows: [], cols: [] },
+        scoreGained: 0,
+        gameOver: false,
+        combo: state.combo,
+        linesCleared: 0
+      };
     }
 
     const placement = resolvePlacement(state.grid, target.shape, x, y, target.color);
@@ -105,7 +119,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       linesCleared: clearedLines
     };
   },
-  refreshTray: () => set((state) => ({ tray: generateTray(), activeBlockId: null, combo: 0 })),
+  refreshTray: () => set(() => ({ tray: generateTray(), activeBlockId: null, combo: 0 })),
   reset: () =>
     set((state) => ({
       ...buildInitialState(),

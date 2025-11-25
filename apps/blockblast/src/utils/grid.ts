@@ -1,4 +1,5 @@
-import { GRID_SIZE, PALETTE, ThemeColorKey } from '../styles/theme';
+import { GRID_SIZE, PALETTE } from '../styles/theme';
+import type { ThemeColorKey } from '../styles/theme';
 
 export type GridCell = ThemeColorKey | null;
 export type Grid = GridCell[][];
