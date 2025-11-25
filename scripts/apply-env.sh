@@ -14,12 +14,13 @@ fi
 if [[ $# -gt 0 ]]; then
   TARGET_APPS=("$@")
 else
-  TARGET_APPS=("lineagew-admin" "main" "liar-game" "roulette" "sadari-game" "pinball" "nemonemo")
+  TARGET_APPS=("lineagew-admin" "main" "liar-game" "roulette" "sadari-game" "pinball" "nemonemo" "blockblast")
 fi
 
 declare -A APP_BASE_OVERRIDES=(
   ["lineagew-admin"]="/linw/"
   ["nemonemo"]="/nemonemo/"
+  ["blockblast"]="/blockblast/"
 )
 declare -A API_BASE_OVERRIDES=(
   ["lineagew-admin"]="https://zzirit.kr/api/lineage"

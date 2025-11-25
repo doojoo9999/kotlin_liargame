@@ -24,6 +24,14 @@ const gameLinks: GameLink[] = [
       "https://zzirit.kr/nemonemo/",
   },
   {
+    id: "blockblast",
+    name: "Block Blast",
+    description: "Three.js와 R3F로 구현한 3D 퍼즐 블록 배치 게임.",
+    href:
+      import.meta.env.VITE_BLOCKBLAST_URL ??
+      "https://zzirit.kr/blockblast/",
+  },
+  {
     id: "roulette",
     name: "파티 룰렛",
     description: "빠르게 룰렛을 돌려 미션과 벌칙을 정하는 파티 꿀템.",

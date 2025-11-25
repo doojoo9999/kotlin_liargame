@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Start all front-end dev servers on their designated ports.
-# main: 4173, liar-game: 5173, roulette: 5174, sadari-game: 5175
+# main: 4173, liar-game: 5173, roulette: 5174, sadari-game: 5175, blockblast: 5178
 
 set -euo pipefail
 
@@ -12,6 +12,7 @@ APPS=(
   "liar-game|${ROOT_DIR}/apps/liar-game|5173"
   "roulette|${ROOT_DIR}/apps/roulette|5174"
   "sadari-game|${ROOT_DIR}/apps/sadari-game|5175"
+  "blockblast|${ROOT_DIR}/apps/blockblast|5178"
 )
 
 PIDS=()

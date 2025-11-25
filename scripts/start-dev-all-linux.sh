@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Start all front-end dev servers on their designated ports.
-# main: 4173, liar-game: 5173, roulette: 5174, sadari-game: 5175, pinball: 5176, linw-admin: 5177
+# main: 4173, liar-game: 5173, roulette: 5174, sadari-game: 5175, pinball: 5176, blockblast: 5178, linw-admin: 5177
 
 set -euo pipefail
 
@@ -17,6 +17,7 @@ APPS=(
   "roulette|${ROOT_DIR}/apps/roulette|5174"
   "sadari-game|${ROOT_DIR}/apps/sadari-game|5175"
   "pinball|${ROOT_DIR}/apps/pinball|5176"
+  "blockblast|${ROOT_DIR}/apps/blockblast|5178"
 )
 
 LINW_APP_ENTRY="lineagew-admin|${ROOT_DIR}/apps/lineagew-admin|5177"

@@ -14,6 +14,7 @@ APPS=(
   "pinball|dist|pinball"
   "nemonemo|dist|nemonemo"
   "lineagew-admin|dist|linw"
+  "blockblast|dist|blockblast"
 )
 
 sudo mkdir -p "${TARGET_DIR}/assets"
