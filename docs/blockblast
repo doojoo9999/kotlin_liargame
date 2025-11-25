@@ -1,0 +1,165 @@
+# Block Blast (Web, Three.js + R3F) - 상세 개발 계획
+
+## 1. 프로젝트 개요 (Project Overview)
+- **목표**: React와 React Three Fiber(R3F)를 사용하여 웹 브라우저에서 구동되는 고품질의 Block Blast 클론 게임을 구현한다.
+- **핵심 가치**: 부드러운 3D 인터랙션, 직관적인 UX, 모바일/데스크톱 반응형 지원, "손맛" 있는 타격감 및 연출.
+- **타겟 플랫폼**: PC 웹, 모바일 웹 (터치 인터페이스 최적화).
+
+## 2. 기술 스택 (Tech Stack)
+- **Core**: React, TypeScript, Vite
+- **3D Graphics**: Three.js, @react-three/fiber (R3F)
+- **Helpers**: @react-three/drei (RoundedBox, Text, CameraControls, etc.)
+- **State Management**: Zustand (게임 로직 및 UI 상태 관리)
+- **Styling**: Tailwind CSS (UI 오버레이)
+- **Animation**: @react-spring/three (물리 기반 애니메이션, 인터랙션)
+- **Sound**: Howler.js (오디오 스프라이트 및 효과음 관리)
+- **Icons**: Lucide React (UI 아이콘)
+- **Database**: PostgreSQL (Block Blast 전용 테이블 `blockblast_scores` 사용)
+- **Testing**: Vitest (게임 로직 단위 테스트)
+
+## 3. 아키텍처 및 디렉토리 구조 (Architecture & Directory Structure)
+```
+src/
+├── assets/
+│   ├── sounds/         # .mp3, .wav (effect sounds)
+│   └── fonts/          # .woff2 (Google Fonts)
+├── components/
+│   ├── canvas/         # R3F 3D 컴포넌트
+│   │   ├── GameScene.tsx   # 메인 씬 (조명, 환경)
+│   │   ├── Board.tsx       # 16x16 그리드 보드
+│   │   ├── Block.tsx       # 개별 블록 컴포넌트
+│   │   ├── Tray.tsx        # 하단 블록 대기열
+│   │   └── Effects.tsx     # 파티클, 포스트 프로세싱
+│   ├── ui/             # 2D UI 오버레이
+│   │   ├── HUD.tsx         # 점수, 콤보
+│   │   ├── GameOver.tsx    # 결과 화면
+│   │   ├── Leaderboard.tsx # 랭킹 보드
+│   │   ├── Settings.tsx    # 설정 모달 (사운드, 햅틱, 그래픽)
+│   │   └── Tutorial.tsx    # 온보딩 오버레이
+│   └── layout/
+├── hooks/              # useGameLogic, useAudio, useDragDrop, useTheme
+├── stores/             # useGameStore.ts (Zustand)
+├── utils/              # gridHelpers.ts, soundManager.ts
+├── styles/             # theme.ts (색상 팔레트 정의)
+└── App.tsx
+```
+
+## 4. 상세 구현 계획 (Detailed Implementation Plan)
+
+### 4.1. 비주얼 에셋 및 그래픽 구현 (Visuals)
+외부 3D 모델을 로드하는 대신, **Three.js Primitives (RoundedBoxGeometry)**를 활용하여 절차적으로 생성한다. 이는 로딩 속도를 높이고 스타일 변경을 유연하게 만든다.
+
+- **블록 (Blocks)**:
+  - **형태**: `RoundedBox` (drei)를 사용하여 모서리가 둥근 큐브를 조합.
+  - **재질 (Material)**: `MeshPhysicalMaterial` 사용.
+    - `transmission`: 0.2 (약간의 투명도)
+    - `roughness`: 0.1 (매끄러운 플라스틱/젤리 느낌)
+    - `metalness`: 0.1
+    - `clearcoat`: 1.0 (코팅된 광택)
+  - **색상**: 파스텔 톤의 6~7가지 팔레트 (Red, Orange, Yellow, Green, Blue, Purple, Pink).
+- **보드 (Board)**:
+  - **배경 그리드**: 16x16 격자. 어두운 배경 위에 은은하게 빛나는 슬롯.
+  - **채워진 상태**: 그리드 데이터에 따라 해당 위치에 블록 메쉬를 렌더링. 성능을 위해 `InstancedMesh` 활용 고려 (256개 큐브).
+- **배경 (Background)**:
+  - 단순한 단색보다는 `Environment` (drei)를 활용한 은은한 HDRI 조명 또는 그라데이션 쉐이더 평면.
+
+### 4.2. 오디오 및 사운드 효과 (Audio & SFX)
+`Howler.js`를 사용하여 사운드를 관리하며, 사용자 인터랙션에 따라 즉각적인 피드백을 제공한다.
+
+- **사운드 리스트**:
+  1.  **Pick (집기)**: 가벼운 "Pop" 또는 "Click" 소리. (Pitch를 약간 높임)
+  2.  **Drop (놓기)**: 부드러운 "Thud" 또는 "Wood block" 소리.
+  3.  **Invalid Drop (실패)**: 낮은 톤의 "Buzz" 또는 "Error" 비프음.
+  4.  **Line Clear (클리어)**: 청량한 "Glass break" 또는 "Chime" 소리. (여러 줄 클리어 시 화음 쌓기)
+  5.  **Combo (콤보)**: 클리어 사운드보다 더 화려하고 피치가 올라가는 "Magic" 사운드.
+  6.  **Game Over**: 약간 슬프거나 김빠지는 "Whistle" 또는 "Power down" 소리.
+- **구현 방식**:
+  - `useAudio` 훅을 만들어 컴포넌트에서 `play('pick')` 형태로 호출.
+  - 음소거(Mute) 상태를 전역 스토어에서 관리.
+
+### 4.3. 인터랙션 및 물리 (Interaction & Physics)
+- **드래그 앤 드롭 (Drag & Drop)**:
+  - 라이브러리: `@use-gesture/react`의 `useDrag` 훅 사용.
+  - **Raycasting**: 마우스/터치 좌표(2D)를 3D 평면(z=0)상의 좌표로 변환 (`raycaster.intersectObjects`).
+  - **Snapping**: 드래그 중인 블록의 중심 좌표를 그리드 셀 크기(예: 1.0)로 나누어 가장 가까운 정수 좌표로 스냅.
+  - **Ghost Effect**: 드래그 중 현재 위치가 유효한지 실시간 계산하여, 배치될 위치에 반투명한 "Ghost Block" 표시.
+    - 유효함: 초록색 틴트 + 불투명도 0.5
+    - 유효하지 않음: 빨간색 틴트 + 불투명도 0.5
+  - **모바일 정밀도 보정 (Offset Drag)**: 16x16 그리드에서는 셀이 작으므로, 터치 시 손가락에 가려지지 않도록 블록을 터치 포인트보다 약간 위쪽(Y축 오프셋)에 렌더링.
+
+### 4.4. 이펙트 및 연출 (Effects & Polish)
+- **배치 애니메이션**:
+  - `react-spring`을 사용하여 블록이 놓일 때 약간의 스케일 바운스 (1.2 -> 1.0).
+- **라인 클리어 파티클**:
+  - 해당 행/열의 블록이 사라질 때, 큐브가 조각나거나 빛으로 변해 사라지는 효과.
+  - 간단하게는 큐브가 작아지면서(`scale: 0 -> 0`) 사라지는 트윈(Tween) 애니메이션 적용.
+  - 화려하게는 `InstancedMesh`를 이용한 파티클 시스템이 폭발하듯 퍼짐.
+- **카메라 쉐이크 (Camera Shake)**:
+  - 콤보 달성 시 카메라 위치를 미세하게 무작위로 흔들어 타격감 부여.
+- **햅틱 피드백 (Haptic Feedback)**:
+  - 모바일 기기에서 `navigator.vibrate` API 활용.
+  - 블록 픽업(짧게), 드롭(중간), 클리어(강하게) 시 진동 발생.
+- **점수 팝업**:
+  - 클리어된 위치 중앙에 점수 텍스트(+100)가 떠오르며 사라지는 2D/3D 텍스트 애니메이션.
+
+### 4.5. 데이터베이스 및 리더보드 (Database)
+- **테이블 스키마 (`blockblast_scores`)**:
+  ```sql
+  CREATE TABLE blockblast_scores (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      subject_key UUID NOT NULL, -- 사용자 또는 게스트 ID
+      score INT NOT NULL,
+      combo_max INT DEFAULT 0,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+  );
+  CREATE INDEX idx_blockblast_scores_score ON blockblast_scores (score DESC);
+  ```
+- **API 연동**:
+  - 게임 오버 시 `POST /api/blockblast/score` 호출.
+  - 리더보드 컴포넌트 마운트 시 `GET /api/blockblast/leaderboard` 호출 (Top 10 및 내 순위).
+
+## 5. 단계별 상세 구현 순서 (Step-by-Step)
+
+### Step 1: 프로젝트 셋업 및 테스트 환경 (Setup)
+- R3F Canvas 설치 및 기본 씬 구성.
+- **Vitest 설정**: 복잡한 그리드 로직(16x16)의 안정성을 위해 단위 테스트 환경 구축.
+
+### Step 2: 그리드 및 블록 로직 (Grid & Logic)
+- `useGameStore`에 **16x16 배열** `grid` 상태 정의.
+- `Board` 컴포넌트: **256개**의 셀 렌더링. (InstancedMesh 필수)
+- `Block` 컴포넌트: `shape` prop(2D 배열)을 받아 큐브 그룹 렌더링.
+- **난이도 밸런싱**: 16x16 그리드에 맞춰 블록 생성 알고리즘 조정 (더 다양한 형태 또는 큰 블록 고려).
+- **테스트 작성**: `checkLines`, `isValidPlacement`, `checkGameOver` 함수에 대한 테스트 케이스 작성.
+
+### Step 3: 드래그 앤 드롭 (Interaction)
+- `Tray` 컴포넌트 생성: 화면 하단에 3개의 블록 렌더링.
+- `useDrag` 연동:
+  - `down`: 드래그 시작, 블록을 커서 위치로 이동 (모바일 오프셋 적용).
+  - `move`: Raycasting으로 그리드 위 위치 계산, Ghost Block 표시.
+  - `up`: 유효성 검사 후 배치(`grid` 업데이트) 또는 원위치 복귀.
+
+### Step 4: 게임 룰 구현 (Rules)
+- 라인 클리어 감지 함수 구현 (`checkLines`).
+- 점수 업데이트 및 콤보 로직.
+- 게임 오버 조건 검사 (`checkGameOver`: 트레이의 모든 블록에 대해 배치 가능 여부 확인).
+- **상태 저장 (Persistence)**: `localStorage`에 `grid`, `score`, `currentBlocks` 저장하여 새로고침 시 복구.
+
+### Step 5: 아이템 구현 (Items)
+- **Rotate**: 선택된 트레이 블록의 `shape` 배열을 90도 회전 (행렬 회전).
+- **Bomb**: 드래그 모드와 유사하게, 폭탄 아이템을 드래그하여 놓은 위치 주변 3x3 셀을 `0`으로 초기화.
+- **Refresh**: 트레이의 블록들을 새로운 랜덤 블록으로 교체.
+
+### Step 6: UI 및 사용자 경험 (UI & UX)
+- **Settings Modal**: 사운드, 햅틱 ON/OFF 및 **저사양 모드** (파티클/블룸 끄기) 토글 구현.
+- **Tutorial (Onboarding)**: 최초 접속 시 간단한 가이드 오버레이 (드래그 방법, 아이템 사용법).
+- **HUD & Leaderboard**: Tailwind CSS로 깔끔한 UI 구현 및 API 연동.
+
+### Step 7: 폴리싱 (Polishing)
+- 사운드 및 **햅틱** 적용.
+- 파티클 및 애니메이션 적용.
+- 테마 시스템 구조화 (향후 스킨 추가 용이성 확보).
+
+## 6. 에셋 준비 체크리스트
+- [ ] **Sound**: Pick.mp3, Drop.mp3, Clear.mp3, Combo.mp3, GameOver.mp3, Bomb.mp3
+- [ ] **Font**: 'Nunito' (Bold, ExtraBold) - 구글 폰트
+- [ ] **Icons**: RefreshCw, RotateCw, Bomb, Settings, HelpCircle (Lucide React)
