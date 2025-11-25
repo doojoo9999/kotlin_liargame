@@ -11,11 +11,12 @@ interface BoardProps {
   onHover?: (cell: { x: number; y: number }) => void;
   onSelect?: (cell: { x: number; y: number }) => void;
   onLeave?: () => void;
+  usePatterns?: boolean;
 }
 
 const clampToGrid = (value: number) => Math.max(0, Math.min(GRID_SIZE - 1, value));
 
-export const Board = ({ grid, ghost, showGhost = true, onHover, onSelect, onLeave }: BoardProps) => {
+export const Board = ({ grid, ghost, showGhost = true, onHover, onSelect, onLeave, usePatterns = false }: BoardProps) => {
   const cells = useMemo(() => grid, [grid]);
 
   const handlePointerMove = (e: any) => {
@@ -56,6 +57,9 @@ export const Board = ({ grid, ghost, showGhost = true, onHover, onSelect, onLeav
     return offsets;
   }, [ghost]);
 
+  const clearedRows = ghost && ghost.valid ? ghost.cleared.rows : [];
+  const clearedCols = ghost && ghost.valid ? ghost.cleared.cols : [];
+
   return (
     <group position={[-GRID_SIZE / 2, 0, -GRID_SIZE / 2]}>
       <mesh
@@ -79,6 +83,8 @@ export const Board = ({ grid, ghost, showGhost = true, onHover, onSelect, onLeav
               position={[x + 0.5, 0.5, y + 0.5]}
               color={PALETTE[cell]}
               opacity={0.95}
+              colorKey={cell}
+              usePattern={usePatterns}
             />
           ) : null
         )
@@ -94,6 +100,33 @@ export const Board = ({ grid, ghost, showGhost = true, onHover, onSelect, onLeav
             />
           ))
         : null}
+
+      {showGhost && ghost?.valid ? (
+        <group>
+          {clearedRows.map((row) => (
+            <mesh
+              key={`row-clear-${row}`}
+              rotation={[-Math.PI / 2, 0, 0]}
+              position={[GRID_SIZE / 2, 0.02, row + 0.5]}
+              raycast={() => null}
+            >
+              <planeGeometry args={[GRID_SIZE, 1]} />
+              <meshBasicMaterial color="#8ef9ff" transparent opacity={0.18} />
+            </mesh>
+          ))}
+          {clearedCols.map((col) => (
+            <mesh
+              key={`col-clear-${col}`}
+              rotation={[-Math.PI / 2, 0, 0]}
+              position={[col + 0.5, 0.03, GRID_SIZE / 2]}
+              raycast={() => null}
+            >
+              <planeGeometry args={[1, GRID_SIZE]} />
+              <meshBasicMaterial color="#9f7aea" transparent opacity={0.18} />
+            </mesh>
+          ))}
+        </group>
+      ) : null}
     </group>
   );
 };

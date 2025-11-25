@@ -4,9 +4,10 @@ import { Block } from './Block';
 
 interface TrayProps {
   block: BlockInstance | null;
+  usePatterns?: boolean;
 }
 
-export const Tray = ({ block }: TrayProps) => {
+export const Tray = ({ block, usePatterns = false }: TrayProps) => {
   if (!block) return null;
   const cells = getShapeCells(block.shape);
   const width = Math.max(...cells.map(([x]) => x)) + 1;
@@ -19,7 +20,13 @@ export const Tray = ({ block }: TrayProps) => {
     <group position={[originX, 0, originZ]}>
       <group position={[-width / 2, 0.4, -height / 2]}>
         {cells.map(([x, y]) => (
-          <Block key={`${block.id}-${x}-${y}`} position={[x + 0.5, 0.4, y + 0.5]} color={PALETTE[block.color]} />
+          <Block
+            key={`${block.id}-${x}-${y}`}
+            position={[x + 0.5, 0.4, y + 0.5]}
+            color={PALETTE[block.color]}
+            colorKey={block.color}
+            usePattern={usePatterns}
+          />
         ))}
       </group>
     </group>

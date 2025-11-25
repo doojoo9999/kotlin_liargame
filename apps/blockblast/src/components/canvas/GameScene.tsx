@@ -7,6 +7,7 @@ import type { useGameLogic } from '../../hooks/useGameLogic';
 import { CAMERA_CONFIG, ENVIRONMENT } from '../../styles/theme';
 import { Tray } from './Tray';
 import type { BlockInstance } from '../../utils/grid';
+import { ParallaxRig } from './ParallaxRig';
 
 interface GameSceneProps {
   width?: number;
@@ -14,9 +15,19 @@ interface GameSceneProps {
   showGhost?: boolean;
   lowSpec?: boolean;
   trayBlock?: BlockInstance | null;
+  usePatterns?: boolean;
+  feverLevel?: number;
 }
 
-export const GameScene = ({ width, logic, showGhost = true, lowSpec = false, trayBlock = null }: GameSceneProps) => {
+export const GameScene = ({
+  width,
+  logic,
+  showGhost = true,
+  lowSpec = false,
+  trayBlock = null,
+  usePatterns = false,
+  feverLevel = 0
+}: GameSceneProps) => {
   const { grid } = logic;
 
   return (
@@ -41,19 +52,21 @@ export const GameScene = ({ width, logic, showGhost = true, lowSpec = false, tra
           grid={grid}
           ghost={logic.ghost}
           showGhost={showGhost}
+          usePatterns={usePatterns}
           onHover={(cell) => logic.activeBlockId && logic.previewPlacement(logic.activeBlockId, cell.x, cell.y)}
           onSelect={(cell) => logic.activeBlockId && logic.attemptPlacement(logic.activeBlockId, cell.x, cell.y)}
           onLeave={() => logic.clearGhost()}
         />
-        <Effects lowSpec={lowSpec} />
+        <Effects lowSpec={lowSpec} feverLevel={feverLevel} />
         {!lowSpec ? (
           <ContactShadows position={[0, 0, 0]} opacity={0.3} width={20} height={20} blur={1.6} far={10} />
         ) : null}
         {!lowSpec ? <Environment preset="city" /> : null}
-        <Tray block={trayBlock} />
+        <Tray block={trayBlock} usePatterns={usePatterns} />
       </Suspense>
 
       <OrbitControls enablePan={false} maxPolarAngle={Math.PI / 2.1} minDistance={10} maxDistance={26} />
+      <ParallaxRig intensity={0.8} />
     </Canvas>
   );
 };

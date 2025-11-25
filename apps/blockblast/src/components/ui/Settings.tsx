@@ -1,8 +1,8 @@
 import { useAudioPref, usePreferences } from '../../stores/useGameStore';
 
 export const Settings = () => {
-  const { muted, toggleMute } = useAudioPref();
-  const { lowSpec, showHints, toggleLowSpec, toggleHints } = usePreferences();
+  const { muted, toggleMute, soundTheme, setSoundTheme } = useAudioPref();
+  const { lowSpec, showHints, colorblindMode, controlMode, toggleLowSpec, toggleHints, toggleColorblind, setControlMode } = usePreferences();
 
   return (
     <div className="glass-panel rounded-2xl p-4">
@@ -17,6 +17,22 @@ export const Settings = () => {
         </label>
         <label className="flex items-center justify-between rounded-xl bg-panel/60 px-3 py-2">
           <div>
+            <p className="font-semibold">Sound Theme</p>
+            <p className="text-xs text-slate-400">Pick a tactile ASMR profile</p>
+          </div>
+          <select
+            className="rounded-md bg-slate-800 px-2 py-1 text-xs"
+            value={soundTheme}
+            onChange={(e) => setSoundTheme(e.target.value as any)}
+          >
+            <option value="classic">Classic</option>
+            <option value="jelly">Jelly</option>
+            <option value="wood">Wood</option>
+            <option value="glass">Glass</option>
+          </select>
+        </label>
+        <label className="flex items-center justify-between rounded-xl bg-panel/60 px-3 py-2">
+          <div>
             <p className="font-semibold">Low-spec mode</p>
             <p className="text-xs text-slate-400">Turn off fog & heavy effects</p>
           </div>
@@ -28,6 +44,28 @@ export const Settings = () => {
             <p className="text-xs text-slate-400">Show green/red previews while aiming</p>
           </div>
           <input type="checkbox" checked={showHints} onChange={() => toggleHints()} />
+        </label>
+        <label className="flex items-center justify-between rounded-xl bg-panel/60 px-3 py-2">
+          <div>
+            <p className="font-semibold">Colorblind-friendly patterns</p>
+            <p className="text-xs text-slate-400">Add subtle textures on blocks</p>
+          </div>
+          <input type="checkbox" checked={colorblindMode} onChange={() => toggleColorblind()} />
+        </label>
+        <label className="flex items-center justify-between rounded-xl bg-panel/60 px-3 py-2">
+          <div>
+            <p className="font-semibold">Adaptive controls</p>
+            <p className="text-xs text-slate-400">Offset placement for finger coverage</p>
+          </div>
+          <select
+            className="rounded-md bg-slate-800 px-2 py-1 text-xs"
+            value={controlMode}
+            onChange={(e) => setControlMode(e.target.value as any)}
+          >
+            <option value="standard">1:1 모드</option>
+            <option value="offset">오프셋 모드</option>
+            <option value="auto">오토 오프셋</option>
+          </select>
         </label>
       </div>
     </div>

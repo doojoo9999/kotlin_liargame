@@ -1,6 +1,6 @@
-import { useRef } from 'react';
+import { useMemo, useRef } from 'react';
 import { Howl } from 'howler';
-import { useAudioPref } from '../stores/useGameStore';
+import { useAudioPref, type SoundTheme } from '../stores/useGameStore';
 import pickSfx from '../assets/sounds/pick.wav';
 import dropSfx from '../assets/sounds/drop.wav';
 import invalidSfx from '../assets/sounds/invalid.wav';
@@ -22,8 +22,17 @@ const DEFAULT_SOURCES: Record<SoundKey, string[]> = {
 const SOUND_SOURCES: Record<SoundKey, string[]> = { ...DEFAULT_SOURCES };
 
 export const useAudio = () => {
-  const { muted, toggleMute } = useAudioPref();
+  const { muted, toggleMute, soundTheme } = useAudioPref();
   const howls = useRef<Partial<Record<SoundKey, Howl>>>({});
+
+  const themeProfile = useMemo((): Record<SoundTheme, { rate: number; volume: number }> => {
+    return {
+      classic: { rate: 1, volume: 0.65 },
+      jelly: { rate: 0.92, volume: 0.7 },
+      wood: { rate: 0.96, volume: 0.8 },
+      glass: { rate: 1.1, volume: 0.6 }
+    };
+  }, []);
 
   const getHowl = (key: SoundKey) => {
     if (howls.current[key]) return howls.current[key]!;
@@ -37,7 +46,12 @@ export const useAudio = () => {
   const play = (key: SoundKey) => {
     if (muted) return;
     const howl = getHowl(key);
-    howl?.play();
+    if (!howl) return;
+    const profile = themeProfile[soundTheme] ?? themeProfile.classic;
+    const jitter = 1 + (Math.random() - 0.5) * 0.05;
+    howl.rate(profile.rate * jitter);
+    howl.volume(profile.volume);
+    howl.play();
   };
 
   const setSources = (key: SoundKey, sources: string[]) => {

@@ -36,3 +36,21 @@ a {
     linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
   background-size: 48px 48px;
 }
+
+.last-chance {
+  filter: saturate(0.6) grayscale(0.15);
+  animation: lastChance 0.55s ease;
+}
+
+@keyframes lastChance {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.99);
+    filter: grayscale(0.35) blur(1px);
+  }
+  100% {
+    transform: scale(1);
+  }
+}

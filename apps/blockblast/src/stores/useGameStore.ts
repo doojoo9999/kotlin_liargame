@@ -11,6 +11,9 @@ import {
 } from '../utils/grid';
 import type { BlockInstance, Grid } from '../utils/grid';
 
+export type SoundTheme = 'classic' | 'jelly' | 'wood' | 'glass';
+export type ControlMode = 'standard' | 'offset' | 'auto';
+
 export type GameStatus = 'playing' | 'gameover';
 
 interface GameState {
@@ -24,6 +27,9 @@ interface GameState {
   muted: boolean;
   lowSpec: boolean;
   showHints: boolean;
+  soundTheme: SoundTheme;
+  colorblindMode: boolean;
+  controlMode: ControlMode;
   history: Array<{ grid: Grid; score: number }>;
   pickBlock: (id: string | null) => void;
   rotateBlock: (id: string) => void;
@@ -40,11 +46,24 @@ interface GameState {
   toggleMute: (value?: boolean) => void;
   toggleLowSpec: (value?: boolean) => void;
   toggleHints: (value?: boolean) => void;
+  toggleColorblind: (value?: boolean) => void;
+  setSoundTheme: (theme: SoundTheme) => void;
+  setControlMode: (mode: ControlMode) => void;
 }
 
 const buildInitialState = (): Omit<
   GameState,
-  'pickBlock' | 'rotateBlock' | 'placeBlock' | 'refreshTray' | 'reset' | 'toggleMute' | 'toggleLowSpec' | 'toggleHints'
+  | 'pickBlock'
+  | 'rotateBlock'
+  | 'placeBlock'
+  | 'refreshTray'
+  | 'reset'
+  | 'toggleMute'
+  | 'toggleLowSpec'
+  | 'toggleHints'
+  | 'toggleColorblind'
+  | 'setSoundTheme'
+  | 'setControlMode'
 > => ({
   grid: createEmptyGrid(),
   tray: generateTray(),
@@ -56,6 +75,9 @@ const buildInitialState = (): Omit<
   muted: false,
   lowSpec: false,
   showHints: true,
+  soundTheme: 'classic',
+  colorblindMode: false,
+  controlMode: 'standard',
   history: []
 });
 
@@ -125,23 +147,39 @@ export const useGameStore = create<GameState>((set, get) => ({
       ...buildInitialState(),
       muted: state.muted,
       lowSpec: state.lowSpec,
-      showHints: state.showHints
+      showHints: state.showHints,
+      soundTheme: state.soundTheme,
+      colorblindMode: state.colorblindMode,
+      controlMode: state.controlMode
     })),
   toggleMute: (value) => set((state) => ({ muted: value ?? !state.muted })),
   toggleLowSpec: (value) => set((state) => ({ lowSpec: value ?? !state.lowSpec })),
-  toggleHints: (value) => set((state) => ({ showHints: value ?? !state.showHints }))
+  toggleHints: (value) => set((state) => ({ showHints: value ?? !state.showHints })),
+  toggleColorblind: (value) => set((state) => ({ colorblindMode: value ?? !state.colorblindMode })),
+  setSoundTheme: (theme) => set(() => ({ soundTheme: theme })),
+  setControlMode: (mode) => set(() => ({ controlMode: mode }))
 }));
 
 export const useBlocks = () => useGameStore((state) => state.tray);
 export const useGrid = () => useGameStore((state) => state.grid);
 export const useHUD = () =>
   useGameStore((state) => ({ score: state.score, combo: state.combo, comboMax: state.comboMax, status: state.status }));
-export const useAudioPref = () => useGameStore((state) => ({ muted: state.muted, toggleMute: state.toggleMute }));
+export const useAudioPref = () =>
+  useGameStore((state) => ({
+    muted: state.muted,
+    toggleMute: state.toggleMute,
+    soundTheme: state.soundTheme,
+    setSoundTheme: state.setSoundTheme
+  }));
 export const usePreferences = () =>
   useGameStore((state) => ({
     lowSpec: state.lowSpec,
     showHints: state.showHints,
+    colorblindMode: state.colorblindMode,
+    controlMode: state.controlMode,
     toggleLowSpec: state.toggleLowSpec,
-    toggleHints: state.toggleHints
+    toggleHints: state.toggleHints,
+    toggleColorblind: state.toggleColorblind,
+    setControlMode: state.setControlMode
   }));
 export const useBlockLibrary = () => BLOCK_LIBRARY;

@@ -7,23 +7,29 @@ export interface DragHandlers {
   onRelease?: (cell: { x: number; y: number }) => void;
 }
 
+export type ControlMode = 'standard' | 'offset' | 'auto';
+
 const clamp = (value: number, size: number) => Math.max(0, Math.min(size - 1, value));
 
-export const useDragDrop = ({ onMove, onRelease }: DragHandlers) => {
-  const toCell = useCallback((clientX: number, clientY: number, target: HTMLElement) => {
+export const useDragDrop = ({ onMove, onRelease, controlMode = 'standard' }: DragHandlers & { controlMode?: ControlMode }) => {
+  const toCell = useCallback((clientX: number, clientY: number, target: HTMLElement, velocity = 0) => {
     const bounds = target.getBoundingClientRect();
     const normalizedX = ((clientX - bounds.left) / bounds.width) * GRID_SIZE;
     const normalizedY = ((clientY - bounds.top) / bounds.height) * GRID_SIZE;
+    const offset = controlMode === 'offset' ? 1 : controlMode === 'auto' ? Math.min(2, Math.round(velocity * 1.2)) : 0;
     return {
       x: clamp(Math.floor(normalizedX), GRID_SIZE),
-      y: clamp(Math.floor(normalizedY), GRID_SIZE)
+      y: clamp(Math.floor(normalizedY - offset), GRID_SIZE)
     };
-  }, []);
+  }, [controlMode]);
 
   return useDrag(
-    ({ event, active, xy: [clientX, clientY] }) => {
+    ({ event, active, xy: [clientX, clientY], velocity: gestureVelocity }: any) => {
       if (!(event.target instanceof HTMLElement)) return;
-      const cell = toCell(clientX, clientY, event.target);
+      const speed = Array.isArray(gestureVelocity)
+        ? Math.min(3, Math.hypot(gestureVelocity[0] ?? 0, gestureVelocity[1] ?? 0))
+        : Math.min(3, gestureVelocity ?? 0);
+      const cell = toCell(clientX, clientY, event.target, speed);
       if (active) {
         onMove?.(cell);
       } else {

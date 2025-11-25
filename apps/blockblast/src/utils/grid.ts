@@ -215,3 +215,22 @@ export const scorePlacement = (placedCells: number, cleared: { rows: number[]; c
 };
 
 export const BLOCK_LIBRARY = SHAPES;
+
+export const countAvailablePlacements = (grid: Grid, tray: BlockInstance[], stopAfter = Infinity): number => {
+  let count = 0;
+  const size = grid.length;
+  for (const block of tray) {
+    for (let y = 0; y < size; y += 1) {
+      for (let x = 0; x < size; x += 1) {
+        if (canPlaceBlock(grid, block.shape, x, y)) {
+          count += 1;
+          if (count >= stopAfter) return count;
+        }
+      }
+    }
+  }
+  return count;
+};
+
+export const countFilledCells = (grid: Grid): number =>
+  grid.reduce((rowAcc, row) => rowAcc + row.reduce((acc, cell) => acc + (cell ? 1 : 0), 0), 0);

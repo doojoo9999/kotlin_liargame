@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useGameStore } from '../stores/useGameStore';
-import { canPlaceBlock } from '../utils/grid';
+import { canPlaceBlock, resolvePlacement } from '../utils/grid';
 import type { BlockInstance } from '../utils/grid';
 
 type GhostState = {
@@ -8,6 +8,7 @@ type GhostState = {
   x: number;
   y: number;
   valid: boolean;
+  cleared: { rows: number[]; cols: number[] };
 };
 
 const clampToGrid = (value: number, size: number) => Math.max(0, Math.min(size - 1, value));
@@ -33,8 +34,11 @@ export const useGameLogic = () => {
     (blockId: string, x: number, y: number) => {
       const block = findBlock(blockId);
       if (!block) return;
-      const valid = canPlaceBlock(grid, block.shape, clampToGrid(x, grid.length), clampToGrid(y, grid.length));
-      setGhost({ block, x: clampToGrid(x, grid.length), y: clampToGrid(y, grid.length), valid });
+      const gx = clampToGrid(x, grid.length);
+      const gy = clampToGrid(y, grid.length);
+      const valid = canPlaceBlock(grid, block.shape, gx, gy);
+      const cleared = valid ? resolvePlacement(grid, block.shape, gx, gy, block.color).cleared : { rows: [], cols: [] };
+      setGhost({ block, x: gx, y: gy, valid, cleared });
     },
     [findBlock, grid]
   );
