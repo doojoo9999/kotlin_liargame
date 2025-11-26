@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import type { ThreeEvent } from '@react-three/fiber';
 import { PALETTE, GRID_SIZE } from '../../styles/theme';
 import { Block } from './Block';
 import type { GhostState } from '../../hooks/useGameLogic';
@@ -23,13 +24,13 @@ export const Board = ({ grid, ghost, showGhost = true, onHover, onSelect, onLeav
     for (let y = 0; y < GRID_SIZE; y += 1) {
       for (let x = 0; x < GRID_SIZE; x += 1) {
         const even = (x + y) % 2 === 0;
-        result.push({ x, y, color: even ? '#0f1b34' : '#0d162b' });
+        result.push({ x, y, color: even ? '#12243f' : '#0f1c34' });
       }
     }
     return result;
   }, []);
 
-  const handlePointerMove = (e: any) => {
+  const handlePointerMove = (e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
     if (!onHover) return;
     const { x, z } = e.point;
@@ -38,7 +39,7 @@ export const Board = ({ grid, ghost, showGhost = true, onHover, onSelect, onLeav
     onHover({ x: cx, y: cy });
   };
 
-  const handlePointerDown = (e: any) => {
+  const handlePointerDown = (e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
     if (!onSelect) return;
     const { x, z } = e.point;
@@ -74,7 +75,7 @@ export const Board = ({ grid, ghost, showGhost = true, onHover, onSelect, onLeav
     <group position={[-GRID_SIZE / 2, 0, -GRID_SIZE / 2]}>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[GRID_SIZE / 2, -0.55, GRID_SIZE / 2]}>
         <planeGeometry args={[GRID_SIZE + 1.5, GRID_SIZE + 1.5]} />
-        <meshStandardMaterial color="#0a0f1e" metalness={0.15} roughness={0.9} />
+        <meshStandardMaterial color="#0e1933" metalness={0.12} roughness={0.9} />
       </mesh>
 
       {checkerboard.map((cell) => (
@@ -96,11 +97,11 @@ export const Board = ({ grid, ghost, showGhost = true, onHover, onSelect, onLeav
         onPointerLeave={handlePointerLeave}
       >
         <planeGeometry args={[GRID_SIZE, GRID_SIZE]} />
-        <meshStandardMaterial color="#0f172a" metalness={0.1} roughness={0.9} />
+        <meshStandardMaterial color="#152544" metalness={0.08} roughness={0.92} />
       </mesh>
 
       <gridHelper
-        args={[GRID_SIZE, GRID_SIZE, '#2c3b63', '#233155']}
+        args={[GRID_SIZE, GRID_SIZE, '#3b4f7a', '#2c3f66']}
         position={[GRID_SIZE / 2, -0.39, GRID_SIZE / 2]}
       />
 

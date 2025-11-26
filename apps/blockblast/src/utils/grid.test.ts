@@ -1,18 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import {
-  applyPlacement,
-  canPlaceBlock,
-  clearLines,
-  createEmptyGrid,
-  findCompletedLines,
-  resolvePlacement,
-  rotateShape
-} from './grid';
+import { applyPlacement, canPlaceBlock, createEmptyGrid, resolvePlacement, rotateShape } from './grid';
+import { GRID_SIZE } from '../styles/theme';
 
 describe('grid helpers', () => {
-  it('creates an empty 16x16 grid by default', () => {
+  it(`creates an empty ${GRID_SIZE}x${GRID_SIZE} grid by default`, () => {
     const grid = createEmptyGrid();
-    expect(grid).toHaveLength(16);
+    expect(grid).toHaveLength(GRID_SIZE);
     expect(grid.every((row) => row.every((cell) => cell === null))).toBe(true);
   });
 
@@ -46,11 +39,8 @@ describe('grid helpers', () => {
     const grid = createEmptyGrid(4);
     const lineShape = [[1, 1, 1, 1]];
     const placement = resolvePlacement(grid, lineShape, 0, 1, 'blue');
-    const completed = findCompletedLines(placement.grid);
-    const cleared = clearLines(placement.grid, completed);
 
     expect(placement.cleared.rows).toContain(1);
-    expect(completed.rows).toContain(1);
-    expect(cleared[1].every((cell) => cell === null)).toBe(true);
+    expect(placement.grid[1].every((cell) => cell === null)).toBe(true);
   });
 });

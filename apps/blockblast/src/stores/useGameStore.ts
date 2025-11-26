@@ -10,6 +10,7 @@ import {
   scorePlacement
 } from '../utils/grid';
 import type { BlockInstance, Grid } from '../utils/grid';
+import { loadState, saveState, type PersistedGameState } from '../game/managers/persistence';
 
 export type SoundTheme = 'classic' | 'jelly' | 'wood' | 'glass';
 export type ControlMode = 'standard' | 'offset' | 'auto';
@@ -30,6 +31,7 @@ interface GameState {
   soundTheme: SoundTheme;
   colorblindMode: boolean;
   controlMode: ControlMode;
+  paused: boolean;
   history: Array<{ grid: Grid; score: number }>;
   pickBlock: (id: string | null) => void;
   rotateBlock: (id: string) => void;
@@ -50,6 +52,7 @@ interface GameState {
   setSoundTheme: (theme: SoundTheme) => void;
   setControlMode: (mode: ControlMode) => void;
   forceGameOver: () => void;
+  setPaused: (value: boolean) => void;
 }
 
 const buildInitialState = (): Omit<
@@ -66,6 +69,7 @@ const buildInitialState = (): Omit<
   | 'setSoundTheme'
   | 'setControlMode'
   | 'forceGameOver'
+  | 'setPaused'
 > => ({
   grid: createEmptyGrid(),
   tray: generateTray(),
@@ -80,16 +84,52 @@ const buildInitialState = (): Omit<
   soundTheme: 'classic',
   colorblindMode: false,
   controlMode: 'standard',
+  paused: false,
   history: []
 });
 
+const hydrateFromStorage = (): ReturnType<typeof buildInitialState> => {
+  const base = buildInitialState();
+  const persisted = loadState();
+  if (!persisted) return base;
+  const sizeMismatch = persisted.grid && persisted.grid.length !== base.grid.length;
+  return {
+    ...base,
+    grid: sizeMismatch ? base.grid : persisted.grid ?? base.grid,
+    tray: sizeMismatch ? base.tray : persisted.tray?.length ? persisted.tray : base.tray,
+    score: persisted.score ?? base.score,
+    combo: persisted.combo ?? base.combo,
+    status: persisted.status ?? base.status
+  };
+};
+
+const persistSnapshot = (state: PersistedGameState) => {
+  saveState({
+    grid: state.grid,
+    tray: state.tray,
+    score: state.score,
+    combo: state.combo,
+    status: state.status
+  });
+};
+
 export const useGameStore = create<GameState>((set, get) => ({
-  ...buildInitialState(),
+  ...hydrateFromStorage(),
   pickBlock: (id) => set(() => ({ activeBlockId: id })),
   rotateBlock: (id) =>
-    set((state) => ({
-      tray: state.tray.map((block) => (block.id === id ? { ...block, shape: rotateShape(block.shape) } : block))
-    })),
+    set((state) => {
+      const updates: Partial<GameState> = {
+        tray: state.tray.map((block) => (block.id === id ? { ...block, shape: rotateShape(block.shape) } : block))
+      };
+      persistSnapshot({
+        grid: state.grid,
+        tray: updates.tray ?? state.tray,
+        score: state.score,
+        combo: state.combo,
+        status: state.status
+      });
+      return updates;
+    }),
   placeBlock: (id, x, y) => {
     const state = get();
     const target = state.tray.find((block) => block.id === id);
@@ -121,18 +161,29 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     const remainingTray = state.tray.filter((block) => block.id !== id);
     const replenishedTray = remainingTray.length ? remainingTray : generateTray();
-    const nextStatus = checkGameOver(placement.grid, replenishedTray) ? 'gameover' : 'playing';
+    const nextStatus: GameStatus = checkGameOver(placement.grid, replenishedTray) ? 'gameover' : 'playing';
 
-    set((prev) => ({
-      grid: placement.grid,
-      tray: replenishedTray,
-      score: prev.score + scoreGained,
-      combo: nextCombo,
-      comboMax: Math.max(prev.comboMax, nextCombo),
-      status: nextStatus,
-      activeBlockId: null,
-      history: [...prev.history.slice(-9), { grid: placement.grid, score: prev.score + scoreGained }]
-    }));
+    set((prev) => {
+      const nextScore = prev.score + scoreGained;
+      const updates: Partial<GameState> = {
+        grid: placement.grid,
+        tray: replenishedTray,
+        score: nextScore,
+        combo: nextCombo,
+        comboMax: Math.max(prev.comboMax, nextCombo),
+        status: nextStatus,
+        activeBlockId: null,
+        history: [...prev.history.slice(-9), { grid: placement.grid, score: nextScore }]
+      };
+      persistSnapshot({
+        grid: placement.grid,
+        tray: replenishedTray,
+        score: nextScore,
+        combo: nextCombo,
+        status: nextStatus
+      });
+      return updates;
+    });
 
     return {
       success: true,
@@ -143,24 +194,59 @@ export const useGameStore = create<GameState>((set, get) => ({
       linesCleared: clearedLines
     };
   },
-  refreshTray: () => set(() => ({ tray: generateTray(), activeBlockId: null, combo: 0 })),
+  refreshTray: () =>
+    set((state) => {
+      const updates: Partial<GameState> = { tray: generateTray(), activeBlockId: null, combo: 0 };
+      persistSnapshot({
+        grid: state.grid,
+        tray: updates.tray ?? state.tray,
+        score: state.score,
+        combo: updates.combo ?? state.combo,
+        status: state.status
+      });
+      return updates;
+    }),
   reset: () =>
-    set((state) => ({
-      ...buildInitialState(),
-      muted: state.muted,
-      lowSpec: state.lowSpec,
-      showHints: state.showHints,
-      soundTheme: state.soundTheme,
-      colorblindMode: state.colorblindMode,
-      controlMode: state.controlMode
-    })),
+    set((state) => {
+      const next: Partial<GameState> = {
+        ...buildInitialState(),
+        muted: state.muted,
+        lowSpec: state.lowSpec,
+        showHints: state.showHints,
+        soundTheme: state.soundTheme,
+        colorblindMode: state.colorblindMode,
+        controlMode: state.controlMode,
+        setPaused: state.setPaused
+      };
+      persistSnapshot({
+        grid: next.grid ?? state.grid,
+        tray: next.tray ?? state.tray,
+        score: next.score ?? 0,
+        combo: next.combo ?? 0,
+        status: next.status ?? 'playing'
+      });
+      return next;
+    }),
   toggleMute: (value) => set((state) => ({ muted: value ?? !state.muted })),
   toggleLowSpec: (value) => set((state) => ({ lowSpec: value ?? !state.lowSpec })),
   toggleHints: (value) => set((state) => ({ showHints: value ?? !state.showHints })),
   toggleColorblind: (value) => set((state) => ({ colorblindMode: value ?? !state.colorblindMode })),
   setSoundTheme: (theme) => set(() => ({ soundTheme: theme })),
   setControlMode: (mode) => set(() => ({ controlMode: mode })),
-  forceGameOver: () => set((state) => (state.status === 'gameover' ? state : { status: 'gameover', activeBlockId: null }))
+  forceGameOver: () =>
+    set((state) => {
+      if (state.status === 'gameover') return state;
+      const updates: Partial<GameState> = { status: 'gameover', activeBlockId: null };
+      persistSnapshot({
+        grid: state.grid,
+        tray: state.tray,
+        score: state.score,
+        combo: state.combo,
+        status: 'gameover'
+      });
+      return updates;
+    }),
+  setPaused: (value) => set(() => ({ paused: value }))
 }));
 
 export const useBlocks = () => useGameStore((state) => state.tray);

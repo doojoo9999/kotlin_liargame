@@ -1,11 +1,12 @@
-import { useAudioPref, usePreferences } from '../../stores/useGameStore';
+import type React from 'react';
+import { useAudioPref, usePreferences, type SoundTheme, type ControlMode } from '../../stores/useGameStore';
 
 export const Settings = () => {
   const { muted, toggleMute, soundTheme, setSoundTheme } = useAudioPref();
   const { lowSpec, showHints, colorblindMode, controlMode, toggleLowSpec, toggleHints, toggleColorblind, setControlMode } = usePreferences();
 
   return (
-    <div className="glass-panel rounded-2xl p-4">
+    <div id="settings" className="glass-panel rounded-2xl p-4">
       <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Settings</p>
       <div className="mt-3 space-y-3 text-sm text-slate-100">
         <label className="flex items-center justify-between rounded-xl bg-panel/60 px-3 py-2">
@@ -23,7 +24,10 @@ export const Settings = () => {
           <select
             className="rounded-md bg-slate-800 px-2 py-1 text-xs"
             value={soundTheme}
-            onChange={(e) => setSoundTheme(e.target.value as any)}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+              const value = e.target.value as SoundTheme;
+              setSoundTheme(value);
+            }}
           >
             <option value="classic">Classic</option>
             <option value="jelly">Jelly</option>
@@ -60,7 +64,10 @@ export const Settings = () => {
           <select
             className="rounded-md bg-slate-800 px-2 py-1 text-xs"
             value={controlMode}
-            onChange={(e) => setControlMode(e.target.value as any)}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+              const value = e.target.value as ControlMode;
+              setControlMode(value);
+            }}
           >
             <option value="standard">1:1 모드</option>
             <option value="offset">오프셋 모드</option>

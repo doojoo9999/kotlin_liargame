@@ -1,4 +1,5 @@
-export const GRID_SIZE = 16;
+export const GRID_SIZE_OPTIONS = [8, 10] as const;
+export const GRID_SIZE = GRID_SIZE_OPTIONS[1];
 export const CELL_SIZE = 1;
 
 export const PALETTE = {

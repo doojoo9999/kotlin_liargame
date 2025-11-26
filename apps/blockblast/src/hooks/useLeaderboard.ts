@@ -31,24 +31,42 @@ export const useLeaderboard = () => {
     try {
       const res = await fetch('/api/blockblast/leaderboard');
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const payload = await res.json();
-      const list: LeaderboardEntry[] = Array.isArray(payload?.top)
-        ? payload.top
-        : Array.isArray(payload?.items)
-          ? payload.items
-          : Array.isArray(payload)
-            ? payload
-            : [];
-      const normalized = list.map((item: any, idx: number) => ({
-        name: item.name ?? item.player ?? item.subject_key?.slice(0, 6) ?? `Player ${idx + 1}`,
-        score: item.score ?? 0,
-        comboMax: item.combo_max ?? item.comboMax,
-        rank: item.rank ?? idx + 1,
-        isSelf: Boolean(item.subject_key && item.subject_key === subjectKey)
-      }));
+      const payload = (await res.json()) as unknown;
+
+      const asRecord = (value: unknown): Record<string, unknown> | null =>
+        value && typeof value === 'object' ? (value as Record<string, unknown>) : null;
+
+      const items = (() => {
+        const record = asRecord(payload);
+        if (record?.top && Array.isArray(record.top)) return record.top as unknown[];
+        if (record?.items && Array.isArray(record.items)) return record.items as unknown[];
+        if (Array.isArray(payload)) return payload as unknown[];
+        return [] as unknown[];
+      })();
+
+      const normalized = items.map((item, idx): LeaderboardEntry => {
+        const obj = asRecord(item);
+        const subjectKeyValue = obj?.subject_key;
+        const nameFromSubject = typeof subjectKeyValue === 'string' ? subjectKeyValue.slice(0, 6) : null;
+        const scoreValue = obj?.score;
+        const comboMaxValue = obj?.combo_max ?? obj?.comboMax;
+        const rankValue = obj?.rank;
+        return {
+          name:
+            (typeof obj?.name === 'string' && obj.name) ||
+            (typeof obj?.player === 'string' && obj.player) ||
+            nameFromSubject ||
+            `Player ${idx + 1}`,
+          score: typeof scoreValue === 'number' ? scoreValue : 0,
+          comboMax: typeof comboMaxValue === 'number' ? comboMaxValue : undefined,
+          rank: typeof rankValue === 'number' ? rankValue : idx + 1,
+          isSelf: typeof subjectKeyValue === 'string' && subjectKeyValue === subjectKey
+        };
+      });
       setEntries(normalized);
-    } catch (err: any) {
-      setError(err?.message ?? '리더보드 불러오기 실패');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : null;
+      setError(message ?? '리더보드 불러오기 실패');
     } finally {
       setLoading(false);
     }

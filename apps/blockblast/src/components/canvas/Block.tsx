@@ -27,21 +27,22 @@ export const Block = ({ position, color, opacity = 1, emissive, colorKey, usePat
     <group position={position}>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.52, 0]}>
         <planeGeometry args={[0.95, 0.95]} />
-        <meshBasicMaterial color="#000000" transparent opacity={0.25 * opacity} />
+        <meshBasicMaterial color="#020617" transparent opacity={0.2 * opacity} />
       </mesh>
       <RoundedBox args={[0.92, 0.92, 0.92]} radius={0.2} smoothness={4} castShadow receiveShadow>
         <meshPhysicalMaterial
           color={physicalColor}
-          metalness={0.08}
-          roughness={0.18}
-          clearcoat={0.9}
-          clearcoatRoughness={0.35}
-          transmission={0.16}
-          thickness={0.4}
-          transparent
+          metalness={0.04}
+          roughness={0.3}
+          clearcoat={0.45}
+          clearcoatRoughness={0.55}
+          transmission={0}
+          thickness={0.25}
+          transparent={false}
           opacity={opacity}
           emissive={glow}
-          emissiveIntensity={0.4}
+          emissiveIntensity={0.55}
+          envMapIntensity={0.35}
           map={texture ?? undefined}
         />
         <Edges scale={1.02} threshold={15} color={edgeColor} />

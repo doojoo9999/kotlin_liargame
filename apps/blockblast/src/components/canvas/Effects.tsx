@@ -17,7 +17,7 @@ export const Effects = ({ lowSpec = false, feverLevel = 0 }: EffectsProps) => {
       scene.fog = null;
       return () => {};
     }
-    const fog = new FogExp2(fever > 0 ? '#0f1027' : '#0b1021', 0.05 + fever * 0.02);
+    const fog = new FogExp2(fever > 0 ? '#0f1530' : '#0b1326', 0.025 + fever * 0.01);
     scene.fog = fog;
     return () => {
       scene.fog = null;
@@ -31,12 +31,12 @@ export const Effects = ({ lowSpec = false, feverLevel = 0 }: EffectsProps) => {
       <Sparkles
         count={fever > 0 ? 70 : 40}
         scale={[20, 6, 20]}
-        size={fever > 0 ? 2.8 : 2}
-        speed={0.3 + fever * 0.5}
-        opacity={0.35 + fever * 0.2}
+        size={fever > 0 ? 2.4 : 1.8}
+        speed={0.3 + fever * 0.45}
+        opacity={0.25 + fever * 0.18}
         color={fever > 0 ? '#ff9f43' : '#94b6ff'}
       />
-      <pointLight position={[0, 6, 0]} intensity={0.3 + fever * 0.5} color={fever > 0 ? '#ff8ec7' : '#7dd3fc'} />
+      <pointLight position={[0, 6, 0]} intensity={0.26 + fever * 0.45} color={fever > 0 ? '#ff8ec7' : '#7dd3fc'} />
     </>
   );
 };

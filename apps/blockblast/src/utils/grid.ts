@@ -44,7 +44,7 @@ const SHAPES: BlockTemplate[] = [
 
 const cloneGrid = (grid: Grid): Grid => grid.map((row) => [...row]);
 
-export const createEmptyGrid = (size = GRID_SIZE): Grid =>
+export const createEmptyGrid = (size: number = GRID_SIZE): Grid =>
   Array.from({ length: size }, () => Array<GridCell>(size).fill(null));
 
 export const trimShape = (shape: Shape): Shape => {

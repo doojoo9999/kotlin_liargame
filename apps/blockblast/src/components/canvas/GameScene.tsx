@@ -43,6 +43,7 @@ interface GameSceneProps {
   trayBlock?: BlockInstance | null;
   usePatterns?: boolean;
   feverLevel?: number;
+  paused?: boolean;
 }
 
 export const GameScene = ({
@@ -52,9 +53,11 @@ export const GameScene = ({
   lowSpec = false,
   trayBlock = null,
   usePatterns = false,
-  feverLevel = 0
+  feverLevel = 0,
+  paused = false
 }: GameSceneProps) => {
   const { grid } = logic;
+  const allowInput = !paused;
 
   return (
     <Canvas
@@ -64,7 +67,7 @@ export const GameScene = ({
       style={{ width: '100%', height: width ? `${width}px` : '100%' }}
     >
       <FixedTopDownCamera />
-      <color attach="background" args={["#0b1021"]} />
+      <color attach="background" args={["#0a1229"]} />
       <ambientLight intensity={ENVIRONMENT.ambientIntensity + 0.1} />
       <directionalLight
         position={[8, 14, 6]}
@@ -80,9 +83,17 @@ export const GameScene = ({
           ghost={logic.ghost}
           showGhost={showGhost}
           usePatterns={usePatterns}
-          onHover={(cell) => logic.activeBlockId && logic.previewPlacement(logic.activeBlockId, cell.x, cell.y)}
-          onSelect={(cell) => logic.activeBlockId && logic.attemptPlacement(logic.activeBlockId, cell.x, cell.y)}
-          onLeave={() => logic.clearGhost()}
+          onHover={
+            allowInput
+              ? (cell) => logic.activeBlockId && logic.previewPlacement(logic.activeBlockId, cell.x, cell.y)
+              : undefined
+          }
+          onSelect={
+            allowInput
+              ? (cell) => logic.activeBlockId && logic.attemptPlacement(logic.activeBlockId, cell.x, cell.y)
+              : undefined
+          }
+          onLeave={allowInput ? () => logic.clearGhost() : undefined}
         />
         <Effects lowSpec={lowSpec} feverLevel={feverLevel} />
         {!lowSpec ? (

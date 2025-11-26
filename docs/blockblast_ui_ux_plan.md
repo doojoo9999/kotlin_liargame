@@ -3,6 +3,13 @@
 ## Overview
 This document outlines 10 key UI/UX improvements for the Block Blast project. It incorporates specific user feedback regarding visibility, camera perspective, and layout stability, while adding complementary features to enhance the overall experience.
 
+## Reference Analysis (zzirit.kr/blockblast)
+An analysis of the reference implementation revealed the following areas for improvement:
+- **Camera**: Currently isometric/angled. This creates perspective distortion that makes judging alignment difficult. **Plan**: Switch to Orthographic Top-Down.
+- **Grid**: Faint lines that are hard to see against the dark background. **Plan**: High-contrast checkerboard or distinct borders.
+- **Tray**: Blocks are in fixed containers but can look small or uncentered. **Plan**: Normalized scaling to maximize visibility within the tray slots.
+- **Interaction**: Dragging requires precise pixel targeting. **Plan**: Add "Touch Offset" and "Snap Ghost" to make control forgiving.
+
 ## Core User Requirements (High Priority)
 
 ### 1. Fixed Top-Down Orthographic View

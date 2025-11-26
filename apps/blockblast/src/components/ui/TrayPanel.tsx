@@ -2,6 +2,7 @@ import { RotateCcw } from 'lucide-react';
 import { PALETTE } from '../../styles/theme';
 import clsx from 'clsx';
 import type { BlockInstance } from '../../utils/grid';
+import type { useDragDrop } from '../../hooks/useDragDrop';
 
 interface TrayPanelProps {
   blocks: BlockInstance[];
@@ -9,9 +10,10 @@ interface TrayPanelProps {
   onSelect: (id: string) => void;
   onRotate: (id: string) => void;
   placeableBlocks?: Set<string>;
+  dragBind?: ReturnType<typeof useDragDrop>;
 }
 
-const BlockPreview = ({ block, active, onSelect, onRotate, placeable }: { block: BlockInstance; active: boolean; onSelect: () => void; onRotate: () => void; placeable: boolean }) => {
+const BlockPreview = ({ block, active, onSelect, onRotate, placeable, dragBind }: { block: BlockInstance; active: boolean; onSelect: () => void; onRotate: () => void; placeable: boolean; dragBind?: ReturnType<typeof useDragDrop> }) => {
   const BOX_SIZE = 4;
   const columns = BOX_SIZE;
   const rows = BOX_SIZE;
@@ -30,21 +32,23 @@ const BlockPreview = ({ block, active, onSelect, onRotate, placeable }: { block:
 
   return (
     <div
+      {...(dragBind ? dragBind(block.id) : {})}
       className={clsx(
         'relative rounded-2xl border px-3 py-2 transition',
         active ? 'border-blue-400 bg-blue-500/10 shadow-glow' : 'border-white/10 bg-panel/60 hover:border-white/20',
         !placeable ? 'opacity-60 saturate-75' : ''
       )}
       title={placeable ? 'Placeable' : 'No moves for this shape'}
+      style={{ minHeight: 172 }}
     >
       <button type="button" className="absolute right-2 top-2 rounded-md bg-white/10 p-1 text-slate-200" onClick={onRotate}>
         <RotateCcw size={14} />
       </button>
       <button type="button" className="block w-full" onClick={onSelect}>
         <div
-          className="grid gap-1 rounded-xl border border-white/5 bg-black/20 p-3"
+          className="grid aspect-square gap-1 rounded-xl border border-white/5 bg-black/20 p-3"
           style={{
-            gridTemplateColumns: `repeat(${columns}, minmax(10px, 1fr))`
+            gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`
           }}
         >
           {normalizedCells.map((row, y) =>
@@ -70,7 +74,7 @@ const BlockPreview = ({ block, active, onSelect, onRotate, placeable }: { block:
   );
 };
 
-export const TrayPanel = ({ blocks, activeBlockId, onSelect, onRotate, placeableBlocks }: TrayPanelProps) => (
+export const TrayPanel = ({ blocks, activeBlockId, onSelect, onRotate, placeableBlocks, dragBind }: TrayPanelProps) => (
   <div className="glass-panel rounded-2xl p-4 shadow-glow">
     <div className="flex items-center justify-between">
       <div>
@@ -87,6 +91,7 @@ export const TrayPanel = ({ blocks, activeBlockId, onSelect, onRotate, placeable
           placeable={placeableBlocks ? placeableBlocks.has(block.id) : true}
           onSelect={() => onSelect(block.id)}
           onRotate={() => onRotate(block.id)}
+          dragBind={dragBind}
         />
       ))}
     </div>
