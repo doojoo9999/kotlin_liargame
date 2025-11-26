@@ -49,6 +49,7 @@ interface GameState {
   toggleColorblind: (value?: boolean) => void;
   setSoundTheme: (theme: SoundTheme) => void;
   setControlMode: (mode: ControlMode) => void;
+  forceGameOver: () => void;
 }
 
 const buildInitialState = (): Omit<
@@ -64,6 +65,7 @@ const buildInitialState = (): Omit<
   | 'toggleColorblind'
   | 'setSoundTheme'
   | 'setControlMode'
+  | 'forceGameOver'
 > => ({
   grid: createEmptyGrid(),
   tray: generateTray(),
@@ -157,7 +159,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   toggleHints: (value) => set((state) => ({ showHints: value ?? !state.showHints })),
   toggleColorblind: (value) => set((state) => ({ colorblindMode: value ?? !state.colorblindMode })),
   setSoundTheme: (theme) => set(() => ({ soundTheme: theme })),
-  setControlMode: (mode) => set(() => ({ controlMode: mode }))
+  setControlMode: (mode) => set(() => ({ controlMode: mode })),
+  forceGameOver: () => set((state) => (state.status === 'gameover' ? state : { status: 'gameover', activeBlockId: null }))
 }));
 
 export const useBlocks = () => useGameStore((state) => state.tray);

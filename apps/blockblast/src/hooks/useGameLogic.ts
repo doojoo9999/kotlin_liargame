@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useGameStore } from '../stores/useGameStore';
-import { canPlaceBlock, resolvePlacement } from '../utils/grid';
+import { canPlaceBlock, hasPlacementForShape, resolvePlacement } from '../utils/grid';
 import type { BlockInstance } from '../utils/grid';
 
 type GhostState = {
@@ -22,6 +22,7 @@ export const useGameLogic = () => {
   const refreshTray = useGameStore((state) => state.refreshTray);
   const rotateBlock = useGameStore((state) => state.rotateBlock);
   const reset = useGameStore((state) => state.reset);
+  const forceGameOver = useGameStore((state) => state.forceGameOver);
 
   const [ghost, setGhost] = useState<GhostState | null>(null);
 
@@ -29,6 +30,16 @@ export const useGameLogic = () => {
     (blockId: string | null) => tray.find((b) => b.id === blockId) ?? null,
     [tray]
   );
+
+  const placeableBlocks = useMemo(() => {
+    const playable = new Set<string>();
+    tray.forEach((block) => {
+      if (hasPlacementForShape(grid, block.shape)) {
+        playable.add(block.id);
+      }
+    });
+    return playable;
+  }, [grid, tray]);
 
   const previewPlacement = useCallback(
     (blockId: string, x: number, y: number) => {
@@ -60,6 +71,13 @@ export const useGameLogic = () => {
     setGhost(null);
   }, [grid]);
 
+  useEffect(() => {
+    if (!tray.length) return;
+    if (placeableBlocks.size === 0) {
+      forceGameOver();
+    }
+  }, [forceGameOver, placeableBlocks.size, tray.length]);
+
   return {
     grid,
     tray,
@@ -72,7 +90,8 @@ export const useGameLogic = () => {
     previewPlacement,
     attemptPlacement,
     clearGhost,
-    findBlock
+    findBlock,
+    placeableBlocks
   };
 };
 

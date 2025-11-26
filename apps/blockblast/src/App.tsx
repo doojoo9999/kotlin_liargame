@@ -43,6 +43,7 @@ const App = () => {
   );
   const rival = useMemo(() => entries.find((entry) => !entry.isSelf), [entries]);
   const dangerLevelRef = useRef(0);
+  const placeableBlocks = logic.placeableBlocks;
 
   const handlePlacement = useCallback(
     (cell: { x: number; y: number }) => {
@@ -154,7 +155,7 @@ const App = () => {
 
       <Tutorial />
 
-      <main className="grid grid-cols-1 gap-6 px-6 pb-10 lg:grid-cols-[2fr_1fr]">
+      <main className="grid grid-cols-1 gap-6 px-6 pb-16 lg:grid-cols-[2fr_1fr]">
         <section className="relative overflow-hidden rounded-3xl shadow-glow">
           {dangerLevel > 0 ? (
             <div
@@ -168,7 +169,7 @@ const App = () => {
             />
           ) : null}
           <div className="grid-overlay pointer-events-none absolute inset-0" />
-          <div className="relative aspect-[4/3]">
+          <div className="relative aspect-square sm:aspect-[4/3]">
             <GameScene
               logic={logic}
               showGhost={showHints}
@@ -190,6 +191,7 @@ const App = () => {
           <TrayPanel
             blocks={logic.tray}
             activeBlockId={logic.activeBlockId}
+            placeableBlocks={placeableBlocks}
             onSelect={(id) => {
               logic.pickBlock(id);
               play('pick');

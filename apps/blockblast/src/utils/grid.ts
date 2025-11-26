@@ -234,3 +234,13 @@ export const countAvailablePlacements = (grid: Grid, tray: BlockInstance[], stop
 
 export const countFilledCells = (grid: Grid): number =>
   grid.reduce((rowAcc, row) => rowAcc + row.reduce((acc, cell) => acc + (cell ? 1 : 0), 0), 0);
+
+export const hasPlacementForShape = (grid: Grid, shape: Shape): boolean => {
+  const size = grid.length;
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      if (canPlaceBlock(grid, shape, x, y)) return true;
+    }
+  }
+  return false;
+};

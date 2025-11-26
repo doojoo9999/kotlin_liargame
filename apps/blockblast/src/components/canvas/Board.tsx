@@ -18,6 +18,16 @@ const clampToGrid = (value: number) => Math.max(0, Math.min(GRID_SIZE - 1, value
 
 export const Board = ({ grid, ghost, showGhost = true, onHover, onSelect, onLeave, usePatterns = false }: BoardProps) => {
   const cells = useMemo(() => grid, [grid]);
+  const checkerboard = useMemo(() => {
+    const result: Array<{ x: number; y: number; color: string }> = [];
+    for (let y = 0; y < GRID_SIZE; y += 1) {
+      for (let x = 0; x < GRID_SIZE; x += 1) {
+        const even = (x + y) % 2 === 0;
+        result.push({ x, y, color: even ? '#0f1b34' : '#0d162b' });
+      }
+    }
+    return result;
+  }, []);
 
   const handlePointerMove = (e: any) => {
     e.stopPropagation();
@@ -62,6 +72,22 @@ export const Board = ({ grid, ghost, showGhost = true, onHover, onSelect, onLeav
 
   return (
     <group position={[-GRID_SIZE / 2, 0, -GRID_SIZE / 2]}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[GRID_SIZE / 2, -0.55, GRID_SIZE / 2]}>
+        <planeGeometry args={[GRID_SIZE + 1.5, GRID_SIZE + 1.5]} />
+        <meshStandardMaterial color="#0a0f1e" metalness={0.15} roughness={0.9} />
+      </mesh>
+
+      {checkerboard.map((cell) => (
+        <mesh
+          key={`bg-${cell.x}-${cell.y}`}
+          rotation={[-Math.PI / 2, 0, 0]}
+          position={[cell.x + 0.5, -0.45, cell.y + 0.5]}
+        >
+          <planeGeometry args={[1, 1]} />
+          <meshStandardMaterial color={cell.color} roughness={0.95} metalness={0.05} />
+        </mesh>
+      ))}
+
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
         position={[GRID_SIZE / 2, -0.4, GRID_SIZE / 2]}
@@ -70,10 +96,13 @@ export const Board = ({ grid, ghost, showGhost = true, onHover, onSelect, onLeav
         onPointerLeave={handlePointerLeave}
       >
         <planeGeometry args={[GRID_SIZE, GRID_SIZE]} />
-        <meshStandardMaterial color="#0e162c" metalness={0.1} roughness={0.9} />
+        <meshStandardMaterial color="#0f172a" metalness={0.1} roughness={0.9} />
       </mesh>
 
-      <gridHelper args={[GRID_SIZE, GRID_SIZE, '#1f2b4a', '#1f2b4a']} position={[GRID_SIZE / 2, -0.39, GRID_SIZE / 2]} />
+      <gridHelper
+        args={[GRID_SIZE, GRID_SIZE, '#2c3b63', '#233155']}
+        position={[GRID_SIZE / 2, -0.39, GRID_SIZE / 2]}
+      />
 
       {cells.map((row, y) =>
         row.map((cell, x) =>
@@ -111,7 +140,7 @@ export const Board = ({ grid, ghost, showGhost = true, onHover, onSelect, onLeav
               raycast={() => null}
             >
               <planeGeometry args={[GRID_SIZE, 1]} />
-              <meshBasicMaterial color="#8ef9ff" transparent opacity={0.18} />
+              <meshBasicMaterial color="#e5f4ff" transparent opacity={0.25} />
             </mesh>
           ))}
           {clearedCols.map((col) => (
@@ -122,7 +151,7 @@ export const Board = ({ grid, ghost, showGhost = true, onHover, onSelect, onLeav
               raycast={() => null}
             >
               <planeGeometry args={[1, GRID_SIZE]} />
-              <meshBasicMaterial color="#9f7aea" transparent opacity={0.18} />
+              <meshBasicMaterial color="#d9c8ff" transparent opacity={0.22} />
             </mesh>
           ))}
         </group>

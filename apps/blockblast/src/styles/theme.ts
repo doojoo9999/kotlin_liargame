@@ -18,8 +18,8 @@ export const BOARD_BOUNDS = {
 };
 
 export const CAMERA_CONFIG = {
-  position: [10, 14, 16] as const,
-  fov: 40
+  position: [0, 28, 0] as const,
+  fov: 25
 };
 
 export const ENVIRONMENT = {

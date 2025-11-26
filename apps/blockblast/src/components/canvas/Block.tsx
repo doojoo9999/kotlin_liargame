@@ -1,4 +1,4 @@
-import { RoundedBox } from '@react-three/drei';
+import { Edges, RoundedBox } from '@react-three/drei';
 import { Color, Texture } from 'three';
 import { useMemo } from 'react';
 import { PATTERN_BY_COLOR, buildPatternTexture } from '../../utils/patternTexture';
@@ -14,8 +14,9 @@ interface BlockProps {
 }
 
 export const Block = ({ position, color, opacity = 1, emissive, colorKey, usePattern = false }: BlockProps) => {
-  const physicalColor = new Color(color);
+  const physicalColor = useMemo(() => new Color(color), [color]);
   const glow = emissive ? new Color(emissive) : physicalColor.clone().multiplyScalar(0.35);
+  const edgeColor = useMemo(() => physicalColor.clone().multiplyScalar(0.6).getStyle(), [physicalColor]);
   const texture: Texture | null = useMemo(() => {
     if (!usePattern || !colorKey) return null;
     const pattern = PATTERN_BY_COLOR[colorKey] ?? 'stripes';
@@ -24,19 +25,26 @@ export const Block = ({ position, color, opacity = 1, emissive, colorKey, usePat
 
   return (
     <group position={position}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.52, 0]}>
+        <planeGeometry args={[0.95, 0.95]} />
+        <meshBasicMaterial color="#000000" transparent opacity={0.25 * opacity} />
+      </mesh>
       <RoundedBox args={[0.92, 0.92, 0.92]} radius={0.2} smoothness={4} castShadow receiveShadow>
         <meshPhysicalMaterial
           color={physicalColor}
-          metalness={0.1}
-          roughness={0.1}
-          clearcoat={1}
-          transmission={0.2}
+          metalness={0.08}
+          roughness={0.18}
+          clearcoat={0.9}
+          clearcoatRoughness={0.35}
+          transmission={0.16}
+          thickness={0.4}
           transparent
           opacity={opacity}
           emissive={glow}
           emissiveIntensity={0.4}
           map={texture ?? undefined}
         />
+        <Edges scale={1.02} threshold={15} color={edgeColor} />
       </RoundedBox>
     </group>
   );

@@ -12,14 +12,15 @@ export type ControlMode = 'standard' | 'offset' | 'auto';
 const clamp = (value: number, size: number) => Math.max(0, Math.min(size - 1, value));
 
 export const useDragDrop = ({ onMove, onRelease, controlMode = 'standard' }: DragHandlers & { controlMode?: ControlMode }) => {
-  const toCell = useCallback((clientX: number, clientY: number, target: HTMLElement, velocity = 0) => {
+  const toCell = useCallback((clientX: number, clientY: number, target: HTMLElement, velocity = 0, pointerType?: string) => {
     const bounds = target.getBoundingClientRect();
     const normalizedX = ((clientX - bounds.left) / bounds.width) * GRID_SIZE;
     const normalizedY = ((clientY - bounds.top) / bounds.height) * GRID_SIZE;
     const offset = controlMode === 'offset' ? 1 : controlMode === 'auto' ? Math.min(2, Math.round(velocity * 1.2)) : 0;
+    const touchLift = pointerType === 'touch' ? 0.6 : 0;
     return {
       x: clamp(Math.floor(normalizedX), GRID_SIZE),
-      y: clamp(Math.floor(normalizedY - offset), GRID_SIZE)
+      y: clamp(Math.floor(normalizedY - offset - touchLift), GRID_SIZE)
     };
   }, [controlMode]);
 
@@ -29,7 +30,7 @@ export const useDragDrop = ({ onMove, onRelease, controlMode = 'standard' }: Dra
       const speed = Array.isArray(gestureVelocity)
         ? Math.min(3, Math.hypot(gestureVelocity[0] ?? 0, gestureVelocity[1] ?? 0))
         : Math.min(3, gestureVelocity ?? 0);
-      const cell = toCell(clientX, clientY, event.target, speed);
+      const cell = toCell(clientX, clientY, event.target, speed, (event as PointerEvent).pointerType);
       if (active) {
         onMove?.(cell);
       } else {
