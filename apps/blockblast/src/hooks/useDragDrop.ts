@@ -19,6 +19,8 @@ export type ControlMode = 'standard' | 'offset' | 'auto';
 
 const clamp = (value: number, size: number) => Math.max(0, Math.min(size - 1, value));
 
+const CAMERA_MARGIN = 3; // matches FixedTopDownCamera margin in GameScene
+
 export const useDragDrop = ({
   onStart,
   onMove,
@@ -56,10 +58,34 @@ export const useDragDrop = ({
           : TOUCH_OFFSET_PX
         : 0;
 
+      // Board is smaller than the full orthographic view; shrink bounds to the visible board square.
+      const aspect = bounds.width / (bounds.height || 1);
+      const boardSpan = gridSize + CAMERA_MARGIN * 2;
+      const viewWidth = aspect >= 1 ? boardSpan * aspect : boardSpan;
+      const viewHeight = aspect >= 1 ? boardSpan : boardSpan / aspect;
+      const boardFracX = gridSize / viewWidth;
+      const boardFracY = gridSize / viewHeight;
+
+      const effectiveWidth = bounds.width * boardFracX;
+      const effectiveHeight = bounds.height * boardFracY;
+      const insetX = (bounds.width - effectiveWidth) / 2;
+      const insetY = (bounds.height - effectiveHeight) / 2;
+      const adjustedBounds: DOMRectReadOnly = {
+        width: effectiveWidth,
+        height: effectiveHeight,
+        left: bounds.left + insetX,
+        top: bounds.top + insetY,
+        right: bounds.left + insetX + effectiveWidth,
+        bottom: bounds.top + insetY + effectiveHeight,
+        x: bounds.left + insetX,
+        y: bounds.top + insetY,
+        toJSON: () => ({})
+      };
+
       const normalized = normalizePointerToCell({
         clientX,
         clientY,
-        bounds,
+        bounds: adjustedBounds,
         pointerType,
         gridSize,
         offsetPx
