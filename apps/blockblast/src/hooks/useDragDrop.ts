@@ -82,6 +82,12 @@ export const useDragDrop = ({
         toJSON: () => ({})
       };
 
+      const inside =
+        clientX >= adjustedBounds.left &&
+        clientX <= adjustedBounds.right &&
+        clientY >= adjustedBounds.top &&
+        clientY <= adjustedBounds.bottom;
+
       const normalized = normalizePointerToCell({
         clientX,
         clientY,
@@ -98,6 +104,7 @@ export const useDragDrop = ({
       const mappedY = invertY ? gridSize - 1 - snapped.y : snapped.y;
 
       return {
+        inside,
         x: clamp(mappedX, gridSize),
         y: clamp(mappedY, gridSize)
       };
@@ -121,10 +128,14 @@ export const useDragDrop = ({
       onStart?.(cell, argList);
     }
     if (active) {
-      onMove?.(cell, argList);
+      if (cell.inside) {
+        onMove?.(cell, argList);
+      }
     }
     if (!active || last) {
-      onRelease?.(cell, argList);
+      if (cell.inside) {
+        onRelease?.(cell, argList);
+      }
     }
   };
 

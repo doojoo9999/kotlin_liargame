@@ -14,11 +14,12 @@ interface TrayPanelProps {
 }
 
 const BlockPreview = ({ block, active, onSelect, onRotate, placeable, dragBind }: { block: BlockInstance; active: boolean; onSelect: () => void; onRotate: () => void; placeable: boolean; dragBind?: ReturnType<typeof useDragDrop> }) => {
-  const BOX_SIZE = 4;
-  const columns = BOX_SIZE;
-  const rows = BOX_SIZE;
   const shapeRows = block.shape.length;
   const shapeCols = block.shape[0].length;
+  const maxDim = Math.max(shapeRows, shapeCols);
+  const BOX_SIZE = maxDim <= 3 ? 3 : 4;
+  const columns = BOX_SIZE;
+  const rows = BOX_SIZE;
   const offsetX = Math.floor((BOX_SIZE - shapeCols) / 2);
   const offsetY = Math.floor((BOX_SIZE - shapeRows) / 2);
 

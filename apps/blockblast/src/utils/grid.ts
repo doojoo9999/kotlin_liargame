@@ -32,13 +32,18 @@ const SHAPES: BlockTemplate[] = [
   { name: 'domino', shape: [[1, 1]] },
   { name: 'triplet', shape: [[1, 1, 1]] },
   { name: 'quad', shape: [[1, 1, 1, 1]] },
+  { name: 'line-5', shape: [[1, 1, 1, 1, 1]] },
+  { name: 'line-6', shape: [[1, 1, 1, 1, 1, 1]] },
   { name: 'L', shape: [[1, 0], [1, 0], [1, 1]] },
   { name: 'reverse-L', shape: [[0, 1], [0, 1], [1, 1]] },
   { name: 'T', shape: [[1, 1, 1], [0, 1, 0]] },
   { name: 'square', shape: [[1, 1], [1, 1]] },
+  { name: 'square-3', shape: [[1, 1, 1], [1, 1, 1], [1, 1, 1]] },
   { name: 'zig', shape: [[1, 1, 0], [0, 1, 1]] },
   { name: 'zag', shape: [[0, 1, 1], [1, 1, 0]] },
   { name: 'pillar', shape: [[1], [1], [1], [1]] },
+  { name: 'pillar-5', shape: [[1], [1], [1], [1], [1]] },
+  { name: 'pillar-6', shape: [[1], [1], [1], [1], [1], [1]] },
   { name: 'plus', shape: [[0, 1, 0], [1, 1, 1], [0, 1, 0]] }
 ];
 

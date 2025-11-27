@@ -13,6 +13,7 @@ export const Tray = ({ block, usePatterns = false, blocked = false }: TrayProps)
   const cells = getShapeCells(block.shape);
   const width = Math.max(...cells.map(([x]) => x)) + 1;
   const height = Math.max(...cells.map(([, y]) => y)) + 1;
+  const flippedCells = cells.map(([x, y]) => [x, height - 1 - y] as [number, number]);
 
   const SLOT_SIZE = 2.8;
   const PADDED_SIZE = SLOT_SIZE - 0.4;
@@ -38,7 +39,7 @@ export const Tray = ({ block, usePatterns = false, blocked = false }: TrayProps)
           <meshStandardMaterial color="#0f1c36" roughness={0.9} metalness={0.05} />
         </mesh>
         <group position={[offsetX, 0.35, offsetZ]} scale={[scale, scale, scale]}>
-          {cells.map(([x, y]) => (
+          {flippedCells.map(([x, y]) => (
             <Block
               key={`${block.id}-${x}-${y}`}
               position={[x + 0.5, 0.4, y + 0.5]}

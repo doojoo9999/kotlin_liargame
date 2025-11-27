@@ -61,7 +61,7 @@ export const Board = ({ grid, ghost, showGhost = true, onHover, onSelect, onLeav
         const cellX = ghost.x + x;
         const cellY = ghost.y + y;
         if (cellX >= 0 && cellX < GRID_SIZE && cellY >= 0 && cellY < GRID_SIZE) {
-          offsets.push({ x: cellX, y: cellY, color: ghost.valid ? '#63e6be' : '#f87171' });
+          offsets.push({ x: cellX, y: cellY, color: ghost.valid ? '#7cf4e2' : '#f87171' });
         }
       });
     });
@@ -141,7 +141,7 @@ export const Board = ({ grid, ghost, showGhost = true, onHover, onSelect, onLeav
               raycast={() => null}
             >
               <planeGeometry args={[GRID_SIZE, 1]} />
-              <meshBasicMaterial color="#e5f4ff" transparent opacity={0.25} />
+              <meshBasicMaterial color="#fbbf24" transparent opacity={0.4} />
             </mesh>
           ))}
           {clearedCols.map((col) => (
@@ -152,7 +152,7 @@ export const Board = ({ grid, ghost, showGhost = true, onHover, onSelect, onLeav
               raycast={() => null}
             >
               <planeGeometry args={[1, GRID_SIZE]} />
-              <meshBasicMaterial color="#d9c8ff" transparent opacity={0.22} />
+              <meshBasicMaterial color="#fb923c" transparent opacity={0.45} />
             </mesh>
           ))}
         </group>
