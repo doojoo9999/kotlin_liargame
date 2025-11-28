@@ -23,7 +23,7 @@ import { ASSET_MANIFEST } from './assets/manifest';
 
 const App = () => {
   const logic = useGameLogic();
-  const { lowSpec, showHints, colorblindMode, controlMode } = usePreferences();
+  const { lowSpec, showHints, colorblindMode, controlMode, rotationEnabled } = usePreferences();
   const status = useGameStore((state) => state.status);
   const score = useGameStore((state) => state.score);
   const combo = useGameStore((state) => state.combo);
@@ -113,8 +113,11 @@ const App = () => {
     boundsRef: boardRef,
     invertX: true,
     invertY: true,
-    onStart: (_, [blockId]) => {
+    onStart: (cell, [blockId]) => {
       if (typeof blockId !== 'string') return;
+      if (!cell.inside) {
+        logic.clearGhost();
+      }
       if (logic.activeBlockId !== blockId) {
         logic.pickBlock(blockId);
         play('pick');
@@ -125,6 +128,7 @@ const App = () => {
       if (paused) return;
       const id = typeof blockId === 'string' ? blockId : logic.activeBlockId;
       if (!id) return;
+      if (!cell.inside) return;
       logic.previewPlacement(id, cell.x, cell.y);
       haptics.microTick();
     },
@@ -132,6 +136,10 @@ const App = () => {
       if (paused) return;
       const id = typeof blockId === 'string' ? blockId : logic.activeBlockId;
       if (!id) return;
+      if (!cell.inside) {
+        logic.clearGhost();
+        return;
+      }
       if (logic.activeBlockId !== id) {
         logic.pickBlock(id);
       }
@@ -334,13 +342,16 @@ const App = () => {
             blocks={logic.tray}
             activeBlockId={logic.activeBlockId}
             placeableBlocks={placeableBlocks}
+            rotationEnabled={rotationEnabled}
             dragBind={dragBind}
             onSelect={(id) => {
+              logic.clearGhost();
               logic.pickBlock(id);
               play('pick');
               haptics.microTick();
             }}
             onRotate={(id) => {
+              if (!rotationEnabled) return;
               logic.rotateBlock(id);
               play('pick');
               haptics.microTick();

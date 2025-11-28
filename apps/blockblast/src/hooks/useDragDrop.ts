@@ -10,9 +10,9 @@ import {
 } from '../game/managers/input';
 
 export interface DragHandlers {
-  onStart?: (cell: { x: number; y: number }, args: unknown[]) => void;
-  onMove?: (cell: { x: number; y: number }, args: unknown[]) => void;
-  onRelease?: (cell: { x: number; y: number }, args: unknown[]) => void;
+  onStart?: (cell: { x: number; y: number; inside?: boolean }, args: unknown[]) => void;
+  onMove?: (cell: { x: number; y: number; inside?: boolean }, args: unknown[]) => void;
+  onRelease?: (cell: { x: number; y: number; inside?: boolean }, args: unknown[]) => void;
 }
 
 export type ControlMode = 'standard' | 'offset' | 'auto';

@@ -11,9 +11,10 @@ interface TrayPanelProps {
   onRotate: (id: string) => void;
   placeableBlocks?: Set<string>;
   dragBind?: ReturnType<typeof useDragDrop>;
+  rotationEnabled?: boolean;
 }
 
-const BlockPreview = ({ block, active, onSelect, onRotate, placeable, dragBind }: { block: BlockInstance; active: boolean; onSelect: () => void; onRotate: () => void; placeable: boolean; dragBind?: ReturnType<typeof useDragDrop> }) => {
+const BlockPreview = ({ block, active, onSelect, onRotate, placeable, dragBind, rotationEnabled = true }: { block: BlockInstance; active: boolean; onSelect: () => void; onRotate: () => void; placeable: boolean; dragBind?: ReturnType<typeof useDragDrop>; rotationEnabled?: boolean }) => {
   const shapeRows = block.shape.length;
   const shapeCols = block.shape[0].length;
   const maxDim = Math.max(shapeRows, shapeCols);
@@ -42,28 +43,34 @@ const BlockPreview = ({ block, active, onSelect, onRotate, placeable, dragBind }
       title={placeable ? 'Placeable' : 'No moves for this shape'}
       style={{ minHeight: 172 }}
     >
-      <button type="button" className="absolute right-2 top-2 rounded-md bg-white/10 p-1 text-slate-200" onClick={onRotate}>
-        <RotateCcw size={14} />
-      </button>
+      {rotationEnabled ? (
+        <button type="button" className="absolute right-2 top-2 rounded-md bg-white/10 p-1 text-slate-200" onClick={onRotate}>
+          <RotateCcw size={14} />
+        </button>
+      ) : null}
       <button type="button" className="block w-full" onClick={onSelect}>
-        <div
-          className="grid aspect-square gap-1 rounded-xl border border-white/5 bg-black/20 p-3"
-          style={{
-            gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`
-          }}
-        >
-          {normalizedCells.map((row, y) =>
-            row.map((value, x) => (
-              <span
-                key={`${block.id}-${x}-${y}`}
-                className={clsx('aspect-square rounded-md border border-white/5', value ? 'shadow-[0_6px_12px_rgba(0,0,0,0.25)]' : '')}
-                style={{
-                  backgroundColor: value ? PALETTE[block.color] : 'transparent',
-                  opacity: value ? 0.9 : 1
-                }}
-              />
-            ))
-          )}
+        <div className="relative aspect-square rounded-xl bg-black/10 p-3">
+          <div
+            className="grid h-full w-full"
+            style={{
+              gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+              gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`
+            }}
+          >
+            {normalizedCells.map((row, y) =>
+              row.map((value, x) => (
+                <span
+                  key={`${block.id}-${x}-${y}`}
+                  className={clsx(
+                    'block h-full w-full rounded-md transition',
+                    value ? 'shadow-[0_6px_12px_rgba(0,0,0,0.25)]' : 'opacity-0'
+                  )}
+                  style={{ backgroundColor: value ? PALETTE[block.color] : 'transparent', opacity: value ? 0.95 : 0 }}
+                />
+              ))
+            )}
+          </div>
+          <div className="pointer-events-none absolute inset-0 rounded-xl border border-white/8" />
         </div>
         {!placeable ? (
           <span className="absolute left-3 top-3 rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-200">
@@ -75,7 +82,7 @@ const BlockPreview = ({ block, active, onSelect, onRotate, placeable, dragBind }
   );
 };
 
-export const TrayPanel = ({ blocks, activeBlockId, onSelect, onRotate, placeableBlocks, dragBind }: TrayPanelProps) => (
+export const TrayPanel = ({ blocks, activeBlockId, onSelect, onRotate, placeableBlocks, dragBind, rotationEnabled = true }: TrayPanelProps) => (
   <div className="glass-panel rounded-2xl p-4 shadow-glow">
     <div className="flex items-center justify-between">
       <div>
@@ -93,6 +100,7 @@ export const TrayPanel = ({ blocks, activeBlockId, onSelect, onRotate, placeable
           onSelect={() => onSelect(block.id)}
           onRotate={() => onRotate(block.id)}
           dragBind={dragBind}
+          rotationEnabled={rotationEnabled}
         />
       ))}
     </div>

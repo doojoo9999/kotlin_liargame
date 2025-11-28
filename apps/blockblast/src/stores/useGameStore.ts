@@ -31,6 +31,7 @@ interface GameState {
   soundTheme: SoundTheme;
   colorblindMode: boolean;
   controlMode: ControlMode;
+  rotationEnabled: boolean;
   paused: boolean;
   history: Array<{ grid: Grid; score: number }>;
   pickBlock: (id: string | null) => void;
@@ -51,6 +52,7 @@ interface GameState {
   toggleColorblind: (value?: boolean) => void;
   setSoundTheme: (theme: SoundTheme) => void;
   setControlMode: (mode: ControlMode) => void;
+  toggleRotation: (value?: boolean) => void;
   forceGameOver: () => void;
   setPaused: (value: boolean) => void;
 }
@@ -68,6 +70,7 @@ const buildInitialState = (): Omit<
   | 'toggleColorblind'
   | 'setSoundTheme'
   | 'setControlMode'
+  | 'toggleRotation'
   | 'forceGameOver'
   | 'setPaused'
 > => ({
@@ -84,6 +87,7 @@ const buildInitialState = (): Omit<
   soundTheme: 'classic',
   colorblindMode: false,
   controlMode: 'standard',
+  rotationEnabled: true,
   paused: false,
   history: []
 });
@@ -233,6 +237,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   toggleColorblind: (value) => set((state) => ({ colorblindMode: value ?? !state.colorblindMode })),
   setSoundTheme: (theme) => set(() => ({ soundTheme: theme })),
   setControlMode: (mode) => set(() => ({ controlMode: mode })),
+  toggleRotation: (value) => set((state) => ({ rotationEnabled: value ?? !state.rotationEnabled })),
   forceGameOver: () =>
     set((state) => {
       if (state.status === 'gameover') return state;
@@ -266,9 +271,11 @@ export const usePreferences = () =>
     showHints: state.showHints,
     colorblindMode: state.colorblindMode,
     controlMode: state.controlMode,
+    rotationEnabled: state.rotationEnabled,
     toggleLowSpec: state.toggleLowSpec,
     toggleHints: state.toggleHints,
     toggleColorblind: state.toggleColorblind,
-    setControlMode: state.setControlMode
+    setControlMode: state.setControlMode,
+    toggleRotation: state.toggleRotation
   }));
 export const useBlockLibrary = () => BLOCK_LIBRARY;
