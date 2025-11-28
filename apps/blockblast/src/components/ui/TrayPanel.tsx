@@ -49,7 +49,7 @@ const BlockPreview = ({ block, active, onSelect, onRotate, placeable, dragBind, 
         </button>
       ) : null}
       <button type="button" className="block w-full" onClick={onSelect}>
-        <div className="relative aspect-square rounded-xl bg-black/10 p-3">
+        <div className="relative aspect-square overflow-hidden rounded-xl border border-white/10 bg-[radial-gradient(circle_at_30%_30%,rgba(255,255,255,0.06),transparent_55%),radial-gradient(circle_at_70%_70%,rgba(148,187,233,0.08),transparent_55%),rgba(0,0,0,0.25)] p-3 shadow-[0_10px_30px_rgba(0,0,0,0.35)]">
           <div
             className="grid h-full w-full"
             style={{
@@ -63,14 +63,15 @@ const BlockPreview = ({ block, active, onSelect, onRotate, placeable, dragBind, 
                   key={`${block.id}-${x}-${y}`}
                   className={clsx(
                     'block h-full w-full rounded-md transition',
-                    value ? 'shadow-[0_6px_12px_rgba(0,0,0,0.25)]' : 'opacity-0'
+                    value ? 'shadow-[0_6px_16px_rgba(0,0,0,0.28)]' : 'opacity-0'
                   )}
                   style={{ backgroundColor: value ? PALETTE[block.color] : 'transparent', opacity: value ? 0.95 : 0 }}
                 />
               ))
             )}
           </div>
-          <div className="pointer-events-none absolute inset-0 rounded-xl border border-white/8" />
+          <div className="pointer-events-none absolute inset-0 rounded-xl border border-white/12" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-white/0" />
         </div>
         {!placeable ? (
           <span className="absolute left-3 top-3 rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-200">
