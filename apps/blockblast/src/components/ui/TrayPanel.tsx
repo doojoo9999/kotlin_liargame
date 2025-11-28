@@ -17,20 +17,9 @@ interface TrayPanelProps {
 const BlockPreview = ({ block, active, onSelect, onRotate, placeable, dragBind, rotationEnabled = true }: { block: BlockInstance; active: boolean; onSelect: () => void; onRotate: () => void; placeable: boolean; dragBind?: ReturnType<typeof useDragDrop>; rotationEnabled?: boolean }) => {
   const shapeRows = block.shape.length;
   const shapeCols = block.shape[0].length;
-  const maxDim = Math.max(shapeRows, shapeCols);
-  const BOX_SIZE = maxDim <= 3 ? 3 : 4;
-  const columns = BOX_SIZE;
-  const rows = BOX_SIZE;
-  const offsetX = Math.floor((BOX_SIZE - shapeCols) / 2);
-  const offsetY = Math.floor((BOX_SIZE - shapeRows) / 2);
-
-  const normalizedCells = Array.from({ length: rows }, (_, y) =>
-    Array.from({ length: columns }, (_, x) => {
-      const sx = x - offsetX;
-      const sy = y - offsetY;
-      return sx >= 0 && sx < shapeCols && sy >= 0 && sy < shapeRows ? block.shape[sy][sx] : 0;
-    })
-  );
+  const maxDim = Math.max(shapeRows, shapeCols, 1);
+  const gridWidthPct = (shapeCols / maxDim) * 100;
+  const gridHeightPct = (shapeRows / maxDim) * 100;
 
   return (
     <div
@@ -50,25 +39,30 @@ const BlockPreview = ({ block, active, onSelect, onRotate, placeable, dragBind, 
       ) : null}
       <button type="button" className="block w-full" onClick={onSelect}>
         <div className="relative aspect-square overflow-hidden rounded-xl border border-white/10 bg-[radial-gradient(circle_at_30%_30%,rgba(255,255,255,0.06),transparent_55%),radial-gradient(circle_at_70%_70%,rgba(148,187,233,0.08),transparent_55%),rgba(0,0,0,0.25)] p-3 shadow-[0_10px_30px_rgba(0,0,0,0.35)]">
-          <div
-            className="grid h-full w-full"
-            style={{
-              gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
-              gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`
-            }}
-          >
-            {normalizedCells.map((row, y) =>
-              row.map((value, x) => (
-                <span
-                  key={`${block.id}-${x}-${y}`}
-                  className={clsx(
-                    'block h-full w-full rounded-md transition',
-                    value ? 'shadow-[0_6px_16px_rgba(0,0,0,0.28)]' : 'opacity-0'
-                  )}
-                  style={{ backgroundColor: value ? PALETTE[block.color] : 'transparent', opacity: value ? 0.95 : 0 }}
-                />
-              ))
-            )}
+          <div className="flex h-full w-full items-center justify-center">
+            <div
+              className="grid"
+              style={{
+                width: `${gridWidthPct}%`,
+                height: `${gridHeightPct}%`,
+                gridTemplateColumns: `repeat(${shapeCols}, minmax(0, 1fr))`,
+                gridTemplateRows: `repeat(${shapeRows}, minmax(0, 1fr))`,
+                gap: '6%'
+              }}
+            >
+              {block.shape.map((row, y) =>
+                row.map((value, x) => (
+                  <span
+                    key={`${block.id}-${x}-${y}`}
+                    className={clsx(
+                      'block h-full w-full rounded-md transition',
+                      value ? 'shadow-[0_6px_16px_rgba(0,0,0,0.28)]' : 'opacity-0'
+                    )}
+                    style={{ backgroundColor: value ? PALETTE[block.color] : 'transparent', opacity: value ? 0.95 : 0 }}
+                  />
+                ))
+              )}
+            </div>
           </div>
           <div className="pointer-events-none absolute inset-0 rounded-xl border border-white/12" />
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-white/0" />
