@@ -13,14 +13,16 @@ export const Tray = ({ block, usePatterns = false, blocked = false }: TrayProps)
   const cells = getShapeCells(block.shape);
   const width = Math.max(...cells.map(([x]) => x)) + 1;
   const height = Math.max(...cells.map(([, y]) => y)) + 1;
-  const flippedCells = cells.map(([x, y]) => [x, height - 1 - y] as [number, number]);
+  const displayCells = cells.map(([x, y]) => [y, width - 1 - x] as [number, number]);
+  const displayWidth = height;
+  const displayHeight = width;
 
   const SLOT_SIZE = 2.8;
   const PADDED_SIZE = SLOT_SIZE - 0.4;
-  const maxDim = Math.max(width, height, 1);
+  const maxDim = Math.max(displayWidth, displayHeight, 1);
   const scale = PADDED_SIZE / maxDim;
-  const scaledWidth = width * scale;
-  const scaledHeight = height * scale;
+  const scaledWidth = displayWidth * scale;
+  const scaledHeight = displayHeight * scale;
   const offsetX = (SLOT_SIZE - scaledWidth) / 2;
   const offsetZ = (SLOT_SIZE - scaledHeight) / 2;
 
@@ -39,7 +41,7 @@ export const Tray = ({ block, usePatterns = false, blocked = false }: TrayProps)
           <meshStandardMaterial color="#0f1c36" roughness={0.9} metalness={0.05} />
         </mesh>
         <group position={[offsetX, 0.35, offsetZ]} scale={[scale, scale, scale]}>
-          {flippedCells.map(([x, y]) => (
+          {displayCells.map(([x, y]) => (
             <Block
               key={`${block.id}-${x}-${y}`}
               position={[x + 0.5, 0.4, y + 0.5]}
