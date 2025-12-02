@@ -3,7 +3,18 @@ import { useAudioPref, usePreferences, type SoundTheme, type ControlMode } from 
 
 export const Settings = () => {
   const { muted, toggleMute, soundTheme, setSoundTheme } = useAudioPref();
-  const { lowSpec, showHints, colorblindMode, controlMode, rotationEnabled, toggleLowSpec, toggleHints, toggleColorblind, setControlMode, toggleRotation } = usePreferences();
+  const {
+    lowSpec,
+    showHints,
+    colorblindMode,
+    controlMode,
+    easyMode,
+    toggleLowSpec,
+    toggleHints,
+    toggleColorblind,
+    setControlMode,
+    toggleEasyMode
+  } = usePreferences();
 
   return (
     <div id="settings" className="glass-panel rounded-2xl p-4">
@@ -58,10 +69,10 @@ export const Settings = () => {
         </label>
         <label className="flex items-center justify-between rounded-xl bg-panel/60 px-3 py-2">
           <div>
-            <p className="font-semibold">블럭 회전</p>
-            <p className="text-xs text-slate-400">트레이에서 회전 버튼 표시/비표시</p>
+            <p className="font-semibold">Easy mode (회전 허용)</p>
+            <p className="text-xs text-slate-400">체크 시 회전 버튼을 표시하고 블럭을 회전할 수 있어요.</p>
           </div>
-          <input type="checkbox" checked={rotationEnabled} onChange={() => toggleRotation()} />
+          <input type="checkbox" checked={easyMode} onChange={() => toggleEasyMode()} />
         </label>
         <label className="flex items-center justify-between rounded-xl bg-panel/60 px-3 py-2">
           <div>

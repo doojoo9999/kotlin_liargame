@@ -18,6 +18,9 @@ VITE_LIAR_GAME_URL=https://example.com/liar
 VITE_NEMONEMO_URL=https://example.com/nemonemo
 VITE_ROULETTE_URL=https://example.com/roulette
 VITE_SADARI_GAME_URL=https://example.com/sadari
+VITE_GA_MEASUREMENT_ID=G-XXXXXXXXXX
 ```
+
+GA4를 사용할 경우 `VITE_GA_MEASUREMENT_ID`에 발급받은 Measurement ID를 넣으면 런타임에 스크립트가 자동으로 로드됩니다. 값이 비어 있으면 추적 스크립트는 삽입되지 않습니다.
 
 필요 시 더 많은 앱을 추가하려면 `src/App.tsx`의 `gameLinks` 배열을 확장하면 됩니다.

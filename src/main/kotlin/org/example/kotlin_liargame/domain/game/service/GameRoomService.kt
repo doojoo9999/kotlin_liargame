@@ -20,6 +20,7 @@ import org.example.kotlin_liargame.global.exception.UserAlreadyOwnsGameException
 import org.example.kotlin_liargame.global.security.SessionManagementService
 import org.example.kotlin_liargame.global.session.SessionService
 import org.example.kotlin_liargame.tools.websocket.WebSocketSessionManager
+import org.springframework.dao.DataIntegrityViolationException
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -46,29 +47,43 @@ class GameRoomService(
 
         validateExistingOwner(session)
 
-        val nextRoomNumber = roomCodeGenerator.nextRoomNumber()
-        val newGame = request.to(nextRoomNumber, nickname)
         val selectedSubjects = selectSubjectsForGameRoom(request)
 
-        assignSubjects(newGame, selectedSubjects)
-        val savedGame = gameRepository.save(newGame)
-        persistGameSubjects(savedGame, selectedSubjects)
+        var attempt = 0
+        while (true) {
+            val nextRoomNumber = roomCodeGenerator.nextRoomNumber()
+            val newGame = request.to(nextRoomNumber, nickname)
 
-        val ownerPlayer = PlayerEntity(
-            game = savedGame,
-            userId = userId,
-            nickname = nickname,
-            isAlive = true,
-            role = PlayerRole.CITIZEN,
-            subject = savedGame.citizenSubject ?: throw IllegalStateException("게임에 시민 주제가 설정되지 않았습니다."),
-            state = PlayerState.WAITING_FOR_HINT
-        )
-        playerRepository.save(ownerPlayer)
+            assignSubjects(newGame, selectedSubjects)
 
-        registerPlayerSession(userId, savedGame.gameNumber)
-        logger.info("Game room {} created successfully", savedGame.gameNumber)
+            try {
+                val savedGame = gameRepository.save(newGame)
+                persistGameSubjects(savedGame, selectedSubjects)
 
-        return savedGame.gameNumber
+                val ownerPlayer = PlayerEntity(
+                    game = savedGame,
+                    userId = userId,
+                    nickname = nickname,
+                    isAlive = true,
+                    role = PlayerRole.CITIZEN,
+                    subject = savedGame.citizenSubject ?: throw IllegalStateException("게임에 시민 주제가 설정되지 않았습니다."),
+                    state = PlayerState.WAITING_FOR_HINT
+                )
+                playerRepository.save(ownerPlayer)
+
+                registerPlayerSession(userId, savedGame.gameNumber)
+                logger.info("Game room {} created successfully", savedGame.gameNumber)
+
+                return savedGame.gameNumber
+            } catch (e: DataIntegrityViolationException) {
+                attempt += 1
+                logger.warn("Room number collision for {} (attempt {}). Retrying with new number.", nextRoomNumber, attempt)
+                if (attempt >= MAX_ROOM_CREATE_RETRIES) {
+                    logger.error("Failed to create unique game room after {} attempts", attempt, e)
+                    throw e
+                }
+            }
+        }
     }
 
     @Transactional(readOnly = true)
@@ -175,5 +190,9 @@ class GameRoomService(
     private fun registerPlayerSession(userId: Long, gameNumber: Int) {
         runCatching { webSocketSessionManager.registerPlayerInGame(userId, gameNumber) }
             .onFailure { logger.warn("Failed to register WebSocket session for player {}: {}", userId, it.message) }
+    }
+
+    private companion object {
+        private const val MAX_ROOM_CREATE_RETRIES = 3
     }
 }

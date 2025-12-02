@@ -11,9 +11,10 @@ interface BlockProps {
   emissive?: string;
   colorKey?: ThemeColorKey;
   usePattern?: boolean;
+  alwaysOnTop?: boolean;
 }
 
-export const Block = ({ position, color, opacity = 1, emissive, colorKey, usePattern = false }: BlockProps) => {
+export const Block = ({ position, color, opacity = 1, emissive, colorKey, usePattern = false, alwaysOnTop = false }: BlockProps) => {
   const physicalColor = useMemo(() => new Color(color), [color]);
   const glow = emissive ? new Color(emissive) : physicalColor.clone().multiplyScalar(0.35);
   const edgeColor = useMemo(() => physicalColor.clone().multiplyScalar(0.6).getStyle(), [physicalColor]);
@@ -23,13 +24,24 @@ export const Block = ({ position, color, opacity = 1, emissive, colorKey, usePat
     return buildPatternTexture(color, pattern);
   }, [color, colorKey, usePattern]);
 
+  const renderOrder = alwaysOnTop ? 10 : 0;
+  const depthTest = !alwaysOnTop;
+  const depthWrite = !alwaysOnTop;
+
   return (
-    <group position={position}>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.52, 0]}>
+    <group position={position} renderOrder={renderOrder}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.52, 0]} renderOrder={renderOrder}>
         <planeGeometry args={[0.95, 0.95]} />
-        <meshBasicMaterial color="#020617" transparent opacity={0.2 * opacity} />
+        <meshBasicMaterial color="#020617" transparent opacity={0.2 * opacity} depthTest={depthTest} depthWrite={depthWrite} />
       </mesh>
-      <RoundedBox args={[0.92, 0.92, 0.92]} radius={0.2} smoothness={4} castShadow receiveShadow>
+      <RoundedBox
+        args={[0.92, 0.92, 0.92]}
+        radius={0.2}
+        smoothness={4}
+        castShadow={!alwaysOnTop}
+        receiveShadow={!alwaysOnTop}
+        renderOrder={renderOrder}
+      >
         <meshPhysicalMaterial
           color={physicalColor}
           metalness={0.04}
@@ -44,8 +56,17 @@ export const Block = ({ position, color, opacity = 1, emissive, colorKey, usePat
           emissiveIntensity={0.55}
           envMapIntensity={0.35}
           map={texture ?? undefined}
+          depthTest={depthTest}
+          depthWrite={depthWrite}
         />
-        <Edges scale={1.02} threshold={15} color={edgeColor} />
+        <Edges
+          scale={1.02}
+          threshold={15}
+          color={edgeColor}
+          renderOrder={renderOrder + 1}
+          depthTest={depthTest}
+          depthWrite={depthWrite}
+        />
       </RoundedBox>
     </group>
   );

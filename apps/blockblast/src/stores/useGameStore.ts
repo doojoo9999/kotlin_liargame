@@ -31,6 +31,7 @@ interface GameState {
   soundTheme: SoundTheme;
   colorblindMode: boolean;
   controlMode: ControlMode;
+  easyMode: boolean;
   rotationEnabled: boolean;
   paused: boolean;
   history: Array<{ grid: Grid; score: number }>;
@@ -52,6 +53,7 @@ interface GameState {
   toggleColorblind: (value?: boolean) => void;
   setSoundTheme: (theme: SoundTheme) => void;
   setControlMode: (mode: ControlMode) => void;
+  toggleEasyMode: (value?: boolean) => void;
   toggleRotation: (value?: boolean) => void;
   forceGameOver: () => void;
   setPaused: (value: boolean) => void;
@@ -70,6 +72,7 @@ const buildInitialState = (): Omit<
   | 'toggleColorblind'
   | 'setSoundTheme'
   | 'setControlMode'
+  | 'toggleEasyMode'
   | 'toggleRotation'
   | 'forceGameOver'
   | 'setPaused'
@@ -87,7 +90,8 @@ const buildInitialState = (): Omit<
   soundTheme: 'classic',
   colorblindMode: false,
   controlMode: 'standard',
-  rotationEnabled: true,
+  easyMode: false,
+  rotationEnabled: false,
   paused: false,
   history: []
 });
@@ -122,6 +126,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   pickBlock: (id) => set(() => ({ activeBlockId: id })),
   rotateBlock: (id) =>
     set((state) => {
+      if (!state.rotationEnabled) return state;
       const updates: Partial<GameState> = {
         tray: state.tray.map((block) => (block.id === id ? { ...block, shape: rotateShape(block.shape) } : block))
       };
@@ -220,6 +225,8 @@ export const useGameStore = create<GameState>((set, get) => ({
         soundTheme: state.soundTheme,
         colorblindMode: state.colorblindMode,
         controlMode: state.controlMode,
+        easyMode: state.easyMode,
+        rotationEnabled: state.rotationEnabled,
         setPaused: state.setPaused
       };
       persistSnapshot({
@@ -237,7 +244,16 @@ export const useGameStore = create<GameState>((set, get) => ({
   toggleColorblind: (value) => set((state) => ({ colorblindMode: value ?? !state.colorblindMode })),
   setSoundTheme: (theme) => set(() => ({ soundTheme: theme })),
   setControlMode: (mode) => set(() => ({ controlMode: mode })),
-  toggleRotation: (value) => set((state) => ({ rotationEnabled: value ?? !state.rotationEnabled })),
+  toggleEasyMode: (value) =>
+    set((state) => {
+      const nextEasy = value ?? !state.easyMode;
+      return { easyMode: nextEasy, rotationEnabled: nextEasy };
+    }),
+  toggleRotation: (value) =>
+    set((state) => {
+      if (!state.easyMode) return { rotationEnabled: false };
+      return { rotationEnabled: value ?? !state.rotationEnabled };
+    }),
   forceGameOver: () =>
     set((state) => {
       if (state.status === 'gameover') return state;
@@ -271,11 +287,13 @@ export const usePreferences = () =>
     showHints: state.showHints,
     colorblindMode: state.colorblindMode,
     controlMode: state.controlMode,
+    easyMode: state.easyMode,
     rotationEnabled: state.rotationEnabled,
     toggleLowSpec: state.toggleLowSpec,
     toggleHints: state.toggleHints,
     toggleColorblind: state.toggleColorblind,
     setControlMode: state.setControlMode,
+    toggleEasyMode: state.toggleEasyMode,
     toggleRotation: state.toggleRotation
   }));
 export const useBlockLibrary = () => BLOCK_LIBRARY;

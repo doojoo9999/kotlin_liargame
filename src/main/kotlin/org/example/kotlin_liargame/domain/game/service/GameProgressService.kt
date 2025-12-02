@@ -92,6 +92,10 @@ class GameProgressService(
 
     @Transactional
     fun startNewTurn(game: GameEntity) {
+        val requestedGameNumber = game.gameNumber
+        val game = gameRepository.findByGameNumberWithLock(requestedGameNumber)
+            ?: throw RuntimeException("Game not found: $requestedGameNumber")
+
         // Guard: only proceed when in SPEECH phase
         if (game.currentPhase != org.example.kotlin_liargame.domain.game.model.enum.GamePhase.SPEECH) {
             println("[GameProgressService] startNewTurn called but currentPhase=${game.currentPhase}, skipping")

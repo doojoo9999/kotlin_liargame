@@ -305,7 +305,6 @@ const App = () => {
               logic={logic}
               showGhost={showHints}
               lowSpec={lowSpec}
-              trayBlock={logic.findBlock(logic.activeBlockId)}
               usePatterns={colorblindMode}
               feverLevel={feverLevel}
               paused={paused}

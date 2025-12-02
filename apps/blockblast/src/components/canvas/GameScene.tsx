@@ -6,8 +6,6 @@ import { Board } from './Board';
 import { Effects } from './Effects';
 import type { useGameLogic } from '../../hooks/useGameLogic';
 import { ENVIRONMENT, GRID_SIZE } from '../../styles/theme';
-import { Tray } from './Tray';
-import type { BlockInstance } from '../../utils/grid';
 
 const FixedTopDownCamera = () => {
   const ref = useRef<THREE.OrthographicCamera>(null);
@@ -40,7 +38,6 @@ interface GameSceneProps {
   logic: ReturnType<typeof useGameLogic>;
   showGhost?: boolean;
   lowSpec?: boolean;
-  trayBlock?: BlockInstance | null;
   usePatterns?: boolean;
   feverLevel?: number;
   paused?: boolean;
@@ -51,7 +48,6 @@ export const GameScene = ({
   logic,
   showGhost = true,
   lowSpec = false,
-  trayBlock = null,
   usePatterns = false,
   feverLevel = 0,
   paused = false
@@ -100,11 +96,6 @@ export const GameScene = ({
           <ContactShadows position={[0, 0, 0]} opacity={0.3} width={20} height={20} blur={1.6} far={10} />
         ) : null}
         {!lowSpec ? <Environment preset="city" /> : null}
-        <Tray
-          block={trayBlock}
-          usePatterns={usePatterns}
-          blocked={trayBlock ? !logic.placeableBlocks.has(trayBlock.id) : false}
-        />
       </Suspense>
     </Canvas>
   );

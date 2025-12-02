@@ -4,7 +4,9 @@ import org.example.kotlin_liargame.domain.game.model.GameEntity
 import org.example.kotlin_liargame.domain.game.model.PlayerEntity
 import org.example.kotlin_liargame.domain.statistics.repository.LiarStatsInfo
 import org.example.kotlin_liargame.domain.statistics.repository.PlayerStatsInfo
+import jakarta.persistence.LockModeType
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Lock
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
@@ -18,6 +20,10 @@ interface PlayerRepository : JpaRepository<PlayerEntity, Long> {
     fun findByGameWithSubject(@Param("game") game: GameEntity): List<PlayerEntity>
     
     fun findByGameAndUserId(game: GameEntity, userId: Long): PlayerEntity?
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM PlayerEntity p WHERE p.game = :game AND p.userId = :userId")
+    fun findByGameAndUserIdWithLock(@Param("game") game: GameEntity, @Param("userId") userId: Long): PlayerEntity?
     
     // Optimized query with JOIN FETCH for single player
     @Query("SELECT p FROM PlayerEntity p LEFT JOIN FETCH p.subject WHERE p.game = :game AND p.userId = :userId")

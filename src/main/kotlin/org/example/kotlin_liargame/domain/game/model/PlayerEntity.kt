@@ -90,6 +90,9 @@ class PlayerEntity (
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long = 0
 
+    @Version
+    var version: Long = 0
+
     // Convenience property for queries
     val gameId: Long
         get() = game.id

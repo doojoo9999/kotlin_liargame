@@ -32,6 +32,7 @@ class GameStateService(
     private val terminationReasonCache = ConcurrentHashMap<Int, String>()
     private val postRoundChatCache = ConcurrentHashMap<Int, Instant>()
     private val finalVotingLockCache = ConcurrentHashMap<Int, Instant>()
+    private val liarGuessTimerLockCache = ConcurrentHashMap<Int, Instant>()
     private val terminationCount = AtomicLong(0)
 
     private fun defenseStatusKey(gameNumber: Int) = "game:$gameNumber:defense:status"
@@ -39,6 +40,7 @@ class GameStateService(
     private fun defenseTimerKey(gameNumber: Int) = "game:$gameNumber:timer:defense"
     private fun finalVotingTimerKey(gameNumber: Int) = "game:$gameNumber:timer:finalvoting"
     private fun liarGuessStatusKey(gameNumber: Int) = "game:$gameNumber:liar:guess"
+    private fun liarGuessTimerLockKey(gameNumber: Int) = "game:$gameNumber:timer:liarguess"
     private fun terminationReasonKey(gameNumber: Int) = "game:$gameNumber:termination:reason"
     private fun postRoundChatKey(gameNumber: Int) = "game:$gameNumber:chat:postround"
     private fun terminationCountKey() = "game:termination:count"
@@ -376,6 +378,51 @@ class GameStateService(
         return false
     }
 
+    fun acquireLiarGuessTimerLock(gameNumber: Int, lockTimeoutSeconds: Long = 300): Boolean {
+        val now = Instant.now()
+        var acquired = false
+
+        if (useRedis) {
+            val redisResult = readFromRedis("liarGuessTimerLock.acquire") { template ->
+                template.opsForValue().setIfAbsent(
+                    liarGuessTimerLockKey(gameNumber),
+                    "locked",
+                    Duration.ofSeconds(lockTimeoutSeconds)
+                )
+            }
+            if (redisResult == true) {
+                acquired = true
+            }
+        }
+
+        if (useMemory) {
+            val expiration = now.plusSeconds(lockTimeoutSeconds)
+            var memoryAcquired = false
+            liarGuessTimerLockCache.compute(gameNumber) { _, existing ->
+                if (existing == null || now.isAfter(existing)) {
+                    memoryAcquired = true
+                    expiration
+                } else {
+                    existing
+                }
+            }
+            if (memoryAcquired) {
+                acquired = true
+            }
+        }
+
+        return acquired
+    }
+
+    fun releaseLiarGuessTimerLock(gameNumber: Int) {
+        if (useMemory) {
+            liarGuessTimerLockCache.remove(gameNumber)
+        }
+        writeToRedis("liarGuessTimerLock.release") { template ->
+            template.delete(liarGuessTimerLockKey(gameNumber))
+        }
+    }
+
     fun cleanupGameState(gameNumber: Int) {
         if (useMemory) {
             defenseStatusCache.remove(gameNumber)
@@ -386,6 +433,7 @@ class GameStateService(
             terminationReasonCache.remove(gameNumber)
             postRoundChatCache.remove(gameNumber)
             finalVotingLockCache.remove(gameNumber)
+            liarGuessTimerLockCache.remove(gameNumber)
         }
 
         writeToRedis("cleanupGameState") { template ->
@@ -395,6 +443,7 @@ class GameStateService(
                 defenseTimerKey(gameNumber),
                 finalVotingTimerKey(gameNumber),
                 liarGuessStatusKey(gameNumber),
+                liarGuessTimerLockKey(gameNumber),
                 terminationReasonKey(gameNumber),
                 postRoundChatKey(gameNumber)
             )

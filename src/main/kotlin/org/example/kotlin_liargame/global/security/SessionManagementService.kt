@@ -23,28 +23,6 @@ class SessionManagementService(
             val sessionId = session.id
             val now = LocalDateTime.now()
 
-            // 기존 세션이 있는지 확인하고 처리
-            val existingSession = activeSessions[nickname]
-            if (existingSession != null) {
-                if (existingSession.sessionId == sessionId) {
-                    // 같은 세션이면 활동 시간만 업데이트
-                    existingSession.lastActivity = now
-                    return SessionRegistrationResult.SUCCESS
-                }
-
-                logger.info("Concurrent login detected for nickname: {}. Previous session invalidated.", nickname)
-                // 기존 세션 정보를 메모리에서 제거
-                activeSessions.remove(nickname)
-                sessionIdToNickname.remove(existingSession.sessionId)
-                userIdToNickname.remove(existingSession.userId)
-
-                // Spring Security의 SessionRegistry에서도 기존 세션 제거
-                sessionRegistry.getAllSessions(nickname, false).forEach { sessionInfo ->
-                    sessionInfo.expireNow()
-                }
-            }
-
-            // 새 세션 등록 전에 세션 유효성 확인
             if (isSessionInvalid(session)) {
                 logger.error("Cannot register session - session is already invalidated")
                 return SessionRegistrationResult.FAILED
@@ -60,9 +38,37 @@ class SessionManagementService(
                 ipAddress = getSessionIpAddress(session)
             )
 
-            activeSessions[nickname] = sessionInfo
-            sessionIdToNickname[sessionId] = nickname
-            userIdToNickname[userId] = nickname
+            var sameSession = false
+
+            activeSessions.compute(nickname) { _, existing ->
+                if (existing != null) {
+                    if (existing.sessionId == sessionId) {
+                        // 같은 세션이면 활동 시간만 업데이트
+                        existing.lastActivity = now
+                        sessionIdToNickname[sessionId] = nickname
+                        userIdToNickname[userId] = nickname
+                        sameSession = true
+                        return@compute existing
+                    }
+
+                    logger.info("Concurrent login detected for nickname: {}. Previous session invalidated.", nickname)
+                    sessionIdToNickname.remove(existing.sessionId)
+                    userIdToNickname.remove(existing.userId)
+
+                    // Spring Security의 SessionRegistry에서도 기존 세션 제거
+                    sessionRegistry.getAllSessions(nickname, false).forEach { sessionInfo ->
+                        sessionInfo.expireNow()
+                    }
+                }
+
+                sessionIdToNickname[sessionId] = nickname
+                userIdToNickname[userId] = nickname
+                sessionInfo
+            }
+
+            if (sameSession) {
+                return SessionRegistrationResult.SUCCESS
+            }
 
             // 세션 데이터 저장 (예외 처리 추가)
             try {
@@ -92,7 +98,9 @@ class SessionManagementService(
             } catch (e: Exception) {
                 logger.error("Failed to set session data: {}", e.message, e)
                 // 세션 데이터 설정 실패 시 메모리에서 세션 정보 제거
-                activeSessions.remove(nickname)
+                activeSessions.compute(nickname) { _, current ->
+                    if (current?.sessionId == sessionId) null else current
+                }
                 sessionIdToNickname.remove(sessionId)
                 userIdToNickname.remove(userId)
                 return SessionRegistrationResult.FAILED

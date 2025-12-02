@@ -1,13 +1,20 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useGameStore } from '../stores/useGameStore';
-import { canPlaceBlock, hasPlacementForShape, resolvePlacement } from '../utils/grid';
+import { canPlaceBlock, getShapeCells, hasPlacementForShape, resolvePlacement } from '../utils/grid';
 import type { BlockInstance } from '../utils/grid';
+
+type GhostBlockedCell = {
+  x: number;
+  y: number;
+  reason: 'occupied' | 'out-of-bounds';
+};
 
 type GhostState = {
   block: BlockInstance;
   x: number;
   y: number;
   valid: boolean;
+  blockedCells: GhostBlockedCell[];
   cleared: { rows: number[]; cols: number[] };
 };
 
@@ -47,9 +54,22 @@ export const useGameLogic = () => {
       if (!block) return;
       const gx = clampToGrid(x, grid.length);
       const gy = clampToGrid(y, grid.length);
-      const valid = canPlaceBlock(grid, block.shape, gx, gy);
+      const blockedCells: GhostBlockedCell[] = [];
+
+      getShapeCells(block.shape).forEach(([dx, dy]) => {
+        const cellX = gx + dx;
+        const cellY = gy + dy;
+        const outOfBounds = cellX < 0 || cellX >= grid.length || cellY < 0 || cellY >= grid.length;
+        if (outOfBounds) {
+          blockedCells.push({ x: cellX, y: cellY, reason: 'out-of-bounds' });
+        } else if (grid[cellY]?.[cellX]) {
+          blockedCells.push({ x: cellX, y: cellY, reason: 'occupied' });
+        }
+      });
+
+      const valid = blockedCells.length === 0 && canPlaceBlock(grid, block.shape, gx, gy);
       const cleared = valid ? resolvePlacement(grid, block.shape, gx, gy, block.color).cleared : { rows: [], cols: [] };
-      setGhost({ block, x: gx, y: gy, valid, cleared });
+      setGhost({ block, x: gx, y: gy, valid, blockedCells, cleared });
     },
     [findBlock, grid]
   );
@@ -95,4 +115,4 @@ export const useGameLogic = () => {
   };
 };
 
-export type { GhostState };
+export type { GhostState, GhostBlockedCell };

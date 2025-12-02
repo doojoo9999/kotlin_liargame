@@ -12,6 +12,7 @@ import java.time.Instant
 @Entity
 @Table(name = "game")
 class GameEntity(
+    @Column(name = "game_number", unique = true)
     val gameNumber: Int,
     val gameName: String,
     val gamePassword: String?,
@@ -98,7 +99,7 @@ class GameEntity(
     val id: Long = 0
 
     @Version
-    val version: Long = 0
+    var version: Long = 0
     
     fun startGame() {
         if (gameState == GameState.WAITING) {

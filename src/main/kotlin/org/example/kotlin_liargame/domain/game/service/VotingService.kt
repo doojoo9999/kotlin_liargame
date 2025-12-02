@@ -149,7 +149,7 @@ class VotingService(
             throw RuntimeException("Voting is not currently active (Current phase: ${game.currentPhase})")
         }
 
-        val voter = playerRepository.findByGameAndUserId(game, voterUserId)
+        val voter = playerRepository.findByGameAndUserIdWithLock(game, voterUserId)
             ?: throw RuntimeException("You are not in this game")
 
         if (!voter.isAlive) {
@@ -160,7 +160,7 @@ class VotingService(
             throw RuntimeException("You are not in the voting phase")
         }
 
-        val targetPlayer = playerRepository.findByGameAndUserId(game, targetPlayerId)
+        val targetPlayer = playerRepository.findByGameAndUserIdWithLock(game, targetPlayerId)
             ?: throw RuntimeException("Target player not found")
 
         if (!targetPlayer.isAlive) {

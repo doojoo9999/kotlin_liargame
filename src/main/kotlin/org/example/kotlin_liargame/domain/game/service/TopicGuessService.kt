@@ -38,6 +38,14 @@ class TopicGuessService(
     // ScheduledFuture와 ReentrantLock은 직렬화가 어려우므로 로컬에서 관리
     private val timerTasks = ConcurrentHashMap<Int, ScheduledFuture<*>>()
     private val gameLocks = ConcurrentHashMap<Int, ReentrantLock>()
+
+    private fun cancelLocalTimer(gameNumber: Int, forceRelease: Boolean = false) {
+        val timer = timerTasks.remove(gameNumber)
+        timer?.cancel(false)
+        if (timer != null || forceRelease) {
+            gameStateService.releaseLiarGuessTimerLock(gameNumber)
+        }
+    }
     
     fun startLiarGuessPhase(gameNumber: Int, liarPlayerId: Long): LiarGuessStartResponse {
         try {
@@ -71,7 +79,9 @@ class TopicGuessService(
                 "/topic/game/$gameNumber/liar-guess-start",
                 response
             )
-            
+
+            // 기존 타이머/락 정리 후 새 타이머 시작
+            cancelLocalTimer(gameNumber)
             startEnhancedLiarGuessTimer(gameNumber)
             
             return response
@@ -96,11 +106,6 @@ class TopicGuessService(
             if (guessStatus.guessSubmitted) {
                 throw IllegalStateException("Guess already submitted")
             }
-            
-            // Cancel the timer
-            timerTasks[gameNumber]?.cancel(false)
-            timerTasks.remove(gameNumber)
-            
             // Game is already loaded with lock above
             
             val correctAnswer = game.citizenSubject?.content ?: ""
@@ -114,6 +119,8 @@ class TopicGuessService(
             
             // Redis에 상태 업데이트
             gameStateService.setLiarGuessStatus(gameNumber, guessStatus)
+            // 타임아웃 타이머 정리
+            cancelLocalTimer(gameNumber)
 
             game.liarGuessCorrect = isCorrect
             gameRepository.save(game)
@@ -172,6 +179,8 @@ class TopicGuessService(
                     reasonOverride = "라이어 시간 초과로 시민 승리",
                     liarGuessCorrect = false
                 )
+
+                gameStateService.releaseLiarGuessTimerLock(gameNumber)
                 
                 return true
             }
@@ -193,9 +202,8 @@ class TopicGuessService(
     }
     
     fun cleanupGuessStatus(gameNumber: Int) {
+        cancelLocalTimer(gameNumber, forceRelease = true)
         gameStateService.removeLiarGuessStatus(gameNumber)
-        timerTasks[gameNumber]?.cancel(false)
-        timerTasks.remove(gameNumber)
     }
     
     private fun validateAnswer(guess: String, correctAnswer: String): Boolean {
@@ -251,24 +259,39 @@ class TopicGuessService(
     }
     
     private fun startEnhancedLiarGuessTimer(gameNumber: Int) {
+        val lockTimeoutSeconds = gameProperties.topicGuessTimeSeconds.toLong() + 60
+        val lockAcquired = gameStateService.acquireLiarGuessTimerLock(gameNumber, lockTimeoutSeconds)
+        if (!lockAcquired) {
+            logger.debug("Liar guess timer already owned by another instance for game {}", gameNumber)
+            return
+        }
+
         val timerTask = taskScheduler.scheduleAtFixedRate({
             try {
                 val guessStatus = gameStateService.getLiarGuessStatus(gameNumber)
-                if (guessStatus != null && !guessStatus.guessSubmitted) {
-                    val remainingTime = getRemainingTime(gameNumber)
-                    guessStatus.remainingTime = remainingTime
-                    
-                    // Redis에 상태 업데이트
-                    gameStateService.setLiarGuessStatus(gameNumber, guessStatus)
 
-                    // 중앙화된 메시지 서비스 사용
-                    gameMessagingService.sendCountdownUpdate(gameNumber, remainingTime, "LIAR_GUESS")
+                if (guessStatus == null) {
+                    cancelLocalTimer(gameNumber)
+                    return@scheduleAtFixedRate
+                }
 
-                    if (remainingTime <= 0) {
-                        handleGuessTimeout(gameNumber)
-                        timerTasks[gameNumber]?.cancel(false)
-                        timerTasks.remove(gameNumber)
-                    }
+                if (guessStatus.guessSubmitted) {
+                    cancelLocalTimer(gameNumber)
+                    return@scheduleAtFixedRate
+                }
+
+                val remainingTime = getRemainingTime(gameNumber)
+                guessStatus.remainingTime = remainingTime
+                
+                // Redis에 상태 업데이트
+                gameStateService.setLiarGuessStatus(gameNumber, guessStatus)
+
+                // 중앙화된 메시지 서비스 사용
+                gameMessagingService.sendCountdownUpdate(gameNumber, remainingTime, "LIAR_GUESS")
+
+                if (remainingTime <= 0) {
+                    handleGuessTimeout(gameNumber)
+                    cancelLocalTimer(gameNumber)
                 }
             } catch (e: Exception) {
                 logger.error("Timer error for game {}: {}", gameNumber, e.message, e)

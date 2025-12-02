@@ -53,15 +53,26 @@ export const Board = ({ grid, ghost, showGhost = true, onHover, onSelect, onLeav
   };
 
   const ghostBlocks = useMemo(() => {
-    if (!ghost) return [] as Array<{ x: number; y: number; color: string }>;
-    const offsets: Array<{ x: number; y: number; color: string }> = [];
+    if (!ghost)
+      return [] as Array<{ x: number; y: number; color: string; blocked: boolean; opacity: number }>;
+    const blockedKeys = new Set(
+      ghost.blockedCells
+        .filter((cell) => cell.x >= 0 && cell.x < GRID_SIZE && cell.y >= 0 && cell.y < GRID_SIZE)
+        .map((cell) => `${cell.x}-${cell.y}`)
+    );
+
+    const offsets: Array<{ x: number; y: number; color: string; blocked: boolean; opacity: number }> = [];
     ghost.block.shape.forEach((row, y) => {
       row.forEach((value, x) => {
         if (!value) return;
         const cellX = ghost.x + x;
         const cellY = ghost.y + y;
         if (cellX >= 0 && cellX < GRID_SIZE && cellY >= 0 && cellY < GRID_SIZE) {
-          offsets.push({ x: cellX, y: cellY, color: ghost.valid ? '#7cf4e2' : '#f87171' });
+          const key = `${cellX}-${cellY}`;
+          const blocked = blockedKeys.has(key);
+          const color = ghost.valid ? '#7cf4e2' : blocked ? '#f87171' : '#fbbf24';
+          const opacity = ghost.valid ? 0.35 : blocked ? 0.9 : 0.55;
+          offsets.push({ x: cellX, y: cellY, color, blocked, opacity });
         }
       });
     });
@@ -70,6 +81,8 @@ export const Board = ({ grid, ghost, showGhost = true, onHover, onSelect, onLeav
 
   const clearedRows = ghost && ghost.valid ? ghost.cleared.rows : [];
   const clearedCols = ghost && ghost.valid ? ghost.cleared.cols : [];
+  const ghostElevated = Boolean(ghost && !ghost.valid);
+  const ghostHeight = ghostElevated ? 0.9 : 0.45;
 
   return (
     <group position={[-GRID_SIZE / 2, 0, -GRID_SIZE / 2]}>
@@ -124,9 +137,10 @@ export const Board = ({ grid, ghost, showGhost = true, onHover, onSelect, onLeav
         ? ghostBlocks.map((cell) => (
             <Block
               key={`ghost-${cell.x}-${cell.y}`}
-              position={[cell.x + 0.5, 0.45, cell.y + 0.5]}
+              position={[cell.x + 0.5, ghostHeight, cell.y + 0.5]}
               color={cell.color}
-              opacity={0.35}
+              opacity={cell.opacity}
+              alwaysOnTop={ghostElevated}
             />
           ))
         : null}
