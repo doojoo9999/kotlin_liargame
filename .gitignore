@@ -82,3 +82,11 @@ apps/*/coverage/
 apps/*/playwright-report/
 apps/*/test-results/
 apps/*/ts_errors*.log
+
+# Local image uploads (do not commit)
+/*.jpg
+/*.jpeg
+/*.png
+/*.gif
+/*.webp
+/*.avif

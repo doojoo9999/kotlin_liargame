@@ -425,6 +425,124 @@ a {
   line-height: 1.6;
 }
 
+.uploader {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+
+.uploader__dropzone {
+  position: relative;
+  border: 1.5px dashed var(--border-primary);
+  border-radius: var(--radius-card);
+  padding: clamp(1.4rem, 2vw, 1.8rem);
+  background: var(--surface-glass);
+  transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  text-align: center;
+  min-height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-soft);
+}
+
+.uploader__dropzone--active {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.uploader__file-input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.uploader__prompt {
+  pointer-events: none;
+  display: grid;
+  gap: 0.4rem;
+  justify-items: center;
+}
+
+.uploader__prompt button {
+  pointer-events: auto;
+}
+
+.uploader__icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--primary, #7650ff) 16%, transparent);
+  border: 1px solid var(--border-primary);
+  font-size: 1.4rem;
+}
+
+.uploader__title {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.uploader__subtitle {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+}
+
+.uploader__actions {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 0.6rem;
+}
+
+.uploader__selected {
+  margin-top: 0.5rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.uploader__alert {
+  padding: 0.9rem 1rem;
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border-muted);
+  background: var(--surface-glass);
+}
+
+.uploader__alert--success {
+  border-color: color-mix(in srgb, #31d158 45%, transparent);
+  color: #aaf3c3;
+}
+
+.uploader__alert--error {
+  border-color: color-mix(in srgb, #ff6b6b 45%, transparent);
+  color: #ffc6c6;
+}
+
+.uploader__result {
+  display: grid;
+  gap: 1rem;
+}
+
+.uploader__preview {
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  border: 1px solid var(--border-muted);
+  background: #0d0c18;
+  max-height: 420px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.uploader__preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
 @media (max-width: 960px) {
   body {
     padding: clamp(1.2rem, 4vw, 2rem);
