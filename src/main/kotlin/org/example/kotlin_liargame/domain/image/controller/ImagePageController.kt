@@ -122,15 +122,15 @@ class ImagePageController {
 
                 const showAlert = (msg, type) => {
                   alertBox.innerHTML = msg
-                    ? `<div class="alert ${type === 'error' ? 'error' : 'success'}">${msg}</div>`
+                    ? `<div class="alert ${'$'}{type === 'error' ? 'error' : 'success'}">${'$'}{msg}</div>`
                     : '';
                 };
 
                 const showResult = (url) => {
                   if (!url) { resultBox.innerHTML = ''; return; }
                   resultBox.innerHTML = `
-                    <div class="alert success">업로드 완료! 이미지 URL: <a href="${url}" target="_blank" rel="noreferrer">${url}</a></div>
-                    <div class="preview"><img src="${url}" alt="미리보기" /></div>
+                    <div class="alert success">업로드 완료! 이미지 URL: <a href="${'$'}{url}" target="_blank" rel="noreferrer">${'$'}{url}</a></div>
+                    <div class="preview"><img src="${'$'}{url}" alt="미리보기" /></div>
                   `;
                 };
 
@@ -140,7 +140,7 @@ class ImagePageController {
                   const file = e.target.files && e.target.files[0];
                   if (file) {
                     selectedFile = file;
-                    selectedInfo.textContent = `선택된 파일: ${file.name} (${Math.round(file.size/1024)} KB)`;
+                    selectedInfo.textContent = `선택된 파일: ${'$'}{file.name} (${ '$' }{Math.round(file.size/1024)} KB)`;
                     showAlert('', '');
                     showResult(null);
                   }
@@ -156,7 +156,7 @@ class ImagePageController {
                     const res = await fetch(endpoint, { method: 'POST', body: fd });
                     if (!res.ok) {
                       const text = await res.text();
-                      throw new Error(text || `업로드 실패 (status ${res.status})`);
+                      throw new Error(text || `업로드 실패 (status ${'$'}{res.status})`);
                     }
                     const data = await res.json();
                     showAlert('업로드 성공!', 'success');
@@ -177,7 +177,7 @@ class ImagePageController {
                   if (file) {
                     selectedFile = file;
                     fileInput.files = e.dataTransfer.files;
-                    selectedInfo.textContent = `선택된 파일: ${file.name} (${Math.round(file.size/1024)} KB)`;
+                    selectedInfo.textContent = `선택된 파일: ${'$'}{file.name} (${ '$' }{Math.round(file.size/1024)} KB)`;
                     showAlert('', '');
                     showResult(null);
                   }
