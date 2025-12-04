@@ -7,7 +7,6 @@ import jakarta.persistence.FetchType
 import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
-import jakarta.persistence.Lob
 import jakarta.persistence.Table
 import org.example.kotlin_liargame.global.base.BaseEntity
 
@@ -23,9 +22,8 @@ class StoredImageEntity(
     @Column(nullable = false)
     val size: Long,
 
-    @Lob
     @Basic(fetch = FetchType.LAZY)
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "BYTEA")
     val data: ByteArray,
 
     @Column(name = "original_filename", length = 255)
