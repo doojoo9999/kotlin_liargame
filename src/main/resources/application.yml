@@ -157,3 +157,10 @@ lineagew:
   admin:
     header-name: X-Lineage-Admin-Key
     key: ${LINEAGEW_ADMIN_KEY:dev-admin-key}
+
+dnf:
+  api:
+    api-key: ${DNF_API_KEY:}
+    base-url: https://api.neople.co.kr/df
+    image-base-url: https://img-api.neople.co.kr/df
+    cache-ttl-hours: 24

@@ -1,0 +1,128 @@
+Searching...
+Found: 뮤즈 (眞 뮤즈) on cain
+
+--- Status ---
+Buff Info found in Status: [
+  {
+    "name": "모험단 버프",
+    "level": 37,
+    "status": [
+      {
+        "name": "힘",
+        "value": 280
+      },
+      {
+        "name": "지능",
+        "value": 280
+      },
+      {
+        "name": "체력",
+        "value": 280
+      },
+      {
+        "name": "정신력",
+        "value": 280
+      }
+    ]
+  },
+  {
+    "name": "무제한 길드능력치",
+    "status": [
+      {
+        "name": "힘",
+        "value": 60
+      },
+      {
+        "name": "지능",
+        "value": 60
+      },
+      {
+        "name": "체력",
+        "value": 60
+      },
+      {
+        "name": "정신력",
+        "value": 60
+      }
+    ]
+  },
+  {
+    "name": "기간제 길드능력치",
+    "status": [
+      {
+        "name": "힘",
+        "value": 40
+      },
+      {
+        "name": "지능",
+        "value": 40
+      },
+      {
+        "name": "체력",
+        "value": 40
+      },
+      {
+        "name": "정신력",
+        "value": 40
+      }
+    ]
+  }
+]
+
+--- Buff Equipment ---
+{
+  "serverId": "cain",
+  "characterId": "5b9f2b20e539a571b0181d09826fadbc",
+  "characterName": "뮤즈",
+  "level": 115,
+  "jobId": "b9cb48777665de22c006fabaf9a560b3",
+  "jobGrowId": "37495b941da3b1661bc900e68ef3b2c6",
+  "jobName": "아처",
+  "jobGrowName": "眞 뮤즈",
+  "fame": 74695,
+  "adventureName": "카오리",
+  "guildId": "f028ed28f687efa265b54f4ed09fc65d",
+  "guildName": "살혼부",
+  "skill": {
+    "buff": {
+      "skillInfo": {
+        "skillId": "78be08a3f8c834d3b06fa20c6a08c5a5",
+        "name": "러블리 템포",
+        "option": {
+          "level": 32,
+          "desc": "지속 시간 : {value1}초\n적중률 증가 : {value2}%\n\n[뮤즈 전용 효과]\n기본 공격 및 스킬 공격력 증가율 : {value3}%\n\n[파티원 전용 효과]\n힘 증가 : {value4}\n지능 증가 : {value5}\n물리 공격력 증가 : {value6}\n마법 공격력 증가 : {value7}\n독립 공격력 증가 : {value8}\n\n[범위 정보]\n버프 적용 범위 : {value9}px",
+          "values": [
+            "300",
+            "42.3",
+            "70",
+            "503",
+            "503",
+            "92",
+            "92",
+            "92",
+            "900"
+          ]
+        }
+      },
+      "equipment": [
+        {
+          "slotId": "TITLE",
+          "slotName": "칭호",
+          "itemId": "b2dd21d4f34c7c6786001d6e92ddf25c",
+          "itemName": "아라드 윈터 페스티벌[버프 강화]",
+          "itemTypeId": "e490f8cce6bacd43bef1e2f5e0c4943d",
+          "itemType": "액세서리",
+          "itemTypeDetailId": "691933a06ff114348a7db936fb0aec66",
+          "itemTypeDetail": "칭호",
+          "itemAvailableLevel": 1,
+          "itemRarity": "레어",
+          "setItemId": null,
+          "setItemName": null,
+          "reinforce": 0,
+          "amplificationName": null,
+          "refine": 0
+        }
+      ]
+    }
+  }
+}

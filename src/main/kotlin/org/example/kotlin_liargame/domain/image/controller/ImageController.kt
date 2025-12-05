@@ -50,7 +50,7 @@ class ImageController(
             )
     }
 
-    @GetMapping("/img/{slug}")
+    @GetMapping("/img/{slug:[A-Za-z0-9]{6,32}}")
     fun renderImage(
         @PathVariable slug: String
     ): ResponseEntity<ByteArray> {

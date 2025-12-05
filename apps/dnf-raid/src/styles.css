@@ -1,0 +1,47 @@
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap");
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-ink text-white font-body antialiased;
+  background-image:
+    radial-gradient(circle at 20% 20%, rgba(48,224,242,0.15), transparent 30%),
+    radial-gradient(circle at 80% 0%, rgba(139,92,246,0.25), transparent 35%),
+    linear-gradient(135deg, #05060b, #0b1220 45%, #05060b 100%),
+    linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+  background-size: cover, cover, cover, 60px 60px, 60px 60px;
+  background-repeat: no-repeat;
+  min-height: 100vh;
+}
+
+.glass {
+  @apply bg-panel/70 backdrop-blur-xl border border-panel-border shadow-glass;
+}
+
+.neon-border {
+  box-shadow:
+    0 0 0 1px rgba(48, 224, 242, 0.2),
+    0 10px 40px rgba(48, 224, 242, 0.15);
+}
+
+.frosted {
+  @apply glass rounded-2xl;
+}
+
+.card-title {
+  @apply font-display tracking-tight text-lg;
+}
+
+.pill {
+  @apply inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm border border-panel-border/50 bg-white/5;
+}
+
+.divider {
+  @apply h-px bg-white/10 w-full;
+}
