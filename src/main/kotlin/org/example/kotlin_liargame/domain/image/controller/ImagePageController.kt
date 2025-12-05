@@ -1,15 +1,17 @@
 package org.example.kotlin_liargame.domain.image.controller
 
+import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RestController
+import java.nio.charset.StandardCharsets
 
 @RestController
 class ImagePageController {
 
-    @GetMapping("/img", "/img/")
-    fun uploadPage(): ResponseEntity<String> {
+    @GetMapping("/img", "/img/", produces = ["text/html; charset=UTF-8"])
+    fun uploadPage(): ResponseEntity<ByteArray> {
         val html = """
             <!doctype html>
             <html lang=\"ko\">
@@ -187,8 +189,9 @@ class ImagePageController {
             </html>
         """.trimIndent()
 
+        val utf8Html = MediaType("text", "html", StandardCharsets.UTF_8)
         return ResponseEntity.ok()
-            .contentType(MediaType.TEXT_HTML)
-            .body(html)
+            .header(HttpHeaders.CONTENT_TYPE, utf8Html.toString())
+            .body(html.toByteArray(StandardCharsets.UTF_8))
     }
 }
