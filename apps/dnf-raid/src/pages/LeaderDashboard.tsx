@@ -147,7 +147,7 @@ function LeaderDashboard() {
               className="pill border-panel-border bg-panel text-text hover:bg-panel-muted transition"
             >
               <Telescope className="h-4 w-4" />
-              최근 레이드 불러오기
+              최근 레이드
             </button>
             <button
               onClick={() => raidId && raidQuery.refetch()}
