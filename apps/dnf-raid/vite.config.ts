@@ -17,7 +17,8 @@ const publicOrigin = publicHost ? `${publicProtocol}://${publicHost}` : undefine
 const publicClientPort = publicPort ?? (publicProtocol === "https" ? 443 : 80);
 
 export default defineConfig({
-  base: "/",
+  // 배포 경로: https://zzirit.kr/dnf/
+  base: "/dnf/",
   plugins: [react()],
   resolve: {
     alias: {
@@ -25,7 +26,7 @@ export default defineConfig({
     },
   },
   server: {
-    port: 4174,
+    port: 5179,
     host: true,
     allowedHosts,
     ...(publicOrigin ? {origin: publicOrigin} : {}),

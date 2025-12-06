@@ -4,6 +4,7 @@ import org.example.dnf_raid.config.DnfApiProperties
 import org.example.dnf_raid.dto.DnfCharacterDto
 import org.example.dnf_raid.model.DnfCharacterEntity
 import org.example.dnf_raid.repository.DnfCharacterRepository
+import org.springframework.data.domain.PageRequest
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -38,18 +39,25 @@ class DnfCharacterService(
                     lastUpdatedAt = now
                 )
             ).apply {
-                serverId = apiCharacter.serverId
-                characterName = apiCharacter.characterName
-                jobName = apiCharacter.jobName
-                jobGrowName = apiCharacter.jobGrowName
-                fame = apiCharacter.fame
-                adventureName = apiCharacter.adventureName
-                lastUpdatedAt = now
+                this.serverId = apiCharacter.serverId
+                this.characterName = apiCharacter.characterName
+                this.jobName = apiCharacter.jobName
+                this.jobGrowName = apiCharacter.jobGrowName
+                this.fame = apiCharacter.fame
+                this.adventureName = apiCharacter.adventureName
+                this.lastUpdatedAt = now
             }
 
             characterRepository.save(entity)
             toDto(entity)
         }
+    }
+
+    @Transactional(readOnly = true)
+    fun searchByAdventureName(adventureName: String, limit: Int = 20): List<DnfCharacterDto> {
+        val pageRequest = PageRequest.of(0, limit.coerceIn(1, 200))
+        val cached = characterRepository.findByAdventureNameContainingIgnoreCase(adventureName, pageRequest)
+        return cached.map { toDto(it) }
     }
 
     @Transactional

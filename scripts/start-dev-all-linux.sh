@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Start all front-end dev servers on their designated ports.
-# main: 4173, liar-game: 5173, roulette: 5174, sadari-game: 5175, pinball: 5176, blockblast: 5178, linw-admin: 5177
+# main: 4173, liar-game: 5173, roulette: 5174, sadari-game: 5175, pinball: 5176, linw-admin: 5177, blockblast: 5178, dnf-raid: 5179
 
 set -euo pipefail
 
@@ -13,6 +13,7 @@ SHARED_PACKAGES=(
 
 APPS=(
   "main|${ROOT_DIR}/apps/main|4173"
+  "dnf-raid|${ROOT_DIR}/apps/dnf-raid|5179"
   "liar-game|${ROOT_DIR}/apps/liar-game|5173"
   "roulette|${ROOT_DIR}/apps/roulette|5174"
   "sadari-game|${ROOT_DIR}/apps/sadari-game|5175"

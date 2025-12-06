@@ -8,6 +8,7 @@ TARGET_DIR="/var/www/zzirit.kr/html"
 
 APPS=(
   "main|dist|."
+  "dnf-raid|dist|dnf"
   "liar-game|dist|liargame"
   "roulette|dist|roulette"
   "sadari-game|dist|sadari"

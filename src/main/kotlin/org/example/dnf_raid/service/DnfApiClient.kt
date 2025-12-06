@@ -33,7 +33,7 @@ class DnfApiClient(
                         .build()
                 }
                 .retrieve()
-                .body<DnfCharacterSearchResponse>()
+                .body(DnfCharacterSearchResponse::class.java)
 
             response?.rows ?: emptyList()
         } catch (ex: Exception) {

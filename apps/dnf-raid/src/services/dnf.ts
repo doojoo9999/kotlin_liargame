@@ -14,6 +14,13 @@ export async function searchCharacters(characterName: string) {
   return data;
 }
 
+export async function searchCharactersByAdventure(adventureName: string) {
+  const {data} = await api.get<DnfCharacter[]>("/characters/search", {
+    params: {adventureName, limit: 20},
+  });
+  return data;
+}
+
 export async function createRaid(payload: {name: string; userId: string; password?: string}) {
   const {data} = await api.post<RaidDetail>("/raids", payload);
   return data;

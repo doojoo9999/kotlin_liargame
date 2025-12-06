@@ -1,8 +1,11 @@
-import {useCallback, useState} from "react";
-import type {UUID} from "../types";
+import {useCallback, useMemo, useState} from "react";
+import type {DnfCharacter, UUID} from "../types";
 
 const RAID_KEY = "dnf-raid:active-raid-id";
-const USER_KEY = "dnf-raid:leader-user-id";
+const LEADER_CHARACTER_KEY = "dnf-raid:leader-character";
+
+const buildLeaderId = (character: DnfCharacter) =>
+  [character.adventureName || character.characterName, character.serverId].filter(Boolean).join("|");
 
 export function useRaidSession() {
   const [raidId, setRaidId] = useState<UUID | null>(() => {
@@ -10,9 +13,15 @@ export function useRaidSession() {
     return saved ?? null;
   });
 
-  const [userId, setUserId] = useState<string>(() => {
-    const saved = typeof window !== "undefined" ? localStorage.getItem(USER_KEY) : null;
-    return saved ?? "";
+  const [leaderCharacter, setLeaderCharacter] = useState<DnfCharacter | null>(() => {
+    if (typeof window === "undefined") return null;
+    const saved = localStorage.getItem(LEADER_CHARACTER_KEY);
+    if (!saved) return null;
+    try {
+      return JSON.parse(saved) as DnfCharacter;
+    } catch {
+      return null;
+    }
   });
 
   const updateRaidId = useCallback((id: UUID | null) => {
@@ -24,14 +33,27 @@ export function useRaidSession() {
     }
   }, []);
 
-  const updateUserId = useCallback((value: string) => {
-    setUserId(value);
-    if (value) {
-      localStorage.setItem(USER_KEY, value);
+  const updateLeaderCharacter = useCallback((character: DnfCharacter | null) => {
+    setLeaderCharacter(character);
+    if (character) {
+      localStorage.setItem(LEADER_CHARACTER_KEY, JSON.stringify(character));
     } else {
-      localStorage.removeItem(USER_KEY);
+      localStorage.removeItem(LEADER_CHARACTER_KEY);
     }
   }, []);
 
-  return {raidId, userId, setRaidId: updateRaidId, setUserId: updateUserId};
+  const leaderId = useMemo(
+    () => (leaderCharacter ? buildLeaderId(leaderCharacter) : ""),
+    [leaderCharacter]
+  );
+
+  return {
+    raidId,
+    leaderId,
+    leaderCharacter,
+    setRaidId: updateRaidId,
+    setLeaderCharacter: updateLeaderCharacter,
+  };
 }
+
+export {buildLeaderId};

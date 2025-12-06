@@ -20,10 +20,19 @@ class DnfRaidController(
 
     @GetMapping("/characters/search")
     fun searchCharacters(
-        @RequestParam characterName: String,
+        @RequestParam(required = false) characterName: String?,
+        @RequestParam(required = false) adventureName: String?,
         @RequestParam(defaultValue = "20") limit: Int
-    ): List<DnfCharacterDto> =
-        dnfCharacterService.searchCharacters(characterName, limit.coerceIn(1, 200))
+    ): List<DnfCharacterDto> {
+        val size = limit.coerceIn(1, 200)
+        if (!characterName.isNullOrBlank()) {
+            return dnfCharacterService.searchCharacters(characterName, size)
+        }
+        if (!adventureName.isNullOrBlank()) {
+            return dnfCharacterService.searchByAdventureName(adventureName, size)
+        }
+        throw ResponseStatusException(HttpStatus.BAD_REQUEST, "characterName 또는 adventureName을 입력해주세요.")
+    }
 
     @PostMapping("/raids")
     @ResponseStatus(HttpStatus.CREATED)
