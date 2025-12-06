@@ -14,17 +14,20 @@ import {useRaidSession} from "../hooks/useRaidSession";
 import {PartyBoard} from "../components/PartyBoard";
 import {CharacterCard} from "../components/CharacterCard";
 import type {DnfCharacter, RaidDetail} from "../types";
+import {DNF_SERVERS, DIREGIE_MIN_FAME, getServerName, isDiregieRaid, type DnfServerId} from "../constants";
 
 function LeaderDashboard() {
   const {raidId, leaderId, leaderCharacter, setRaidId, setLeaderCharacter} = useRaidSession();
   const [cloneName, setCloneName] = useState("");
   const [raidName, setRaidName] = useState("디레지에 레이드");
   const [leaderSearch, setLeaderSearch] = useState("");
+  const [leaderServer, setLeaderServer] = useState<DnfServerId>(DNF_SERVERS[0].id);
   const [message, setMessage] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   const leaderSearchMutation = useMutation({
-    mutationFn: (keyword: string) => searchCharacters(keyword),
+    mutationFn: (payload: {keyword: string; serverId: DnfServerId}) =>
+      searchCharacters(payload.keyword, payload.serverId),
   });
 
   const raidQuery = useQuery<RaidDetail | null>({
@@ -87,6 +90,11 @@ function LeaderDashboard() {
   const raid = raidQuery.data ?? null;
   const participants = raid?.participants ?? [];
   const leaderSearchResults = leaderSearchMutation.data ?? [];
+  const isDiregie = isDiregieRaid(raid?.name ?? raidName);
+  const filteredLeaderSearchResults = useMemo(
+    () => (isDiregie ? leaderSearchResults.filter((c) => c.fame >= DIREGIE_MIN_FAME) : leaderSearchResults),
+    [isDiregie, leaderSearchResults]
+  );
 
   const partyStats = useMemo(() => {
     const stats: Record<number, {avgDamage: number; avgBuff: number; count: number}> = {
@@ -113,7 +121,7 @@ function LeaderDashboard() {
 
   const handleLeaderSearch = () => {
     if (!leaderSearch.trim()) return;
-    leaderSearchMutation.mutate(leaderSearch.trim());
+    leaderSearchMutation.mutate({keyword: leaderSearch.trim(), serverId: leaderServer});
   };
 
   return (
@@ -172,6 +180,17 @@ function LeaderDashboard() {
               <span className="text-text-muted">공대장 캐릭터 검색</span>
               <div className="flex items-center gap-2 rounded-lg border border-panel-border bg-panel px-3 py-2 shadow-soft focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10">
                 <Search className="h-4 w-4 text-text-subtle" />
+                <select
+                  value={leaderServer}
+                  onChange={(e) => setLeaderServer(e.target.value as DnfServerId)}
+                  className="rounded-lg border border-panel-border bg-panel-muted px-2 py-1 text-sm text-text focus:border-primary focus:outline-none"
+                >
+                  {DNF_SERVERS.map((server) => (
+                    <option key={server.id} value={server.id}>
+                      {server.name}
+                    </option>
+                  ))}
+                </select>
                 <input
                   value={leaderSearch}
                   onChange={(e) => setLeaderSearch(e.target.value)}
@@ -192,7 +211,7 @@ function LeaderDashboard() {
                 <div>
                   <p className="font-display">{leaderCharacter.characterName}</p>
                   <p className="text-xs text-text-subtle">
-                    모험단 {leaderCharacter.adventureName ?? "-"} · 서버 {leaderCharacter.serverId}
+                    모험단 {leaderCharacter.adventureName ?? "-"} · 서버 {getServerName(leaderCharacter.serverId)}
                   </p>
                 </div>
                 <button
@@ -262,11 +281,11 @@ function LeaderDashboard() {
           </div>
         )}
 
-        {leaderSearchResults.length > 0 && (
+        {filteredLeaderSearchResults.length > 0 && (
           <div className="space-y-2">
             <p className="text-sm text-text-muted">공대장 후보</p>
             <div className="grid gap-4 md:grid-cols-2">
-              {leaderSearchResults.map((character: DnfCharacter) => (
+              {filteredLeaderSearchResults.map((character: DnfCharacter) => (
                 <CharacterCard
                   key={character.characterId}
                   character={character}

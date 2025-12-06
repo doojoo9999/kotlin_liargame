@@ -2,11 +2,13 @@ import {NavLink, Route, Routes} from "react-router-dom";
 import {Sparkles, Sword, Users} from "lucide-react";
 
 import RaidListPage from "./pages/RaidListPage";
+import ApplicantPage from "./pages/ApplicantPage";
 import LeaderDashboard from "./pages/LeaderDashboard";
 import SharePage from "./pages/SharePage";
 
 const navItems = [
   {to: "/", label: "공대 리스트"},
+  {to: "/apply", label: "지원 페이지"},
   {to: "/leader", label: "공대장"},
 ];
 
@@ -72,6 +74,7 @@ function App() {
 
         <Routes>
           <Route path="/" element={<RaidListPage />} />
+          <Route path="/apply" element={<ApplicantPage />} />
           <Route path="/leader" element={<LeaderDashboard />} />
           <Route path="/:raidId" element={<SharePage />} />
         </Routes>

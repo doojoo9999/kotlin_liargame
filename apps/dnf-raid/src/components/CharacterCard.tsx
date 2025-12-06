@@ -1,6 +1,6 @@
 import {ArrowRight} from "lucide-react";
-import {DnfCharacter} from "../types";
 import {clsx} from "clsx";
+import {DnfCharacter} from "../types";
 
 type Props = {
   character: DnfCharacter;
@@ -39,7 +39,6 @@ export function CharacterCard({character, highlight, actionLabel = "신청하기
         <div className="flex flex-wrap gap-2 text-xs text-text-muted">
           <div className="pill">명성 {character.fame.toLocaleString()}</div>
           {character.adventureName && <div className="pill">모험단 {character.adventureName}</div>}
-          <div className="pill">서버 {character.serverId}</div>
         </div>
 
         {subtitle && <p className="text-text-muted text-sm">{subtitle}</p>}

@@ -16,6 +16,7 @@ class DnfApiClient(
     private val logger = LoggerFactory.getLogger(DnfApiClient::class.java)
 
     fun searchCharacters(
+        serverId: String,
         characterName: String,
         limit: Int = 20,
         wordType: String = "full"
@@ -25,12 +26,12 @@ class DnfApiClient(
             val response = restClient.get()
                 .uri { builder ->
                     builder
-                        .path("/servers/all/characters")
+                        .path("/servers/{serverId}/characters")
                         .queryParam("characterName", characterName)
                         .queryParam("limit", limit)
                         .queryParam("wordType", wordType)
                         .queryParam("apikey", apiKey)
-                        .build()
+                        .build(serverId)
                 }
                 .retrieve()
                 .body(DnfCharacterSearchResponse::class.java)

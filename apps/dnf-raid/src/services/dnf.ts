@@ -6,10 +6,11 @@ import type {
   StatHistory,
   UUID,
 } from "../types";
+import type {DnfServerId} from "../constants";
 
-export async function searchCharacters(characterName: string) {
+export async function searchCharacters(characterName: string, serverId: DnfServerId) {
   const {data} = await api.get<DnfCharacter[]>("/characters/search", {
-    params: {characterName, limit: 20},
+    params: {characterName, serverId, limit: 20},
   });
   return data;
 }

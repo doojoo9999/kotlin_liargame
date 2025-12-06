@@ -30,7 +30,7 @@ function RaidListPage() {
         <div className="space-y-2 md:col-span-2">
           <p className="text-sm text-text-muted">공유 링크로 바로 이동</p>
           <div className="rounded-lg border border-panel-border bg-panel p-4 space-y-2">
-            <p className="text-sm text-text-subtle">공대장이 전달한 URL이 있다면 그대로 접속하면 됩니다. URL 예시: zzirit.kr/dnf/난수</p>
+            <p className="text-sm text-text-subtle">공대장이 전달한 URL이 있다면 그대로 접속하면 됩니다. URL 예시: zzirit.kr/dnf/0001a01</p>
             <div className="pill border-primary/30 bg-primary-muted text-text w-fit">
               <Sparkles className="h-4 w-4 text-primary" />
               링크로 입장 시 파티 편성과 지원 정보를 바로 볼 수 있습니다.

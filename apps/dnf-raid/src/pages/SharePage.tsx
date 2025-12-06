@@ -1,12 +1,14 @@
 import {FormEvent, useMemo, useState} from "react";
 import {useParams} from "react-router-dom";
 import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
-import {AlertTriangle, Loader2, Search, Sparkles, Undo2} from "lucide-react";
+import {AlertTriangle, Loader2, Search, Sparkles} from "lucide-react";
 
 import {addParticipant, getRaid, searchCharacters, searchCharactersByAdventure} from "../services/dnf";
 import type {DnfCharacter, Participant} from "../types";
 import {StatBadge} from "../components/StatBadge";
 import {CharacterCard} from "../components/CharacterCard";
+import {DNF_SERVERS, DIREGIE_MIN_FAME, isDiregieRaid, type DnfServerId} from "../constants";
+import {SupportModal} from "../components/SupportModal";
 
 function SharePage() {
   const {raidId} = useParams<{raidId: string}>();
@@ -18,6 +20,7 @@ function SharePage() {
   const [damage, setDamage] = useState("");
   const [buff, setBuff] = useState("");
   const [message, setMessage] = useState<string | null>(null);
+  const [serverId, setServerId] = useState<DnfServerId>(DNF_SERVERS[0].id);
 
   const raidQuery = useQuery({
     queryKey: ["raid", raidId],
@@ -26,7 +29,8 @@ function SharePage() {
   });
 
   const searchMutation = useMutation({
-    mutationFn: (keyword: string) => searchCharacters(keyword),
+    mutationFn: (payload: {keyword: string; serverId: DnfServerId}) =>
+      searchCharacters(payload.keyword, payload.serverId),
   });
 
   const adventureSearchMutation = useMutation({
@@ -57,12 +61,26 @@ function SharePage() {
 
   const searchResults = searchMutation.data ?? [];
   const adventureResults = adventureSearchMutation.data ?? [];
+  const isDiregie = isDiregieRaid(raidQuery.data?.name);
+  const filteredSearchResults = useMemo(
+    () => (isDiregie ? searchResults.filter((c) => c.fame >= DIREGIE_MIN_FAME) : searchResults),
+    [isDiregie, searchResults]
+  );
+  const filteredAdventureResults = useMemo(
+    () => (isDiregie ? adventureResults.filter((c) => c.fame >= DIREGIE_MIN_FAME) : adventureResults),
+    [isDiregie, adventureResults]
+  );
   const canApply = useMemo(() => Boolean(selected && raidId), [selected, raidId]);
+  const closeModal = () => {
+    setSelected(null);
+    setDamage("");
+    setBuff("");
+  };
 
   const handleSearch = (e: FormEvent) => {
     e.preventDefault();
     if (!characterName.trim()) return;
-    searchMutation.mutate(characterName.trim());
+    searchMutation.mutate({keyword: characterName.trim(), serverId});
   };
 
   const handleAdventureSearch = (e: FormEvent) => {
@@ -184,27 +202,45 @@ function SharePage() {
             명성/직업 자동 입력
           </div>
         </div>
+        {isDiregie && (
+          <div className="text-xs text-text-muted">
+            디레지에 레이드: 명성 {DIREGIE_MIN_FAME.toLocaleString()} 이상만 검색 결과에 표시됩니다.
+          </div>
+        )}
 
         <div className="grid gap-3 md:grid-cols-2">
           <form onSubmit={handleSearch} className="space-y-2">
-            <p className="text-sm text-text-muted">닉네임으로 신규 등록</p>
-            <div className="flex items-center gap-2 rounded-xl border border-panel-border bg-panel px-3 py-2 shadow-soft focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10">
+            <p className="text-sm text-text-muted">서버+닉네임으로 신규 등록</p>
+            <div className="flex flex-wrap items-center gap-2 rounded-xl border border-panel-border bg-panel px-3 py-2 shadow-soft focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10">
               <Search className="h-4 w-4 text-text-subtle" />
+              <select
+                value={serverId}
+                onChange={(e) => setServerId(e.target.value as DnfServerId)}
+                className="rounded-lg border border-panel-border bg-panel-muted px-2 py-1 text-sm text-text focus:border-primary focus:outline-none"
+              >
+                {DNF_SERVERS.map((server) => (
+                  <option key={server.id} value={server.id}>
+                    {server.name}
+                  </option>
+                ))}
+              </select>
               <input
                 value={characterName}
                 onChange={(e) => setCharacterName(e.target.value)}
-                placeholder="캐릭터명 입력"
+                placeholder="닉네임 입력"
                 className="bg-transparent outline-none flex-1 text-sm text-text placeholder:text-text-subtle"
               />
               <button type="submit" className="text-sm text-primary hover:text-primary-dark">
                 검색
               </button>
             </div>
-            <p className="text-xs text-text-subtle">네오플 API로 검색하며 캐릭터를 DB에 저장합니다.</p>
+            <p className="text-xs text-text-subtle">
+              서버를 선택해 닉네임 중복을 구분합니다. 네오플 API로 검색하며 DB에 저장합니다.
+            </p>
           </form>
 
           <form onSubmit={handleAdventureSearch} className="space-y-2">
-            <p className="text-sm text-text-muted">모험단으로 불러오기</p>
+            <p className="text-sm text-text-muted">모험단명으로 불러오기 (예: 모험단 000)</p>
             <div className="flex items-center gap-2 rounded-xl border border-panel-border bg-panel px-3 py-2 shadow-soft focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10">
               <Search className="h-4 w-4 text-text-subtle" />
               <input
@@ -237,11 +273,11 @@ function SharePage() {
         </div>
 
         <div className="space-y-6">
-          {searchResults.length > 0 && (
+          {filteredSearchResults.length > 0 && (
             <div className="space-y-3">
               <p className="text-sm text-text-muted">닉네임 검색 결과</p>
               <div className="grid gap-4 md:grid-cols-2">
-                {searchResults.map((character) => (
+                {filteredSearchResults.map((character) => (
                   <CharacterCard
                     key={character.characterId}
                     character={character}
@@ -254,11 +290,11 @@ function SharePage() {
             </div>
           )}
 
-          {adventureResults.length > 0 && (
+          {filteredAdventureResults.length > 0 && (
             <div className="space-y-3">
               <p className="text-sm text-text-muted">모험단 검색 결과</p>
               <div className="grid gap-4 md:grid-cols-2">
-                {adventureResults.map((character) => (
+                {filteredAdventureResults.map((character) => (
                   <CharacterCard
                     key={character.characterId}
                     character={character}
@@ -274,45 +310,17 @@ function SharePage() {
         </div>
 
         {selected && (
-          <div className="frosted p-4 space-y-4 border border-primary/30">
-            <div className="flex items-center justify-between">
-              <p className="font-display text-lg text-text">지원 정보</p>
-              <button
-                onClick={() => setSelected(null)}
-                className="flex items-center gap-1 text-xs text-text-subtle hover:text-text"
-              >
-                <Undo2 className="h-4 w-4" />
-                다시 선택
-              </button>
-            </div>
-            <div className="grid gap-3 md:grid-cols-2">
-              <label className="space-y-1 text-sm">
-                <span className="text-text-muted">딜 (억 단위)</span>
-                <input
-                  value={damage}
-                  onChange={(e) => setDamage(e.target.value.replace(/[^0-9]/g, ""))}
-                  className="w-full rounded-lg border border-panel-border bg-panel px-3 py-2 text-text placeholder:text-text-subtle focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  placeholder="예: 1200 (억)"
-                />
-              </label>
-              <label className="space-y-1 text-sm">
-                <span className="text-text-muted">버프력 (만 단위)</span>
-                <input
-                  value={buff}
-                  onChange={(e) => setBuff(e.target.value.replace(/[^0-9]/g, ""))}
-                  className="w-full rounded-lg border border-panel-border bg-panel px-3 py-2 text-text placeholder:text-text-subtle focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  placeholder="예: 550 (만)"
-                />
-              </label>
-            </div>
-            <button
-              onClick={() => addParticipantMutation.mutate()}
-              disabled={!canApply || addParticipantMutation.isPending}
-              className="w-full rounded-xl bg-primary text-white border border-primary py-3 shadow-soft hover:bg-primary-dark transition disabled:opacity-60"
-            >
-              {addParticipantMutation.isPending ? "지원 중..." : "이 공대에 지원하기"}
-            </button>
-          </div>
+          <SupportModal
+            character={selected}
+            damage={damage}
+            buff={buff}
+            onChangeDamage={setDamage}
+            onChangeBuff={setBuff}
+            onSubmit={() => addParticipantMutation.mutate()}
+            onClose={closeModal}
+            isSubmitting={addParticipantMutation.isPending}
+            canSubmit={canApply && !addParticipantMutation.isPending}
+          />
         )}
       </section>
     </div>

@@ -22,11 +22,14 @@ class DnfRaidController(
     fun searchCharacters(
         @RequestParam(required = false) characterName: String?,
         @RequestParam(required = false) adventureName: String?,
+        @RequestParam(required = false) serverId: String?,
         @RequestParam(defaultValue = "20") limit: Int
     ): List<DnfCharacterDto> {
         val size = limit.coerceIn(1, 200)
         if (!characterName.isNullOrBlank()) {
-            return dnfCharacterService.searchCharacters(characterName, size)
+            val server = serverId?.takeUnless { it.isBlank() }
+                ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "serverId를 입력해주세요.")
+            return dnfCharacterService.searchCharacters(server, characterName, size)
         }
         if (!adventureName.isNullOrBlank()) {
             return dnfCharacterService.searchByAdventureName(adventureName, size)
