@@ -56,7 +56,7 @@ function App() {
             <div className="pill w-fit bg-primary-muted border-primary/30 text-text">
               <Users className="h-4 w-4 text-primary" />
               <span className="text-xs uppercase tracking-[0.2em] text-text-subtle">
-                Diregie Premium Board
+                디레지에 공격대
               </span>
             </div>
             <h1 className="font-display text-3xl md:text-4xl leading-tight text-text">
@@ -65,7 +65,7 @@ function App() {
             </h1>
             <p className="text-text-muted max-w-3xl">
               캐릭터 검색, 스펙 입력, 파티 배치와 복사 기능을 제공하는 디레지에 레이드 전용
-              보드입니다. 지원자와 리더가 같은 데이터를 공유하도록 설계되었습니다.
+              보드입니다. 지원자와 공대장이 같은 데이터를 공유하도록 설계되었습니다.
             </p>
           </div>
         </section>
