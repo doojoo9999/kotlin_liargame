@@ -1,5 +1,5 @@
 import {X} from "lucide-react";
-import type {DnfCharacter} from "../types";
+import type {CohortPreference, DnfCharacter} from "../types";
 import {getServerName} from "../constants";
 
 type Props = {
@@ -15,6 +15,9 @@ type Props = {
   actionLabel?: string;
   showDamage?: boolean;
   showBuff?: boolean;
+  cohortPreference?: CohortPreference | null;
+  onChangeCohortPreference?: (value: CohortPreference | null) => void;
+  showCohortPreference?: boolean;
 };
 
 export function SupportModal({
@@ -30,6 +33,9 @@ export function SupportModal({
   actionLabel = "이 캐릭터로 지원하기",
   showDamage = true,
   showBuff = true,
+  cohortPreference = null,
+  onChangeCohortPreference,
+  showCohortPreference = false,
 }: Props) {
   const gridCols = showDamage && showBuff ? "md:grid-cols-2" : "md:grid-cols-1";
 
@@ -88,6 +94,36 @@ export function SupportModal({
               </label>
             )}
           </div>
+
+          {showCohortPreference && onChangeCohortPreference && (
+            <div className="space-y-2 text-sm">
+              <p className="text-text-muted">배치 선호도</p>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  {label: "상관없음", value: null},
+                  {label: "앞기수 선호", value: "FRONT" as CohortPreference | null},
+                  {label: "뒷기수 선호", value: "BACK" as CohortPreference | null},
+                ].map((option) => {
+                  const isActive = cohortPreference === option.value;
+                  return (
+                    <button
+                      type="button"
+                      key={option.label}
+                      onClick={() => onChangeCohortPreference(option.value)}
+                      className={`rounded-lg border px-2 py-2 text-sm transition ${
+                        isActive
+                          ? "border-primary bg-primary-muted text-primary"
+                          : "border-panel-border bg-panel text-text hover:bg-panel-muted"
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-text-subtle">여러 기수가 있을 때 자동 배치가 선호 기수를 먼저 고려합니다.</p>
+            </div>
+          )}
 
           <button
             onClick={onSubmit}

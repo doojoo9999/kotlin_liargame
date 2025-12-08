@@ -8,6 +8,8 @@ import java.util.UUID
 interface DnfRaidRepository : JpaRepository<DnfRaidEntity, UUID> {
     fun findFirstByUserIdOrderByCreatedAtDesc(userId: String): DnfRaidEntity?
 
+    fun findByMotherRaidIdOrderByCreatedAtAsc(motherRaidId: UUID): List<DnfRaidEntity>
+
     fun findByNameContainingIgnoreCaseAndIsPublicTrueOrderByCreatedAtDesc(
         name: String,
         pageable: Pageable

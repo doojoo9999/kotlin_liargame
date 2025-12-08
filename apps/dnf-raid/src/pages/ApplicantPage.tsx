@@ -2,21 +2,21 @@ import {FormEvent, useMemo, useState} from "react";
 import {useMutation, useQueryClient} from "@tanstack/react-query";
 import {Loader2, Search, Sparkles} from "lucide-react";
 import {
-  addParticipant,
-  addParticipantsBulk,
+  addParticipantByMother,
+  addParticipantsBulkByMother,
   searchCharacters,
   searchCharactersByAdventure,
   searchRaidsByName,
 } from "../services/dnf";
 import {useRaidSession} from "../hooks/useRaidSession";
 import {CharacterCard} from "../components/CharacterCard";
-import type {DnfCharacter, RaidSummary} from "../types";
+import type {CohortPreference, DnfCharacter, RaidSummary} from "../types";
 import {DNF_SERVERS, type DnfServerId} from "../constants";
 import {SupportModal} from "../components/SupportModal";
 import {useRaidMode} from "../hooks/useRaidMode";
 
 function ApplicantPage() {
-  const {raidId, setRaidId} = useRaidSession();
+  const {raidId, motherRaidId, setRaidId, setMotherRaidId} = useRaidSession();
   const [currentRaidName, setCurrentRaidName] = useState<string | null>(null);
   const [characterName, setCharacterName] = useState("");
   const [adventureName, setAdventureName] = useState("");
@@ -24,11 +24,13 @@ function ApplicantPage() {
   const [selectedBatch, setSelectedBatch] = useState<DnfCharacter[]>([]);
   const [damage, setDamage] = useState("");
   const [buff, setBuff] = useState("");
+  const [cohortPreference, setCohortPreference] = useState<CohortPreference | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [raidNameSearch, setRaidNameSearch] = useState("");
   const [serverId, setServerId] = useState<DnfServerId>(DNF_SERVERS[0].id);
   const {raidMode} = useRaidMode();
   const queryClient = useQueryClient();
+  const groupId = motherRaidId ?? raidId;
 
   const searchMutation = useMutation({
     mutationFn: (payload: {keyword: string; serverId: DnfServerId}) =>
@@ -45,14 +47,15 @@ function ApplicantPage() {
 
   const addParticipantMutation = useMutation({
     mutationFn: async () => {
-      if (!raidId || !selected) throw new Error("레이드와 캐릭터를 먼저 선택하세요.");
+      if (!groupId || !selected) throw new Error("모공 ID와 캐릭터를 먼저 선택하세요.");
       const damageValue = damage ? Number(damage) : 0;
       const buffValue = buff ? Number(buff) : 0;
-      const result = await addParticipant(raidId, {
+      const result = await addParticipantByMother(groupId, {
         serverId: selected.serverId,
         characterId: selected.characterId,
         damage: damageValue,
         buffPower: buffValue,
+        cohortPreference,
       });
       return result;
     },
@@ -61,12 +64,13 @@ function ApplicantPage() {
       setSelected(null);
       setDamage("");
       setBuff("");
+      setCohortPreference(null);
     },
   });
 
   const bulkApplyMutation = useMutation({
     mutationFn: async () => {
-      if (!raidId) throw new Error("레이드를 먼저 선택하세요.");
+      if (!groupId) throw new Error("모공 ID를 먼저 선택하세요.");
       if (selectedBatch.length === 0) throw new Error("일괄 지원할 캐릭터를 선택하세요.");
       const payload = selectedBatch.map((c) => ({
         serverId: c.serverId,
@@ -74,17 +78,30 @@ function ApplicantPage() {
         damage: c.damage ?? 0,
         buffPower: c.buffPower ?? 0,
       }));
-      return addParticipantsBulk(raidId, payload);
+      return addParticipantsBulkByMother(groupId, payload);
     },
     onSuccess: () => {
       setMessage(`${selectedBatch.length}명 일괄 지원 완료 (모든 캐릭터 0/0 스탯으로 등록)`);
       setSelectedBatch([]);
-      queryClient.invalidateQueries({queryKey: ["raid", raidId]});
+      if (groupId) {
+        queryClient.invalidateQueries({queryKey: ["raidGroup", groupId]});
+      }
     },
   });
 
   const searchResults = searchMutation.data ?? [];
   const adventureResults = adventureSearchMutation.data ?? [];
+  const raidSearchResults = raidSearchMutation.data ?? [];
+
+  const dedupedRaidSearchResults = useMemo(() => {
+    const seen = new Set<string>();
+    return raidSearchResults.filter((raid) => {
+      const key = raid.motherRaidId ?? raid.id;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [raidSearchResults]);
 
   const filteredSearchResults = useMemo(
     () =>
@@ -99,11 +116,12 @@ function ApplicantPage() {
     [raidMode?.minFame, adventureResults]
   );
 
-  const canApply = useMemo(() => Boolean(selected && raidId), [selected, raidId]);
+  const canApply = useMemo(() => Boolean(selected && groupId), [selected, groupId]);
   const closeModal = () => {
     setSelected(null);
     setDamage("");
     setBuff("");
+    setCohortPreference(null);
   };
 
   const handleSearch = (e: FormEvent) => {
@@ -149,19 +167,20 @@ function ApplicantPage() {
         <div className="grid gap-3 md:grid-cols-2">
           <div className="space-y-2">
             <label className="space-y-1 text-sm">
-              <span className="text-text-muted">레이드 ID</span>
+              <span className="text-text-muted">모공 ID</span>
               <input
                 className="w-full rounded-lg border border-panel-border bg-panel px-3 py-2 text-text placeholder:text-text-subtle focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                value={raidId ?? ""}
+                value={groupId ?? ""}
                 onChange={(e) => {
                   const value = e.target.value;
-                  setRaidId(value ? value : null);
+                  setMotherRaidId(value ? value : null);
+                  setRaidId(null);
                   setCurrentRaidName(null);
                 }}
-                placeholder="공대장이 공유한 레이드 ID"
+                placeholder="공대장이 공유한 모공 ID"
               />
             </label>
-            <p className="text-xs text-text-subtle">ID가 있으면 바로 입력하세요.</p>
+            <p className="text-xs text-text-subtle">모공 ID 하나로 모든 기수를 받습니다.</p>
           </div>
 
           <form onSubmit={handleRaidSearch} className="space-y-1 text-sm">
@@ -184,8 +203,8 @@ function ApplicantPage() {
         <div className="space-y-2 text-xs text-text-subtle">
           <div className="flex flex-wrap gap-2 items-center">
             <span className="pill">
-              현재 레이드:{" "}
-              {raidId ? currentRaidName ?? "(공대명 미표기)" : "미지정"}
+              현재 모공:{" "}
+              {groupId ? currentRaidName ?? "(공대명 미표기)" : "미지정"}
             </span>
             {message && <span className="pill border-primary/40 bg-primary-muted text-primary">{message}</span>}
           </div>
@@ -198,9 +217,9 @@ function ApplicantPage() {
           {raidSearchMutation.data && raidSearchMutation.data.length === 0 && (
             <div className="text-xs text-text-muted">검색 결과가 없습니다.</div>
           )}
-          {raidSearchMutation.data && raidSearchMutation.data.length > 0 && (
+          {dedupedRaidSearchResults.length > 0 && (
             <div className="grid gap-2 md:grid-cols-2">
-              {raidSearchMutation.data.map((raid) => (
+              {dedupedRaidSearchResults.map((raid) => (
                 <div key={raid.id} className="rounded-lg border border-panel-border bg-panel px-3 py-2 text-sm shadow-soft">
                   <div className="flex items-center justify-between gap-2">
                     <div className="space-y-1">
@@ -212,9 +231,10 @@ function ApplicantPage() {
                     <button
                       type="button"
                       onClick={() => {
+                        setMotherRaidId(raid.motherRaidId ?? raid.id);
                         setRaidId(raid.id);
                         setCurrentRaidName(raid.name);
-                        setMessage("공대 ID가 설정되었습니다.");
+                        setMessage("모공 ID가 설정되었습니다.");
                       }}
                       className="pill border-panel-border bg-panel text-text hover:bg-panel-muted text-xs"
                     >
@@ -390,7 +410,7 @@ function ApplicantPage() {
             <button
               type="button"
               onClick={() => bulkApplyMutation.mutate()}
-              disabled={!raidId || bulkApplyMutation.isPending}
+              disabled={!groupId || bulkApplyMutation.isPending}
               className="pill border-primary/30 bg-primary text-white hover:bg-primary-dark transition disabled:opacity-60"
             >
               {bulkApplyMutation.isPending ? (
@@ -402,7 +422,7 @@ function ApplicantPage() {
                 `선택한 ${selectedBatch.length}명 일괄 지원 (딜/버프 0)`
               )}
             </button>
-            {!raidId && <p className="text-xs text-amber-600">레이드 ID를 먼저 선택하세요.</p>}
+            {!groupId && <p className="text-xs text-amber-600">모공 ID를 먼저 선택하세요.</p>}
           </div>
         )}
 
@@ -417,6 +437,9 @@ function ApplicantPage() {
             onClose={closeModal}
             isSubmitting={addParticipantMutation.isPending}
             canSubmit={canApply && !addParticipantMutation.isPending}
+            showCohortPreference
+            cohortPreference={cohortPreference}
+            onChangeCohortPreference={setCohortPreference}
           />
         )}
       </section>

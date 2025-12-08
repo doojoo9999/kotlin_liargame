@@ -14,6 +14,7 @@ import {
   searchCharactersByAdventure,
   updateParticipant,
   updateRaidVisibility,
+  deleteParticipant,
   deleteParticipantsByAdventure,
 } from "../services/dnf";
 import {useRaidSession} from "../hooks/useRaidSession";
@@ -31,12 +32,45 @@ import {useRaidMode} from "../hooks/useRaidMode";
 import {autoAssignParticipants, type PartyTargetConfig, type AutoAssignResult} from "../utils/autoAssign";
 import {buildLeaderId} from "../hooks/useRaidSession";
 
+function toRaidSummary(data: RaidDetail): RaidSummary {
+  return {
+    id: data.id,
+    name: data.name,
+    motherRaidId: data.motherRaidId,
+    isPublic: data.isPublic,
+    participantCount: data.participants.length,
+    createdAt: data.createdAt,
+  };
+}
+
+function normalizeCohortList(
+  list: Array<RaidSummary | null | undefined>,
+  fallbackRaid?: RaidDetail | null
+): RaidSummary[] {
+  const cleaned = list.filter((item): item is RaidSummary => Boolean(item));
+  if (cleaned.length === 0 && fallbackRaid) {
+    return [toRaidSummary(fallbackRaid)];
+  }
+  return cleaned;
+}
+
+function resolveCohortOrder(
+  preference: Participant["cohortPreference"],
+  direction: 1 | -1,
+  forwardOrder: number[],
+  reverseOrder: number[]
+): number[][] {
+  if (preference === "FRONT") return [forwardOrder, reverseOrder];
+  if (preference === "BACK") return [reverseOrder, forwardOrder];
+  return direction === 1 ? [forwardOrder, reverseOrder] : [reverseOrder, forwardOrder];
+}
+
 function LeaderDashboard() {
-  const {raidId, leaderId, leaderCharacter, setRaidId, setLeaderCharacter} = useRaidSession();
+  const {raidId, motherRaidId, leaderId, leaderCharacter, setRaidId, setMotherRaidId, setLeaderCharacter} = useRaidSession();
   const {raidMode: selectedRaidMode, setRaidModeId} = useRaidMode();
   const [raidName, setRaidName] = useState(selectedRaidMode.name);
   const [isPublic, setIsPublic] = useState(false);
-  const [appendCount, setAppendCount] = useState(1);
+  const [cohortCountInput, setCohortCountInput] = useState(1);
   const [leaderSearch, setLeaderSearch] = useState("");
   const [leaderSearchTarget, setLeaderSearchTarget] = useState<string>(DNF_SERVERS[0].id);
   const [message, setMessage] = useState<string | null>(null);
@@ -58,17 +92,6 @@ function LeaderDashboard() {
       if (!payload.serverId) throw new Error("서버를 선택하세요.");
       return searchCharacters(payload.keyword, payload.serverId);
     },
-    onSuccess: (results) => {
-      if (!leaderCharacter) return;
-      const duplicated = results.find(
-        (c) =>
-          c.characterId === leaderCharacter.characterId &&
-          c.serverId === leaderCharacter.serverId
-      );
-      if (duplicated) {
-        setMessage("공대장 캐릭터는 중복 신청할 수 없습니다.");
-      }
-    },
   });
 
   const raidQuery = useQuery<RaidDetail | null>({
@@ -84,6 +107,7 @@ function LeaderDashboard() {
     },
     onSuccess: (data) => {
       setRaidId(data.id);
+      setMotherRaidId(data.motherRaidId);
       setRaidName(data.name);
       setIsPublic(data.isPublic);
       setMessage("최근 레이드를 불러왔습니다.");
@@ -94,10 +118,11 @@ function LeaderDashboard() {
   const createRaidMutation = useMutation({
     mutationFn: () => {
       if (!leaderId) throw new Error("공대장을 먼저 선택하세요.");
-      return createRaid({name: raidName, userId: leaderId, isPublic});
+      return createRaid({name: raidName, userId: leaderId, isPublic, motherRaidId: motherRaidId ?? raidId ?? null});
     },
     onSuccess: (data) => {
       setRaidId(data.id);
+      setMotherRaidId(data.motherRaidId);
       setIsPublic(data.isPublic);
       setMessage("새 레이드가 만들어졌습니다.");
       queryClient.setQueryData(["raid", data.id], data);
@@ -114,31 +139,41 @@ function LeaderDashboard() {
       const safeStart = Math.max(startIndex ?? 1, 1);
       const base = (baseName ?? raidName ?? selectedRaidMode.name).trim() || selectedRaidMode.name;
       const results: RaidDetail[] = [];
+      let motherForBatch = motherRaidId ?? raidId ?? null;
       for (let i = 0; i < safeCount; i += 1) {
         const seq = safeStart + i;
         const name = safeCount > 1 || safeStart > 1 ? `${base} ${seq}기` : base;
-        const data = await createRaid({name, userId: leaderId, isPublic});
+        const data = await createRaid({name, userId: leaderId, isPublic, motherRaidId: motherForBatch});
+        motherForBatch = motherForBatch ?? data.motherRaidId;
         results.push(data);
       }
-      return {results, startIndex: safeStart, base};
+      return {results, startIndex: safeStart, base, motherRaidId: motherForBatch};
     },
-    onSuccess: ({results, startIndex}) => {
+    onSuccess: ({results, startIndex, motherRaidId: batchMotherId}) => {
       const first = results[0];
       if (!first) return;
-      setRaidId(first.id);
-      setRaidName(first.name);
-      setIsPublic(first.isPublic);
       setMessage(`${results.length}개 기수를 추가했습니다.`);
       results.forEach((raid) => queryClient.setQueryData(["raid", raid.id], raid));
       latestRaidMutation.reset();
+      if (batchMotherId) {
+        setMotherRaidId(batchMotherId);
+      }
       setCohortRaids((prev) => {
-        const next = startIndex > 1 ? [...prev] : [];
+        const base = normalizeCohortList(prev, raid);
+        const next = [...base];
         results.forEach((raid, idx) => {
           const pos = startIndex + idx - 1;
           next[pos] = toRaidSummary(raid);
         });
         return next;
       });
+      // keep current raid selection; do not force switch
+      if (!raidId) {
+        setRaidId(first.id);
+        setMotherRaidId(batchMotherId ?? first.motherRaidId);
+        setRaidName(first.name);
+        setIsPublic(first.isPublic);
+      }
     },
   });
 
@@ -146,6 +181,7 @@ function LeaderDashboard() {
     mutationFn: (targetRaidId: string) => cloneRaid(targetRaidId, {isPublic}),
     onSuccess: (data) => {
       setRaidId(data.id);
+      setMotherRaidId(data.motherRaidId);
       setIsPublic(data.isPublic);
       setMessage("지난 레이드를 복사했습니다.");
       queryClient.setQueryData(["raid", data.id], data);
@@ -168,12 +204,7 @@ function LeaderDashboard() {
 
   const deleteAdventureMutation = useMutation({
     mutationFn: async (adventureName: string | null) => {
-      const targets =
-        cohortRaids.length > 0
-          ? cohortRaids
-          : raid
-            ? [toRaidSummary(raid)]
-            : [];
+      const targets = normalizedCohorts.length > 0 ? normalizedCohorts : [];
       if (targets.length === 0) throw new Error("레이드를 먼저 선택하세요.");
       const results = await Promise.all(
         targets.map((summary) => deleteParticipantsByAdventure(summary.id, adventureName))
@@ -201,6 +232,10 @@ function LeaderDashboard() {
   });
 
   const raid = raidQuery.data ?? null;
+  const normalizedCohorts = useMemo(
+    () => normalizeCohortList(cohortRaids, raid),
+    [cohortRaids, raid]
+  );
   const participants = raid?.participants ?? [];
   const leaderSearchResults = leaderSearchMutation.data ?? [];
   const activeRaidMode = selectedRaidMode;
@@ -208,7 +243,7 @@ function LeaderDashboard() {
   const [showSupportModal, setShowSupportModal] = useState(false);
 
   const displayRaidName = raid?.name ?? raidName ?? selectedRaidMode.name;
-  const displayRaidId = raidId ?? "생성 전 (캐릭터 추가 시 자동 생성)";
+  const displayRaidId = raid?.motherRaidId ?? motherRaidId ?? raidId ?? "생성 전 (캐릭터 추가 시 자동 생성)";
   const displayLeaderKey = raid?.userId ?? leaderId ?? "자동 생성 예정";
 
   const filteredLeaderSearchResults = useMemo(
@@ -324,8 +359,9 @@ function LeaderDashboard() {
     const userId = buildLeaderId(character);
     if (!userId) throw new Error("캐릭터 정보가 없습니다.");
     const name = raidName || selectedRaidMode.name;
-    const data = await createRaid({name, userId, isPublic});
+    const data = await createRaid({name, userId, isPublic, motherRaidId});
     setRaidId(data.id);
+    setMotherRaidId(data.motherRaidId);
     setRaidName(data.name);
     setIsPublic(data.isPublic);
     setMessage(`${data.name}을 생성했습니다.`);
@@ -340,12 +376,13 @@ function LeaderDashboard() {
   };
 
   const handleQuickAdd = (character: DnfCharacter) => {
-    if (
-      leaderCharacter &&
-      character.characterId === leaderCharacter.characterId &&
-      character.serverId === leaderCharacter.serverId
-    ) {
-      setMessage("공대장 캐릭터는 중복 신청할 수 없습니다.");
+    const duplicateExists = participants.some(
+      (p) =>
+        p.character.characterId === character.characterId &&
+        p.character.serverId === character.serverId
+    );
+    if (duplicateExists) {
+      setMessage("이미 공대에 있는 캐릭터입니다.");
       return;
     }
     if (!leaderCharacter) {
@@ -378,15 +415,82 @@ function LeaderDashboard() {
   const toRaidSummary = (data: RaidDetail): RaidSummary => ({
     id: data.id,
     name: data.name,
+    motherRaidId: data.motherRaidId,
     isPublic: data.isPublic,
     participantCount: data.participants.length,
     createdAt: data.createdAt,
   });
 
-  const handleAppendCohorts = () => {
-    const base = normalizeCohortName(raidName) || raidName || selectedRaidMode.name;
-    const startIndex = cohortRaids.length > 0 ? cohortRaids.length + 1 : 1;
-    createRaidBatchMutation.mutate({count: appendCount, baseName: base, startIndex});
+  const handleSetCohortCount = () => {
+    const target = Math.min(Math.max(cohortCountInput, 1), 30);
+    const currentCount = normalizedCohorts.length;
+    if (target === currentCount) {
+      setMessage(`기수를 ${target}개로 설정했습니다.`);
+      return;
+    }
+    if (target < currentCount) {
+      const toRemove = normalizedCohorts.slice(target);
+      const nextCohorts = normalizedCohorts.slice(0, target);
+      const destination = nextCohorts[0];
+      const destDetail = destination ? cohortDetailMap.get(destination.id) : null;
+      const existingDest = destDetail?.participants ?? [];
+      const existingKey = new Set(existingDest.map((p) => `${p.character.serverId}:${p.character.characterId}`));
+
+      const payloads: Parameters<typeof addParticipantsBulk>[1] = [];
+      toRemove.forEach((summary) => {
+        const detail = cohortDetailMap.get(summary.id);
+        detail?.participants.forEach((p) => {
+          const key = `${p.character.serverId}:${p.character.characterId}`;
+          if (existingKey.has(key)) return;
+          existingKey.add(key);
+          payloads.push({
+            serverId: p.character.serverId,
+            characterId: p.character.characterId,
+            damage: p.damage,
+            buffPower: p.buffPower,
+            partyNumber: null,
+            slotIndex: null,
+          });
+        });
+      });
+
+      const movePromise =
+        destination && payloads.length > 0
+          ? addParticipantsBulk(destination.id, payloads).then((updated) => {
+              queryClient.setQueryData(["raid", updated.id], updated);
+            })
+          : Promise.resolve();
+
+      movePromise
+        .then(() => {
+          setCohortRaids(nextCohorts);
+          if (nextCohorts.length === 0) {
+            setRaidId(null);
+            setMotherRaidId(null);
+          } else if (raidId && !nextCohorts.find((r) => r.id === raidId)) {
+            setRaidId(nextCohorts[0].id);
+            setMotherRaidId(nextCohorts[0].motherRaidId);
+            setRaidName(nextCohorts[0].name);
+          }
+          setMessage(
+            payloads.length > 0
+              ? `기수를 ${target}개로 설정하고 ${payloads.length}명을 미배치로 이동했습니다.`
+              : `기수를 ${target}개로 설정했습니다.`
+          );
+        })
+        .catch((error) => {
+          setMessage(error instanceof Error ? error.message : "기수 축소에 실패했습니다.");
+        });
+      return;
+    }
+    const base =
+      normalizeCohortName(raidName || normalizedCohorts[0]?.name) ||
+      raidName ||
+      normalizedCohorts[0]?.name ||
+      selectedRaidMode.name;
+    const startIndex = currentCount + 1;
+    const toCreate = target - currentCount;
+    createRaidBatchMutation.mutate({count: toCreate, baseName: base, startIndex});
   };
 
   const handlePartyTargetChange = (index: number, field: "damage" | "buff", value: string) => {
@@ -400,6 +504,7 @@ function LeaderDashboard() {
 
   const handleQuickRaidSelect = (raid: RaidSummary, index: number) => {
     setRaidId(raid.id);
+    setMotherRaidId(raid.motherRaidId);
     setRaidName(raid.name);
     setIsPublic(raid.isPublic);
     setMessage(`${index + 1}기로 이동했습니다.`);
@@ -430,8 +535,9 @@ function LeaderDashboard() {
     if (raid && raid.id === raidId && raid.name) {
       setRaidName(raid.name);
       setIsPublic(raid.isPublic);
+      setMotherRaidId(raid.motherRaidId);
     }
-  }, [raid?.id, raid?.name, raid?.isPublic, raidId]);
+  }, [raid?.id, raid?.name, raid?.isPublic, raid?.motherRaidId, raidId]);
 
   useEffect(() => {
     if (leaderId && !raidId && autoLatestRequested.current !== leaderId) {
@@ -448,12 +554,15 @@ function LeaderDashboard() {
           ? buildCohortFromList(toRaidSummary(raid), recentList.length > 0 ? recentList : [toRaidSummary(raid)])
           : [];
       const targetSummaries =
-        cohortRaids.length > 0
-          ? cohortRaids
+        normalizedCohorts.length > 0
+          ? normalizedCohorts
           : defaultCohort;
       const dedupedTargets = Array.from(new Map(targetSummaries.map((item) => [item.id, item])).values());
       if (dedupedTargets.length === 0) throw new Error("레이드를 먼저 선택하세요.");
       if (targetSummaries.length === 0) throw new Error("레이드를 먼저 선택하세요.");
+
+      const touchedRaidIds = new Set<string>();
+      dedupedTargets.forEach((target) => touchedRaidIds.add(target.id));
 
       const raidDetails = await Promise.all(
         dedupedTargets.map(async (summary) => {
@@ -531,19 +640,22 @@ function LeaderDashboard() {
           }
           if (!candidate) break;
 
-          const order = direction === 1 ? forwardOrder : reverseOrder;
           let placed = false;
-          for (const idx of order) {
-            const state = raidStates[idx];
-            if (!state.detail) continue;
-            if (state.capacity <= 0) continue;
-            if (state.used.has(adventureKey)) continue;
-            state.planned.push(candidate);
-            state.used.add(adventureKey);
-            state.capacity -= 1;
-            overallUsed.add(candidate.id);
-            placed = true;
-            break;
+          const orders = resolveCohortOrder(candidate.cohortPreference, direction, forwardOrder, reverseOrder);
+          for (const order of orders) {
+            for (const idx of order) {
+              const state = raidStates[idx];
+              if (!state.detail) continue;
+              if (state.capacity <= 0) continue;
+              if (state.used.has(adventureKey)) continue;
+              state.planned.push(candidate);
+              state.used.add(adventureKey);
+              state.capacity -= 1;
+              overallUsed.add(candidate.id);
+              placed = true;
+              break;
+            }
+            if (placed) break;
           }
 
           if (!placed) break;
@@ -561,6 +673,7 @@ function LeaderDashboard() {
         name: string;
         result: AutoAssignResult;
       }> => {
+        touchedRaidIds.add(state.detail.id);
         for (const planned of state.planned) {
           if (planned.raidId === state.detail.id) {
             state.picks.push(planned);
@@ -571,11 +684,16 @@ function LeaderDashboard() {
             characterId: planned.character.characterId,
             damage: planned.damage,
             buffPower: planned.buffPower,
+            cohortPreference: planned.cohortPreference ?? null,
           });
           state.picks.push({
             ...cloned,
             character: planned.character,
           });
+          if (planned.raidId) {
+            touchedRaidIds.add(planned.raidId);
+            await deleteParticipant(planned.raidId, planned.id);
+          }
         }
 
         const result = autoAssignParticipants({
@@ -623,11 +741,11 @@ function LeaderDashboard() {
         results.push({...assignment, label});
       }
 
-      return results;
+      return {results, touchedRaidIds: Array.from(touchedRaidIds)};
     },
-    onSuccess: (results) => {
-      results.forEach((entry) => {
-        queryClient.invalidateQueries({queryKey: ["raid", entry.raidId]});
+    onSuccess: ({results, touchedRaidIds}) => {
+      touchedRaidIds.forEach((raidId) => {
+        queryClient.invalidateQueries({queryKey: ["raid", raidId]});
       });
 
       const summaryText =
@@ -663,25 +781,339 @@ function LeaderDashboard() {
     },
   });
 
+  const autoFillKeepPlacedMutation = useMutation({
+    mutationFn: async () => {
+      const recentList = recentRaidsQuery.data ?? [];
+      const defaultCohort =
+        raid && raidId
+          ? buildCohortFromList(toRaidSummary(raid), recentList.length > 0 ? recentList : [toRaidSummary(raid)])
+          : [];
+      const targetSummaries =
+        normalizedCohorts.length > 0
+          ? normalizedCohorts
+          : defaultCohort;
+      const dedupedTargets = Array.from(new Map(targetSummaries.map((item) => [item.id, item])).values());
+      if (dedupedTargets.length === 0) throw new Error("레이드를 먼저 선택하세요.");
+      if (targetSummaries.length === 0) throw new Error("레이드를 먼저 선택하세요.");
+
+      const touchedRaidIds = new Set<string>();
+      dedupedTargets.forEach((target) => touchedRaidIds.add(target.id));
+
+      const raidDetails = await Promise.all(
+        dedupedTargets.map(async (summary) => {
+          if (summary.id === raid?.id && raid) return raid;
+          return getRaid(summary.id);
+        })
+      );
+
+      const totalApplicants = raidDetails.reduce(
+        (sum, detail) => sum + (detail?.participants.length ?? 0),
+        0
+      );
+      if (totalApplicants === 0) throw new Error("배치할 신청자가 없습니다.");
+
+      const buildAdventureKey = (p: Participant) => {
+        const raw = p.character.adventureName?.trim().toLowerCase();
+        if (raw && raw.length > 0) return `adv:${raw}`;
+        return `char:${p.character.characterId}`;
+      };
+
+      const scoreParticipant = (p: Participant) => p.damage + p.buffPower * 8;
+
+      const adventureBuckets = new Map<string, Participant[]>();
+      const overallUsed = new Set<string>();
+
+      raidDetails.forEach((detail) => {
+        detail?.participants.forEach((p) => {
+          const key = buildAdventureKey(p);
+          if (!adventureBuckets.has(key)) {
+            adventureBuckets.set(key, []);
+          }
+          adventureBuckets.get(key)?.push(p);
+          if (p.partyNumber) {
+            overallUsed.add(p.id);
+          }
+        });
+      });
+
+      adventureBuckets.forEach((list) => {
+        list.sort((a, b) => scoreParticipant(b) - scoreParticipant(a));
+      });
+
+      const raidStates = dedupedTargets.map((target) => {
+        const detail = raidDetails.find((d) => d?.id === target.id) ?? null;
+        const assigned = detail?.participants.filter((p) => p.partyNumber) ?? [];
+        const used = new Set<string>(assigned.map((p) => buildAdventureKey(p)));
+        const capacity =
+          Math.max(activeRaidMode.partyCount * activeRaidMode.slotsPerParty - assigned.length, 0);
+        assigned.forEach((p) => overallUsed.add(p.id));
+        return {
+          detail,
+          picks: detail ? [...assigned] : [],
+          used,
+          capacity,
+          planned: [] as Participant[],
+        };
+      });
+
+      const adventureEntries = Array.from(adventureBuckets.entries()).sort(
+        (a, b) => scoreParticipant(b[1][0] ?? {damage: 0, buffPower: 0} as Participant) - scoreParticipant(a[1][0] ?? {damage: 0, buffPower: 0} as Participant)
+      );
+
+      const forwardOrder = raidStates.map((_, idx) => idx);
+      const reverseOrder = [...forwardOrder].reverse();
+
+      adventureEntries.forEach(([adventureKey, queue]) => {
+        let direction: 1 | -1 = 1;
+        while (queue.length > 0) {
+          let candidate: Participant | undefined;
+          while (queue.length > 0 && !candidate) {
+            const next = queue.shift();
+            if (!next) break;
+            if (overallUsed.has(next.id)) continue;
+            candidate = next;
+          }
+          if (!candidate) break;
+
+          let placed = false;
+          const orders = resolveCohortOrder(candidate.cohortPreference, direction, forwardOrder, reverseOrder);
+          for (const order of orders) {
+            for (const idx of order) {
+              const state = raidStates[idx];
+              if (!state.detail) continue;
+              if (state.capacity <= 0) continue;
+              if (state.used.has(adventureKey)) continue;
+              state.planned.push(candidate);
+              state.used.add(adventureKey);
+              state.capacity -= 1;
+              overallUsed.add(candidate.id);
+              placed = true;
+              break;
+            }
+            if (placed) break;
+          }
+
+          if (!placed) break;
+          direction = direction === 1 ? -1 : 1;
+        }
+      });
+
+      const findNextSlotIndex = (occupied: Set<number>, slotsPerParty: number) => {
+        for (let i = 0; i < slotsPerParty; i += 1) {
+          if (!occupied.has(i)) return i;
+        }
+        return slotsPerParty; // fallback, should not happen
+      };
+
+      const applyFillEmptyForRaid = async (state: {
+        detail: RaidDetail;
+        picks: Participant[];
+        used: Set<string>;
+        planned: Participant[];
+      }): Promise<{
+        raidId: string;
+        name: string;
+        result: AutoAssignResult;
+      }> => {
+        touchedRaidIds.add(state.detail.id);
+
+        const locked = state.detail.participants.filter((p) => p.partyNumber !== null && p.slotIndex !== null);
+
+        const occupied = new Map<number, Set<number>>();
+        const parties = Array.from({length: activeRaidMode.partyCount}, (_, idx) => {
+          const partyNumber = idx + 1;
+          const memberInParty = locked.filter((p) => p.partyNumber === partyNumber);
+          const partyOccupied = new Set<number>();
+          memberInParty.forEach((p) => {
+            if (p.slotIndex !== null && p.slotIndex !== undefined) {
+              partyOccupied.add(p.slotIndex);
+            }
+          });
+          occupied.set(partyNumber, partyOccupied);
+          const sumDamage = memberInParty.reduce((sum, p) => sum + p.damage, 0);
+          const sumBuff = memberInParty.reduce((sum, p) => sum + p.buffPower, 0);
+          return {
+            partyNumber,
+            members: [...memberInParty],
+            sumDamage,
+            sumBuff,
+            target: computedPartyTargets[idx],
+          };
+        });
+
+        const localUnassigned = state.detail.participants.filter(
+          (p) => !p.partyNumber || p.slotIndex === null || p.slotIndex === undefined
+        );
+
+        const plannedCandidates: Participant[] = [];
+        for (const planned of state.planned) {
+          if (planned.raidId === state.detail.id) {
+            plannedCandidates.push(planned);
+            continue;
+          }
+          const cloned = await addParticipant(state.detail.id, {
+            serverId: planned.character.serverId,
+            characterId: planned.character.characterId,
+            damage: planned.damage,
+            buffPower: planned.buffPower,
+            cohortPreference: planned.cohortPreference ?? null,
+          });
+          plannedCandidates.push({
+            ...cloned,
+            character: planned.character,
+          });
+          if (planned.raidId) {
+            touchedRaidIds.add(planned.raidId);
+            await deleteParticipant(planned.raidId, planned.id);
+          }
+        }
+
+        const candidates = [...localUnassigned, ...plannedCandidates];
+
+        const evaluateFit = (party: typeof parties[number], participant: Participant, slotsPerParty: number) => {
+          const nextCount = party.members.length + 1;
+          const nextDamageAvg = (party.sumDamage + participant.damage) / nextCount;
+          const nextBuffAvg = (party.sumBuff + participant.buffPower) / nextCount;
+          const targetDamage = Math.max(party.target.damageTarget, 1);
+          const targetBuff = Math.max(party.target.buffTarget, 1);
+
+          const damageDiff = Math.abs(nextDamageAvg - targetDamage) / targetDamage;
+          const buffDiff = Math.abs(nextBuffAvg - targetBuff) / targetBuff;
+          const loadPenalty = party.members.length / slotsPerParty;
+
+          return damageDiff + buffDiff + loadPenalty * 0.1;
+        };
+
+        const assignments: Array<{participantId: string; partyNumber: number | null; slotIndex: number | null}> = [];
+
+        candidates.forEach((candidate) => {
+          const adventureKey = buildAdventureKey(candidate);
+          if (state.used.has(adventureKey)) return;
+
+          let bestParty: typeof parties[number] | null = null;
+          let bestScore = Number.POSITIVE_INFINITY;
+
+          parties.forEach((party) => {
+            const partyOccupied = occupied.get(party.partyNumber) ?? new Set<number>();
+            if (partyOccupied.size >= activeRaidMode.slotsPerParty) return;
+            const fit = evaluateFit(party, candidate, activeRaidMode.slotsPerParty);
+            if (
+              fit < bestScore - 1e-6 ||
+              (Math.abs(fit - bestScore) < 1e-6 && party.members.length < (bestParty?.members.length ?? Infinity))
+            ) {
+              bestParty = party;
+              bestScore = fit;
+            }
+          });
+
+          if (!bestParty) return;
+
+          const partyOccupied = occupied.get(bestParty.partyNumber) ?? new Set<number>();
+          const slotIndex = findNextSlotIndex(partyOccupied, activeRaidMode.slotsPerParty);
+          partyOccupied.add(slotIndex);
+          occupied.set(bestParty.partyNumber, partyOccupied);
+          bestParty.members.push(candidate);
+          bestParty.sumDamage += candidate.damage;
+          bestParty.sumBuff += candidate.buffPower;
+          state.used.add(adventureKey);
+          assignments.push({
+            participantId: candidate.id,
+            partyNumber: bestParty.partyNumber,
+            slotIndex,
+          });
+        });
+
+        const updates = assignments
+          .map(({participantId, partyNumber, slotIndex}) =>
+            updateParticipant(state.detail.id, participantId, {partyNumber, slotIndex})
+          );
+
+        if (updates.length > 0) {
+          await Promise.all(updates);
+        }
+
+        const usedCount = locked.length + assignments.length;
+        const unplacedCount = locked.length + candidates.length - usedCount;
+
+        return {
+          raidId: state.detail.id,
+          name: state.detail.name,
+          result: {
+            assignments,
+            usedCount,
+            duplicateAdventureCount: 0,
+            unplacedCount,
+          },
+        };
+      };
+
+      const results: Array<{
+        raidId: string;
+        name: string;
+        label: string;
+        result: AutoAssignResult;
+      }> = [];
+
+      for (let idx = 0; idx < raidStates.length; idx += 1) {
+        const state = raidStates[idx];
+        if (!state.detail) continue;
+        const assignment = await applyFillEmptyForRaid(state as {detail: RaidDetail; picks: Participant[]; used: Set<string>; planned: Participant[]});
+        const label =
+          dedupedTargets.length > 0
+            ? `${idx + 1}기`
+            : state.detail.name
+              ? state.detail.name
+              : `${idx + 1}기`;
+        results.push({...assignment, label});
+      }
+
+      return {results, touchedRaidIds: Array.from(touchedRaidIds)};
+    },
+    onSuccess: ({results, touchedRaidIds}) => {
+      touchedRaidIds.forEach((raidId) => {
+        queryClient.invalidateQueries({queryKey: ["raid", raidId]});
+      });
+
+      const summaryText =
+        results.length === 1
+          ? (() => {
+              const [result] = results;
+              const tokens = [`배치 ${result.result.usedCount}명`];
+              if (result.result.unplacedCount > 0) {
+                tokens.push(`남은 ${result.result.unplacedCount}명 미배치`);
+              }
+              return `${result.label}: ${tokens.join(" · ")}`;
+            })()
+          : results
+              .map((entry) => {
+                const tokens = [`배치 ${entry.result.usedCount}명`];
+                if (entry.result.unplacedCount > 0) {
+                  tokens.push(`남은 ${entry.result.unplacedCount}명 미배치`);
+                }
+                return `${entry.label}: ${tokens.join(" · ")}`;
+              })
+              .join(" / ");
+
+      setMessage(`배치된 인원은 고정하고 빈 자리만 채웠습니다. ${summaryText}`);
+    },
+    onError: (error) => {
+      setMessage(error instanceof Error ? error.message : "빈 칸 채우기에 실패했습니다.");
+    },
+  });
+
   const addParticipantMutation = useMutation({
     mutationFn: async (overrides?: {raidId?: string; candidate?: DnfCharacter; damage?: string; buff?: string}) => {
       const targetRaidId = overrides?.raidId ?? raidId;
       const candidate = overrides?.candidate ?? addCandidate;
       if (!targetRaidId) throw new Error("레이드를 먼저 선택하세요.");
       if (!candidate) throw new Error("캐릭터를 선택하세요.");
-      if (
-        leaderCharacter &&
-        candidate.characterId === leaderCharacter.characterId &&
-        candidate.serverId === leaderCharacter.serverId
-      ) {
-        const duplicateExists = participants.some(
-          (p) =>
-            p.character.characterId === candidate.characterId &&
-            p.character.serverId === candidate.serverId
-        );
-        if (duplicateExists) {
-          throw new Error("공대장 캐릭터는 중복 신청할 수 없습니다.");
-        }
+      const duplicateExists = participants.some(
+        (p) =>
+          p.character.characterId === candidate.characterId &&
+          p.character.serverId === candidate.serverId
+      );
+      if (duplicateExists) {
+        throw new Error("이미 공대에 있는 캐릭터입니다.");
       }
       const damageValue = overrides?.damage !== undefined ? overrides.damage : addDamage;
       const buffValue = overrides?.buff !== undefined ? overrides.buff : addBuff;
@@ -739,19 +1171,24 @@ function LeaderDashboard() {
   });
 
   const recentRaidsList = recentRaidsQuery.data ?? [];
-  const cohortCount = Math.max(cohortRaids.length, 1);
+  const cohortCount = Math.max(normalizedCohorts.length, 1);
+
+  useEffect(() => {
+    const nextCount = Math.max(normalizedCohorts.length || (raid ? 1 : 0), 1);
+    setCohortCountInput(nextCount);
+  }, [normalizedCohorts.length, raid]);
 
   const cohortRaidQueries = useQueries({
-    queries: cohortRaids.map((summary) => ({
+    queries: normalizedCohorts.map((summary) => ({
       queryKey: ["raid", summary.id],
       queryFn: () => getRaid(summary.id),
-      enabled: cohortRaids.length > 0,
+      enabled: normalizedCohorts.length > 0,
     })),
     combine: (results) => results,
   });
 
   const cohortRaidDetails = useMemo(() => {
-    if (cohortRaids.length === 0) return raid ? [raid] : [];
+    if (normalizedCohorts.length === 0) return raid ? [raid] : [];
     const details = cohortRaidQueries
       .map((q) => q.data)
       .filter((item): item is RaidDetail => Boolean(item));
@@ -760,7 +1197,7 @@ function LeaderDashboard() {
       return [raid, ...details];
     }
     return details;
-  }, [cohortRaidQueries, cohortRaids.length, raid]);
+  }, [cohortRaidQueries, normalizedCohorts.length, raid]);
 
   const cohortDetailMap = useMemo(() => {
     const map = new Map<string, RaidDetail>();
@@ -874,8 +1311,10 @@ function LeaderDashboard() {
       const next = prev.filter((_, idx) => idx !== index);
       if (next.length === 0) {
         setRaidId(null);
+        setMotherRaidId(null);
       } else if (raidId === target.id) {
         setRaidId(next[0].id);
+        setMotherRaidId(next[0].motherRaidId);
         setRaidName(next[0].name);
       }
       setMessage("빈 기수를 목록에서 제거했습니다.");
@@ -901,7 +1340,7 @@ function LeaderDashboard() {
               </span>
             </div>
             <p className="text-xs text-text-subtle">
-              공대장 키: {displayLeaderKey} · Raid ID: {displayRaidId}
+              공대장 키: {displayLeaderKey} · 모공 ID: {displayRaidId}
             </p>
             {leaderCharacter && (
               <p className="text-xs text-text-subtle">
@@ -911,22 +1350,22 @@ function LeaderDashboard() {
           </div>
           <div className="flex flex-wrap gap-2">
             <label className="flex items-center gap-2 text-xs text-text-subtle bg-panel border border-panel-border rounded-lg px-3 py-1">
-              <span>기수 추가</span>
+              <span>기수 설정</span>
               <input
                 type="number"
                 min={1}
                 max={30}
-                value={appendCount}
+                value={cohortCountInput}
                 onChange={(e) => {
                   const next = Number(e.target.value);
                   if (Number.isNaN(next)) return;
-                  setAppendCount(Math.min(Math.max(next, 1), 30));
+                  setCohortCountInput(Math.min(Math.max(next, 1), 30));
                 }}
                 className="w-16 rounded border border-panel-border bg-panel px-2 py-1 text-sm text-text focus:border-primary focus:outline-none"
               />
             </label>
             <button
-              onClick={handleAppendCohorts}
+              onClick={handleSetCohortCount}
               disabled={
                 !leaderId ||
                 createRaidMutation.isPending ||
@@ -935,7 +1374,7 @@ function LeaderDashboard() {
               className="pill border-primary/30 bg-primary text-white hover:bg-primary-dark shadow-soft transition disabled:opacity-60"
             >
               <Sparkles className="h-4 w-4" />
-              {appendCount > 1 ? `기수 ${appendCount}개 추가` : "기수 추가"}
+              기수 설정
             </button>
             <button
               onClick={() => latestRaidMutation.mutate()}
@@ -1082,12 +1521,16 @@ function LeaderDashboard() {
           </label>
 
           <label className="space-y-1 text-sm md:col-span-2">
-            <span className="text-text-muted">레이드 ID</span>
+            <span className="text-text-muted">모공 ID</span>
             <input
               className="w-full rounded-lg border border-panel-border bg-panel px-3 py-2 text-text placeholder:text-text-subtle focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-              value={raidId ?? ""}
-              onChange={(e) => setRaidId(e.target.value || null)}
-              placeholder="직접 입력 또는 불러오기"
+              value={motherRaidId ?? raidId ?? ""}
+              onChange={(e) => {
+                const value = e.target.value || null;
+                setMotherRaidId(value);
+                setRaidId(value);
+              }}
+              placeholder="모공 ID를 직접 입력하거나 불러오세요"
             />
           </label>
         </div>
@@ -1199,6 +1642,7 @@ function LeaderDashboard() {
                         const cohort = buildCohortFromList(group.latest, recentRaidsList);
                         setCohortRaids(cohort);
                         setRaidId(group.latest.id);
+                        setMotherRaidId(group.latest.motherRaidId);
                         setRaidName(group.latest.name);
                         setIsPublic(group.latest.isPublic);
                         setMessage(`${cohort.length}기 레이드를 불러왔습니다.`);
@@ -1297,7 +1741,7 @@ function LeaderDashboard() {
               </p>
             </div>
             <div className="flex items-center gap-2">
-              {autoFillMutation.isPending && (
+              {(autoFillMutation.isPending || autoFillKeepPlacedMutation.isPending) && (
                 <div className="flex items-center gap-2 text-xs text-text-subtle">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   자동 채우는 중...
@@ -1311,6 +1755,15 @@ function LeaderDashboard() {
               >
                 <Sparkles className="h-4 w-4" />
                 자동 채우기
+              </button>
+              <button
+                type="button"
+                onClick={() => autoFillKeepPlacedMutation.mutate()}
+                disabled={!raidId || autoFillKeepPlacedMutation.isPending}
+                className="pill border-panel-border bg-panel text-text hover:bg-panel-muted transition shadow-soft disabled:opacity-60"
+              >
+                <Sparkles className="h-4 w-4 text-primary" />
+                빈칸만 채우기
               </button>
             </div>
           </div>
@@ -1383,7 +1836,7 @@ function LeaderDashboard() {
         </div>
         <div className="flex items-center gap-2 overflow-x-auto pb-1">
             {Array.from({length: cohortCount}, (_, idx) => {
-              const raid = cohortRaids[idx];
+              const raid = normalizedCohorts[idx];
               const active = raid && raidId === raid.id;
               const disabled = !raid;
               const detail = raid ? cohortDetailMap.get(raid.id) : null;

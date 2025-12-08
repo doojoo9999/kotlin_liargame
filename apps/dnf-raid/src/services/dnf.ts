@@ -1,9 +1,11 @@
 import {api} from "./api";
 import type {
   DnfCharacter,
+  CohortPreference,
   Participant,
   RaidSummary,
   RaidDetail,
+  RaidGroup,
   StatHistory,
   UUID,
 } from "../types";
@@ -33,8 +35,19 @@ export async function registerCharacter(payload: {
   return data;
 }
 
-export async function createRaid(payload: {name: string; userId: string; password?: string; isPublic?: boolean}) {
+export async function createRaid(payload: {
+  name: string;
+  userId: string;
+  motherRaidId?: string | null;
+  password?: string;
+  isPublic?: boolean;
+}) {
   const {data} = await api.post<RaidDetail>("/raids", payload);
+  return data;
+}
+
+export async function getRaidGroup(motherRaidId: UUID) {
+  const {data} = await api.get<RaidGroup>(`/raids/group/${motherRaidId}`);
   return data;
 }
 
@@ -97,9 +110,26 @@ export async function addParticipant(
     buffPower?: number;
     partyNumber?: number | null;
     slotIndex?: number | null;
+    cohortPreference?: CohortPreference | null;
   }
 ) {
   const {data} = await api.post<Participant>(`/raids/${raidId}/participants`, payload);
+  return data;
+}
+
+export async function addParticipantByMother(
+  motherRaidId: UUID,
+  payload: {
+    serverId: string;
+    characterId: string;
+    damage?: number;
+    buffPower?: number;
+    partyNumber?: number | null;
+    slotIndex?: number | null;
+    cohortPreference?: CohortPreference | null;
+  }
+) {
+  const {data} = await api.post<Participant>(`/raids/group/${motherRaidId}/participants`, payload);
   return data;
 }
 
@@ -112,9 +142,28 @@ export async function addParticipantsBulk(
     buffPower?: number;
     partyNumber?: number | null;
     slotIndex?: number | null;
+    cohortPreference?: CohortPreference | null;
   }>
 ) {
   const {data} = await api.post<RaidDetail>(`/raids/${raidId}/participants/bulk`, {
+    participants,
+  });
+  return data;
+}
+
+export async function addParticipantsBulkByMother(
+  motherRaidId: UUID,
+  participants: Array<{
+    serverId: string;
+    characterId: string;
+    damage?: number;
+    buffPower?: number;
+    partyNumber?: number | null;
+    slotIndex?: number | null;
+    cohortPreference?: CohortPreference | null;
+  }>
+) {
+  const {data} = await api.post<RaidDetail>(`/raids/group/${motherRaidId}/participants/bulk`, {
     participants,
   });
   return data;
@@ -135,6 +184,10 @@ export async function updateParticipant(
     payload
   );
   return data;
+}
+
+export async function deleteParticipant(raidId: UUID, participantId: UUID) {
+  await api.delete(`/raids/${raidId}/participants/${participantId}`);
 }
 
 export async function getStatHistory(raidId: UUID, participantId: UUID) {

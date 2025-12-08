@@ -1,6 +1,7 @@
 package org.example.dnf_raid.dto
 
 import jakarta.validation.constraints.*
+import org.example.dnf_raid.model.CohortPreference
 import java.time.LocalDateTime
 import java.util.UUID
 
@@ -24,6 +25,7 @@ data class ParticipantResponse(
     val buffPower: Long,
     val partyNumber: Int?,
     val slotIndex: Int?,
+    val cohortPreference: CohortPreference?,
     val character: DnfCharacterDto,
     val createdAt: LocalDateTime?
 )
@@ -33,7 +35,7 @@ data class RaidDetailResponse(
     val name: String,
     val userId: String,
     val isPublic: Boolean,
-    val parentRaidId: UUID?,
+    val motherRaidId: UUID,
     val createdAt: LocalDateTime?,
     val participants: List<ParticipantResponse>
 )
@@ -41,9 +43,18 @@ data class RaidDetailResponse(
 data class RaidSummaryResponse(
     val id: UUID,
     val name: String,
+    val motherRaidId: UUID,
     val isPublic: Boolean,
     val createdAt: LocalDateTime?,
     val participantCount: Int
+)
+
+data class RaidGroupResponse(
+    val motherRaidId: UUID,
+    val name: String,
+    val isPublic: Boolean,
+    val primaryRaid: RaidDetailResponse,
+    val cohorts: List<RaidSummaryResponse>
 )
 
 data class StatHistoryEntryResponse(
@@ -63,6 +74,7 @@ data class CreateRaidRequest(
     val name: String,
     @field:NotBlank(message = "userId가 필요합니다.")
     val userId: String,
+    val motherRaidId: UUID? = null,
     val password: String? = null,
     val isPublic: Boolean = false
 )
@@ -86,7 +98,8 @@ data class AddParticipantRequest(
     val partyNumber: Int? = null,
     @field:Min(0, message = "슬롯 번호는 0~3 사이여야 합니다.")
     @field:Max(3, message = "슬롯 번호는 0~3 사이여야 합니다.")
-    val slotIndex: Int? = null
+    val slotIndex: Int? = null,
+    val cohortPreference: CohortPreference? = null
 )
 
 data class UpdateRaidVisibilityRequest(

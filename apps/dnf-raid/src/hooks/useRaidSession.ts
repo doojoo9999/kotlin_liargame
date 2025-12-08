@@ -2,6 +2,7 @@ import {useCallback, useMemo, useState} from "react";
 import type {DnfCharacter, UUID} from "../types";
 
 const RAID_KEY = "dnf-raid:active-raid-id";
+const MOTHER_RAID_KEY = "dnf-raid:mother-raid-id";
 const LEADER_CHARACTER_KEY = "dnf-raid:leader-character";
 
 const buildLeaderId = (character: DnfCharacter) =>
@@ -10,6 +11,11 @@ const buildLeaderId = (character: DnfCharacter) =>
 export function useRaidSession() {
   const [raidId, setRaidId] = useState<UUID | null>(() => {
     const saved = typeof window !== "undefined" ? localStorage.getItem(RAID_KEY) : null;
+    return saved ?? null;
+  });
+
+  const [motherRaidId, setMotherRaidId] = useState<UUID | null>(() => {
+    const saved = typeof window !== "undefined" ? localStorage.getItem(MOTHER_RAID_KEY) : null;
     return saved ?? null;
   });
 
@@ -33,6 +39,15 @@ export function useRaidSession() {
     }
   }, []);
 
+  const updateMotherRaidId = useCallback((id: UUID | null) => {
+    setMotherRaidId(id);
+    if (id) {
+      localStorage.setItem(MOTHER_RAID_KEY, id);
+    } else {
+      localStorage.removeItem(MOTHER_RAID_KEY);
+    }
+  }, []);
+
   const updateLeaderCharacter = useCallback((character: DnfCharacter | null) => {
     setLeaderCharacter(character);
     if (character) {
@@ -49,9 +64,11 @@ export function useRaidSession() {
 
   return {
     raidId,
+    motherRaidId,
     leaderId,
     leaderCharacter,
     setRaidId: updateRaidId,
+    setMotherRaidId: updateMotherRaidId,
     setLeaderCharacter: updateLeaderCharacter,
   };
 }

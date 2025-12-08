@@ -5,15 +5,15 @@ CREATE TABLE IF NOT EXISTS dnf_raids (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id VARCHAR(64) NOT NULL,
     name VARCHAR(100) NOT NULL,
+    mother_raid_id UUID,
     password VARCHAR(100),
     is_public BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    parent_raid_id UUID,
-    CONSTRAINT fk_dnf_raids_parent FOREIGN KEY (parent_raid_id) REFERENCES dnf_raids (id)
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_dnf_raids_user_created ON dnf_raids (user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_dnf_raids_public_created ON dnf_raids (is_public, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_dnf_raids_mother_raid_id ON dnf_raids (mother_raid_id);
 
 CREATE TABLE IF NOT EXISTS dnf_characters (
     character_id VARCHAR(80) PRIMARY KEY,
@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS dnf_participants (
     buff_power BIGINT NOT NULL DEFAULT 0,
     party_number INTEGER,
     slot_index INTEGER,
+    cohort_preference VARCHAR(16),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT chk_dnf_party_number CHECK (party_number BETWEEN 1 AND 3 OR party_number IS NULL),
     CONSTRAINT chk_dnf_slot_index CHECK (slot_index BETWEEN 0 AND 3 OR slot_index IS NULL)

@@ -2,6 +2,7 @@ export type UUID = string;
 
 export type PartyNumber = number | null;
 export type SlotIndex = number | null;
+export type CohortPreference = "FRONT" | "BACK";
 
 export interface DnfCharacter {
   characterId: string;
@@ -23,6 +24,7 @@ export interface Participant {
   buffPower: number;
   partyNumber: PartyNumber;
   slotIndex: SlotIndex;
+  cohortPreference: CohortPreference | null;
   character: DnfCharacter;
   createdAt?: string | null;
 }
@@ -32,7 +34,7 @@ export interface RaidDetail {
   name: string;
   userId: string;
   isPublic: boolean;
-  parentRaidId?: UUID | null;
+  motherRaidId: UUID;
   createdAt?: string | null;
   participants: Participant[];
 }
@@ -40,9 +42,18 @@ export interface RaidDetail {
 export interface RaidSummary {
   id: UUID;
   name: string;
+  motherRaidId: UUID;
   isPublic: boolean;
   createdAt?: string | null;
   participantCount: number;
+}
+
+export interface RaidGroup {
+  motherRaidId: UUID;
+  name: string;
+  isPublic: boolean;
+  primaryRaid: RaidDetail;
+  cohorts: RaidSummary[];
 }
 
 export interface StatHistoryEntry {

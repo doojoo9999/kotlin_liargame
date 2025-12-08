@@ -10,9 +10,9 @@ import {RAID_MODES, type RaidModeId} from "./constants";
 import {RaidModeProvider, useRaidMode} from "./hooks/useRaidMode";
 
 const navItems = [
-  {to: "/", label: "공대 리스트"},
+  {to: "/", label: "캐릭터 등록"},
   {to: "/apply", label: "지원 페이지"},
-  {to: "/register", label: "캐릭터 등록"},
+  {to: "/raids", label: "공대 리스트"},
   {to: "/leader", label: "공대장"},
 ];
 
@@ -39,6 +39,7 @@ function AppShell() {
               <NavLink
                 key={item.to}
                 to={item.to}
+                end={item.to === "/"}
                 className={({isActive}) =>
                   [
                     "px-3 py-2 rounded-lg transition-colors",
@@ -94,9 +95,10 @@ function AppShell() {
         </section>
 
         <Routes>
-          <Route path="/" element={<RaidListPage />} />
+          <Route path="/" element={<RegisterCharacterPage />} />
           <Route path="/apply" element={<ApplicantPage />} />
           <Route path="/register" element={<RegisterCharacterPage />} />
+          <Route path="/raids" element={<RaidListPage />} />
           <Route path="/leader" element={<LeaderDashboard />} />
           <Route path="/:raidId" element={<SharePage />} />
         </Routes>

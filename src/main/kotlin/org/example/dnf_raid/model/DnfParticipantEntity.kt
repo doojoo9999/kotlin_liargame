@@ -28,7 +28,11 @@ class DnfParticipantEntity(
     var partyNumber: Int? = null,
 
     @Column(name = "slot_index")
-    var slotIndex: Int? = null
+    var slotIndex: Int? = null,
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "cohort_preference", length = 16)
+    var cohortPreference: CohortPreference? = null
 ) {
     @Id
     @GeneratedValue

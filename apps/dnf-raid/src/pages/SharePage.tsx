@@ -3,8 +3,13 @@ import {useParams} from "react-router-dom";
 import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
 import {AlertTriangle, Loader2, Search, Sparkles} from "lucide-react";
 
-import {addParticipant, getRaid, searchCharacters, searchCharactersByAdventure} from "../services/dnf";
-import type {DnfCharacter, Participant} from "../types";
+import {
+  addParticipantByMother,
+  getRaidGroup,
+  searchCharacters,
+  searchCharactersByAdventure,
+} from "../services/dnf";
+import type {CohortPreference, DnfCharacter, Participant} from "../types";
 import {StatBadge} from "../components/StatBadge";
 import {CharacterCard} from "../components/CharacterCard";
 import {DNF_SERVERS, type DnfServerId} from "../constants";
@@ -20,15 +25,20 @@ function SharePage() {
   const [selected, setSelected] = useState<DnfCharacter | null>(null);
   const [damage, setDamage] = useState("");
   const [buff, setBuff] = useState("");
+  const [cohortPreference, setCohortPreference] = useState<CohortPreference | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [serverId, setServerId] = useState<DnfServerId>(DNF_SERVERS[0].id);
   const {raidMode} = useRaidMode();
 
-  const raidQuery = useQuery({
-    queryKey: ["raid", raidId],
+  const raidGroupQuery = useQuery({
+    queryKey: ["raidGroup", raidId],
     enabled: Boolean(raidId),
-    queryFn: () => (raidId ? getRaid(raidId) : Promise.resolve(null)),
+    queryFn: () => (raidId ? getRaidGroup(raidId) : Promise.resolve(null)),
   });
+
+  const raidGroup = raidGroupQuery.data ?? null;
+  const activeRaid = raidGroup?.primaryRaid ?? null;
+  const motherRaidId = raidGroup?.motherRaidId ?? raidId ?? null;
 
   const searchMutation = useMutation({
     mutationFn: (payload: {keyword: string; serverId: DnfServerId}) =>
@@ -41,14 +51,15 @@ function SharePage() {
 
   const addParticipantMutation = useMutation({
     mutationFn: async () => {
-      if (!raidId || !selected) throw new Error("레이드와 캐릭터를 먼저 선택하세요.");
+      if (!motherRaidId || !selected) throw new Error("모공 ID와 캐릭터를 먼저 선택하세요.");
       const damageValue = damage ? Number(damage) : 0;
       const buffValue = buff ? Number(buff) : 0;
-      const result = await addParticipant(raidId, {
+      const result = await addParticipantByMother(motherRaidId, {
         serverId: selected.serverId,
         characterId: selected.characterId,
         damage: damageValue,
         buffPower: buffValue,
+        cohortPreference,
       });
       return result;
     },
@@ -57,7 +68,10 @@ function SharePage() {
       setSelected(null);
       setDamage("");
       setBuff("");
-      queryClient.invalidateQueries({queryKey: ["raid", raidId]});
+      setCohortPreference(null);
+      if (motherRaidId) {
+        queryClient.invalidateQueries({queryKey: ["raidGroup", motherRaidId]});
+      }
     },
   });
 
@@ -84,11 +98,12 @@ function SharePage() {
     },
     [normalizedAdventureQuery, raidMode?.minFame, adventureResults]
   );
-  const canApply = useMemo(() => Boolean(selected && raidId), [selected, raidId]);
+  const canApply = useMemo(() => Boolean(selected && motherRaidId), [selected, motherRaidId]);
   const closeModal = () => {
     setSelected(null);
     setDamage("");
     setBuff("");
+    setCohortPreference(null);
   };
 
   const handleSearch = (e: FormEvent) => {
@@ -103,7 +118,7 @@ function SharePage() {
     adventureSearchMutation.mutate(adventureName.trim());
   };
 
-  if (raidQuery.isPending) {
+  if (raidGroupQuery.isPending) {
     return (
       <div className="frosted p-6 flex items-center gap-2 text-text-muted">
         <Loader2 className="h-4 w-4 animate-spin" />
@@ -112,7 +127,7 @@ function SharePage() {
     );
   }
 
-  if (!raidQuery.data) {
+  if (!activeRaid) {
     return (
       <div className="frosted p-6 flex items-center gap-3 text-text-muted">
         <AlertTriangle className="h-5 w-5 text-amber-400" />
@@ -121,7 +136,7 @@ function SharePage() {
     );
   }
 
-  const participants = raidQuery.data.participants;
+  const participants = activeRaid.participants;
   const partyCount = raidMode?.partyCount ?? 3;
   const slotsPerParty = raidMode?.slotsPerParty ?? 4;
   const partyNumbers = Array.from({length: partyCount}, (_, idx) => idx + 1);
@@ -146,7 +161,7 @@ function SharePage() {
     <div className="space-y-8">
       <div className="frosted p-5 space-y-2">
         <div className="flex items-center gap-2 flex-wrap">
-          <p className="text-sm text-text-muted">{raidQuery.data.name}</p>
+          <p className="text-sm text-text-muted">{activeRaid.name}</p>
           {raidMode && (
             <span className="pill border-panel-border bg-panel text-xs text-text-muted">
               {raidMode.name} · {raidMode.badge} · {raidMode.partyCount}파티
@@ -154,12 +169,12 @@ function SharePage() {
           )}
           <span
             className={`pill text-[11px] ${
-              raidQuery.data.isPublic
+              activeRaid.isPublic
                 ? "border-emerald-200 bg-emerald-50 text-emerald-700"
                 : "border-slate-300 bg-slate-50 text-slate-700"
             }`}
           >
-            {raidQuery.data.isPublic ? "공개 레이드" : "비공개 레이드"}
+            {activeRaid.isPublic ? "공개 레이드" : "비공개 레이드"}
           </span>
         </div>
         <p className="font-display text-2xl text-text">공대 페이지</p>
@@ -354,6 +369,9 @@ function SharePage() {
             onClose={closeModal}
             isSubmitting={addParticipantMutation.isPending}
             canSubmit={canApply && !addParticipantMutation.isPending}
+            showCohortPreference
+            cohortPreference={cohortPreference}
+            onChangeCohortPreference={setCohortPreference}
           />
         )}
       </section>

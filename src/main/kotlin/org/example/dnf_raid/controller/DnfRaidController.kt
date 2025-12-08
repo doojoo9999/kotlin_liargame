@@ -42,6 +42,25 @@ class DnfRaidController(
     fun createRaid(@Valid @RequestBody request: CreateRaidRequest): RaidDetailResponse =
         dnfRaidService.createRaid(request)
 
+    @GetMapping("/raids/group/{motherRaidId}")
+    fun getRaidGroup(@PathVariable motherRaidId: UUID): RaidGroupResponse =
+        dnfRaidService.getRaidGroup(motherRaidId)
+
+    @PostMapping("/raids/group/{motherRaidId}/participants")
+    @ResponseStatus(HttpStatus.CREATED)
+    fun addParticipantByMother(
+        @PathVariable motherRaidId: UUID,
+        @Valid @RequestBody request: AddParticipantRequest
+    ): ParticipantResponse =
+        dnfRaidService.addParticipantByMother(motherRaidId, request)
+
+    @PostMapping("/raids/group/{motherRaidId}/participants/bulk")
+    fun addParticipantsByMother(
+        @PathVariable motherRaidId: UUID,
+        @Valid @RequestBody request: AddParticipantBatchRequest
+    ): RaidDetailResponse =
+        dnfRaidService.addParticipantsByMother(motherRaidId, request)
+
     @PostMapping("/raids/{raidId}/clone")
     fun cloneRaid(
         @PathVariable raidId: UUID,
@@ -110,6 +129,15 @@ class DnfRaidController(
         @Valid @RequestBody request: UpdateParticipantRequest
     ): ParticipantResponse =
         dnfRaidService.updateParticipant(raidId, participantId, request)
+
+    @DeleteMapping("/raids/{raidId}/participants/{participantId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    fun deleteParticipant(
+        @PathVariable raidId: UUID,
+        @PathVariable participantId: UUID
+    ) {
+        dnfRaidService.deleteParticipant(raidId, participantId)
+    }
 
     @GetMapping("/raids/{raidId}/participants/{participantId}/history")
     fun getStatHistory(
