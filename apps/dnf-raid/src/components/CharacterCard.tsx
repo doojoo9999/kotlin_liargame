@@ -1,6 +1,7 @@
 import {ArrowRight} from "lucide-react";
 import {clsx} from "clsx";
-import {DnfCharacter} from "../types";
+import type {DnfCharacter} from "../types";
+import {StatBadge} from "./StatBadge";
 
 type Props = {
   character: DnfCharacter;
@@ -11,6 +12,9 @@ type Props = {
 };
 
 export function CharacterCard({character, highlight, actionLabel = "신청하기", onAction, subtitle}: Props) {
+  const hasDamage = character.damage != null && character.damage > 0;
+  const hasBuff = character.buffPower != null && character.buffPower > 0;
+
   return (
     <div
       className={clsx(
@@ -40,6 +44,13 @@ export function CharacterCard({character, highlight, actionLabel = "신청하기
           <div className="pill">명성 {character.fame.toLocaleString()}</div>
           {character.adventureName && <div className="pill">모험단 {character.adventureName}</div>}
         </div>
+
+        {(hasDamage || hasBuff) && (
+          <div className="flex flex-wrap gap-2">
+            {hasDamage && <StatBadge label="딜" value={character.damage ?? 0} unit="억" />}
+            {hasBuff && <StatBadge label="버프" value={character.buffPower ?? 0} unit="만" tone="amber" />}
+          </div>
+        )}
 
         {subtitle && <p className="text-text-muted text-sm">{subtitle}</p>}
 

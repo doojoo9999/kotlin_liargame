@@ -58,6 +58,18 @@ class DnfRaidController(
         dnfRaidService.getLatestRaid(userId)
             ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "최근 레이드가 없습니다.")
 
+    @GetMapping("/raids/recent")
+    fun getRecentRaids(
+        @RequestParam userId: String,
+        @RequestParam(required = false) limit: Int?
+    ): List<RaidSummaryResponse> = dnfRaidService.getRecentRaids(userId, limit)
+
+    @GetMapping("/raids/search")
+    fun searchRaids(
+        @RequestParam name: String,
+        @RequestParam(required = false) limit: Int?
+    ): List<RaidSummaryResponse> = dnfRaidService.searchRaidsByName(name, limit)
+
     @PostMapping("/raids/{raidId}/participants")
     @ResponseStatus(HttpStatus.CREATED)
     fun addParticipant(
@@ -65,6 +77,31 @@ class DnfRaidController(
         @Valid @RequestBody request: AddParticipantRequest
     ): ParticipantResponse =
         dnfRaidService.addParticipant(raidId, request)
+
+    @PostMapping("/raids/{raidId}/participants/bulk")
+    fun addParticipantsBulk(
+        @PathVariable raidId: UUID,
+        @Valid @RequestBody request: AddParticipantBatchRequest
+    ): RaidDetailResponse =
+        dnfRaidService.addParticipants(raidId, request)
+
+    @PostMapping("/characters/register")
+    fun registerCharacter(@Valid @RequestBody request: RegisterCharacterRequest): DnfCharacterDto =
+        dnfRaidService.registerCharacter(request)
+
+    @DeleteMapping("/raids/{raidId}/participants/by-adventure")
+    fun deleteParticipantsByAdventure(
+        @PathVariable raidId: UUID,
+        @RequestParam(required = false) adventureName: String?
+    ): RaidDetailResponse =
+        dnfRaidService.deleteParticipantsByAdventure(raidId, adventureName)
+
+    @PatchMapping("/raids/{raidId}/visibility")
+    fun updateRaidVisibility(
+        @PathVariable raidId: UUID,
+        @Valid @RequestBody request: UpdateRaidVisibilityRequest
+    ): RaidDetailResponse =
+        dnfRaidService.updateRaidVisibility(raidId, request)
 
     @PatchMapping("/raids/{raidId}/participants/{participantId}")
     fun updateParticipant(

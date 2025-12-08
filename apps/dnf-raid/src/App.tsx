@@ -4,15 +4,21 @@ import {Sparkles, Sword, Users} from "lucide-react";
 import RaidListPage from "./pages/RaidListPage";
 import ApplicantPage from "./pages/ApplicantPage";
 import LeaderDashboard from "./pages/LeaderDashboard";
+import RegisterCharacterPage from "./pages/RegisterCharacterPage";
 import SharePage from "./pages/SharePage";
+import {RAID_MODES, type RaidModeId} from "./constants";
+import {RaidModeProvider, useRaidMode} from "./hooks/useRaidMode";
 
 const navItems = [
   {to: "/", label: "공대 리스트"},
   {to: "/apply", label: "지원 페이지"},
+  {to: "/register", label: "캐릭터 등록"},
   {to: "/leader", label: "공대장"},
 ];
 
-function App() {
+function AppShell() {
+  const {raidMode, setRaidModeId} = useRaidMode();
+
   return (
     <div className="min-h-screen text-text bg-ink">
       <header className="sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-panel-border">
@@ -22,9 +28,9 @@ function App() {
               <Sword className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <p className="font-display text-lg leading-tight text-text">Diregie Raid</p>
+              <p className="font-display text-lg leading-tight text-text">zzirit - 던전앤파이터 공대 관리</p>
               <p className="text-xs text-text-muted leading-tight">
-                던파 디레지에 레이드 편성 보드
+                {raidMode.name} · {raidMode.badge}
               </p>
             </div>
           </div>
@@ -55,19 +61,34 @@ function App() {
             <Sparkles className="h-10 w-10 text-primary" />
           </div>
           <div className="flex flex-col gap-3">
-            <div className="pill w-fit bg-primary-muted border-primary/30 text-text">
-              <Users className="h-4 w-4 text-primary" />
-              <span className="text-xs uppercase tracking-[0.2em] text-text-subtle">
-                디레지에 공격대
-              </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="pill w-fit bg-primary-muted border-primary/30 text-text">
+                <Users className="h-4 w-4 text-primary" />
+                <span className="text-xs uppercase tracking-[0.2em] text-text-subtle">
+                  {raidMode.name}
+                </span>
+              </div>
+              <select
+                value={raidMode.id}
+                onChange={(e) => setRaidModeId(e.target.value as RaidModeId)}
+                className="rounded-lg border border-panel-border bg-white/80 px-3 py-2 text-xs text-text shadow-soft focus:border-primary focus:outline-none"
+              >
+                {RAID_MODES.map((mode) => (
+                  <option key={mode.id} value={mode.id}>
+                    {mode.name} · {mode.badge}
+                  </option>
+                ))}
+              </select>
             </div>
             <h1 className="font-display text-3xl md:text-4xl leading-tight text-text">
               레이드 신청 · 편성 · 공유를
-              <span className="text-primary"> 한 보드</span>에서 끝내세요.
+              <span className="text-primary"> zzirit</span>에서 끝내세요.
             </h1>
             <p className="text-text-muted max-w-3xl">
-              캐릭터 검색, 스펙 입력, 파티 배치와 복사 기능을 제공하는 디레지에 레이드 전용
-              보드입니다. 지원자와 공대장이 같은 데이터를 공유하도록 설계되었습니다.
+              {raidMode.name} 페이지입니다.
+            </p>
+            <p className="text-xs text-text-subtle">
+              {raidMode.description} · {raidMode.partyCount}파티 × {raidMode.slotsPerParty}인 슬롯
             </p>
           </div>
         </section>
@@ -75,11 +96,20 @@ function App() {
         <Routes>
           <Route path="/" element={<RaidListPage />} />
           <Route path="/apply" element={<ApplicantPage />} />
+          <Route path="/register" element={<RegisterCharacterPage />} />
           <Route path="/leader" element={<LeaderDashboard />} />
           <Route path="/:raidId" element={<SharePage />} />
         </Routes>
       </main>
     </div>
+  );
+}
+
+function App() {
+  return (
+    <RaidModeProvider>
+      <AppShell />
+    </RaidModeProvider>
   );
 }
 

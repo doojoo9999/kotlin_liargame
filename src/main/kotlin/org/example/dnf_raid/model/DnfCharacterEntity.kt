@@ -28,6 +28,12 @@ class DnfCharacterEntity(
     @Column(nullable = false)
     var fame: Int,
 
+    @Column(nullable = false)
+    var damage: Long = 0,
+
+    @Column(name = "buff_power", nullable = false)
+    var buffPower: Long = 0,
+
     @Column(name = "adventure_name", length = 100)
     var adventureName: String? = null,
 

@@ -24,6 +24,9 @@ function RaidListPage() {
         <p className="text-text-subtle text-sm">
           정식 리스트 API가 준비되면 이곳에 일정별/모험단별 공개 공대가 표시됩니다. 지금은 공대장이 공유한 링크나 ID로 바로 이동할 수 있습니다.
         </p>
+        <p className="text-xs text-text-subtle">
+          공개 레이드만 목록/검색에 노출되며, 비공개 레이드는 링크·ID를 받은 사람만 입장할 수 있습니다.
+        </p>
       </section>
 
       <section className="frosted p-5 grid gap-4 md:grid-cols-3 items-start">

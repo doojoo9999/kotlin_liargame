@@ -1,7 +1,7 @@
 export type UUID = string;
 
-export type PartyNumber = 1 | 2 | 3 | null;
-export type SlotIndex = 0 | 1 | 2 | 3 | null;
+export type PartyNumber = number | null;
+export type SlotIndex = number | null;
 
 export interface DnfCharacter {
   characterId: string;
@@ -10,6 +10,8 @@ export interface DnfCharacter {
   jobName: string;
   jobGrowName: string;
   fame: number;
+  damage?: number;
+  buffPower?: number;
   adventureName?: string | null;
   imageUrl: string;
 }
@@ -29,9 +31,18 @@ export interface RaidDetail {
   id: UUID;
   name: string;
   userId: string;
+  isPublic: boolean;
   parentRaidId?: UUID | null;
   createdAt?: string | null;
   participants: Participant[];
+}
+
+export interface RaidSummary {
+  id: UUID;
+  name: string;
+  isPublic: boolean;
+  createdAt?: string | null;
+  participantCount: number;
 }
 
 export interface StatHistoryEntry {

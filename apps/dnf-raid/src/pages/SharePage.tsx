@@ -7,8 +7,9 @@ import {addParticipant, getRaid, searchCharacters, searchCharactersByAdventure} 
 import type {DnfCharacter, Participant} from "../types";
 import {StatBadge} from "../components/StatBadge";
 import {CharacterCard} from "../components/CharacterCard";
-import {DNF_SERVERS, DIREGIE_MIN_FAME, isDiregieRaid, type DnfServerId} from "../constants";
+import {DNF_SERVERS, type DnfServerId} from "../constants";
 import {SupportModal} from "../components/SupportModal";
+import {useRaidMode} from "../hooks/useRaidMode";
 
 function SharePage() {
   const {raidId} = useParams<{raidId: string}>();
@@ -21,6 +22,7 @@ function SharePage() {
   const [buff, setBuff] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [serverId, setServerId] = useState<DnfServerId>(DNF_SERVERS[0].id);
+  const {raidMode} = useRaidMode();
 
   const raidQuery = useQuery({
     queryKey: ["raid", raidId],
@@ -61,14 +63,26 @@ function SharePage() {
 
   const searchResults = searchMutation.data ?? [];
   const adventureResults = adventureSearchMutation.data ?? [];
-  const isDiregie = isDiregieRaid(raidQuery.data?.name);
+
+  const normalizeAdventure = (value?: string | null) => value?.trim().toLowerCase() ?? "";
+  const normalizedAdventureQuery = normalizeAdventure(adventureName);
+
   const filteredSearchResults = useMemo(
-    () => (isDiregie ? searchResults.filter((c) => c.fame >= DIREGIE_MIN_FAME) : searchResults),
-    [isDiregie, searchResults]
+    () =>
+      raidMode?.minFame ? searchResults.filter((c) => c.fame >= raidMode.minFame) : searchResults,
+    [raidMode?.minFame, searchResults]
   );
   const filteredAdventureResults = useMemo(
-    () => (isDiregie ? adventureResults.filter((c) => c.fame >= DIREGIE_MIN_FAME) : adventureResults),
-    [isDiregie, adventureResults]
+    () => {
+      const byAdventure =
+        normalizedAdventureQuery.length > 0
+          ? adventureResults.filter(
+              (c) => normalizeAdventure(c.adventureName) === normalizedAdventureQuery
+            )
+          : adventureResults;
+      return raidMode?.minFame ? byAdventure.filter((c) => c.fame >= raidMode.minFame) : byAdventure;
+    },
+    [normalizedAdventureQuery, raidMode?.minFame, adventureResults]
   );
   const canApply = useMemo(() => Boolean(selected && raidId), [selected, raidId]);
   const closeModal = () => {
@@ -108,18 +122,20 @@ function SharePage() {
   }
 
   const participants = raidQuery.data.participants;
-  const slots: Record<number, Array<Participant | null>> = {
-    1: [null, null, null, null],
-    2: [null, null, null, null],
-    3: [null, null, null, null],
-  };
+  const partyCount = raidMode?.partyCount ?? 3;
+  const slotsPerParty = raidMode?.slotsPerParty ?? 4;
+  const partyNumbers = Array.from({length: partyCount}, (_, idx) => idx + 1);
+  const slots: Record<number, Array<Participant | null>> = {};
+  partyNumbers.forEach((party) => {
+    slots[party] = Array.from({length: slotsPerParty}, () => null);
+  });
   const waiting: Participant[] = [];
 
   participants.forEach((p) => {
     if (p.partyNumber && p.slotIndex !== null && p.slotIndex !== undefined) {
-      const party = slots[p.partyNumber];
-      if (party && party[p.slotIndex] === null) {
-        party[p.slotIndex] = p;
+      const partySlots = slots[p.partyNumber];
+      if (partySlots && p.slotIndex < partySlots.length && partySlots[p.slotIndex] === null) {
+        partySlots[p.slotIndex] = p;
         return;
       }
     }
@@ -129,16 +145,34 @@ function SharePage() {
   return (
     <div className="space-y-8">
       <div className="frosted p-5 space-y-2">
-        <p className="text-sm text-text-muted">{raidQuery.data.name}</p>
+        <div className="flex items-center gap-2 flex-wrap">
+          <p className="text-sm text-text-muted">{raidQuery.data.name}</p>
+          {raidMode && (
+            <span className="pill border-panel-border bg-panel text-xs text-text-muted">
+              {raidMode.name} · {raidMode.badge} · {raidMode.partyCount}파티
+            </span>
+          )}
+          <span
+            className={`pill text-[11px] ${
+              raidQuery.data.isPublic
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                : "border-slate-300 bg-slate-50 text-slate-700"
+            }`}
+          >
+            {raidQuery.data.isPublic ? "공개 레이드" : "비공개 레이드"}
+          </span>
+        </div>
         <p className="font-display text-2xl text-text">공대 페이지</p>
-        <p className="text-xs text-text-subtle">파티 배치와 지원을 모두 확인할 수 있습니다.</p>
+        <p className="text-xs text-text-subtle">
+          파티 배치와 지원을 모두 확인할 수 있습니다. 슬롯 {slotsPerParty}인 기준으로 표시됩니다.
+        </p>
         {message && (
           <span className="pill border-primary/40 bg-primary-muted text-primary text-xs">{message}</span>
         )}
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        {[1, 2, 3].map((party) => (
+        {partyNumbers.map((party) => (
           <div key={party} className="frosted p-4 space-y-3">
             <p className="text-text-muted text-sm">파티 {party}</p>
             <div className="space-y-2">
@@ -202,9 +236,9 @@ function SharePage() {
             명성/직업 자동 입력
           </div>
         </div>
-        {isDiregie && (
+        {raidMode?.minFame && (
           <div className="text-xs text-text-muted">
-            디레지에 레이드: 명성 {DIREGIE_MIN_FAME.toLocaleString()} 이상만 검색 결과에 표시됩니다.
+            {raidMode.name}: 명성 {raidMode.minFame.toLocaleString()} 이상만 검색 결과에 표시됩니다.
           </div>
         )}
 

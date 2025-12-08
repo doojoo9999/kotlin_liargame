@@ -6,12 +6,14 @@ CREATE TABLE IF NOT EXISTS dnf_raids (
     user_id VARCHAR(64) NOT NULL,
     name VARCHAR(100) NOT NULL,
     password VARCHAR(100),
+    is_public BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     parent_raid_id UUID,
     CONSTRAINT fk_dnf_raids_parent FOREIGN KEY (parent_raid_id) REFERENCES dnf_raids (id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_dnf_raids_user_created ON dnf_raids (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_dnf_raids_public_created ON dnf_raids (is_public, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS dnf_characters (
     character_id VARCHAR(80) PRIMARY KEY,
@@ -20,6 +22,8 @@ CREATE TABLE IF NOT EXISTS dnf_characters (
     job_name VARCHAR(100) NOT NULL,
     job_grow_name VARCHAR(100) NOT NULL,
     fame INTEGER NOT NULL,
+    damage BIGINT NOT NULL DEFAULT 0,
+    buff_power BIGINT NOT NULL DEFAULT 0,
     adventure_name VARCHAR(100),
     last_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

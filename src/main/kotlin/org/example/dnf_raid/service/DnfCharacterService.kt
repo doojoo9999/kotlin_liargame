@@ -56,19 +56,22 @@ class DnfCharacterService(
             val entity = cached ?: DnfCharacterEntity(
                 characterId = freshCharacter.characterId,
                 serverId = freshCharacter.serverId,
-                characterName = freshCharacter.characterName,
-                jobName = freshCharacter.jobName,
-                jobGrowName = freshCharacter.jobGrowName,
-                fame = freshCharacter.fame,
-                adventureName = freshCharacter.adventureName,
-                lastUpdatedAt = now
-            )
+            characterName = freshCharacter.characterName,
+            jobName = freshCharacter.jobName,
+            jobGrowName = freshCharacter.jobGrowName,
+            fame = freshCharacter.fame,
+            damage = cached?.damage ?: 0,
+            buffPower = cached?.buffPower ?: 0,
+            adventureName = freshCharacter.adventureName,
+            lastUpdatedAt = now
+        )
             entity.apply {
                 this.serverId = freshCharacter.serverId
                 this.characterName = freshCharacter.characterName
                 this.jobName = freshCharacter.jobName
                 this.jobGrowName = freshCharacter.jobGrowName
                 this.fame = freshCharacter.fame
+                // keep saved stats unless provided elsewhere
                 // Preserve existing adventureName if API omits it to keep adventure search usable
                 this.adventureName = freshCharacter.adventureName ?: this.adventureName
                 this.lastUpdatedAt = now
@@ -124,6 +127,15 @@ class DnfCharacterService(
         return characterRepository.save(entity)
     }
 
+    @Transactional
+    fun registerCharacter(serverId: String, characterId: String, damage: Long, buffPower: Long): DnfCharacterDto {
+        val entity = getOrRefresh(serverId, characterId)
+        entity.damage = damage
+        entity.buffPower = buffPower
+        entity.lastUpdatedAt = LocalDateTime.now()
+        return toDto(characterRepository.save(entity))
+    }
+
     fun toDto(entity: DnfCharacterEntity): DnfCharacterDto =
         DnfCharacterDto(
             characterId = entity.characterId,
@@ -132,6 +144,8 @@ class DnfCharacterService(
             jobName = entity.jobName,
             jobGrowName = entity.jobGrowName,
             fame = entity.fame,
+            damage = entity.damage,
+            buffPower = entity.buffPower,
             adventureName = entity.adventureName,
             imageUrl = dnfApiClient.buildCharacterImageUrl(entity.serverId, entity.characterId)
         )

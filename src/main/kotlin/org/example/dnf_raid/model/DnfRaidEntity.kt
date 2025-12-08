@@ -19,6 +19,9 @@ class DnfRaidEntity(
     @Column(name = "password", length = 100)
     var password: String? = null,
 
+    @Column(name = "is_public", nullable = false)
+    var isPublic: Boolean = false,
+
     @Column(name = "parent_raid_id")
     var parentRaidId: UUID? = null
 ) {

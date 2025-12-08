@@ -1,22 +1,34 @@
 import {FormEvent, useMemo, useState} from "react";
-import {useMutation, useQuery} from "@tanstack/react-query";
+import {useMutation, useQueryClient} from "@tanstack/react-query";
 import {Loader2, Search, Sparkles} from "lucide-react";
-import {addParticipant, getRaid, searchCharacters, searchCharactersByAdventure} from "../services/dnf";
+import {
+  addParticipant,
+  addParticipantsBulk,
+  searchCharacters,
+  searchCharactersByAdventure,
+  searchRaidsByName,
+} from "../services/dnf";
 import {useRaidSession} from "../hooks/useRaidSession";
 import {CharacterCard} from "../components/CharacterCard";
-import type {DnfCharacter} from "../types";
-import {DNF_SERVERS, DIREGIE_MIN_FAME, isDiregieRaid, type DnfServerId} from "../constants";
+import type {DnfCharacter, RaidSummary} from "../types";
+import {DNF_SERVERS, type DnfServerId} from "../constants";
 import {SupportModal} from "../components/SupportModal";
+import {useRaidMode} from "../hooks/useRaidMode";
 
 function ApplicantPage() {
   const {raidId, setRaidId} = useRaidSession();
+  const [currentRaidName, setCurrentRaidName] = useState<string | null>(null);
   const [characterName, setCharacterName] = useState("");
   const [adventureName, setAdventureName] = useState("");
   const [selected, setSelected] = useState<DnfCharacter | null>(null);
+  const [selectedBatch, setSelectedBatch] = useState<DnfCharacter[]>([]);
   const [damage, setDamage] = useState("");
   const [buff, setBuff] = useState("");
   const [message, setMessage] = useState<string | null>(null);
+  const [raidNameSearch, setRaidNameSearch] = useState("");
   const [serverId, setServerId] = useState<DnfServerId>(DNF_SERVERS[0].id);
+  const {raidMode} = useRaidMode();
+  const queryClient = useQueryClient();
 
   const searchMutation = useMutation({
     mutationFn: (payload: {keyword: string; serverId: DnfServerId}) =>
@@ -25,6 +37,10 @@ function ApplicantPage() {
 
   const adventureSearchMutation = useMutation({
     mutationFn: (keyword: string) => searchCharactersByAdventure(keyword),
+  });
+
+  const raidSearchMutation = useMutation<RaidSummary[], Error, string>({
+    mutationFn: (keyword: string) => searchRaidsByName(keyword, 10),
   });
 
   const addParticipantMutation = useMutation({
@@ -48,23 +64,39 @@ function ApplicantPage() {
     },
   });
 
+  const bulkApplyMutation = useMutation({
+    mutationFn: async () => {
+      if (!raidId) throw new Error("레이드를 먼저 선택하세요.");
+      if (selectedBatch.length === 0) throw new Error("일괄 지원할 캐릭터를 선택하세요.");
+      const payload = selectedBatch.map((c) => ({
+        serverId: c.serverId,
+        characterId: c.characterId,
+        damage: c.damage ?? 0,
+        buffPower: c.buffPower ?? 0,
+      }));
+      return addParticipantsBulk(raidId, payload);
+    },
+    onSuccess: () => {
+      setMessage(`${selectedBatch.length}명 일괄 지원 완료 (모든 캐릭터 0/0 스탯으로 등록)`);
+      setSelectedBatch([]);
+      queryClient.invalidateQueries({queryKey: ["raid", raidId]});
+    },
+  });
+
   const searchResults = searchMutation.data ?? [];
   const adventureResults = adventureSearchMutation.data ?? [];
 
-  const raidQuery = useQuery({
-    queryKey: ["raid", raidId],
-    enabled: Boolean(raidId),
-    queryFn: () => (raidId ? getRaid(raidId) : Promise.resolve(null)),
-  });
-
-  const isDiregie = isDiregieRaid(raidQuery.data?.name);
   const filteredSearchResults = useMemo(
-    () => (isDiregie ? searchResults.filter((c) => c.fame >= DIREGIE_MIN_FAME) : searchResults),
-    [isDiregie, searchResults]
+    () =>
+      raidMode?.minFame ? searchResults.filter((c) => c.fame >= raidMode.minFame) : searchResults,
+    [raidMode?.minFame, searchResults]
   );
   const filteredAdventureResults = useMemo(
-    () => (isDiregie ? adventureResults.filter((c) => c.fame >= DIREGIE_MIN_FAME) : adventureResults),
-    [isDiregie, adventureResults]
+    () =>
+      raidMode?.minFame
+        ? adventureResults.filter((c) => c.fame >= raidMode.minFame)
+        : adventureResults,
+    [raidMode?.minFame, adventureResults]
   );
 
   const canApply = useMemo(() => Boolean(selected && raidId), [selected, raidId]);
@@ -80,10 +112,34 @@ function ApplicantPage() {
     searchMutation.mutate({keyword: characterName.trim(), serverId});
   };
 
+  const handleRaidSearch = (e: FormEvent) => {
+    e.preventDefault();
+    if (!raidNameSearch.trim()) return;
+    raidSearchMutation.mutate(raidNameSearch.trim());
+  };
+
   const handleAdventureSearch = (e: FormEvent) => {
     e.preventDefault();
     if (!adventureName.trim()) return;
     adventureSearchMutation.mutate(adventureName.trim());
+  };
+
+  const toggleBatchSelection = (character: DnfCharacter) => {
+    setSelectedBatch((prev) => {
+      const exists = prev.some((c) => c.characterId === character.characterId);
+      if (exists) {
+        return prev.filter((c) => c.characterId !== character.characterId);
+      }
+      return [...prev, character];
+    });
+  };
+
+  const applyStatsFromCharacter = (character: DnfCharacter | null) => {
+    if (!character) return;
+    const nextDamage = character.damage != null ? String(character.damage) : "";
+    const nextBuff = character.buffPower != null ? String(character.buffPower) : "";
+    setDamage(nextDamage);
+    setBuff(nextBuff);
   };
 
   return (
@@ -91,22 +147,84 @@ function ApplicantPage() {
       <section className="frosted p-5 space-y-4">
         <p className="text-sm text-text-muted">지원할 레이드</p>
         <div className="grid gap-3 md:grid-cols-2">
-          <label className="space-y-1 text-sm">
-            <span className="text-text-muted">레이드 ID</span>
-            <input
-              className="w-full rounded-lg border border-panel-border bg-panel px-3 py-2 text-text placeholder:text-text-subtle focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-              value={raidId ?? ""}
-              onChange={(e) => setRaidId(e.target.value ? e.target.value : null)}
-              placeholder="공대장이 공유한 레이드 ID"
-            />
-          </label>
-          <div className="space-y-1 text-sm">
-            <span className="text-text-muted">상태</span>
-            <div className="flex flex-wrap gap-2 text-xs text-text-muted items-center">
-              <span className="pill">현재 레이드: {raidId ?? "미지정"}</span>
-              {message && <span className="pill border-primary/40 bg-primary-muted text-primary">{message}</span>}
-            </div>
+          <div className="space-y-2">
+            <label className="space-y-1 text-sm">
+              <span className="text-text-muted">레이드 ID</span>
+              <input
+                className="w-full rounded-lg border border-panel-border bg-panel px-3 py-2 text-text placeholder:text-text-subtle focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                value={raidId ?? ""}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setRaidId(value ? value : null);
+                  setCurrentRaidName(null);
+                }}
+                placeholder="공대장이 공유한 레이드 ID"
+              />
+            </label>
+            <p className="text-xs text-text-subtle">ID가 있으면 바로 입력하세요.</p>
           </div>
+
+          <form onSubmit={handleRaidSearch} className="space-y-1 text-sm">
+            <span className="text-text-muted">공대 이름으로 검색</span>
+            <div className="flex gap-2 rounded-lg border border-panel-border bg-panel px-3 py-2 shadow-soft focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10">
+              <Search className="h-4 w-4 text-text-subtle" />
+              <input
+                value={raidNameSearch}
+                onChange={(e) => setRaidNameSearch(e.target.value)}
+                placeholder="예: 부욤공대, 태초공대, 샛별공대"
+                className="bg-transparent outline-none flex-1 text-sm text-text placeholder:text-text-subtle"
+              />
+              <button type="submit" className="text-sm text-primary hover:text-primary-dark whitespace-nowrap px-2">
+                검색
+              </button>
+            </div>
+            <p className="text-xs text-text-subtle">공대명이 일부만 맞아도 검색됩니다.</p>
+          </form>
+        </div>
+        <div className="space-y-2 text-xs text-text-subtle">
+          <div className="flex flex-wrap gap-2 items-center">
+            <span className="pill">
+              현재 레이드:{" "}
+              {raidId ? currentRaidName ?? "(공대명 미표기)" : "미지정"}
+            </span>
+            {message && <span className="pill border-primary/40 bg-primary-muted text-primary">{message}</span>}
+          </div>
+          {raidSearchMutation.isPending && (
+            <div className="flex items-center gap-2 text-text-muted text-sm">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              공대 검색 중...
+            </div>
+          )}
+          {raidSearchMutation.data && raidSearchMutation.data.length === 0 && (
+            <div className="text-xs text-text-muted">검색 결과가 없습니다.</div>
+          )}
+          {raidSearchMutation.data && raidSearchMutation.data.length > 0 && (
+            <div className="grid gap-2 md:grid-cols-2">
+              {raidSearchMutation.data.map((raid) => (
+                <div key={raid.id} className="rounded-lg border border-panel-border bg-panel px-3 py-2 text-sm shadow-soft">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="space-y-1">
+                      <p className="font-display text-text">{raid.name}</p>
+                      <p className="text-[11px] text-text-subtle">
+                        인원 {raid.participantCount} · {raid.createdAt ? new Date(raid.createdAt).toLocaleString() : "시간 미표기"}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRaidId(raid.id);
+                        setCurrentRaidName(raid.name);
+                        setMessage("공대 ID가 설정되었습니다.");
+                      }}
+                      className="pill border-panel-border bg-panel text-text hover:bg-panel-muted text-xs"
+                    >
+                      이 공대로 지원
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
         <p className="text-xs text-text-subtle">새 레이드는 공대장 페이지에서 생성해주세요.</p>
       </section>
@@ -115,16 +233,19 @@ function ApplicantPage() {
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
             <p className="text-sm text-text-muted">캐릭터 등록 · 검색</p>
-            <h3 className="font-display text-xl text-text">닉네임으로 등록하고 모험단으로 불러오세요.</h3>
+            <h3 className="font-display text-xl text-text">
+              닉네임으로 등록하고 모험단으로 불러오세요.
+            </h3>
           </div>
           <div className="pill border-primary/30 bg-primary-muted text-text">
             <Sparkles className="h-4 w-4 text-primary" />
             명성/직업은 자동 입력
           </div>
+          <p className="text-xs text-text-subtle">캐릭터를 선택하면 저장된 딜/버프 수치를 자동으로 불러옵니다.</p>
         </div>
-        {isDiregie && (
+        {raidMode?.minFame && (
           <div className="text-xs text-text-muted">
-            디레지에 레이드: 명성 {DIREGIE_MIN_FAME.toLocaleString()} 이상만 검색 결과에 표시됩니다.
+            {raidMode.name}: 명성 {raidMode.minFame.toLocaleString()} 이상만 검색 결과에 표시됩니다.
           </div>
         )}
 
@@ -201,7 +322,10 @@ function ApplicantPage() {
                   <CharacterCard
                     key={character.characterId}
                     character={character}
-                    onAction={() => setSelected(character)}
+                    onAction={() => {
+                      setSelected(character);
+                      applyStatsFromCharacter(character);
+                    }}
                     actionLabel="이 캐릭터로 지원"
                     highlight={selected?.characterId === character.characterId}
                   />
@@ -214,20 +338,73 @@ function ApplicantPage() {
             <div className="space-y-3">
               <p className="text-sm text-text-muted">모험단 검색 결과</p>
               <div className="grid gap-4 md:grid-cols-2">
-                {filteredAdventureResults.map((character) => (
+              {filteredAdventureResults.map((character) => (
+                <div key={character.characterId} className="space-y-2">
                   <CharacterCard
-                    key={character.characterId}
                     character={character}
-                    onAction={() => setSelected(character)}
+                    onAction={() => {
+                      setSelected(character);
+                      applyStatsFromCharacter(character);
+                    }}
                     actionLabel="이 캐릭터로 지원"
                     highlight={selected?.characterId === character.characterId}
                     subtitle={character.adventureName ? `모험단 ${character.adventureName}` : undefined}
                   />
+                    <button
+                      type="button"
+                      onClick={() => toggleBatchSelection(character)}
+                      className={`w-full rounded-lg border px-3 py-2 text-sm transition ${
+                        selectedBatch.some((c) => c.characterId === character.characterId)
+                          ? "border-primary/50 bg-primary-muted text-primary"
+                          : "border-panel-border bg-panel text-text hover:bg-panel-muted"
+                      }`}
+                    >
+                      {selectedBatch.some((c) => c.characterId === character.characterId) ? "일괄 선택 해제" : "일괄 선택"}
+                    </button>
+                  </div>
                 ))}
               </div>
             </div>
           )}
         </div>
+
+        {selectedBatch.length > 0 && (
+          <div className="rounded-lg border border-panel-border bg-panel p-4 space-y-2 text-sm">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-text">선택한 캐릭터 {selectedBatch.length}명 (모험단 일괄 지원)</p>
+              <button
+                type="button"
+                onClick={() => setSelectedBatch([])}
+                className="text-xs text-text-subtle hover:text-text"
+              >
+                선택 모두 해제
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2 text-[11px] text-text-subtle">
+              {selectedBatch.map((c) => (
+                <span key={c.characterId} className="pill border-panel-border bg-panel-muted">
+                  {c.characterName}
+                </span>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => bulkApplyMutation.mutate()}
+              disabled={!raidId || bulkApplyMutation.isPending}
+              className="pill border-primary/30 bg-primary text-white hover:bg-primary-dark transition disabled:opacity-60"
+            >
+              {bulkApplyMutation.isPending ? (
+                <span className="flex items-center gap-2 text-sm">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  일괄 지원 중...
+                </span>
+              ) : (
+                `선택한 ${selectedBatch.length}명 일괄 지원 (딜/버프 0)`
+              )}
+            </button>
+            {!raidId && <p className="text-xs text-amber-600">레이드 ID를 먼저 선택하세요.</p>}
+          </div>
+        )}
 
         {selected && (
           <SupportModal

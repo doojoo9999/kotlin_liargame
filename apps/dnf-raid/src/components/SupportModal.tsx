@@ -1,5 +1,5 @@
 import {X} from "lucide-react";
-import {DnfCharacter} from "../types";
+import type {DnfCharacter} from "../types";
 import {getServerName} from "../constants";
 
 type Props = {
@@ -12,6 +12,9 @@ type Props = {
   onClose: () => void;
   isSubmitting?: boolean;
   canSubmit?: boolean;
+  actionLabel?: string;
+  showDamage?: boolean;
+  showBuff?: boolean;
 };
 
 export function SupportModal({
@@ -24,7 +27,12 @@ export function SupportModal({
   onClose,
   isSubmitting = false,
   canSubmit = true,
+  actionLabel = "이 캐릭터로 지원하기",
+  showDamage = true,
+  showBuff = true,
 }: Props) {
+  const gridCols = showDamage && showBuff ? "md:grid-cols-2" : "md:grid-cols-1";
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
       <div className="relative w-full max-w-lg rounded-2xl border border-panel-border bg-panel shadow-card">
@@ -56,25 +64,29 @@ export function SupportModal({
             </div>
           </div>
 
-          <div className="grid gap-3 md:grid-cols-2">
-            <label className="space-y-1 text-sm">
-              <span className="text-text-muted">딜 (억 단위)</span>
-              <input
-                value={damage}
-                onChange={(e) => onChangeDamage(e.target.value.replace(/[^0-9]/g, ""))}
-                className="w-full rounded-lg border border-panel-border bg-panel px-3 py-2 text-text placeholder:text-text-subtle focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                placeholder="예: 1200 (억)"
-              />
-            </label>
-            <label className="space-y-1 text-sm">
-              <span className="text-text-muted">버프력 (만 단위)</span>
-              <input
-                value={buff}
-                onChange={(e) => onChangeBuff(e.target.value.replace(/[^0-9]/g, ""))}
-                className="w-full rounded-lg border border-panel-border bg-panel px-3 py-2 text-text placeholder:text-text-subtle focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                placeholder="예: 550 (만)"
-              />
-            </label>
+          <div className={`grid gap-3 ${gridCols}`}>
+            {showDamage && (
+              <label className="space-y-1 text-sm">
+                <span className="text-text-muted">딜 (억 단위)</span>
+                <input
+                  value={damage}
+                  onChange={(e) => onChangeDamage(e.target.value.replace(/[^0-9]/g, ""))}
+                  className="w-full rounded-lg border border-panel-border bg-panel px-3 py-2 text-text placeholder:text-text-subtle focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  placeholder="예: 1200 (억)"
+                />
+              </label>
+            )}
+            {showBuff && (
+              <label className="space-y-1 text-sm">
+                <span className="text-text-muted">버프력 (만 단위)</span>
+                <input
+                  value={buff}
+                  onChange={(e) => onChangeBuff(e.target.value.replace(/[^0-9]/g, ""))}
+                  className="w-full rounded-lg border border-panel-border bg-panel px-3 py-2 text-text placeholder:text-text-subtle focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  placeholder="예: 550 (만)"
+                />
+              </label>
+            )}
           </div>
 
           <button
@@ -82,7 +94,7 @@ export function SupportModal({
             disabled={!canSubmit || isSubmitting}
             className="w-full rounded-xl bg-primary text-white border border-primary py-3 shadow-soft hover:bg-primary-dark transition disabled:opacity-60"
           >
-            {isSubmitting ? "지원 중..." : "이 캐릭터로 지원하기"}
+            {isSubmitting ? "지원 중..." : actionLabel}
           </button>
         </div>
       </div>

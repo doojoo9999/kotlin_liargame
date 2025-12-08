@@ -7,10 +7,12 @@ import org.example.dnf_raid.model.DnfStatHistoryEntity
 import org.example.dnf_raid.repository.DnfParticipantRepository
 import org.example.dnf_raid.repository.DnfRaidRepository
 import org.example.dnf_raid.repository.DnfStatHistoryRepository
+import org.springframework.data.domain.PageRequest
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.server.ResponseStatusException
+import java.time.LocalDateTime
 import java.util.UUID
 
 @Service
@@ -27,7 +29,8 @@ class DnfRaidService(
             DnfRaidEntity(
                 userId = request.userId,
                 name = request.name,
-                password = request.password
+                password = request.password,
+                isPublic = request.isPublic
             )
         )
         return toRaidDetailResponse(raid, emptyList())
@@ -43,11 +46,12 @@ class DnfRaidService(
                 userId = parent.userId,
                 name = request.name ?: "${parent.name} 복사본",
                 password = parent.password,
+                isPublic = request.isPublic ?: parent.isPublic,
                 parentRaidId = parent.id
             )
         )
 
-        val participants = participantRepository.findByRaidIdOrderByCreatedAtAsc(parent.id!!)
+        val participants = loadUniqueParticipants(parent.id!!)
         participants.forEach { origin ->
             val copy = DnfParticipantEntity(
                 raid = clone,
@@ -67,7 +71,7 @@ class DnfRaidService(
             )
         }
 
-        val clonedParticipants = participantRepository.findByRaidIdOrderByCreatedAtAsc(clone.id!!)
+        val clonedParticipants = loadUniqueParticipants(clone.id!!)
         return toRaidDetailResponse(clone, clonedParticipants)
     }
 
@@ -75,15 +79,70 @@ class DnfRaidService(
     fun getRaid(raidId: UUID): RaidDetailResponse {
         val raid = raidRepository.findById(raidId)
             .orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "레이드를 찾을 수 없습니다.") }
-        val participants = participantRepository.findByRaidIdOrderByCreatedAtAsc(raid.id!!)
+        val participants = loadUniqueParticipants(raid.id!!)
         return toRaidDetailResponse(raid, participants)
     }
 
     @Transactional(readOnly = true)
     fun getLatestRaid(userId: String): RaidDetailResponse? {
         val latest = raidRepository.findFirstByUserIdOrderByCreatedAtDesc(userId) ?: return null
-        val participants = participantRepository.findByRaidIdOrderByCreatedAtAsc(latest.id!!)
+        val participants = loadUniqueParticipants(latest.id!!)
         return toRaidDetailResponse(latest, participants)
+    }
+
+    @Transactional(readOnly = true)
+    fun getRecentRaids(userId: String, limit: Int?): List<RaidSummaryResponse> {
+        val size = when {
+            limit == null -> 4
+            limit < 1 -> 1
+            limit > 8 -> 8
+            else -> limit
+        }
+        val raids = raidRepository.findByUserIdOrderByCreatedAtDesc(userId, PageRequest.of(0, size))
+        if (raids.isEmpty()) return emptyList()
+
+        val counts = participantRepository.countByRaidIds(raids.mapNotNull { it.id })
+            .associateBy({ it.raidId }, { it.count })
+
+        return raids.map {
+            RaidSummaryResponse(
+                id = it.id!!,
+                name = it.name,
+                isPublic = it.isPublic,
+                createdAt = it.createdAt,
+                participantCount = (counts[it.id] ?: 0).toInt()
+            )
+        }
+    }
+
+    @Transactional(readOnly = true)
+    fun searchRaidsByName(name: String, limit: Int?): List<RaidSummaryResponse> {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) return emptyList()
+        val size = when {
+            limit == null -> 20
+            limit < 1 -> 1
+            limit > 50 -> 50
+            else -> limit
+        }
+        val raids = raidRepository.findByNameContainingIgnoreCaseAndIsPublicTrueOrderByCreatedAtDesc(
+            trimmed,
+            PageRequest.of(0, size)
+        )
+        if (raids.isEmpty()) return emptyList()
+
+        val counts = participantRepository.countByRaidIds(raids.mapNotNull { it.id })
+            .associateBy({ it.raidId }, { it.count })
+
+        return raids.map {
+            RaidSummaryResponse(
+                id = it.id!!,
+                name = it.name,
+                isPublic = it.isPublic,
+                createdAt = it.createdAt,
+                participantCount = (counts[it.id] ?: 0).toInt()
+            )
+        }
     }
 
     @Transactional
@@ -91,28 +150,29 @@ class DnfRaidService(
         val raid = raidRepository.findById(raidId)
             .orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "레이드를 찾을 수 없습니다.") }
 
-        val character = characterService.getOrRefresh(request.serverId, request.characterId)
-
-        val participant = participantRepository.save(
-            DnfParticipantEntity(
-                raid = raid,
-                character = character,
-                damage = request.damage ?: 0,
-                buffPower = request.buffPower ?: 0,
-                partyNumber = request.partyNumber,
-                slotIndex = request.slotIndex
-            )
-        )
-
-        statHistoryRepository.save(
-            DnfStatHistoryEntity(
-                participant = participant,
-                damage = participant.damage,
-                buffPower = participant.buffPower
-            )
-        )
-
+        val participant = createParticipant(raid, request)
         return toParticipantResponse(participant)
+    }
+
+    @Transactional
+    fun addParticipants(raidId: UUID, request: AddParticipantBatchRequest): RaidDetailResponse {
+        val raid = raidRepository.findById(raidId)
+            .orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "레이드를 찾을 수 없습니다.") }
+
+        request.participants.forEach { addRequest ->
+            createParticipant(raid, addRequest)
+        }
+
+        val participants = loadUniqueParticipants(raid.id!!)
+        return toRaidDetailResponse(raid, participants)
+    }
+
+    @Transactional
+    fun registerCharacter(request: RegisterCharacterRequest): DnfCharacterDto {
+        if (request.damage < 0 || request.buffPower < 0) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "딜/버프는 0 이상이어야 합니다.")
+        }
+        return characterService.registerCharacter(request.serverId, request.characterId, request.damage, request.buffPower)
     }
 
     @Transactional
@@ -156,6 +216,30 @@ class DnfRaidService(
         return toParticipantResponse(saved)
     }
 
+    @Transactional
+    fun deleteParticipantsByAdventure(raidId: UUID, adventureName: String?): RaidDetailResponse {
+        val raid = raidRepository.findById(raidId)
+            .orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "레이드를 찾을 수 없습니다.") }
+
+        val normalizedAdventure = adventureName?.trim()?.ifEmpty { null }
+        participantRepository.deleteByRaidIdAndAdventureName(raid.id!!, normalizedAdventure)
+
+        val remaining = loadUniqueParticipants(raid.id!!)
+        return toRaidDetailResponse(raid, remaining)
+    }
+
+    @Transactional
+    fun updateRaidVisibility(raidId: UUID, request: UpdateRaidVisibilityRequest): RaidDetailResponse {
+        val raid = raidRepository.findById(raidId)
+            .orElseThrow { ResponseStatusException(HttpStatus.NOT_FOUND, "레이드를 찾을 수 없습니다.") }
+
+        raid.isPublic = request.isPublic
+        val saved = raidRepository.save(raid)
+
+        val participants = loadUniqueParticipants(saved.id!!)
+        return toRaidDetailResponse(saved, participants)
+    }
+
     @Transactional(readOnly = true)
     fun getStatHistory(participantId: UUID): StatHistoryResponse {
         val participant = participantRepository.findById(participantId)
@@ -181,6 +265,7 @@ class DnfRaidService(
             id = raid.id!!,
             name = raid.name,
             userId = raid.userId,
+            isPublic = raid.isPublic,
             parentRaidId = raid.parentRaidId,
             createdAt = raid.createdAt,
             participants = participants.map { toParticipantResponse(it) }
@@ -197,4 +282,46 @@ class DnfRaidService(
             character = characterService.toDto(entity.character),
             createdAt = entity.createdAt
         )
+
+    private fun loadUniqueParticipants(raidId: UUID): List<DnfParticipantEntity> =
+        latestUniqueParticipants(participantRepository.findByRaidIdOrderByCreatedAtDesc(raidId))
+
+    private fun latestUniqueParticipants(participants: List<DnfParticipantEntity>): List<DnfParticipantEntity> {
+        val seen = linkedMapOf<String, DnfParticipantEntity>()
+        participants.sortedByDescending { it.createdAt ?: LocalDateTime.MIN }.forEach { participant ->
+            val key = participant.character.characterId
+            if (!seen.containsKey(key)) {
+                seen[key] = participant
+            }
+        }
+        return seen.values.toList()
+    }
+
+    private fun createParticipant(raid: DnfRaidEntity, request: AddParticipantRequest): DnfParticipantEntity {
+        val character = characterService.getOrRefresh(request.serverId, request.characterId)
+
+        // 기존 동일 캐릭터 신청 제거 후 최신 신청만 유지
+        participantRepository.deleteByRaidIdAndCharacterId(raid.id!!, character.characterId)
+
+        val participant = participantRepository.save(
+            DnfParticipantEntity(
+                raid = raid,
+                character = character,
+                damage = request.damage ?: 0,
+                buffPower = request.buffPower ?: 0,
+                partyNumber = request.partyNumber,
+                slotIndex = request.slotIndex
+            )
+        )
+
+        statHistoryRepository.save(
+            DnfStatHistoryEntity(
+                participant = participant,
+                damage = participant.damage,
+                buffPower = participant.buffPower
+            )
+        )
+
+        return participant
+    }
 }
