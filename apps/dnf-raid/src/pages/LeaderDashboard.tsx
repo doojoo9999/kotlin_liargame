@@ -19,7 +19,7 @@ import {
 import {useRaidSession} from "../hooks/useRaidSession";
 import {PartyBoard} from "../components/PartyBoard";
 import {CharacterCard} from "../components/CharacterCard";
-import type {DnfCharacter, RaidDetail, RaidSummary} from "../types";
+import type {DnfCharacter, Participant, RaidDetail, RaidSummary} from "../types";
 import {
   DNF_SERVERS,
   RAID_MODES,
@@ -36,7 +36,7 @@ function LeaderDashboard() {
   const {raidMode: selectedRaidMode, setRaidModeId} = useRaidMode();
   const [raidName, setRaidName] = useState(selectedRaidMode.name);
   const [isPublic, setIsPublic] = useState(false);
-  const [batchCount, setBatchCount] = useState(1);
+  const [appendCount, setAppendCount] = useState(1);
   const [leaderSearch, setLeaderSearch] = useState("");
   const [leaderSearchTarget, setLeaderSearchTarget] = useState<string>(DNF_SERVERS[0].id);
   const [message, setMessage] = useState<string | null>(null);
@@ -57,6 +57,17 @@ function LeaderDashboard() {
       }
       if (!payload.serverId) throw new Error("서버를 선택하세요.");
       return searchCharacters(payload.keyword, payload.serverId);
+    },
+    onSuccess: (results) => {
+      if (!leaderCharacter) return;
+      const duplicated = results.find(
+        (c) =>
+          c.characterId === leaderCharacter.characterId &&
+          c.serverId === leaderCharacter.serverId
+      );
+      if (duplicated) {
+        setMessage("공대장 캐릭터는 중복 신청할 수 없습니다.");
+      }
     },
   });
 
@@ -96,26 +107,38 @@ function LeaderDashboard() {
   });
 
   const createRaidBatchMutation = useMutation({
-    mutationFn: async (count: number) => {
+    mutationFn: async (payload: {count: number; baseName?: string; startIndex?: number}) => {
       if (!leaderId) throw new Error("공대장을 먼저 선택하세요.");
+      const {count, baseName, startIndex} = payload;
       const safeCount = Math.min(Math.max(count, 1), 30);
+      const safeStart = Math.max(startIndex ?? 1, 1);
+      const base = (baseName ?? raidName ?? selectedRaidMode.name).trim() || selectedRaidMode.name;
       const results: RaidDetail[] = [];
-      for (let i = 1; i <= safeCount; i += 1) {
-        const name = safeCount > 1 ? `${raidName} ${i}기` : raidName;
+      for (let i = 0; i < safeCount; i += 1) {
+        const seq = safeStart + i;
+        const name = safeCount > 1 || safeStart > 1 ? `${base} ${seq}기` : base;
         const data = await createRaid({name, userId: leaderId, isPublic});
         results.push(data);
       }
-      return results;
+      return {results, startIndex: safeStart, base};
     },
-    onSuccess: (results) => {
-      const last = results[results.length - 1];
-      setRaidId(last.id);
-      setRaidName(last.name);
-      setIsPublic(last.isPublic);
-      setMessage(`${results.length}개 레이드를 생성했습니다.`);
+    onSuccess: ({results, startIndex}) => {
+      const first = results[0];
+      if (!first) return;
+      setRaidId(first.id);
+      setRaidName(first.name);
+      setIsPublic(first.isPublic);
+      setMessage(`${results.length}개 기수를 추가했습니다.`);
       results.forEach((raid) => queryClient.setQueryData(["raid", raid.id], raid));
       latestRaidMutation.reset();
-      setCohortRaids(results.map(toRaidSummary));
+      setCohortRaids((prev) => {
+        const next = startIndex > 1 ? [...prev] : [];
+        results.forEach((raid, idx) => {
+          const pos = startIndex + idx - 1;
+          next[pos] = toRaidSummary(raid);
+        });
+        return next;
+      });
     },
   });
 
@@ -144,13 +167,24 @@ function LeaderDashboard() {
   });
 
   const deleteAdventureMutation = useMutation({
-    mutationFn: (adventureName: string | null) => {
-      if (!raidId) throw new Error("레이드를 먼저 선택하세요.");
-      return deleteParticipantsByAdventure(raidId, adventureName);
+    mutationFn: async (adventureName: string | null) => {
+      const targets =
+        cohortRaids.length > 0
+          ? cohortRaids
+          : raid
+            ? [toRaidSummary(raid)]
+            : [];
+      if (targets.length === 0) throw new Error("레이드를 먼저 선택하세요.");
+      const results = await Promise.all(
+        targets.map((summary) => deleteParticipantsByAdventure(summary.id, adventureName))
+      );
+      return results;
     },
-    onSuccess: (data, adventureName) => {
-      queryClient.setQueryData(["raid", data.id], data);
-      setMessage(`${adventureName ?? "모험단 미표기"} 모험단 지원자를 삭제했습니다.`);
+    onSuccess: (results, adventureName) => {
+      results.forEach((data) => queryClient.setQueryData(["raid", data.id], data));
+      setMessage(
+        `${adventureName ?? "모험단 미표기"} 모험단 지원자를 ${results.length}개 기수에서 삭제했습니다.`
+      );
     },
   });
 
@@ -209,42 +243,6 @@ function LeaderDashboard() {
     });
     return stats;
   }, [activeRaidMode.partyCount, participants]);
-
-  const adventureGroups = useMemo(() => {
-    const groups: Record<
-      string,
-      {key: string; adventureName: string | null; label: string; total: number; assigned: number; characters: string[]}
-    > = {};
-
-    participants.forEach((p) => {
-      const rawName = p.character.adventureName?.trim();
-      const adventureName = rawName && rawName.length > 0 ? rawName : null;
-      const key = adventureName ?? "__unknown__";
-      if (!groups[key]) {
-        groups[key] = {
-          key,
-          adventureName,
-          label: adventureName ?? "모험단 미표기",
-          total: 0,
-          assigned: 0,
-          characters: [],
-        };
-      }
-      const group = groups[key];
-      group.total += 1;
-      if (p.partyNumber) {
-        group.assigned += 1;
-      }
-      if (group.characters.length < 5) {
-        group.characters.push(p.character.characterName);
-      }
-    });
-
-    return Object.values(groups).sort((a, b) => {
-      if (b.total !== a.total) return b.total - a.total;
-      return a.label.localeCompare(b.label);
-    });
-  }, [participants]);
 
   const parseTargetValue = (value: string) => {
     const numeric = Number(value);
@@ -342,7 +340,17 @@ function LeaderDashboard() {
   };
 
   const handleQuickAdd = (character: DnfCharacter) => {
-    setLeaderCharacter(character);
+    if (
+      leaderCharacter &&
+      character.characterId === leaderCharacter.characterId &&
+      character.serverId === leaderCharacter.serverId
+    ) {
+      setMessage("공대장 캐릭터는 중복 신청할 수 없습니다.");
+      return;
+    }
+    if (!leaderCharacter) {
+      setLeaderCharacter(character);
+    }
     setLeaderSearch(character.characterName);
     setAddCandidate(character);
     setAddDamage(character.damage != null ? String(character.damage) : "");
@@ -375,12 +383,10 @@ function LeaderDashboard() {
     createdAt: data.createdAt,
   });
 
-  const handleCreateRaids = () => {
-    if (batchCount > 1) {
-      createRaidBatchMutation.mutate(batchCount);
-    } else {
-      createRaidMutation.mutate();
-    }
+  const handleAppendCohorts = () => {
+    const base = normalizeCohortName(raidName) || raidName || selectedRaidMode.name;
+    const startIndex = cohortRaids.length > 0 ? cohortRaids.length + 1 : 1;
+    createRaidBatchMutation.mutate({count: appendCount, baseName: base, startIndex});
   };
 
   const handlePartyTargetChange = (index: number, field: "damage" | "buff", value: string) => {
@@ -470,80 +476,108 @@ function LeaderDashboard() {
 
       const scoreParticipant = (p: Participant) => p.damage + p.buffPower * 8;
 
-      const perRaidAdventureMap = new Map<
-        string,
-        Map<
-          string,
-          {
-            adventureKey: string;
-            list: Participant[];
-          }
-        >
-      >();
+      const adventureBuckets = new Map<string, Participant[]>();
+      const overallUsed = new Set<string>();
 
       raidDetails.forEach((detail) => {
-        if (!detail) return;
-        const adventureMap = perRaidAdventureMap.get(detail.id) ?? new Map();
-        detail.participants.forEach((p) => {
+        detail?.participants.forEach((p) => {
           const key = buildAdventureKey(p);
-          if (!adventureMap.has(key)) {
-            adventureMap.set(key, {adventureKey: key, list: []});
+          if (!adventureBuckets.has(key)) {
+            adventureBuckets.set(key, []);
           }
-          adventureMap.get(key)?.list.push(p);
+          adventureBuckets.get(key)?.push(p);
+          if (p.partyNumber) {
+            overallUsed.add(p.id);
+          }
         });
-        adventureMap.forEach((bucket) => {
-          bucket.list.sort((a, b) => scoreParticipant(b) - scoreParticipant(a));
-        });
-        perRaidAdventureMap.set(detail.id, adventureMap);
       });
 
-      const adventureKeys = Array.from(
-        new Set(
-          raidDetails.flatMap((detail) =>
-            detail ? detail.participants.map((p) => buildAdventureKey(p)) : []
-          )
-        )
-      );
+      adventureBuckets.forEach((list) => {
+        list.sort((a, b) => scoreParticipant(b) - scoreParticipant(a));
+      });
 
-      const raidStates = raidDetails.map((detail) => {
+      const raidStates = dedupedTargets.map((target) => {
+        const detail = raidDetails.find((d) => d?.id === target.id) ?? null;
         const assigned = detail?.participants.filter((p) => p.partyNumber) ?? [];
         const used = new Set<string>(assigned.map((p) => buildAdventureKey(p)));
         const capacity =
           Math.max(activeRaidMode.partyCount * activeRaidMode.slotsPerParty - assigned.length, 0);
+        assigned.forEach((p) => overallUsed.add(p.id));
         return {
           detail,
           picks: detail ? [...assigned] : [],
           used,
           capacity,
+          planned: [] as Participant[],
         };
       });
 
-      adventureKeys.forEach((adventureKey) => {
-        raidStates.forEach((state) => {
-          const detail = state.detail;
-          if (!detail) return;
-          if (state.capacity <= 0) return;
-          if (state.used.has(adventureKey)) return;
-          const adventureMap = perRaidAdventureMap.get(detail.id);
-          const bucket = adventureMap?.get(adventureKey);
-          if (!bucket || bucket.list.length === 0) return;
-          const candidate = bucket.list.shift();
-          if (!candidate) return;
-          state.picks.push(candidate);
-          state.used.add(adventureKey);
-          state.capacity -= 1;
-        });
+      const adventureEntries = Array.from(adventureBuckets.entries()).sort(
+        (a, b) => scoreParticipant(b[1][0] ?? {damage: 0, buffPower: 0} as Participant) - scoreParticipant(a[1][0] ?? {damage: 0, buffPower: 0} as Participant)
+      );
+
+      const forwardOrder = raidStates.map((_, idx) => idx);
+      const reverseOrder = [...forwardOrder].reverse();
+
+      adventureEntries.forEach(([adventureKey, queue]) => {
+        let direction: 1 | -1 = 1;
+        while (queue.length > 0) {
+          let candidate: Participant | undefined;
+          while (queue.length > 0 && !candidate) {
+            const next = queue.shift();
+            if (!next) break;
+            if (overallUsed.has(next.id)) continue;
+            candidate = next;
+          }
+          if (!candidate) break;
+
+          const order = direction === 1 ? forwardOrder : reverseOrder;
+          let placed = false;
+          for (const idx of order) {
+            const state = raidStates[idx];
+            if (!state.detail) continue;
+            if (state.capacity <= 0) continue;
+            if (state.used.has(adventureKey)) continue;
+            state.planned.push(candidate);
+            state.used.add(adventureKey);
+            state.capacity -= 1;
+            overallUsed.add(candidate.id);
+            placed = true;
+            break;
+          }
+
+          if (!placed) break;
+          direction = direction === 1 ? -1 : 1;
+        }
       });
 
       const applyAutoFillForRaid = async (state: {
         detail: RaidDetail;
         picks: Participant[];
         used: Set<string>;
+        planned: Participant[];
       }): Promise<{
         raidId: string;
         name: string;
         result: AutoAssignResult;
       }> => {
+        for (const planned of state.planned) {
+          if (planned.raidId === state.detail.id) {
+            state.picks.push(planned);
+            continue;
+          }
+          const cloned = await addParticipant(state.detail.id, {
+            serverId: planned.character.serverId,
+            characterId: planned.character.characterId,
+            damage: planned.damage,
+            buffPower: planned.buffPower,
+          });
+          state.picks.push({
+            ...cloned,
+            character: planned.character,
+          });
+        }
+
         const result = autoAssignParticipants({
           participants: state.picks,
           partyCount: activeRaidMode.partyCount,
@@ -579,7 +613,7 @@ function LeaderDashboard() {
       for (let idx = 0; idx < raidStates.length; idx += 1) {
         const state = raidStates[idx];
         if (!state.detail) continue;
-        const assignment = await applyAutoFillForRaid(state as {detail: RaidDetail; picks: Participant[]; used: Set<string>});
+        const assignment = await applyAutoFillForRaid(state as {detail: RaidDetail; picks: Participant[]; used: Set<string>; planned: Participant[]});
         const label =
           dedupedTargets.length > 0
             ? `${idx + 1}기`
@@ -635,6 +669,20 @@ function LeaderDashboard() {
       const candidate = overrides?.candidate ?? addCandidate;
       if (!targetRaidId) throw new Error("레이드를 먼저 선택하세요.");
       if (!candidate) throw new Error("캐릭터를 선택하세요.");
+      if (
+        leaderCharacter &&
+        candidate.characterId === leaderCharacter.characterId &&
+        candidate.serverId === leaderCharacter.serverId
+      ) {
+        const duplicateExists = participants.some(
+          (p) =>
+            p.character.characterId === candidate.characterId &&
+            p.character.serverId === candidate.serverId
+        );
+        if (duplicateExists) {
+          throw new Error("공대장 캐릭터는 중복 신청할 수 없습니다.");
+        }
+      }
       const damageValue = overrides?.damage !== undefined ? overrides.damage : addDamage;
       const buffValue = overrides?.buff !== undefined ? overrides.buff : addBuff;
       const parsedDamage = damageValue ? Number(damageValue) : 0;
@@ -659,8 +707,39 @@ function LeaderDashboard() {
     },
   });
 
+  const resetAssignmentsMutation = useMutation({
+    mutationFn: async () => {
+      const targets =
+        cohortRaidDetails.length > 0
+          ? cohortRaidDetails
+          : raid
+            ? [raid]
+            : [];
+      if (targets.length === 0) throw new Error("레이드를 먼저 선택하세요.");
+
+      let cleared = 0;
+      for (const detail of targets) {
+        const updates = detail.participants
+          .filter((p) => p.partyNumber !== null || p.slotIndex !== null)
+          .map((p) => updateParticipant(detail.id, p.id, {partyNumber: null, slotIndex: null}));
+        if (updates.length > 0) {
+          await Promise.all(updates);
+          cleared += updates.length;
+        }
+      }
+      return {cleared, raidIds: targets.map((r) => r.id)};
+    },
+    onSuccess: (result) => {
+      result.raidIds.forEach((id) => queryClient.invalidateQueries({queryKey: ["raid", id]}));
+      setMessage(`배치를 초기화했습니다. 해제 인원 ${result.cleared}명`);
+    },
+    onError: (error) => {
+      setMessage(error instanceof Error ? error.message : "배치 초기화에 실패했습니다.");
+    },
+  });
+
   const recentRaidsList = recentRaidsQuery.data ?? [];
-  const cohortCount = Math.max(batchCount, cohortRaids.length, 1);
+  const cohortCount = Math.max(cohortRaids.length, 1);
 
   const cohortRaidQueries = useQueries({
     queries: cohortRaids.map((summary) => ({
@@ -683,21 +762,126 @@ function LeaderDashboard() {
     return details;
   }, [cohortRaidQueries, cohortRaids.length, raid]);
 
-  const pooledUnassigned = useMemo(() => {
+  const cohortDetailMap = useMemo(() => {
+    const map = new Map<string, RaidDetail>();
+    cohortRaidDetails.forEach((detail) => map.set(detail.id, detail));
+    return map;
+  }, [cohortRaidDetails]);
+
+  const pooledParticipants = useMemo(() => {
     const source = cohortRaidDetails.length > 0 ? cohortRaidDetails : raid ? [raid] : [];
     const seen = new Set<string>();
     const list: Participant[] = [];
     source.forEach((detail) => {
-      detail.participants
-        .filter((p) => !p.partyNumber)
-        .forEach((p) => {
-          if (seen.has(p.id)) return;
-          seen.add(p.id);
-          list.push(p);
-        });
+      detail.participants.forEach((p) => {
+        if (seen.has(p.id)) return;
+        seen.add(p.id);
+        list.push(p);
+      });
     });
     return list;
   }, [cohortRaidDetails, raid]);
+
+  const pooledUnassigned = useMemo(() => {
+    const seen = new Set<string>();
+    const list: Participant[] = [];
+    pooledParticipants
+      .filter((p) => !p.partyNumber)
+      .forEach((p) => {
+        if (seen.has(p.id)) return;
+        seen.add(p.id);
+        list.push(p);
+    });
+    return list;
+  }, [pooledParticipants]);
+
+  const adventureGroups = useMemo(() => {
+    const groups: Record<
+      string,
+      {key: string; adventureName: string | null; label: string; total: number; assigned: number; characters: string[]}
+    > = {};
+
+    pooledParticipants.forEach((p) => {
+      const rawName = p.character.adventureName?.trim();
+      const adventureName = rawName && rawName.length > 0 ? rawName : null;
+      const key = adventureName ?? "__unknown__";
+      if (!groups[key]) {
+        groups[key] = {
+          key,
+          adventureName,
+          label: adventureName ?? "모험단 미표기",
+          total: 0,
+          assigned: 0,
+          characters: [],
+        };
+      }
+      const group = groups[key];
+      group.total += 1;
+      if (p.partyNumber) {
+        group.assigned += 1;
+      }
+      if (group.characters.length < 5) {
+        group.characters.push(p.character.characterName);
+      }
+    });
+
+    return Object.values(groups).sort((a, b) => {
+      if (b.total !== a.total) return b.total - a.total;
+      return a.label.localeCompare(b.label);
+    });
+  }, [pooledParticipants]);
+
+  const groupedRecentRaids = useMemo(() => {
+    const list = recentRaidsList;
+    if (!list || list.length === 0) return [];
+    const groups = new Map<
+      string,
+      {
+        baseName: string;
+        raids: RaidSummary[];
+        latest: RaidSummary;
+        count: number;
+      }
+    >();
+    list.forEach((item) => {
+      const base = normalizeCohortName(item.name);
+      const existing = groups.get(base);
+      if (!existing) {
+        groups.set(base, {baseName: base, raids: [item], latest: item, count: 1});
+        return;
+      }
+      existing.raids.push(item);
+      existing.count += 1;
+      const existingDate = existing.latest.createdAt ? new Date(existing.latest.createdAt).getTime() : 0;
+      const currentDate = item.createdAt ? new Date(item.createdAt).getTime() : 0;
+      if (currentDate > existingDate) {
+        existing.latest = item;
+      }
+    });
+    return Array.from(groups.values()).sort((a, b) => {
+      const aDate = a.latest.createdAt ? new Date(a.latest.createdAt).getTime() : 0;
+      const bDate = b.latest.createdAt ? new Date(b.latest.createdAt).getTime() : 0;
+      return bDate - aDate;
+    });
+  }, [recentRaidsList]);
+
+  const handleRemoveEmptyCohort = (index: number) => {
+    setCohortRaids((prev) => {
+      const target = prev[index];
+      if (!target) return prev;
+      const detail = cohortDetailMap.get(target.id);
+      if (!detail || detail.participants.length > 0) return prev;
+      const next = prev.filter((_, idx) => idx !== index);
+      if (next.length === 0) {
+        setRaidId(null);
+      } else if (raidId === target.id) {
+        setRaidId(next[0].id);
+        setRaidName(next[0].name);
+      }
+      setMessage("빈 기수를 목록에서 제거했습니다.");
+      return next;
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -727,22 +911,22 @@ function LeaderDashboard() {
           </div>
           <div className="flex flex-wrap gap-2">
             <label className="flex items-center gap-2 text-xs text-text-subtle bg-panel border border-panel-border rounded-lg px-3 py-1">
-              <span>기수 수</span>
+              <span>기수 추가</span>
               <input
                 type="number"
                 min={1}
                 max={30}
-                value={batchCount}
+                value={appendCount}
                 onChange={(e) => {
                   const next = Number(e.target.value);
                   if (Number.isNaN(next)) return;
-                  setBatchCount(Math.min(Math.max(next, 1), 30));
+                  setAppendCount(Math.min(Math.max(next, 1), 30));
                 }}
                 className="w-16 rounded border border-panel-border bg-panel px-2 py-1 text-sm text-text focus:border-primary focus:outline-none"
               />
             </label>
             <button
-              onClick={handleCreateRaids}
+              onClick={handleAppendCohorts}
               disabled={
                 !leaderId ||
                 createRaidMutation.isPending ||
@@ -751,7 +935,7 @@ function LeaderDashboard() {
               className="pill border-primary/30 bg-primary text-white hover:bg-primary-dark shadow-soft transition disabled:opacity-60"
             >
               <Sparkles className="h-4 w-4" />
-              {batchCount > 1 ? `새 레이드 ${batchCount}개 생성` : "새 레이드 생성"}
+              {appendCount > 1 ? `기수 ${appendCount}개 추가` : "기수 추가"}
             </button>
             <button
               onClick={() => latestRaidMutation.mutate()}
@@ -966,22 +1150,22 @@ function LeaderDashboard() {
             )}
           </div>
 
-          {recentRaidsQuery.data && recentRaidsQuery.data.length > 0 ? (
+          {groupedRecentRaids.length > 0 ? (
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-              {recentRaidsQuery.data.map((r) => (
+              {groupedRecentRaids.map((group) => (
                 <div
-                  key={r.id}
+                  key={group.baseName}
                   className="rounded-xl border border-panel-border bg-panel p-4 shadow-soft space-y-3"
                 >
                   {(() => {
-                    const formattedDate = r.createdAt ? new Date(r.createdAt).toLocaleDateString() : "날짜 미표기";
+                    const formattedDate = group.latest.createdAt ? new Date(group.latest.createdAt).toLocaleDateString() : "날짜 미표기";
                     return (
                       <div className="space-y-2">
                         <div className="flex items-start justify-between gap-2">
                           <div className="space-y-1">
                         <p
                           className="font-display text-lg text-text"
-                          title={r.name}
+                          title={group.baseName}
                           style={{
                             display: "-webkit-box",
                             WebkitLineClamp: 2,
@@ -989,20 +1173,20 @@ function LeaderDashboard() {
                             overflow: "hidden",
                           }}
                         >
-                          {r.name}
+                          {group.baseName}
                         </p>
                             <p className="text-xs text-text-subtle">
-                              참가자 {r.participantCount}명 · {formattedDate}
+                              기수 {group.count}개 · 최신 {formattedDate}
                             </p>
                           </div>
                           <span
                             className={`pill text-[11px] ${
-                              r.isPublic
+                              group.latest.isPublic
                                 ? "border-emerald-200 bg-emerald-50 text-emerald-700"
                                 : "border-slate-300 bg-slate-50 text-slate-700"
                             }`}
                           >
-                            {r.isPublic ? "공개" : "비공개"}
+                            {group.latest.isPublic ? "공개" : "비공개"}
                           </span>
                         </div>
                       </div>
@@ -1012,11 +1196,11 @@ function LeaderDashboard() {
                     <button
                       type="button"
                       onClick={() => {
-                        const cohort = buildCohortFromList(r, recentRaidsList);
+                        const cohort = buildCohortFromList(group.latest, recentRaidsList);
                         setCohortRaids(cohort);
-                        setRaidId(r.id);
-                        setRaidName(r.name);
-                        setIsPublic(r.isPublic);
+                        setRaidId(group.latest.id);
+                        setRaidName(group.latest.name);
+                        setIsPublic(group.latest.isPublic);
                         setMessage(`${cohort.length}기 레이드를 불러왔습니다.`);
                       }}
                       className="pill border-panel-border bg-panel text-text hover:bg-panel-muted transition text-sm"
@@ -1025,7 +1209,7 @@ function LeaderDashboard() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => cloneMutation.mutate(r.id)}
+                      onClick={() => cloneMutation.mutate(group.latest.id)}
                       disabled={cloneMutation.isPending}
                       className="pill border-panel-border bg-panel text-text hover:bg-panel-muted transition text-sm disabled:opacity-60"
                     >
@@ -1193,21 +1377,20 @@ function LeaderDashboard() {
 
       <section className="space-y-4">
         <div className="rounded-xl border border-panel-border bg-panel px-3 py-2 shadow-soft space-y-2">
-          <div className="flex items-center gap-2 text-xs text-text-subtle">
-            <CalendarClock className="h-3.5 w-3.5 text-primary" />
-            기수 선택
-          </div>
-          <div className="flex items-center gap-2 overflow-x-auto pb-1">
+        <div className="flex items-center gap-2 text-xs text-text-subtle">
+          <CalendarClock className="h-3.5 w-3.5 text-primary" />
+          기수 선택
+        </div>
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
             {Array.from({length: cohortCount}, (_, idx) => {
               const raid = cohortRaids[idx];
               const active = raid && raidId === raid.id;
               const disabled = !raid;
+              const detail = raid ? cohortDetailMap.get(raid.id) : null;
+              const canRemove = detail && detail.participants.length === 0;
               return (
-                <button
+                <div
                   key={idx}
-                  type="button"
-                  onClick={() => raid && handleQuickRaidSelect(raid, idx)}
-                  disabled={disabled}
                   className={clsx(
                     "flex min-w-[110px] items-center justify-between gap-2 rounded-lg border px-3 py-2 text-xs transition",
                     active
@@ -1217,6 +1400,16 @@ function LeaderDashboard() {
                         : "border-panel-border bg-panel text-text hover:bg-panel-muted"
                   )}
                   title={raid?.name ?? "레이드를 생성하거나 불러오세요."}
+                  role={disabled ? undefined : "button"}
+                  tabIndex={disabled ? -1 : 0}
+                  onClick={() => raid && handleQuickRaidSelect(raid, idx)}
+                  onKeyDown={(e) => {
+                    if (disabled) return;
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      raid && handleQuickRaidSelect(raid, idx);
+                    }
+                  }}
                 >
                   <span className="font-display text-sm">{idx + 1}기</span>
                   <span
@@ -1227,7 +1420,20 @@ function LeaderDashboard() {
                   >
                     {raid?.name ?? "미지정"}
                   </span>
-                </button>
+                  {canRemove && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRemoveEmptyCohort(idx);
+                      }}
+                      className="text-[10px] text-rose-600 hover:text-rose-700 underline-offset-2 underline"
+                      aria-label={`${idx + 1}기 삭제`}
+                    >
+                      삭제
+                    </button>
+                  )}
+                </div>
               );
             })}
           </div>
@@ -1238,6 +1444,14 @@ function LeaderDashboard() {
             <CalendarClock className="h-4 w-4" />
             파티에 배치하면 즉시 저장됩니다.
           </div>
+          <button
+            type="button"
+            onClick={() => resetAssignmentsMutation.mutate()}
+            disabled={resetAssignmentsMutation.isPending || (!raidId && cohortRaidDetails.length === 0)}
+            className="pill border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 transition text-sm disabled:opacity-60"
+          >
+            배치 초기화
+          </button>
           <div className="text-sm text-text-subtle">
             평균 딜/버프는 단순 산술 평균 (딜=억, 버프=만)
           </div>
