@@ -8,7 +8,10 @@ import type {
   RaidGroup,
   StatHistory,
   UUID,
+  AutoFillResponse,
+  UpdongAutoFillResponse,
 } from "../types";
+import type {PartyTargetConfig} from "../utils/autoAssign";
 import type {DnfServerId} from "../constants";
 
 export async function searchCharacters(characterName: string, serverId: DnfServerId) {
@@ -194,5 +197,38 @@ export async function getStatHistory(raidId: UUID, participantId: UUID) {
   const {data} = await api.get<StatHistory>(
     `/raids/${raidId}/participants/${participantId}/history`
   );
+  return data;
+}
+
+export async function autoFillRaids(payload: {
+  raidIds: UUID[];
+  partyCount: number;
+  slotsPerParty: number;
+  targets?: PartyTargetConfig[];
+  keepPlaced?: boolean;
+}) {
+  const {raidIds, partyCount, slotsPerParty, targets, keepPlaced} = payload;
+  const path = keepPlaced ? "/raids/auto-fill/keep-placed" : "/raids/auto-fill";
+  const body: Record<string, unknown> = {
+    raidIds,
+    partyCount,
+    slotsPerParty,
+  };
+  if (targets && targets.length > 0) {
+    body.partyTargets = targets.map((target) => ({
+      damageTarget: target.damageTarget,
+      buffTarget: target.buffTarget,
+    }));
+  }
+  const {data} = await api.post<AutoFillResponse>(path, body);
+  return data;
+}
+
+export async function autoFillUpdong(payload: {
+  raidIds: UUID[];
+  partyCount: number;
+  slotsPerParty: number;
+}) {
+  const {data} = await api.post<UpdongAutoFillResponse>("/raids/auto-fill/updong", payload);
   return data;
 }

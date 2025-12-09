@@ -57,6 +57,55 @@ data class RaidGroupResponse(
     val cohorts: List<RaidSummaryResponse>
 )
 
+data class PartyTargetRequest(
+    @field:Positive(message = "딜 목표는 1 이상이어야 합니다.")
+    val damageTarget: Long,
+    @field:Positive(message = "버프 목표는 1 이상이어야 합니다.")
+    val buffTarget: Long
+)
+
+data class AutoFillRequest(
+    @field:NotEmpty(message = "레이드 ID가 필요합니다.")
+    val raidIds: List<UUID>,
+    @field:Min(1, message = "파티 수는 1 이상이어야 합니다.")
+    @field:Max(4, message = "파티 수는 4 이하이어야 합니다.")
+    val partyCount: Int = 3,
+    @field:Min(1, message = "파티 슬롯은 1 이상이어야 합니다.")
+    @field:Max(8, message = "파티 슬롯은 8 이하이어야 합니다.")
+    val slotsPerParty: Int = 4,
+    val partyTargets: List<PartyTargetRequest>? = null
+)
+
+data class AutoFillRaidResult(
+    val raidId: UUID,
+    val name: String,
+    val usedCount: Int,
+    val duplicateAdventureCount: Int,
+    val unplacedCount: Int
+)
+
+data class AutoFillResponse(
+    val results: List<AutoFillRaidResult>,
+    val raids: List<RaidDetailResponse>
+)
+
+data class UpdongAutoFillRequest(
+    @field:NotEmpty(message = "레이드 ID가 필요합니다.")
+    val raidIds: List<UUID>,
+    @field:Min(1, message = "파티 수는 1 이상이어야 합니다.")
+    @field:Max(4, message = "파티 수는 4 이하이어야 합니다.")
+    val partyCount: Int = 3,
+    @field:Min(1, message = "파티 슬롯은 1 이상이어야 합니다.")
+    @field:Max(8, message = "파티 슬롯은 8 이하이어야 합니다.")
+    val slotsPerParty: Int = 4
+)
+
+data class UpdongAutoFillResponse(
+    val assignedCount: Int,
+    val missingCount: Int,
+    val raids: List<RaidDetailResponse>
+)
+
 data class StatHistoryEntryResponse(
     val id: UUID,
     val damage: Long,

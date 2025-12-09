@@ -1,21 +1,23 @@
 import {useEffect, useMemo, useRef, useState} from "react";
 import {useMutation, useQuery, useQueryClient, useQueries} from "@tanstack/react-query";
-import {CalendarClock, Copy, Loader2, RefreshCw, Search, Sparkles, Telescope, Trash2, Undo2} from "lucide-react";
+import {CalendarClock, Copy, Loader2, PlugZap, RefreshCw, Search, Sparkles, Telescope, Trash2, Undo2} from "lucide-react";
 import {clsx} from "clsx";
 
 import {
-  cloneRaid,
-  createRaid,
-  getLatestRaid,
-  getRaid,
-  getRecentRaids,
-  addParticipant,
-  searchCharacters,
-  searchCharactersByAdventure,
-  updateParticipant,
-  updateRaidVisibility,
-  deleteParticipant,
-  deleteParticipantsByAdventure,
+    cloneRaid,
+    createRaid,
+    getLatestRaid,
+    getRaid,
+    getRecentRaids,
+    addParticipant,
+    searchCharacters,
+    searchCharactersByAdventure,
+    updateParticipant,
+    updateRaidVisibility,
+    deleteParticipant,
+    deleteParticipantsByAdventure,
+    autoFillRaids,
+    autoFillUpdong, addParticipantsBulk,
 } from "../services/dnf";
 import {useRaidSession} from "../hooks/useRaidSession";
 import {PartyBoard} from "../components/PartyBoard";
@@ -29,7 +31,7 @@ import {
 } from "../constants";
 import {SupportModal} from "../components/SupportModal";
 import {useRaidMode} from "../hooks/useRaidMode";
-import {autoAssignParticipants, type PartyTargetConfig, type AutoAssignResult} from "../utils/autoAssign";
+import type {PartyTargetConfig} from "../utils/autoAssign";
 import {buildLeaderId} from "../hooks/useRaidSession";
 
 function toRaidSummary(data: RaidDetail): RaidSummary {
@@ -54,17 +56,6 @@ function normalizeCohortList(
   return cleaned;
 }
 
-function resolveCohortOrder(
-  preference: Participant["cohortPreference"],
-  direction: 1 | -1,
-  forwardOrder: number[],
-  reverseOrder: number[]
-): number[][] {
-  if (preference === "FRONT") return [forwardOrder, reverseOrder];
-  if (preference === "BACK") return [reverseOrder, forwardOrder];
-  return direction === 1 ? [forwardOrder, reverseOrder] : [reverseOrder, forwardOrder];
-}
-
 function LeaderDashboard() {
   const {raidId, motherRaidId, leaderId, leaderCharacter, setRaidId, setMotherRaidId, setLeaderCharacter} = useRaidSession();
   const {raidMode: selectedRaidMode, setRaidModeId} = useRaidMode();
@@ -72,7 +63,7 @@ function LeaderDashboard() {
   const [isPublic, setIsPublic] = useState(false);
   const [cohortCountInput, setCohortCountInput] = useState(1);
   const [leaderSearch, setLeaderSearch] = useState("");
-  const [leaderSearchTarget, setLeaderSearchTarget] = useState<string>(DNF_SERVERS[0].id);
+  const [leaderSearchTarget, setLeaderSearchTarget] = useState<string>("adventure");
   const [message, setMessage] = useState<string | null>(null);
   const [addCandidate, setAddCandidate] = useState<DnfCharacter | null>(null);
   const [addDamage, setAddDamage] = useState("");
@@ -239,6 +230,7 @@ function LeaderDashboard() {
   const participants = raid?.participants ?? [];
   const leaderSearchResults = leaderSearchMutation.data ?? [];
   const activeRaidMode = selectedRaidMode;
+  const minFameRequirement = activeRaidMode.minFame ?? null;
   const recentLimit = 12;
   const [showSupportModal, setShowSupportModal] = useState(false);
 
@@ -248,10 +240,10 @@ function LeaderDashboard() {
 
   const filteredLeaderSearchResults = useMemo(
     () =>
-      activeRaidMode.minFame
-        ? leaderSearchResults.filter((c) => c.fame >= activeRaidMode.minFame)
+      minFameRequirement != null
+        ? leaderSearchResults.filter((c) => c.fame >= minFameRequirement)
         : leaderSearchResults,
-    [activeRaidMode.minFame, leaderSearchResults]
+    [leaderSearchResults, minFameRequirement]
   );
 
   const partyStats = useMemo(() => {
@@ -310,6 +302,24 @@ function LeaderDashboard() {
       };
     });
   }, [activeRaidMode.partyCount, participants, partyTargets]);
+
+  const buildUserPartyTargets = (): PartyTargetConfig[] | undefined => {
+    const targets: PartyTargetConfig[] = [];
+    for (let idx = 0; idx < activeRaidMode.partyCount; idx += 1) {
+      const target = partyTargets[idx];
+      if (!target) break;
+      const damage = parseTargetValue(target.damage);
+      const buff = parseTargetValue(target.buff);
+      if (damage == null && buff == null) {
+        break; // stop at first blank; rest will use 서버 기본값
+      }
+      if (damage == null || buff == null) {
+        throw new Error("파티 목표는 딜/버프를 모두 입력하거나 비워두세요.");
+      }
+      targets.push({damageTarget: damage, buffTarget: buff});
+    }
+    return targets.length > 0 ? targets : undefined;
+  };
 
   const normalizeCohortName = (name?: string | null) => {
     if (!name) return "";
@@ -546,234 +556,51 @@ function LeaderDashboard() {
     }
   }, [leaderId, raidId, latestRaidMutation]);
 
+  const resolveTargetSummaries = () => {
+    const recentList = recentRaidsQuery.data ?? [];
+    const defaultCohort =
+      raid && raidId
+        ? buildCohortFromList(toRaidSummary(raid), recentList.length > 0 ? recentList : [toRaidSummary(raid)])
+        : [];
+    const targetSummaries = normalizedCohorts.length > 0 ? normalizedCohorts : defaultCohort;
+    return Array.from(new Map(targetSummaries.map((item) => [item.id, item])).values());
+  };
+
+  const applyRaidUpdates = (raids: RaidDetail[]) => {
+    raids.forEach((updated) => {
+      queryClient.setQueryData(["raid", updated.id], updated);
+    });
+  };
+
   const autoFillMutation = useMutation({
     mutationFn: async () => {
-      const recentList = recentRaidsQuery.data ?? [];
-      const defaultCohort =
-        raid && raidId
-          ? buildCohortFromList(toRaidSummary(raid), recentList.length > 0 ? recentList : [toRaidSummary(raid)])
-          : [];
-      const targetSummaries =
-        normalizedCohorts.length > 0
-          ? normalizedCohorts
-          : defaultCohort;
-      const dedupedTargets = Array.from(new Map(targetSummaries.map((item) => [item.id, item])).values());
+      const dedupedTargets = resolveTargetSummaries();
       if (dedupedTargets.length === 0) throw new Error("레이드를 먼저 선택하세요.");
-      if (targetSummaries.length === 0) throw new Error("레이드를 먼저 선택하세요.");
-
-      const touchedRaidIds = new Set<string>();
-      dedupedTargets.forEach((target) => touchedRaidIds.add(target.id));
-
-      const raidDetails = await Promise.all(
-        dedupedTargets.map(async (summary) => {
-          if (summary.id === raid?.id && raid) return raid;
-          return getRaid(summary.id);
-        })
-      );
-
-      const totalApplicants = raidDetails.reduce(
-        (sum, detail) => sum + (detail?.participants.length ?? 0),
-        0
-      );
-      if (totalApplicants === 0) throw new Error("배치할 신청자가 없습니다.");
-
-      const buildAdventureKey = (p: Participant) => {
-        const raw = p.character.adventureName?.trim().toLowerCase();
-        if (raw && raw.length > 0) return `adv:${raw}`;
-        return `char:${p.character.characterId}`;
-      };
-
-      const scoreParticipant = (p: Participant) => p.damage + p.buffPower * 8;
-
-      const adventureBuckets = new Map<string, Participant[]>();
-      const overallUsed = new Set<string>();
-
-      raidDetails.forEach((detail) => {
-        detail?.participants.forEach((p) => {
-          const key = buildAdventureKey(p);
-          if (!adventureBuckets.has(key)) {
-            adventureBuckets.set(key, []);
-          }
-          adventureBuckets.get(key)?.push(p);
-          if (p.partyNumber) {
-            overallUsed.add(p.id);
-          }
-        });
+      const userTargets = buildUserPartyTargets();
+      const response = await autoFillRaids({
+        raidIds: dedupedTargets.map((item) => item.id),
+        partyCount: activeRaidMode.partyCount,
+        slotsPerParty: activeRaidMode.slotsPerParty,
+        targets: userTargets,
       });
-
-      adventureBuckets.forEach((list) => {
-        list.sort((a, b) => scoreParticipant(b) - scoreParticipant(a));
-      });
-
-      const raidStates = dedupedTargets.map((target) => {
-        const detail = raidDetails.find((d) => d?.id === target.id) ?? null;
-        const assigned = detail?.participants.filter((p) => p.partyNumber) ?? [];
-        const used = new Set<string>(assigned.map((p) => buildAdventureKey(p)));
-        const capacity =
-          Math.max(activeRaidMode.partyCount * activeRaidMode.slotsPerParty - assigned.length, 0);
-        assigned.forEach((p) => overallUsed.add(p.id));
-        return {
-          detail,
-          picks: detail ? [...assigned] : [],
-          used,
-          capacity,
-          planned: [] as Participant[],
-        };
-      });
-
-      const adventureEntries = Array.from(adventureBuckets.entries()).sort(
-        (a, b) => scoreParticipant(b[1][0] ?? {damage: 0, buffPower: 0} as Participant) - scoreParticipant(a[1][0] ?? {damage: 0, buffPower: 0} as Participant)
-      );
-
-      const forwardOrder = raidStates.map((_, idx) => idx);
-      const reverseOrder = [...forwardOrder].reverse();
-
-      adventureEntries.forEach(([adventureKey, queue]) => {
-        let direction: 1 | -1 = 1;
-        while (queue.length > 0) {
-          let candidate: Participant | undefined;
-          while (queue.length > 0 && !candidate) {
-            const next = queue.shift();
-            if (!next) break;
-            if (overallUsed.has(next.id)) continue;
-            candidate = next;
-          }
-          if (!candidate) break;
-
-          let placed = false;
-          const orders = resolveCohortOrder(candidate.cohortPreference, direction, forwardOrder, reverseOrder);
-          for (const order of orders) {
-            for (const idx of order) {
-              const state = raidStates[idx];
-              if (!state.detail) continue;
-              if (state.capacity <= 0) continue;
-              if (state.used.has(adventureKey)) continue;
-              state.planned.push(candidate);
-              state.used.add(adventureKey);
-              state.capacity -= 1;
-              overallUsed.add(candidate.id);
-              placed = true;
-              break;
-            }
-            if (placed) break;
-          }
-
-          if (!placed) break;
-          direction = direction === 1 ? -1 : 1;
-        }
-      });
-
-      const applyAutoFillForRaid = async (state: {
-        detail: RaidDetail;
-        picks: Participant[];
-        used: Set<string>;
-        planned: Participant[];
-      }): Promise<{
-        raidId: string;
-        name: string;
-        result: AutoAssignResult;
-      }> => {
-        touchedRaidIds.add(state.detail.id);
-        for (const planned of state.planned) {
-          if (planned.raidId === state.detail.id) {
-            state.picks.push(planned);
-            continue;
-          }
-          const cloned = await addParticipant(state.detail.id, {
-            serverId: planned.character.serverId,
-            characterId: planned.character.characterId,
-            damage: planned.damage,
-            buffPower: planned.buffPower,
-            cohortPreference: planned.cohortPreference ?? null,
-          });
-          state.picks.push({
-            ...cloned,
-            character: planned.character,
-          });
-          if (planned.raidId) {
-            touchedRaidIds.add(planned.raidId);
-            await deleteParticipant(planned.raidId, planned.id);
-          }
-        }
-
-        const result = autoAssignParticipants({
-          participants: state.picks,
-          partyCount: activeRaidMode.partyCount,
-          slotsPerParty: activeRaidMode.slotsPerParty,
-          targets: computedPartyTargets,
-        });
-
-        const participantMap = new Map(state.picks.map((p) => [p.id, p]));
-        const updates = result.assignments
-          .filter(({participantId, partyNumber, slotIndex}) => {
-            const current = participantMap.get(participantId);
-            if (!current) return false;
-            return current.partyNumber !== partyNumber || current.slotIndex !== slotIndex;
-          })
-          .map(({participantId, partyNumber, slotIndex}) =>
-            updateParticipant(state.detail.id, participantId, {partyNumber, slotIndex})
-          );
-
-        if (updates.length > 0) {
-          await Promise.all(updates);
-        }
-
-        return {raidId: state.detail.id, name: state.detail.name, result};
-      };
-
-      const results: Array<{
-        raidId: string;
-        name: string;
-        label: string;
-        result: AutoAssignResult;
-      }> = [];
-
-      for (let idx = 0; idx < raidStates.length; idx += 1) {
-        const state = raidStates[idx];
-        if (!state.detail) continue;
-        const assignment = await applyAutoFillForRaid(state as {detail: RaidDetail; picks: Participant[]; used: Set<string>; planned: Participant[]});
-        const label =
-          dedupedTargets.length > 0
-            ? `${idx + 1}기`
-            : state.detail.name
-              ? state.detail.name
-              : `${idx + 1}기`;
-        results.push({...assignment, label});
-      }
-
-      return {results, touchedRaidIds: Array.from(touchedRaidIds)};
+      const labels = dedupedTargets.map((item, idx) => item.name || `${idx + 1}기`);
+      return {response, labels};
     },
-    onSuccess: ({results, touchedRaidIds}) => {
-      touchedRaidIds.forEach((raidId) => {
-        queryClient.invalidateQueries({queryKey: ["raid", raidId]});
-      });
-
-      const summaryText =
-        results.length === 1
-          ? (() => {
-              const [result] = results;
-              const tokens = [`배치 ${result.result.usedCount}명`];
-              if (result.result.duplicateAdventureCount > 0) {
-                tokens.push(`모험단 중복 ${result.result.duplicateAdventureCount}명 제외`);
-              }
-              if (result.result.unplacedCount > 0) {
-                tokens.push(`남은 ${result.result.unplacedCount}명 미배치`);
-              }
-              return `${result.label}: ${tokens.join(" · ")}`;
-            })()
-          : results
-              .map((entry) => {
-                const tokens = [`배치 ${entry.result.usedCount}명`];
-                if (entry.result.duplicateAdventureCount > 0) {
-                  tokens.push(`모험단 중복 ${entry.result.duplicateAdventureCount}명 제외`);
-                }
-                if (entry.result.unplacedCount > 0) {
-                  tokens.push(`남은 ${entry.result.unplacedCount}명 미배치`);
-                }
-                return `${entry.label}: ${tokens.join(" · ")}`;
-              })
-              .join(" / ");
-
+    onSuccess: ({response, labels}) => {
+      applyRaidUpdates(response.raids);
+      const summaryText = response.results
+        .map((entry, idx) => {
+          const tokens = [`배치 ${entry.usedCount}명`];
+          if (entry.duplicateAdventureCount > 0) {
+            tokens.push(`모험단 중복 ${entry.duplicateAdventureCount}명 제외`);
+          }
+          if (entry.unplacedCount > 0) {
+            tokens.push(`남은 ${entry.unplacedCount}명 미배치`);
+          }
+          const label = labels[idx] ?? entry.name;
+          return `${label}: ${tokens.join(" · ")}`;
+        })
+        .join(" / ");
       setMessage(`자동으로 파티를 채웠습니다. ${summaryText}`);
     },
     onError: (error) => {
@@ -783,321 +610,62 @@ function LeaderDashboard() {
 
   const autoFillKeepPlacedMutation = useMutation({
     mutationFn: async () => {
-      const recentList = recentRaidsQuery.data ?? [];
-      const defaultCohort =
-        raid && raidId
-          ? buildCohortFromList(toRaidSummary(raid), recentList.length > 0 ? recentList : [toRaidSummary(raid)])
-          : [];
-      const targetSummaries =
-        normalizedCohorts.length > 0
-          ? normalizedCohorts
-          : defaultCohort;
-      const dedupedTargets = Array.from(new Map(targetSummaries.map((item) => [item.id, item])).values());
+      const dedupedTargets = resolveTargetSummaries();
       if (dedupedTargets.length === 0) throw new Error("레이드를 먼저 선택하세요.");
-      if (targetSummaries.length === 0) throw new Error("레이드를 먼저 선택하세요.");
-
-      const touchedRaidIds = new Set<string>();
-      dedupedTargets.forEach((target) => touchedRaidIds.add(target.id));
-
-      const raidDetails = await Promise.all(
-        dedupedTargets.map(async (summary) => {
-          if (summary.id === raid?.id && raid) return raid;
-          return getRaid(summary.id);
-        })
-      );
-
-      const totalApplicants = raidDetails.reduce(
-        (sum, detail) => sum + (detail?.participants.length ?? 0),
-        0
-      );
-      if (totalApplicants === 0) throw new Error("배치할 신청자가 없습니다.");
-
-      const buildAdventureKey = (p: Participant) => {
-        const raw = p.character.adventureName?.trim().toLowerCase();
-        if (raw && raw.length > 0) return `adv:${raw}`;
-        return `char:${p.character.characterId}`;
-      };
-
-      const scoreParticipant = (p: Participant) => p.damage + p.buffPower * 8;
-
-      const adventureBuckets = new Map<string, Participant[]>();
-      const overallUsed = new Set<string>();
-
-      raidDetails.forEach((detail) => {
-        detail?.participants.forEach((p) => {
-          const key = buildAdventureKey(p);
-          if (!adventureBuckets.has(key)) {
-            adventureBuckets.set(key, []);
-          }
-          adventureBuckets.get(key)?.push(p);
-          if (p.partyNumber) {
-            overallUsed.add(p.id);
-          }
-        });
+      const userTargets = buildUserPartyTargets();
+      const response = await autoFillRaids({
+        raidIds: dedupedTargets.map((item) => item.id),
+        partyCount: activeRaidMode.partyCount,
+        slotsPerParty: activeRaidMode.slotsPerParty,
+        targets: userTargets,
+        keepPlaced: true,
       });
-
-      adventureBuckets.forEach((list) => {
-        list.sort((a, b) => scoreParticipant(b) - scoreParticipant(a));
-      });
-
-      const raidStates = dedupedTargets.map((target) => {
-        const detail = raidDetails.find((d) => d?.id === target.id) ?? null;
-        const assigned = detail?.participants.filter((p) => p.partyNumber) ?? [];
-        const used = new Set<string>(assigned.map((p) => buildAdventureKey(p)));
-        const capacity =
-          Math.max(activeRaidMode.partyCount * activeRaidMode.slotsPerParty - assigned.length, 0);
-        assigned.forEach((p) => overallUsed.add(p.id));
-        return {
-          detail,
-          picks: detail ? [...assigned] : [],
-          used,
-          capacity,
-          planned: [] as Participant[],
-        };
-      });
-
-      const adventureEntries = Array.from(adventureBuckets.entries()).sort(
-        (a, b) => scoreParticipant(b[1][0] ?? {damage: 0, buffPower: 0} as Participant) - scoreParticipant(a[1][0] ?? {damage: 0, buffPower: 0} as Participant)
-      );
-
-      const forwardOrder = raidStates.map((_, idx) => idx);
-      const reverseOrder = [...forwardOrder].reverse();
-
-      adventureEntries.forEach(([adventureKey, queue]) => {
-        let direction: 1 | -1 = 1;
-        while (queue.length > 0) {
-          let candidate: Participant | undefined;
-          while (queue.length > 0 && !candidate) {
-            const next = queue.shift();
-            if (!next) break;
-            if (overallUsed.has(next.id)) continue;
-            candidate = next;
-          }
-          if (!candidate) break;
-
-          let placed = false;
-          const orders = resolveCohortOrder(candidate.cohortPreference, direction, forwardOrder, reverseOrder);
-          for (const order of orders) {
-            for (const idx of order) {
-              const state = raidStates[idx];
-              if (!state.detail) continue;
-              if (state.capacity <= 0) continue;
-              if (state.used.has(adventureKey)) continue;
-              state.planned.push(candidate);
-              state.used.add(adventureKey);
-              state.capacity -= 1;
-              overallUsed.add(candidate.id);
-              placed = true;
-              break;
-            }
-            if (placed) break;
-          }
-
-          if (!placed) break;
-          direction = direction === 1 ? -1 : 1;
-        }
-      });
-
-      const findNextSlotIndex = (occupied: Set<number>, slotsPerParty: number) => {
-        for (let i = 0; i < slotsPerParty; i += 1) {
-          if (!occupied.has(i)) return i;
-        }
-        return slotsPerParty; // fallback, should not happen
-      };
-
-      const applyFillEmptyForRaid = async (state: {
-        detail: RaidDetail;
-        picks: Participant[];
-        used: Set<string>;
-        planned: Participant[];
-      }): Promise<{
-        raidId: string;
-        name: string;
-        result: AutoAssignResult;
-      }> => {
-        touchedRaidIds.add(state.detail.id);
-
-        const locked = state.detail.participants.filter((p) => p.partyNumber !== null && p.slotIndex !== null);
-
-        const occupied = new Map<number, Set<number>>();
-        const parties = Array.from({length: activeRaidMode.partyCount}, (_, idx) => {
-          const partyNumber = idx + 1;
-          const memberInParty = locked.filter((p) => p.partyNumber === partyNumber);
-          const partyOccupied = new Set<number>();
-          memberInParty.forEach((p) => {
-            if (p.slotIndex !== null && p.slotIndex !== undefined) {
-              partyOccupied.add(p.slotIndex);
-            }
-          });
-          occupied.set(partyNumber, partyOccupied);
-          const sumDamage = memberInParty.reduce((sum, p) => sum + p.damage, 0);
-          const sumBuff = memberInParty.reduce((sum, p) => sum + p.buffPower, 0);
-          return {
-            partyNumber,
-            members: [...memberInParty],
-            sumDamage,
-            sumBuff,
-            target: computedPartyTargets[idx],
-          };
-        });
-
-        const localUnassigned = state.detail.participants.filter(
-          (p) => !p.partyNumber || p.slotIndex === null || p.slotIndex === undefined
-        );
-
-        const plannedCandidates: Participant[] = [];
-        for (const planned of state.planned) {
-          if (planned.raidId === state.detail.id) {
-            plannedCandidates.push(planned);
-            continue;
-          }
-          const cloned = await addParticipant(state.detail.id, {
-            serverId: planned.character.serverId,
-            characterId: planned.character.characterId,
-            damage: planned.damage,
-            buffPower: planned.buffPower,
-            cohortPreference: planned.cohortPreference ?? null,
-          });
-          plannedCandidates.push({
-            ...cloned,
-            character: planned.character,
-          });
-          if (planned.raidId) {
-            touchedRaidIds.add(planned.raidId);
-            await deleteParticipant(planned.raidId, planned.id);
-          }
-        }
-
-        const candidates = [...localUnassigned, ...plannedCandidates];
-
-        const evaluateFit = (party: typeof parties[number], participant: Participant, slotsPerParty: number) => {
-          const nextCount = party.members.length + 1;
-          const nextDamageAvg = (party.sumDamage + participant.damage) / nextCount;
-          const nextBuffAvg = (party.sumBuff + participant.buffPower) / nextCount;
-          const targetDamage = Math.max(party.target.damageTarget, 1);
-          const targetBuff = Math.max(party.target.buffTarget, 1);
-
-          const damageDiff = Math.abs(nextDamageAvg - targetDamage) / targetDamage;
-          const buffDiff = Math.abs(nextBuffAvg - targetBuff) / targetBuff;
-          const loadPenalty = party.members.length / slotsPerParty;
-
-          return damageDiff + buffDiff + loadPenalty * 0.1;
-        };
-
-        const assignments: Array<{participantId: string; partyNumber: number | null; slotIndex: number | null}> = [];
-
-        candidates.forEach((candidate) => {
-          const adventureKey = buildAdventureKey(candidate);
-          if (state.used.has(adventureKey)) return;
-
-          let bestParty: typeof parties[number] | null = null;
-          let bestScore = Number.POSITIVE_INFINITY;
-
-          parties.forEach((party) => {
-            const partyOccupied = occupied.get(party.partyNumber) ?? new Set<number>();
-            if (partyOccupied.size >= activeRaidMode.slotsPerParty) return;
-            const fit = evaluateFit(party, candidate, activeRaidMode.slotsPerParty);
-            if (
-              fit < bestScore - 1e-6 ||
-              (Math.abs(fit - bestScore) < 1e-6 && party.members.length < (bestParty?.members.length ?? Infinity))
-            ) {
-              bestParty = party;
-              bestScore = fit;
-            }
-          });
-
-          if (!bestParty) return;
-
-          const partyOccupied = occupied.get(bestParty.partyNumber) ?? new Set<number>();
-          const slotIndex = findNextSlotIndex(partyOccupied, activeRaidMode.slotsPerParty);
-          partyOccupied.add(slotIndex);
-          occupied.set(bestParty.partyNumber, partyOccupied);
-          bestParty.members.push(candidate);
-          bestParty.sumDamage += candidate.damage;
-          bestParty.sumBuff += candidate.buffPower;
-          state.used.add(adventureKey);
-          assignments.push({
-            participantId: candidate.id,
-            partyNumber: bestParty.partyNumber,
-            slotIndex,
-          });
-        });
-
-        const updates = assignments
-          .map(({participantId, partyNumber, slotIndex}) =>
-            updateParticipant(state.detail.id, participantId, {partyNumber, slotIndex})
-          );
-
-        if (updates.length > 0) {
-          await Promise.all(updates);
-        }
-
-        const usedCount = locked.length + assignments.length;
-        const unplacedCount = locked.length + candidates.length - usedCount;
-
-        return {
-          raidId: state.detail.id,
-          name: state.detail.name,
-          result: {
-            assignments,
-            usedCount,
-            duplicateAdventureCount: 0,
-            unplacedCount,
-          },
-        };
-      };
-
-      const results: Array<{
-        raidId: string;
-        name: string;
-        label: string;
-        result: AutoAssignResult;
-      }> = [];
-
-      for (let idx = 0; idx < raidStates.length; idx += 1) {
-        const state = raidStates[idx];
-        if (!state.detail) continue;
-        const assignment = await applyFillEmptyForRaid(state as {detail: RaidDetail; picks: Participant[]; used: Set<string>; planned: Participant[]});
-        const label =
-          dedupedTargets.length > 0
-            ? `${idx + 1}기`
-            : state.detail.name
-              ? state.detail.name
-              : `${idx + 1}기`;
-        results.push({...assignment, label});
-      }
-
-      return {results, touchedRaidIds: Array.from(touchedRaidIds)};
+      const labels = dedupedTargets.map((item, idx) => item.name || `${idx + 1}기`);
+      return {response, labels};
     },
-    onSuccess: ({results, touchedRaidIds}) => {
-      touchedRaidIds.forEach((raidId) => {
-        queryClient.invalidateQueries({queryKey: ["raid", raidId]});
-      });
-
-      const summaryText =
-        results.length === 1
-          ? (() => {
-              const [result] = results;
-              const tokens = [`배치 ${result.result.usedCount}명`];
-              if (result.result.unplacedCount > 0) {
-                tokens.push(`남은 ${result.result.unplacedCount}명 미배치`);
-              }
-              return `${result.label}: ${tokens.join(" · ")}`;
-            })()
-          : results
-              .map((entry) => {
-                const tokens = [`배치 ${entry.result.usedCount}명`];
-                if (entry.result.unplacedCount > 0) {
-                  tokens.push(`남은 ${entry.result.unplacedCount}명 미배치`);
-                }
-                return `${entry.label}: ${tokens.join(" · ")}`;
-              })
-              .join(" / ");
-
+    onSuccess: ({response, labels}) => {
+      applyRaidUpdates(response.raids);
+      const summaryText = response.results
+        .map((entry, idx) => {
+          const tokens = [`배치 ${entry.usedCount}명`];
+          if (entry.unplacedCount > 0) {
+            tokens.push(`남은 ${entry.unplacedCount}명 미배치`);
+          }
+          const label = labels[idx] ?? entry.name;
+          return `${label}: ${tokens.join(" · ")}`;
+        })
+        .join(" / ");
       setMessage(`배치된 인원은 고정하고 빈 자리만 채웠습니다. ${summaryText}`);
     },
     onError: (error) => {
       setMessage(error instanceof Error ? error.message : "빈 칸 채우기에 실패했습니다.");
+    },
+  });
+
+  const updongAutoFillMutation = useMutation({
+    mutationFn: async () => {
+      const dedupedTargets = resolveTargetSummaries();
+      if (dedupedTargets.length === 0) throw new Error("레이드를 먼저 선택하세요.");
+      const response = await autoFillUpdong({
+        raidIds: dedupedTargets.map((item) => item.id),
+        partyCount: activeRaidMode.partyCount,
+        slotsPerParty: activeRaidMode.slotsPerParty,
+      });
+      return {response};
+    },
+    onSuccess: ({response}) => {
+      applyRaidUpdates(response.raids);
+      const tokens = [`배치 ${response.assignedCount}칸`];
+      if (response.missingCount > 0) {
+        tokens.push(`미배치 ${response.missingCount}칸 (인원 부족)`);
+        if (typeof window !== "undefined") {
+          window.alert("업둥이 자동채우기 인원이 부족합니다. 지원자를 추가해 주세요.");
+        }
+      }
+      setMessage(`업둥이 자동채우기를 완료했습니다. ${tokens.join(" · ")}`);
+    },
+    onError: (error) => {
+      setMessage(error instanceof Error ? error.message : "업둥이 자동채우기에 실패했습니다.");
     },
   });
 
@@ -1340,7 +908,7 @@ function LeaderDashboard() {
               </span>
             </div>
             <p className="text-xs text-text-subtle">
-              공대장 키: {displayLeaderKey} · 모공 ID: {displayRaidId}
+              공대장 키: {displayLeaderKey} · 공대 ID: {displayRaidId}
             </p>
             {leaderCharacter && (
               <p className="text-xs text-text-subtle">
@@ -1521,7 +1089,7 @@ function LeaderDashboard() {
           </label>
 
           <label className="space-y-1 text-sm md:col-span-2">
-            <span className="text-text-muted">모공 ID</span>
+            <span className="text-text-muted">공대 ID</span>
             <input
               className="w-full rounded-lg border border-panel-border bg-panel px-3 py-2 text-text placeholder:text-text-subtle focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
               value={motherRaidId ?? raidId ?? ""}
@@ -1530,7 +1098,7 @@ function LeaderDashboard() {
                 setMotherRaidId(value);
                 setRaidId(value);
               }}
-              placeholder="모공 ID를 직접 입력하거나 불러오세요"
+              placeholder="공대 ID를 직접 입력하거나 불러오세요"
             />
           </label>
         </div>
@@ -1550,9 +1118,9 @@ function LeaderDashboard() {
             </div>
           )}
 
-          {activeRaidMode.minFame && (
+          {minFameRequirement != null && (
             <div className="text-xs text-text-muted">
-              {activeRaidMode.name}: 명성 {activeRaidMode.minFame.toLocaleString()} 이상만 검색 결과에 표시됩니다.
+              {activeRaidMode.name}: 명성 {minFameRequirement.toLocaleString()} 이상만 검색 결과에 표시됩니다.
             </div>
           )}
         </div>
@@ -1741,7 +1309,7 @@ function LeaderDashboard() {
               </p>
             </div>
             <div className="flex items-center gap-2">
-              {(autoFillMutation.isPending || autoFillKeepPlacedMutation.isPending) && (
+              {(autoFillMutation.isPending || autoFillKeepPlacedMutation.isPending || updongAutoFillMutation.isPending) && (
                 <div className="flex items-center gap-2 text-xs text-text-subtle">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   자동 채우는 중...
@@ -1755,6 +1323,15 @@ function LeaderDashboard() {
               >
                 <Sparkles className="h-4 w-4" />
                 자동 채우기
+              </button>
+              <button
+                type="button"
+                onClick={() => updongAutoFillMutation.mutate()}
+                disabled={!raidId || updongAutoFillMutation.isPending}
+                className="pill border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 transition shadow-soft text-sm disabled:opacity-60"
+              >
+                <PlugZap className="h-4 w-4" />
+                업둥이 자동채우기
               </button>
               <button
                 type="button"
@@ -1955,7 +1532,7 @@ function LeaderDashboard() {
           buff={addBuff}
           onChangeDamage={setAddDamage}
           onChangeBuff={setAddBuff}
-          onSubmit={() => addParticipantMutation.mutate()}
+          onSubmit={() => addParticipantMutation.mutate(undefined)}
           onClose={() => {
             setAddCandidate(null);
             setAddDamage("");

@@ -14,7 +14,7 @@ class DnfRaidEntity(
     var userId: String,
 
     /**
-     * 같은 모공(그룹) 안의 기수들을 묶는 상위 ID. null이면 단일 레이드.
+     * 같은 공대(그룹) 안의 기수들을 묶는 상위 ID. null이면 단일 레이드.
      */
     @Column(name = "mother_raid_id")
     var motherRaidId: UUID? = null,

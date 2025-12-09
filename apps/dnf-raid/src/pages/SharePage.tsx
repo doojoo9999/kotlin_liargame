@@ -16,6 +16,8 @@ import {DNF_SERVERS, type DnfServerId} from "../constants";
 import {SupportModal} from "../components/SupportModal";
 import {useRaidMode} from "../hooks/useRaidMode";
 
+type SearchTarget = "adventure" | DnfServerId;
+
 function SharePage() {
   const {raidId} = useParams<{raidId: string}>();
   const queryClient = useQueryClient();
@@ -27,7 +29,7 @@ function SharePage() {
   const [buff, setBuff] = useState("");
   const [cohortPreference, setCohortPreference] = useState<CohortPreference | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [serverId, setServerId] = useState<DnfServerId>(DNF_SERVERS[0].id);
+  const [searchTarget, setSearchTarget] = useState<SearchTarget>("adventure");
   const {raidMode} = useRaidMode();
 
   const raidGroupQuery = useQuery({
@@ -51,9 +53,9 @@ function SharePage() {
 
   const addParticipantMutation = useMutation({
     mutationFn: async () => {
-      if (!motherRaidId || !selected) throw new Error("모공 ID와 캐릭터를 먼저 선택하세요.");
-      const damageValue = damage ? Number(damage) : 0;
-      const buffValue = buff ? Number(buff) : 0;
+      if (!motherRaidId || !selected) throw new Error("공대 ID와 캐릭터를 먼저 선택하세요.");
+      const damageValue = damage.trim() !== "" ? Number(damage) : selected.damage ?? 0;
+      const buffValue = buff.trim() !== "" ? Number(buff) : selected.buffPower ?? 0;
       const result = await addParticipantByMother(motherRaidId, {
         serverId: selected.serverId,
         characterId: selected.characterId,
@@ -108,14 +110,28 @@ function SharePage() {
 
   const handleSearch = (e: FormEvent) => {
     e.preventDefault();
-    if (!characterName.trim()) return;
-    searchMutation.mutate({keyword: characterName.trim(), serverId});
+    const keyword = characterName.trim();
+    if (!keyword) return;
+    if (searchTarget === "adventure") {
+      setAdventureName(keyword);
+      adventureSearchMutation.mutate(keyword);
+      return;
+    }
+    searchMutation.mutate({keyword, serverId: searchTarget});
   };
 
   const handleAdventureSearch = (e: FormEvent) => {
     e.preventDefault();
     if (!adventureName.trim()) return;
     adventureSearchMutation.mutate(adventureName.trim());
+  };
+
+  const applyStatsFromCharacter = (character: DnfCharacter | null) => {
+    if (!character) return;
+    const nextDamage = character.damage != null ? String(character.damage) : "";
+    const nextBuff = character.buffPower != null ? String(character.buffPower) : "";
+    setDamage(nextDamage);
+    setBuff(nextBuff);
   };
 
   if (raidGroupQuery.isPending) {
@@ -259,14 +275,15 @@ function SharePage() {
 
         <div className="grid gap-3 md:grid-cols-2">
           <form onSubmit={handleSearch} className="space-y-2">
-            <p className="text-sm text-text-muted">서버+닉네임으로 신규 등록</p>
+            <p className="text-sm text-text-muted">닉네임/모험단으로 신규 등록</p>
             <div className="flex flex-wrap items-center gap-2 rounded-xl border border-panel-border bg-panel px-3 py-2 shadow-soft focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10">
               <Search className="h-4 w-4 text-text-subtle" />
               <select
-                value={serverId}
-                onChange={(e) => setServerId(e.target.value as DnfServerId)}
+                value={searchTarget}
+                onChange={(e) => setSearchTarget(e.target.value as SearchTarget)}
                 className="rounded-lg border border-panel-border bg-panel-muted px-2 py-1 text-sm text-text focus:border-primary focus:outline-none"
               >
+                <option value="adventure">모험단</option>
                 {DNF_SERVERS.map((server) => (
                   <option key={server.id} value={server.id}>
                     {server.name}
@@ -276,7 +293,7 @@ function SharePage() {
               <input
                 value={characterName}
                 onChange={(e) => setCharacterName(e.target.value)}
-                placeholder="닉네임 입력"
+                placeholder="닉네임 또는 모험단명 입력"
                 className="bg-transparent outline-none flex-1 text-sm text-text placeholder:text-text-subtle"
               />
               <button type="submit" className="text-sm text-primary hover:text-primary-dark">
@@ -284,7 +301,7 @@ function SharePage() {
               </button>
             </div>
             <p className="text-xs text-text-subtle">
-              서버를 선택해 닉네임 중복을 구분합니다. 네오플 API로 검색하며 DB에 저장합니다.
+              모험단을 선택하면 모험단명으로, 서버를 선택하면 닉네임으로 검색합니다. 네오플 API로 검색하며 DB에 저장합니다.
             </p>
           </form>
 
@@ -330,7 +347,10 @@ function SharePage() {
                   <CharacterCard
                     key={character.characterId}
                     character={character}
-                    onAction={() => setSelected(character)}
+                    onAction={() => {
+                      setSelected(character);
+                      applyStatsFromCharacter(character);
+                    }}
                     actionLabel="이 캐릭터로 지원"
                     highlight={selected?.characterId === character.characterId}
                   />
@@ -347,7 +367,10 @@ function SharePage() {
                   <CharacterCard
                     key={character.characterId}
                     character={character}
-                    onAction={() => setSelected(character)}
+                    onAction={() => {
+                      setSelected(character);
+                      applyStatsFromCharacter(character);
+                    }}
                     actionLabel="이 캐릭터로 지원"
                     highlight={selected?.characterId === character.characterId}
                     subtitle={character.adventureName ? `모험단 ${character.adventureName}` : undefined}

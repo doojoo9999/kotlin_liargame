@@ -151,4 +151,16 @@ class DnfRaidController(
     @GetMapping("/raids/{raidId}/share")
     fun getShareView(@PathVariable raidId: UUID): RaidDetailResponse =
         dnfRaidService.getRaid(raidId)
+
+    @PostMapping("/raids/auto-fill")
+    fun autoFill(@Valid @RequestBody request: AutoFillRequest): AutoFillResponse =
+        dnfRaidService.autoFill(request)
+
+    @PostMapping("/raids/auto-fill/keep-placed")
+    fun autoFillKeepPlaced(@Valid @RequestBody request: AutoFillRequest): AutoFillResponse =
+        dnfRaidService.autoFillKeepPlaced(request)
+
+    @PostMapping("/raids/auto-fill/updong")
+    fun updongAutoFill(@Valid @RequestBody request: UpdongAutoFillRequest): UpdongAutoFillResponse =
+        dnfRaidService.updongAutoFill(request)
 }

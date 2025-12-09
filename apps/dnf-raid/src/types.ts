@@ -56,6 +56,25 @@ export interface RaidGroup {
   cohorts: RaidSummary[];
 }
 
+export interface AutoFillRaidResult {
+  raidId: UUID;
+  name: string;
+  usedCount: number;
+  duplicateAdventureCount: number;
+  unplacedCount: number;
+}
+
+export interface AutoFillResponse {
+  results: AutoFillRaidResult[];
+  raids: RaidDetail[];
+}
+
+export interface UpdongAutoFillResponse {
+  assignedCount: number;
+  missingCount: number;
+  raids: RaidDetail[];
+}
+
 export interface StatHistoryEntry {
   id: UUID;
   damage: number;

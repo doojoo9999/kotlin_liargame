@@ -130,10 +130,16 @@ class DnfCharacterService(
     @Transactional
     fun registerCharacter(serverId: String, characterId: String, damage: Long, buffPower: Long): DnfCharacterDto {
         val entity = getOrRefresh(serverId, characterId)
-        entity.damage = damage
-        entity.buffPower = buffPower
-        entity.lastUpdatedAt = LocalDateTime.now()
-        return toDto(characterRepository.save(entity))
+        val saved = applyStats(entity, damage, buffPower)
+        return toDto(saved)
+    }
+
+    @Transactional
+    fun applyStats(character: DnfCharacterEntity, damage: Long, buffPower: Long): DnfCharacterEntity {
+        character.damage = damage
+        character.buffPower = buffPower
+        character.lastUpdatedAt = LocalDateTime.now()
+        return characterRepository.save(character)
     }
 
     fun toDto(entity: DnfCharacterEntity): DnfCharacterDto =

@@ -15,6 +15,8 @@ import {DNF_SERVERS, type DnfServerId} from "../constants";
 import {SupportModal} from "../components/SupportModal";
 import {useRaidMode} from "../hooks/useRaidMode";
 
+type SearchTarget = "adventure" | DnfServerId;
+
 function ApplicantPage() {
   const {raidId, motherRaidId, setRaidId, setMotherRaidId} = useRaidSession();
   const [currentRaidName, setCurrentRaidName] = useState<string | null>(null);
@@ -27,7 +29,7 @@ function ApplicantPage() {
   const [cohortPreference, setCohortPreference] = useState<CohortPreference | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [raidNameSearch, setRaidNameSearch] = useState("");
-  const [serverId, setServerId] = useState<DnfServerId>(DNF_SERVERS[0].id);
+  const [searchTarget, setSearchTarget] = useState<SearchTarget>("adventure");
   const {raidMode} = useRaidMode();
   const queryClient = useQueryClient();
   const groupId = motherRaidId ?? raidId;
@@ -47,9 +49,9 @@ function ApplicantPage() {
 
   const addParticipantMutation = useMutation({
     mutationFn: async () => {
-      if (!groupId || !selected) throw new Error("모공 ID와 캐릭터를 먼저 선택하세요.");
-      const damageValue = damage ? Number(damage) : 0;
-      const buffValue = buff ? Number(buff) : 0;
+      if (!groupId || !selected) throw new Error("공대 ID와 캐릭터를 먼저 선택하세요.");
+      const damageValue = damage.trim() !== "" ? Number(damage) : selected.damage ?? 0;
+      const buffValue = buff.trim() !== "" ? Number(buff) : selected.buffPower ?? 0;
       const result = await addParticipantByMother(groupId, {
         serverId: selected.serverId,
         characterId: selected.characterId,
@@ -64,24 +66,24 @@ function ApplicantPage() {
       setSelected(null);
       setDamage("");
       setBuff("");
-      setCohortPreference(null);
     },
   });
 
   const bulkApplyMutation = useMutation({
     mutationFn: async () => {
-      if (!groupId) throw new Error("모공 ID를 먼저 선택하세요.");
+      if (!groupId) throw new Error("공대 ID를 먼저 선택하세요.");
       if (selectedBatch.length === 0) throw new Error("일괄 지원할 캐릭터를 선택하세요.");
       const payload = selectedBatch.map((c) => ({
         serverId: c.serverId,
         characterId: c.characterId,
-        damage: c.damage ?? 0,
-        buffPower: c.buffPower ?? 0,
+        damage: c.damage ?? undefined,
+        buffPower: c.buffPower ?? undefined,
+        cohortPreference,
       }));
       return addParticipantsBulkByMother(groupId, payload);
     },
     onSuccess: () => {
-      setMessage(`${selectedBatch.length}명 일괄 지원 완료 (모든 캐릭터 0/0 스탯으로 등록)`);
+      setMessage(`${selectedBatch.length}명 일괄 지원 완료 (저장된 딜/버프 자동 적용)`);
       setSelectedBatch([]);
       if (groupId) {
         queryClient.invalidateQueries({queryKey: ["raidGroup", groupId]});
@@ -121,13 +123,18 @@ function ApplicantPage() {
     setSelected(null);
     setDamage("");
     setBuff("");
-    setCohortPreference(null);
   };
 
   const handleSearch = (e: FormEvent) => {
     e.preventDefault();
-    if (!characterName.trim()) return;
-    searchMutation.mutate({keyword: characterName.trim(), serverId});
+    const keyword = characterName.trim();
+    if (!keyword) return;
+    if (searchTarget === "adventure") {
+      setAdventureName(keyword);
+      adventureSearchMutation.mutate(keyword);
+      return;
+    }
+    searchMutation.mutate({keyword, serverId: searchTarget});
   };
 
   const handleRaidSearch = (e: FormEvent) => {
@@ -167,7 +174,7 @@ function ApplicantPage() {
         <div className="grid gap-3 md:grid-cols-2">
           <div className="space-y-2">
             <label className="space-y-1 text-sm">
-              <span className="text-text-muted">모공 ID</span>
+              <span className="text-text-muted">공대 ID</span>
               <input
                 className="w-full rounded-lg border border-panel-border bg-panel px-3 py-2 text-text placeholder:text-text-subtle focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                 value={groupId ?? ""}
@@ -177,10 +184,10 @@ function ApplicantPage() {
                   setRaidId(null);
                   setCurrentRaidName(null);
                 }}
-                placeholder="공대장이 공유한 모공 ID"
+                placeholder="공대장이 공유한 공대 ID"
               />
             </label>
-            <p className="text-xs text-text-subtle">모공 ID 하나로 모든 기수를 받습니다.</p>
+            <p className="text-xs text-text-subtle">공대 ID 하나로 모든 기수를 받습니다.</p>
           </div>
 
           <form onSubmit={handleRaidSearch} className="space-y-1 text-sm">
@@ -203,7 +210,7 @@ function ApplicantPage() {
         <div className="space-y-2 text-xs text-text-subtle">
           <div className="flex flex-wrap gap-2 items-center">
             <span className="pill">
-              현재 모공:{" "}
+              현재 공대:{" "}
               {groupId ? currentRaidName ?? "(공대명 미표기)" : "미지정"}
             </span>
             {message && <span className="pill border-primary/40 bg-primary-muted text-primary">{message}</span>}
@@ -234,7 +241,7 @@ function ApplicantPage() {
                         setMotherRaidId(raid.motherRaidId ?? raid.id);
                         setRaidId(raid.id);
                         setCurrentRaidName(raid.name);
-                        setMessage("모공 ID가 설정되었습니다.");
+                        setMessage("공대 ID가 설정되었습니다.");
                       }}
                       className="pill border-panel-border bg-panel text-text hover:bg-panel-muted text-xs"
                     >
@@ -263,6 +270,33 @@ function ApplicantPage() {
           </div>
           <p className="text-xs text-text-subtle">캐릭터를 선택하면 저장된 딜/버프 수치를 자동으로 불러옵니다.</p>
         </div>
+        <div className="space-y-2">
+          <p className="text-sm text-text-muted">기수 배치 선호도</p>
+          <div className="flex flex-wrap items-center gap-2">
+            {[
+              {label: "상관없음", value: null},
+              {label: "앞기수 선호", value: "FRONT" as CohortPreference | null},
+              {label: "뒷기수 선호", value: "BACK" as CohortPreference | null},
+            ].map((option) => {
+              const isActive = cohortPreference === option.value;
+              return (
+                <button
+                  type="button"
+                  key={option.label}
+                  onClick={() => setCohortPreference(option.value)}
+                  className={`rounded-lg border px-3 py-2 text-sm transition ${
+                    isActive
+                      ? "border-primary bg-primary-muted text-primary"
+                      : "border-panel-border bg-panel text-text hover:bg-panel-muted"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+            <span className="text-xs text-text-subtle">단일/일괄 지원 모두에 적용됩니다.</span>
+          </div>
+        </div>
         {raidMode?.minFame && (
           <div className="text-xs text-text-muted">
             {raidMode.name}: 명성 {raidMode.minFame.toLocaleString()} 이상만 검색 결과에 표시됩니다.
@@ -271,14 +305,15 @@ function ApplicantPage() {
 
         <div className="grid gap-3 md:grid-cols-2">
           <form onSubmit={handleSearch} className="space-y-2">
-            <p className="text-sm text-text-muted">서버+닉네임으로 신규 등록</p>
+            <p className="text-sm text-text-muted">닉네임/모험단으로 신규 등록</p>
             <div className="flex flex-wrap items-center gap-2 rounded-xl border border-panel-border bg-panel px-3 py-2 shadow-soft focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10">
               <Search className="h-4 w-4 text-text-subtle" />
               <select
-                value={serverId}
-                onChange={(e) => setServerId(e.target.value as DnfServerId)}
+                value={searchTarget}
+                onChange={(e) => setSearchTarget(e.target.value as SearchTarget)}
                 className="rounded-lg border border-panel-border bg-panel-muted px-2 py-1 text-sm text-text focus:border-primary focus:outline-none"
               >
+                <option value="adventure">모험단</option>
                 {DNF_SERVERS.map((server) => (
                   <option key={server.id} value={server.id}>
                     {server.name}
@@ -288,7 +323,7 @@ function ApplicantPage() {
               <input
                 value={characterName}
                 onChange={(e) => setCharacterName(e.target.value)}
-                placeholder="닉네임 입력"
+                placeholder="닉네임 또는 모험단명 입력"
                 className="bg-transparent outline-none flex-1 text-sm text-text placeholder:text-text-subtle"
               />
               <button type="submit" className="text-sm text-primary hover:text-primary-dark">
@@ -296,7 +331,7 @@ function ApplicantPage() {
               </button>
             </div>
             <p className="text-xs text-text-subtle">
-              서버를 지정해 닉네임 중복을 구분합니다. 네오플 API에서 조회 후 DB에 저장합니다.
+              모험단을 선택하면 모험단명으로, 서버를 선택하면 닉네임으로 검색합니다. 네오플 API에서 조회 후 DB에 저장합니다.
             </p>
           </form>
 
@@ -407,6 +442,7 @@ function ApplicantPage() {
                 </span>
               ))}
             </div>
+            <p className="text-xs text-text-subtle">등록해둔 딜/버프 수치를 그대로 사용합니다.</p>
             <button
               type="button"
               onClick={() => bulkApplyMutation.mutate()}
@@ -419,10 +455,10 @@ function ApplicantPage() {
                   일괄 지원 중...
                 </span>
               ) : (
-                `선택한 ${selectedBatch.length}명 일괄 지원 (딜/버프 0)`
+                `선택한 ${selectedBatch.length}명 일괄 지원`
               )}
             </button>
-            {!groupId && <p className="text-xs text-amber-600">모공 ID를 먼저 선택하세요.</p>}
+            {!groupId && <p className="text-xs text-amber-600">공대 ID를 먼저 선택하세요.</p>}
           </div>
         )}
 
@@ -437,9 +473,6 @@ function ApplicantPage() {
             onClose={closeModal}
             isSubmitting={addParticipantMutation.isPending}
             canSubmit={canApply && !addParticipantMutation.isPending}
-            showCohortPreference
-            cohortPreference={cohortPreference}
-            onChangeCohortPreference={setCohortPreference}
           />
         )}
       </section>

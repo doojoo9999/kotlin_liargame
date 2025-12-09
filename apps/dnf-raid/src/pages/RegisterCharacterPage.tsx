@@ -9,6 +9,7 @@ import {CharacterCard} from "../components/CharacterCard";
 import {SupportModal} from "../components/SupportModal";
 
 const BUFFER_KEYWORDS = ["크루세이더", "인챈트리스", "뮤즈", "패러메딕"];
+type SearchTarget = "adventure" | DnfServerId;
 
 function isBufferJob(character: DnfCharacter | null) {
   if (!character) return false;
@@ -26,7 +27,7 @@ function RegisterCharacterPage() {
   const [selected, setSelected] = useState<DnfCharacter | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [serverId, setServerId] = useState<DnfServerId>(DNF_SERVERS[0].id);
+  const [searchTarget, setSearchTarget] = useState<SearchTarget>("adventure");
 
   const searchMutation = useMutation({
     mutationFn: (payload: {keyword: string; serverId: DnfServerId}) =>
@@ -79,8 +80,13 @@ function RegisterCharacterPage() {
 
   const handleSearch = (e: FormEvent) => {
     e.preventDefault();
-    if (!characterName.trim()) return;
-    searchMutation.mutate({keyword: characterName.trim(), serverId});
+    const keyword = characterName.trim();
+    if (!keyword) return;
+    if (searchTarget === "adventure") {
+      adventureSearchMutation.mutate(keyword);
+      return;
+    }
+    searchMutation.mutate({keyword, serverId: searchTarget});
   };
 
   const handleAdventureSearch = (e: FormEvent) => {
@@ -105,14 +111,15 @@ function RegisterCharacterPage() {
       <section className="frosted p-5 space-y-5">
         <div className="grid gap-3 md:grid-cols-2">
           <form onSubmit={handleSearch} className="space-y-2">
-            <p className="text-sm text-text-muted">서버+닉네임으로 검색</p>
+            <p className="text-sm text-text-muted">닉네임/모험단 검색</p>
             <div className="flex flex-wrap items-center gap-2 rounded-xl border border-panel-border bg-panel px-3 py-2 shadow-soft focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10">
               <Search className="h-4 w-4 text-text-subtle" />
               <select
-                value={serverId}
-                onChange={(e) => setServerId(e.target.value as DnfServerId)}
+                value={searchTarget}
+                onChange={(e) => setSearchTarget(e.target.value as SearchTarget)}
                 className="rounded-lg border border-panel-border bg-panel-muted px-2 py-1 text-sm text-text focus:border-primary focus:outline-none"
               >
+                <option value="adventure">모험단</option>
                 {DNF_SERVERS.map((server) => (
                   <option key={server.id} value={server.id}>
                     {server.name}
@@ -122,14 +129,14 @@ function RegisterCharacterPage() {
               <input
                 value={characterName}
                 onChange={(e) => setCharacterName(e.target.value)}
-                placeholder="닉네임 입력"
+                placeholder="닉네임 또는 모험단명 입력"
                 className="bg-transparent outline-none flex-1 text-sm text-text placeholder:text-text-subtle"
               />
               <button type="submit" className="text-sm text-primary hover:text-primary-dark whitespace-nowrap px-2">
                 검색
               </button>
             </div>
-            <p className="text-xs text-text-subtle">서버를 선택해 닉네임 중복을 구분합니다.</p>
+            <p className="text-xs text-text-subtle">모험단을 선택하면 모험단명 검색, 서버를 선택하면 닉네임 검색 (중복 구분).</p>
           </form>
 
           <form onSubmit={handleAdventureSearch} className="space-y-2">
