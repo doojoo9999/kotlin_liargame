@@ -380,22 +380,21 @@ class DnfRaidService(
             val slice = raidDetails.subList(start, minOf(start + 4, raidDetails.size))
             if (slice.isEmpty()) continue
 
-            val pool = slice.flatMap { it.second }
+            val pool = slice.flatMap { (_, participants) ->
+                participants.filter { it.partyNumber == null || it.slotIndex == null }
+            }
             if (pool.isEmpty()) {
-                totalMissing += slice.size * partyCount * slotsPerParty
+                slice.forEach { (_, participants) ->
+                    val occupiedCount = participants.count { it.partyNumber != null && it.slotIndex != null }
+                    val capacity = partyCount * slotsPerParty
+                    totalMissing += (capacity - occupiedCount).coerceAtLeast(0)
+                }
                 continue
             }
 
-            val topBuffers = selectTopBuffers(pool, partyCount * slice.size)
-            val bufferAdventureKeys = topBuffers.map { adventureKey(it) }.toSet()
-            val topDealers = selectTopDealers(pool, partyCount * slice.size, bufferAdventureKeys)
-            val dealerAdventureKeys = topDealers.map { adventureKey(it) }.toSet()
-
+            val bufferQueue = selectTopBuffers(pool, partyCount * slice.size).toMutableList()
+            val dealerQueue = selectTopDealers(pool, partyCount * slice.size, emptySet()).toMutableList()
             val updongPool = pool
-                .filter { key ->
-                    val adv = adventureKey(key)
-                    !bufferAdventureKeys.contains(adv) && !dealerAdventureKeys.contains(adv)
-                }
                 .sortedByDescending { scoreUpdong(it) }
                 .toMutableList()
 
@@ -426,12 +425,11 @@ class DnfRaidService(
                     }
                 }
 
-                fun pickBestFromList(list: List<DnfParticipantEntity>): DnfParticipantEntity? =
-                    list.firstOrNull { candidate ->
-                        val charKey = characterKey(candidate)
-                        val advKey = adventureKey(candidate)
-                        !sliceUsedChars.contains(charKey) && !usedAdventureKeys.contains(advKey)
-                    }
+                fun canUse(candidate: DnfParticipantEntity, used: Set<String> = usedAdventureKeys): Boolean {
+                    val charKey = characterKey(candidate)
+                    val advKey = adventureKey(candidate)
+                    return !sliceUsedChars.contains(charKey) && !used.contains(advKey)
+                }
 
                 fun ensureParticipantInRaid(candidate: DnfParticipantEntity, partyNumber: Int, slotIndex: Int): Boolean {
                     val charKey = characterKey(candidate)
@@ -479,45 +477,45 @@ class DnfRaidService(
                 (1..partyCount).forEach { partyNumber ->
                     val partyOccupied = occupied[partyNumber] ?: mutableMapOf()
 
-                    pattern.forEachIndexed { slotIndex, role ->
-                        if (partyOccupied.containsKey(slotIndex)) return@forEachIndexed
-                        when (role) {
-                            "B" -> {
-                                val candidate = pickBestFromList(topBuffers)
-                                if (candidate == null) {
-                                    totalMissing += 1
-                                    return@forEachIndexed
+                    pattern.withIndex()
+                        .filter { (slotIndex, _) -> !partyOccupied.containsKey(slotIndex) }
+                        .forEach { (slotIndex, role) ->
+                            val candidate: DnfParticipantEntity? = when (role) {
+                                "B" -> {
+                                    val idx = bufferQueue.indexOfFirst { canUse(it) }
+                                    if (idx >= 0) bufferQueue.removeAt(idx) else null
                                 }
-                                ensureParticipantInRaid(candidate, partyNumber, slotIndex)
+
+                                "D" -> {
+                                    val idx = dealerQueue.indexOfFirst { canUse(it) }
+                                    if (idx >= 0) dealerQueue.removeAt(idx) else null
+                                }
+
+                                else -> {
+                                    var picked: DnfParticipantEntity? = null
+                                    while (updongIndex < updongPool.size && picked == null) {
+                                        val candidate = updongPool[updongIndex]
+                                        updongIndex += 1
+                                        if (!canUse(candidate)) continue
+                                        picked = candidate
+                                    }
+                                    picked
+                                }
                             }
 
-                            "D" -> {
-                                val candidate = pickBestFromList(topDealers)
-                                if (candidate == null) {
-                                    totalMissing += 1
-                                    return@forEachIndexed
-                                }
-                                ensureParticipantInRaid(candidate, partyNumber, slotIndex)
+                            if (candidate == null) {
+                                totalMissing += 1
+                                return@forEach
                             }
 
-                            else -> {
-                                var picked: DnfParticipantEntity? = null
-                                while (updongIndex < updongPool.size && picked == null) {
-                                    val candidate = updongPool[updongIndex]
-                                    updongIndex += 1
-                                    val charKey = characterKey(candidate)
-                                    val advKey = adventureKey(candidate)
-                                    if (sliceUsedChars.contains(charKey) || usedAdventureKeys.contains(advKey)) continue
-                                    picked = candidate
-                                }
-                                if (picked == null) {
-                                    totalMissing += 1
-                                    return@forEachIndexed
-                                }
-                                ensureParticipantInRaid(picked, partyNumber, slotIndex)
+                            val applied = ensureParticipantInRaid(candidate, partyNumber, slotIndex)
+                            if (applied) {
+                                sliceUsedChars.add(characterKey(candidate))
+                                usedAdventureKeys.add(adventureKey(candidate))
+                            } else {
+                                totalMissing += 1
                             }
                         }
-                    }
                 }
             }
         }
