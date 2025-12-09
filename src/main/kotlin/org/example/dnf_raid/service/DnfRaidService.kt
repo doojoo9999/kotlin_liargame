@@ -386,9 +386,9 @@ class DnfRaidService(
                 continue
             }
 
-            val topBuffers = selectTopBuffers(pool, partyCount)
+            val topBuffers = selectTopBuffers(pool, partyCount * slice.size)
             val bufferAdventureKeys = topBuffers.map { adventureKey(it) }.toSet()
-            val topDealers = selectTopDealers(pool, partyCount, bufferAdventureKeys)
+            val topDealers = selectTopDealers(pool, partyCount * slice.size, bufferAdventureKeys)
             val dealerAdventureKeys = topDealers.map { adventureKey(it) }.toSet()
 
             val updongPool = pool
@@ -406,8 +406,8 @@ class DnfRaidService(
                     .forEach { p -> sliceUsedChars.add(characterKey(p)) }
             }
 
-            slice.forEach { (raid, participants) ->
-                val raidId = raid.id ?: return@forEach
+            slice.forEachIndexed { index, (raid, participants) ->
+                val raidId = raid.id ?: return@forEachIndexed
                 touchedRaidIds.add(raidId)
 
                 val occupied = mutableMapOf<Int, MutableMap<Int, DnfParticipantEntity>>()
@@ -472,9 +472,11 @@ class DnfRaidService(
                     return true
                 }
 
+                val patternKey = (index % 4) + 1
+                val pattern = (slotPattern[patternKey] ?: slotPattern[1] ?: emptyList())
+                    .take(slotsPerParty)
+
                 (1..partyCount).forEach { partyNumber ->
-                    val pattern = (slotPattern[partyNumber] ?: slotPattern[1] ?: emptyList())
-                        .take(slotsPerParty)
                     val partyOccupied = occupied[partyNumber] ?: mutableMapOf()
 
                     pattern.forEachIndexed { slotIndex, role ->
