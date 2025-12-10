@@ -1,6 +1,7 @@
 import {useEffect, useMemo, useRef, useState} from "react";
 import {useMutation, useQuery, useQueryClient, useQueries} from "@tanstack/react-query";
-import {CalendarClock, Copy, Loader2, PlugZap, RefreshCw, Search, Sparkles, Telescope, Trash2, Undo2} from "lucide-react";
+import {toPng} from "html-to-image";
+import {CalendarClock, Copy, ImageDown, Link2, Loader2, PlugZap, RefreshCw, Search, Sparkles, Telescope, Trash2, Undo2} from "lucide-react";
 import {clsx} from "clsx";
 
 import {
@@ -56,6 +57,15 @@ function normalizeCohortList(
   return cleaned;
 }
 
+const BUFFER_KEYWORDS = ["크루세이더", "인챈트리스", "뮤즈", "패러메딕"];
+
+function isBufferJob(character: DnfCharacter) {
+  const normalize = (value?: string | null) => value?.toLowerCase().replace(/\s+/g, "") ?? "";
+  const job = normalize(character.jobName);
+  const grow = normalize(character.jobGrowName);
+  return BUFFER_KEYWORDS.some((keyword) => job.includes(keyword) || grow.includes(keyword));
+}
+
 function LeaderDashboard() {
   const {raidId, motherRaidId, leaderId, leaderCharacter, setRaidId, setMotherRaidId, setLeaderCharacter} = useRaidSession();
   const {raidMode: selectedRaidMode, setRaidModeId} = useRaidMode();
@@ -68,11 +78,15 @@ function LeaderDashboard() {
   const [addCandidate, setAddCandidate] = useState<DnfCharacter | null>(null);
   const [addDamage, setAddDamage] = useState("");
   const [addBuff, setAddBuff] = useState("");
+  const [isExportingImage, setIsExportingImage] = useState(false);
+  const [isSummaryExporting, setIsSummaryExporting] = useState(false);
   const [partyTargets, setPartyTargets] = useState<Array<{damage: string; buff: string}>>(() =>
     Array.from({length: selectedRaidMode.partyCount}, () => ({damage: "", buff: ""}))
   );
   const [cohortRaids, setCohortRaids] = useState<RaidSummary[]>([]);
   const autoLatestRequested = useRef<string | null>(null);
+  const partyBoardRef = useRef<HTMLDivElement | null>(null);
+  const summaryRef = useRef<HTMLDivElement | null>(null);
   const queryClient = useQueryClient();
 
   const leaderSearchMutation = useMutation({
@@ -235,8 +249,99 @@ function LeaderDashboard() {
   const [showSupportModal, setShowSupportModal] = useState(false);
 
   const displayRaidName = raid?.name ?? raidName ?? selectedRaidMode.name;
-  const displayRaidId = raid?.motherRaidId ?? motherRaidId ?? raidId ?? "생성 전 (캐릭터 추가 시 자동 생성)";
   const displayLeaderKey = raid?.userId ?? leaderId ?? "자동 생성 예정";
+  const shareRaidId = motherRaidId ?? raidId ?? null;
+
+  const shareUrl = useMemo(() => {
+    if (!shareRaidId) return "";
+    const origin =
+      typeof window !== "undefined" && window.location?.origin
+        ? window.location.origin
+        : "https://zzirit.kr";
+    const trimmedBase = (import.meta.env.BASE_URL || "/").replace(/\/+$/, "");
+    const basePath =
+      trimmedBase === "" || trimmedBase === "/"
+        ? ""
+        : trimmedBase.startsWith("/")
+          ? trimmedBase
+          : `/${trimmedBase}`;
+    return `${origin}${basePath}/${shareRaidId}`;
+  }, [shareRaidId]);
+
+  const sanitizeFileName = (value: string) => {
+    const safe = value
+      .replace(/[^a-zA-Z0-9가-힣_-]+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-+|-+$/g, "");
+    return safe.length > 0 ? safe : "raid";
+  };
+
+  const handleCopyShareUrl = async () => {
+    if (!shareUrl) return;
+    if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) {
+      setMessage("클립보드를 지원하지 않는 환경입니다. URL을 직접 복사하세요.");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setMessage("공유 링크를 복사했습니다.");
+    } catch (_error) {
+      setMessage("링크 복사에 실패했습니다. 수동으로 복사해 주세요.");
+    }
+  };
+
+  const handleOpenShareUrl = () => {
+    if (!shareUrl) return;
+    window.open(shareUrl, "_blank", "noopener,noreferrer");
+  };
+
+  const handleDownloadBoard = async () => {
+    if (!raidId || !partyBoardRef.current) {
+      setMessage("편성표를 먼저 만든 뒤 저장하세요.");
+      return;
+    }
+    try {
+      setIsExportingImage(true);
+      const dataUrl = await toPng(partyBoardRef.current, {
+        cacheBust: true,
+        pixelRatio: 2,
+        backgroundColor: "#f8fafc",
+      });
+      const link = document.createElement("a");
+      link.download = `${sanitizeFileName(displayRaidName || "raid")}-편성표.png`;
+      link.href = dataUrl;
+      link.click();
+      setMessage("편성표 이미지를 저장했습니다. 메신저에 바로 올려주세요.");
+    } catch (_error) {
+      setMessage("이미지를 저장하지 못했습니다. 다시 시도해 주세요.");
+    } finally {
+      setIsExportingImage(false);
+    }
+  };
+
+  const handleDownloadSummary = async () => {
+    if (!summaryRef.current) {
+      setMessage("요약표를 만들려면 공대를 불러오세요.");
+      return;
+    }
+    try {
+      setIsSummaryExporting(true);
+      const dataUrl = await toPng(summaryRef.current, {
+        cacheBust: true,
+        pixelRatio: 2,
+        backgroundColor: "#ffffff",
+      });
+      const link = document.createElement("a");
+      link.download = `${sanitizeFileName(displayRaidName || "raid")}-요약표.png`;
+      link.href = dataUrl;
+      link.click();
+      setMessage("요약표 이미지를 저장했습니다.");
+    } catch (_error) {
+      setMessage("요약표를 저장하지 못했습니다. 다시 시도해 주세요.");
+    } finally {
+      setIsSummaryExporting(false);
+    }
+  };
 
   const filteredLeaderSearchResults = useMemo(
     () =>
@@ -773,6 +878,16 @@ function LeaderDashboard() {
     return map;
   }, [cohortRaidDetails]);
 
+  const summaryRaids = useMemo(() => {
+    if (normalizedCohorts.length > 0) {
+      const list = normalizedCohorts
+        .map((summary) => cohortDetailMap.get(summary.id))
+        .filter((item): item is RaidDetail => Boolean(item));
+      if (list.length > 0) return list;
+    }
+    return raid ? [raid] : [];
+  }, [cohortDetailMap, normalizedCohorts, raid]);
+
   const pooledParticipants = useMemo(() => {
     const source = cohortRaidDetails.length > 0 ? cohortRaidDetails : raid ? [raid] : [];
     const seen = new Set<string>();
@@ -892,87 +1007,219 @@ function LeaderDashboard() {
 
   return (
     <div className="space-y-6">
-      <section className="frosted p-5 space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-sm text-text-muted">현재 레이드</p>
-            <div className="flex items-center gap-2 flex-wrap">
-              <p className="font-display text-xl text-text">{displayRaidName}</p>
-              <span className="pill border-panel-border bg-panel text-xs text-text-muted">
-                {activeRaidMode.name} · {activeRaidMode.badge}
-              </span>
-              <span
-                className={`pill text-xs ${isPublic ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-300 bg-slate-50 text-slate-700"}`}
-              >
-                {isPublic ? "공개 레이드 (목록 표시)" : "비공개 레이드 (링크/ID 전용)"}
-              </span>
-            </div>
-            <p className="text-xs text-text-subtle">
-              공대장 키: {displayLeaderKey} · 공대 ID: {displayRaidId}
-            </p>
-            {leaderCharacter && (
-              <p className="text-xs text-text-subtle">
-                공대장 캐릭터: {leaderCharacter.characterName} ({leaderCharacter.adventureName ?? "모험단 미표기"})
-              </p>
-            )}
+      <section className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-sm text-text-muted">
+            <Sparkles className="h-4 w-4 text-primary" />
+            <span>새 레이드는 공대장 화면에서 생성 후 여기서 관리합니다.</span>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <label className="flex items-center gap-2 text-xs text-text-subtle bg-panel border border-panel-border rounded-lg px-3 py-1">
-              <span>기수 설정</span>
-              <input
-                type="number"
-                min={1}
-                max={30}
-                value={cohortCountInput}
-                onChange={(e) => {
-                  const next = Number(e.target.value);
-                  if (Number.isNaN(next)) return;
-                  setCohortCountInput(Math.min(Math.max(next, 1), 30));
-                }}
-                className="w-16 rounded border border-panel-border bg-panel px-2 py-1 text-sm text-text focus:border-primary focus:outline-none"
-              />
-            </label>
-            <button
-              onClick={handleSetCohortCount}
-              disabled={
-                !leaderId ||
-                createRaidMutation.isPending ||
-                createRaidBatchMutation.isPending
-              }
-              className="pill border-primary/30 bg-primary text-white hover:bg-primary-dark shadow-soft transition disabled:opacity-60"
-            >
-              <Sparkles className="h-4 w-4" />
-              기수 설정
-            </button>
-            <button
-              onClick={() => latestRaidMutation.mutate()}
-              disabled={!leaderId || latestRaidMutation.isPending}
-              className="pill border-panel-border bg-panel text-text hover:bg-panel-muted transition"
-            >
-              <Telescope className="h-4 w-4" />
-              공대장 모험단 최근 레이드
-            </button>
-            <button
-              onClick={() => raidId && raidQuery.refetch()}
-              disabled={!raidId || raidQuery.isFetching}
-              className="pill border-panel-border bg-panel text-text hover:bg-panel-muted transition"
-            >
-              <RefreshCw className="h-4 w-4" />
-              새로고침
-            </button>
+          {message && (
+            <span className="pill border-primary/40 bg-primary-muted text-primary text-xs">{message}</span>
+          )}
+        </div>
+
+        <div className="grid gap-4 xl:grid-cols-3">
+          <div className="frosted p-4 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm text-text-muted">레이드 개요</p>
+              {updateVisibilityMutation.isPending && raidId && (
+                <div className="flex items-center gap-1.5 text-[11px] text-text-subtle">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> 저장 중
+                </div>
+              )}
+            </div>
+            <div className="space-y-1">
+              <p className="font-display text-xl text-text">{displayRaidName}</p>
+              <div className="flex flex-wrap gap-2">
+                <span className="pill border-panel-border bg-panel text-xs text-text-muted">
+                  {activeRaidMode.name} · {activeRaidMode.badge}
+                </span>
+                <span
+                  className={`pill text-xs ${isPublic ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-300 bg-slate-50 text-slate-700"}`}
+                >
+                  {isPublic ? "공개" : "비공개"}
+                </span>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => handleVisibilityChange(true)}
+                className={`pill text-sm transition ${
+                  isPublic
+                    ? "border-emerald-300 bg-emerald-100 text-emerald-800 shadow-soft"
+                    : "border-panel-border bg-panel text-text hover:bg-panel-muted"
+                }`}
+                disabled={updateVisibilityMutation.isPending}
+              >
+                공개 노출
+              </button>
+              <button
+                type="button"
+                onClick={() => handleVisibilityChange(false)}
+                className={`pill text-sm transition ${
+                  !isPublic
+                    ? "border-slate-300 bg-slate-100 text-slate-800 shadow-soft"
+                    : "border-panel-border bg-panel text-text hover:bg-panel-muted"
+                }`}
+                disabled={updateVisibilityMutation.isPending}
+              >
+                링크 전용
+              </button>
+            </div>
+            <div className="text-xs text-text-subtle space-y-1">
+              <p>공대장 키: {displayLeaderKey}</p>
+              {leaderCharacter && (
+                <p>
+                  공대장 캐릭터: {leaderCharacter.characterName} ({leaderCharacter.adventureName ?? "모험단 미표기"})
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="frosted p-4 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <p className="text-sm text-text-muted">공유 · 편성표</p>
+                <p className="text-xs text-text-subtle">공대원에게 고정 링크나 PNG를 바로 전달하세요.</p>
+              </div>
+              {!shareRaidId && <span className="text-[11px] text-text-subtle">공대를 먼저 선택</span>}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={handleCopyShareUrl}
+                disabled={!shareRaidId}
+                className="pill border-panel-border bg-panel text-text hover:bg-panel-muted transition text-sm disabled:opacity-60"
+              >
+                <Copy className="h-4 w-4" />
+                링크 복사
+              </button>
+              <button
+                type="button"
+                onClick={handleOpenShareUrl}
+                disabled={!shareRaidId}
+                className="pill border-panel-border bg-panel text-text hover:bg-panel-muted transition text-sm disabled:opacity-60"
+              >
+                <Link2 className="h-4 w-4" />
+                공대원 화면
+              </button>
+              <button
+                type="button"
+                onClick={handleDownloadBoard}
+                disabled={!raidId || isExportingImage}
+                className="pill border-primary/30 bg-primary text-white hover:bg-primary-dark transition shadow-soft text-sm disabled:opacity-60"
+              >
+                <ImageDown className="h-4 w-4" />
+                {isExportingImage ? "이미지 생성 중" : "편성표 이미지"}
+              </button>
+            </div>
+            <div className="rounded-lg border border-panel-border bg-white/70 px-3 py-2 text-sm text-text break-all select-all min-h-[42px]">
+              {shareRaidId ? shareUrl : "공대를 생성하거나 선택하면 링크가 표시됩니다."}
+            </div>
+            <p className="text-[11px] text-text-subtle">
+              {isExportingImage
+                ? "이미지를 만드는 중입니다..."
+                : "PNG를 메신저에 올리거나 링크를 붙여넣어 바로 안내하세요."}
+            </p>
+          </div>
+
+          <div className="frosted p-4 space-y-3">
+            <p className="text-sm text-text-muted">기수 · 동기화</p>
+            <div className="flex items-center gap-2">
+              <label className="flex items-center gap-2 text-xs text-text-subtle bg-panel border border-panel-border rounded-lg px-3 py-1">
+                <span>기수</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={30}
+                  value={cohortCountInput}
+                  onChange={(e) => {
+                    const next = Number(e.target.value);
+                    if (Number.isNaN(next)) return;
+                    setCohortCountInput(Math.min(Math.max(next, 1), 30));
+                  }}
+                  className="w-16 rounded border border-panel-border bg-panel px-2 py-1 text-sm text-text focus:border-primary focus:outline-none"
+                />
+              </label>
+              <button
+                onClick={handleSetCohortCount}
+                disabled={!leaderId || createRaidMutation.isPending || createRaidBatchMutation.isPending}
+                className="pill border-primary/30 bg-primary text-white hover:bg-primary-dark shadow-soft transition text-sm disabled:opacity-60"
+              >
+                <Sparkles className="h-4 w-4" />
+                적용
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => latestRaidMutation.mutate()}
+                disabled={!leaderId || latestRaidMutation.isPending}
+                className="pill border-panel-border bg-panel text-text hover:bg-panel-muted transition text-sm disabled:opacity-60"
+              >
+                <Telescope className="h-4 w-4" />
+                최근 레이드 불러오기
+              </button>
+              <button
+                onClick={() => raidId && raidQuery.refetch()}
+                disabled={!raidId || raidQuery.isFetching}
+                className="pill border-panel-border bg-panel text-text hover:bg-panel-muted transition text-sm disabled:opacity-60"
+              >
+                <RefreshCw className="h-4 w-4" />
+                새로고침
+              </button>
+            </div>
+            <p className="text-[11px] text-text-subtle">기수를 변경하면 빈 기수는 정리되고, 최근 레이드로 바로 전환할 수 있습니다.</p>
           </div>
         </div>
 
-        {message && (
-          <div className="flex flex-wrap gap-2 text-xs text-primary">
-            <span className="pill border-primary/40 bg-primary-muted text-primary">{message}</span>
-          </div>
-        )}
 
-        <div className="grid gap-3 md:grid-cols-2">
-          <div className="space-y-2">
-            <label className="space-y-1 text-sm">
-              <span className="text-text-muted">캐릭터 검색 후 바로 공대에 추가</span>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="frosted p-4 space-y-3">
+            <p className="text-sm text-text-muted">레이드 설정</p>
+            <div className="grid gap-2">
+              <label className="space-y-1 text-sm">
+                <span className="text-text-subtle">모드 · 이름</span>
+                <div className="flex gap-2">
+                  <select
+                    value={activeRaidMode.id}
+                    onChange={(e) => setRaidModeId(e.target.value as (typeof RAID_MODES)[number]["id"])}
+                    className="rounded-lg border border-panel-border bg-panel px-2 py-2 text-sm text-text focus:border-primary focus:outline-none"
+                  >
+                    {RAID_MODES.map((mode) => (
+                      <option key={mode.id} value={mode.id}>
+                        {mode.name} · {mode.badge}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    className="flex-1 rounded-lg border border-panel-border bg-panel px-3 py-2 text-text placeholder:text-text-subtle focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    value={raidName}
+                    onChange={(e) => setRaidName(e.target.value)}
+                    placeholder="예: 12/7(토) 오후 레이드"
+                  />
+                </div>
+              </label>
+
+              <label className="space-y-1 text-sm">
+                <span className="text-text-subtle">공대 ID (공유 링크 기준)</span>
+                <input
+                  className="w-full rounded-lg border border-panel-border bg-panel px-3 py-2 text-text placeholder:text-text-subtle focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  value={motherRaidId ?? raidId ?? ""}
+                  onChange={(e) => {
+                    const value = e.target.value || null;
+                    setMotherRaidId(value);
+                    setRaidId(value);
+                  }}
+                  placeholder="공대 ID를 직접 입력하거나 불러오세요"
+                />
+              </label>
+            </div>
+          </div>
+
+          <div className="frosted p-4 space-y-3">
+            <p className="text-sm text-text-muted">공대장 검색 · 바로 추가</p>
+            <div className="space-y-2">
               <div className="flex items-center gap-2 rounded-lg border border-panel-border bg-panel px-3 py-2 shadow-soft focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10">
                 <Search className="h-4 w-4 text-text-subtle" />
                 <select
@@ -1001,148 +1248,58 @@ function LeaderDashboard() {
                   검색
                 </button>
               </div>
-              <p className="text-xs text-text-subtle">
-                서버를 고르면 닉네임 검색, "모험단"을 고르면 모험단명으로 불러옵니다.
-              </p>
-            </label>
-            {leaderCharacter ? (
-              <div className="flex items-center justify-between rounded-lg border border-panel-border bg-panel px-3 py-2 text-sm text-text">
-                <div>
-                  <p className="font-display">{leaderCharacter.characterName}</p>
-                  <p className="text-xs text-text-subtle">
-                    모험단 {leaderCharacter.adventureName ?? "-"} · 서버 {getServerName(leaderCharacter.serverId)}
-                  </p>
-                </div>
-                <button
-                  onClick={() => setLeaderCharacter(null)}
-                  className="flex items-center gap-1 text-xs text-text-subtle hover:text-text"
-                >
-                  <Undo2 className="h-4 w-4" />
-                  교체
-                </button>
-              </div>
-            ) : (
-              <p className="text-xs text-text-subtle">검색 후 캐릭터를 선택해 바로 공대에 추가할 수 있습니다.</p>
-            )}
-          </div>
-
-          <label className="space-y-1 text-sm">
-            <span className="text-text-muted">레이드 이름 · 모드</span>
-            <div className="flex gap-2">
-              <select
-                value={activeRaidMode.id}
-                onChange={(e) => setRaidModeId(e.target.value as (typeof RAID_MODES)[number]["id"])}
-                className="rounded-lg border border-panel-border bg-panel px-2 py-2 text-sm text-text focus:border-primary focus:outline-none"
-              >
-                {RAID_MODES.map((mode) => (
-                  <option key={mode.id} value={mode.id}>
-                    {mode.name} · {mode.badge}
-                  </option>
-                ))}
-              </select>
-              <input
-                className="flex-1 rounded-lg border border-panel-border bg-panel px-3 py-2 text-text placeholder:text-text-subtle focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                value={raidName}
-                onChange={(e) => setRaidName(e.target.value)}
-                placeholder="예: 12/7(토) 오후 레이드"
-              />
-            </div>
-          </label>
-
-          <label className="space-y-1 text-sm">
-            <span className="text-text-muted">공개 설정</span>
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => handleVisibilityChange(true)}
-                className={`pill text-sm transition ${
-                  isPublic
-                    ? "border-emerald-300 bg-emerald-100 text-emerald-800 shadow-soft"
-                    : "border-panel-border bg-panel text-text hover:bg-panel-muted"
-                }`}
-                disabled={updateVisibilityMutation.isPending}
-              >
-                공개 레이드 (목록 표시)
-              </button>
-              <button
-                type="button"
-                onClick={() => handleVisibilityChange(false)}
-                className={`pill text-sm transition ${
-                  !isPublic
-                    ? "border-slate-300 bg-slate-100 text-slate-800 shadow-soft"
-                    : "border-panel-border bg-panel text-text hover:bg-panel-muted"
-                }`}
-                disabled={updateVisibilityMutation.isPending}
-              >
-                비공개 레이드 (링크/ID 전용)
-              </button>
-              {updateVisibilityMutation.isPending && raidId && (
+              <p className="text-[11px] text-text-subtle">서버를 고르면 닉네임 검색, "모험단"을 고르면 모험단명으로 불러옵니다.</p>
+              {leaderSearchMutation.isPending && (
                 <div className="flex items-center gap-2 text-xs text-text-subtle">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  저장 중...
+                  <Loader2 className="h-4 w-4 animate-spin" /> 공대장 검색 중...
                 </div>
               )}
+              {minFameRequirement != null && (
+                <div className="text-[11px] text-text-muted">
+                  {activeRaidMode.name}: 명성 {minFameRequirement.toLocaleString()} 이상만 검색 결과에 표시됩니다.
+                </div>
+              )}
+              {leaderCharacter ? (
+                <div className="flex items-center justify-between rounded-lg border border-panel-border bg-panel px-3 py-2 text-sm text-text">
+                  <div>
+                    <p className="font-display">{leaderCharacter.characterName}</p>
+                    <p className="text-xs text-text-subtle">
+                      모험단 {leaderCharacter.adventureName ?? "-"} · 서버 {getServerName(leaderCharacter.serverId)}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setLeaderCharacter(null)}
+                    className="flex items-center gap-1 text-xs text-text-subtle hover:text-text"
+                  >
+                    <Undo2 className="h-4 w-4" />
+                    교체
+                  </button>
+                </div>
+              ) : (
+                <p className="text-xs text-text-subtle">검색 후 캐릭터를 선택해 바로 공대에 추가할 수 있습니다.</p>
+              )}
             </div>
-            <p className="text-xs text-text-subtle">
-              공개: 공대 목록/검색에 노출 · 비공개: URL 또는 ID를 아는 사람만 지원/조회 가능
-            </p>
-          </label>
-
-          <label className="space-y-1 text-sm md:col-span-2">
-            <span className="text-text-muted">공대 ID</span>
-            <input
-              className="w-full rounded-lg border border-panel-border bg-panel px-3 py-2 text-text placeholder:text-text-subtle focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-              value={motherRaidId ?? raidId ?? ""}
-              onChange={(e) => {
-                const value = e.target.value || null;
-                setMotherRaidId(value);
-                setRaidId(value);
-              }}
-              placeholder="공대 ID를 직접 입력하거나 불러오세요"
-            />
-          </label>
-        </div>
-
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 text-sm text-text-muted">
-            <Sparkles className="h-4 w-4 text-primary" />
-            새 레이드는 공대장 페이지에서만 생성합니다.
           </div>
         </div>
 
-        <div className="space-y-2">
-          {leaderSearchMutation.isPending && (
-            <div className="flex items-center gap-2 text-text-subtle text-sm">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              공대장 검색 중...
+        {filteredLeaderSearchResults.length > 0 && (
+          <div className="frosted p-4 space-y-2">
+            <p className="text-sm text-text-muted">검색 결과</p>
+            <div className="grid gap-4 md:grid-cols-2">
+              {filteredLeaderSearchResults.map((character: DnfCharacter) => (
+                <div key={character.characterId} className="space-y-2">
+                  <CharacterCard
+                    character={character}
+                    onAction={() => handleQuickAdd(character)}
+                    actionLabel="공대에 추가"
+                    highlight={leaderCharacter?.characterId === character.characterId}
+                    subtitle={character.adventureName ? `모험단 ${character.adventureName}` : undefined}
+                  />
+                </div>
+              ))}
             </div>
-          )}
-
-          {minFameRequirement != null && (
-            <div className="text-xs text-text-muted">
-              {activeRaidMode.name}: 명성 {minFameRequirement.toLocaleString()} 이상만 검색 결과에 표시됩니다.
-            </div>
-          )}
-        </div>
-
-          {filteredLeaderSearchResults.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-sm text-text-muted">검색 결과</p>
-              <div className="grid gap-4 md:grid-cols-2">
-                {filteredLeaderSearchResults.map((character: DnfCharacter) => (
-                  <div key={character.characterId} className="space-y-2">
-                    <CharacterCard
-                      character={character}
-                      onAction={() => handleQuickAdd(character)}
-                      actionLabel="공대에 추가"
-                      highlight={leaderCharacter?.characterId === character.characterId}
-                      subtitle={character.adventureName ? `모험단 ${character.adventureName}` : undefined}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          </div>
+        )}
       </section>
 
       {leaderId && (
@@ -1487,20 +1644,37 @@ function LeaderDashboard() {
           </div>
         </div>
 
-        {raidId ? (
-          <PartyBoard
-            participants={participants}
-            unassignedParticipants={pooledUnassigned}
-            activeRaidId={raidId}
-            partyCount={activeRaidMode.partyCount}
-            slotsPerParty={activeRaidMode.slotsPerParty}
-            onAssign={(participantId, partyNumber, slotIndex) =>
-              assignMutation.mutate({participantId, partyNumber, slotIndex})
-            }
-          />
-        ) : (
-          <div className="frosted p-6 text-text-muted">레이드를 선택하거나 불러오세요.</div>
-        )}
+        <div
+          ref={partyBoardRef}
+          className="space-y-3 rounded-2xl border border-panel-border bg-panel p-4 shadow-card"
+        >
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div>
+              <p className="text-xs text-text-subtle">공대 편성표</p>
+              <p className="font-display text-lg text-text">{displayRaidName}</p>
+            </div>
+            {shareRaidId && (
+              <span className="pill border-panel-border bg-panel-muted text-[11px] text-text-subtle">
+                ID {shareRaidId}
+              </span>
+            )}
+          </div>
+
+          {raidId ? (
+            <PartyBoard
+              participants={participants}
+              unassignedParticipants={pooledUnassigned}
+              activeRaidId={raidId}
+              partyCount={activeRaidMode.partyCount}
+              slotsPerParty={activeRaidMode.slotsPerParty}
+              onAssign={(participantId, partyNumber, slotIndex) =>
+                assignMutation.mutate({participantId, partyNumber, slotIndex})
+              }
+            />
+          ) : (
+            <div className="frosted p-6 text-text-muted">레이드를 선택하거나 불러오세요.</div>
+          )}
+        </div>
       </section>
 
       {raid && (
@@ -1524,6 +1698,95 @@ function LeaderDashboard() {
           </div>
         </section>
       )}
+
+      <section className="frosted p-5 space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <p className="text-sm text-text-muted">요약표 미리보기</p>
+            <p className="text-xs text-text-subtle">필요한 슬롯 정보만 압축한 표를 PNG로 저장합니다.</p>
+          </div>
+          <button
+            type="button"
+            onClick={handleDownloadSummary}
+            disabled={summaryRaids.length === 0 || isSummaryExporting}
+            className="pill border-primary/30 bg-primary text-white hover:bg-primary-dark transition shadow-soft text-sm disabled:opacity-60"
+          >
+            <ImageDown className="h-4 w-4" />
+            {isSummaryExporting ? "생성 중" : "요약표 이미지"}
+          </button>
+        </div>
+
+        <div
+          ref={summaryRef}
+          className="space-y-3 rounded-xl border border-panel-border bg-white p-3 text-[11px] text-slate-900"
+        >
+          {summaryRaids.length === 0 ? (
+            <p className="text-slate-500">공대를 불러오면 요약표가 표시됩니다.</p>
+          ) : (
+            summaryRaids.map((detail, index) => {
+              const partyNumbers = Array.from({length: activeRaidMode.partyCount}, (_, idx) => idx + 1);
+              const slots: Record<number, Array<Participant | null>> = {};
+              partyNumbers.forEach((party) => {
+                slots[party] = Array.from({length: activeRaidMode.slotsPerParty}, () => null);
+              });
+              detail.participants
+                .filter((p) => p.partyNumber && p.slotIndex !== null && p.slotIndex !== undefined)
+                .forEach((p) => {
+                  const party = slots[p.partyNumber!];
+                  if (party && p.slotIndex! < party.length && party[p.slotIndex!] === null) {
+                    party[p.slotIndex!] = p;
+                  }
+                });
+
+              return (
+                <div key={detail.id ?? index} className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <p className="font-display text-sm text-slate-900">{detail.name ?? `${index + 1}기`}</p>
+                    <span className="text-[10px] text-slate-500">기수 {index + 1}</span>
+                  </div>
+                  <table className="w-full border border-slate-300 border-collapse text-[11px]">
+                    <thead className="bg-slate-100 text-slate-700">
+                      <tr>
+                        <th className="border border-slate-300 px-2 py-1 text-left w-[60px]">파티</th>
+                        {Array.from({length: activeRaidMode.slotsPerParty}, (_, idx) => (
+                          <th key={idx} className="border border-slate-300 px-2 py-1 text-left">슬롯 {idx + 1}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {partyNumbers.map((party) => (
+                        <tr key={party} className={party % 2 === 0 ? "bg-slate-50" : "bg-white"}>
+                          <td className="border border-slate-300 px-2 py-1 font-semibold text-center text-slate-800">{party}파티</td>
+                          {slots[party].map((slot, idx) => (
+                            <td key={`${party}-${idx}`} className="border border-slate-300 px-2 py-1 align-top">
+                              {slot ? (
+                                <div className="space-y-0.5 leading-tight">
+                                  <p
+                                    className={clsx(
+                                      "font-semibold",
+                                      isBufferJob(slot.character) ? "text-amber-700" : "text-slate-900"
+                                    )}
+                                  >
+                                    {slot.character.adventureName ?? "-"}/{slot.character.characterName} ({slot.character.jobGrowName})
+                                  </p>
+                                  <p className="text-[10px] text-slate-600">딜 {slot.damage.toLocaleString()}억 · 버프 {slot.buffPower.toLocaleString()}만</p>
+                                </div>
+                              ) : (
+                                <span className="text-slate-300">-</span>
+                              )}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })
+          )}
+        </div>
+        <p className="text-[11px] text-text-subtle">슬롯만 담은 표로 여백을 줄인 PNG를 내려받아 메신저에 올릴 수 있습니다.</p>
+      </section>
 
       {addCandidate && showSupportModal && (
         <SupportModal

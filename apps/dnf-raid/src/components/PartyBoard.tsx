@@ -99,7 +99,14 @@ export function PartyBoard({
     defaultUnassigned.push(p);
   });
 
-  const unassigned = unassignedParticipants && unassignedParticipants.length > 0 ? unassignedParticipants : defaultUnassigned;
+  const unassignedSource =
+    unassignedParticipants && unassignedParticipants.length > 0
+      ? unassignedParticipants
+      : defaultUnassigned;
+  // Only surface applicants that belong to the currently selected raid so everything in the list is draggable.
+  const unassigned = activeRaidId
+    ? unassignedSource.filter((p) => p.raidId === activeRaidId)
+    : unassignedSource;
 
   const handleDrop = (partyNumber: PartyNumber, slotIndex: SlotIndex) => {
     if (!draggingParticipant) return;
@@ -116,7 +123,7 @@ export function PartyBoard({
 
       if (duplicated) {
         setDuplicateAdventureCharacterName(duplicated.character.characterName);
-        setDragging(null);
+        setDraggingParticipant(null);
         return;
       }
     }
