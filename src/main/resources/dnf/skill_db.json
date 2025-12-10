@@ -1,0 +1,7 @@
+[
+  { "job": "Waypun", "name": "Quick Draw", "baseCoefficient": 12.0, "baseCooldown": 5.0, "recovery": 0.0 },
+  { "job": "Waypun", "name": "Phantom Bullet", "baseCoefficient": 18.5, "baseCooldown": 8.0, "recovery": 0.05 },
+  { "job": "Waypun", "name": "Deadeye Burst", "baseCoefficient": 25.0, "baseCooldown": 12.0, "recovery": 0.1 },
+  { "job": "Waypun", "name": "Piercing Gale", "baseCoefficient": 15.0, "baseCooldown": 7.5, "recovery": 0.0 },
+  { "job": "Waypun", "name": "Last Stand", "baseCoefficient": 35.0, "baseCooldown": 20.0, "recovery": 0.15 }
+]
