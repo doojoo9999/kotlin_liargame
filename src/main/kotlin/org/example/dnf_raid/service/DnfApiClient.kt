@@ -56,9 +56,14 @@ class DnfApiClient(
             val fixed = itemFixedOptionCache[slot.itemId]
                 ?: ItemFixedOptions(
                     skillAtkIncrease = 0.0,
+                    damageIncrease = 0.0,
+                    additionalDamage = 0.0,
+                    finalDamage = 0.0,
+                    criticalDamage = 0.0,
                     cooldownReduction = 0.0,
                     cooldownRecovery = 0.0,
                     elementalDamage = 0,
+                    defensePenetration = 0.0,
                     levelOptions = emptyMap()
                 )
             DnfEquipItem(
@@ -453,9 +458,14 @@ class DnfApiClient(
             logger.warn("아이템 상세 조회 실패 (itemId={}): {}", itemId, ex.message)
             ItemFixedOptions(
                 skillAtkIncrease = 0.0,
+                damageIncrease = 0.0,
+                additionalDamage = 0.0,
+                finalDamage = 0.0,
+                criticalDamage = 0.0,
                 cooldownReduction = 0.0,
                 cooldownRecovery = 0.0,
                 elementalDamage = 0,
+                defensePenetration = 0.0,
                 levelOptions = emptyMap()
             )
         }
@@ -501,9 +511,14 @@ class DnfApiClient(
         if (detail == null) {
             return ItemFixedOptions(
                 skillAtkIncrease = 0.0,
+                damageIncrease = 0.0,
+                additionalDamage = 0.0,
+                finalDamage = 0.0,
+                criticalDamage = 0.0,
                 cooldownReduction = 0.0,
                 cooldownRecovery = 0.0,
                 elementalDamage = 0,
+                defensePenetration = 0.0,
                 levelOptions = emptyMap()
             )
         }
@@ -516,17 +531,27 @@ class DnfApiClient(
         }
 
         val skillAtk = parsePercent(SKILL_ATK_PATTERN, textBucket)
+        val damageIncrease = parsePercent(DAMAGE_INCREASE_PATTERN, textBucket)
+        val additionalDamage = parsePercent(ADDITIONAL_DAMAGE_PATTERN, textBucket)
+        val finalDamage = parsePercent(FINAL_DAMAGE_PATTERN, textBucket)
+        val criticalDamage = parsePercent(CRITICAL_DAMAGE_PATTERN, textBucket)
         val cooldownReduction = parsePercent(COOLDOWN_REDUCTION_PATTERN, textBucket)
         val cooldownRecovery = parsePercent(COOLDOWN_RECOVERY_PATTERN, textBucket)
+        val defensePenetration = parsePercent(DEFENSE_PIERCE_PATTERN, textBucket)
         val elementalDamage = ELEMENTAL_DAMAGE_PATTERN.find(textBucket)?.groupValues?.getOrNull(1)?.toIntOrNull() ?: 0
 
         val levelOptions = parseLevelOptions(detail)
 
         return ItemFixedOptions(
             skillAtkIncrease = skillAtk,
+            damageIncrease = damageIncrease,
+            additionalDamage = additionalDamage,
+            finalDamage = finalDamage,
+            criticalDamage = criticalDamage,
             cooldownReduction = cooldownReduction,
             cooldownRecovery = cooldownRecovery,
             elementalDamage = elementalDamage,
+            defensePenetration = defensePenetration,
             levelOptions = levelOptions
         )
     }
@@ -559,7 +584,18 @@ class DnfApiClient(
                 val explain = node.get("explain")?.asText() ?: node.toString()
                 val skillAtk = parsePercent(SKILL_ATK_PATTERN, explain)
                 val cdr = parsePercent(COOLDOWN_REDUCTION_PATTERN, explain)
-                options[level] = LevelOption(skillAtkInc = skillAtk, cdr = cdr)
+                val damageIncrease = parsePercent(DAMAGE_INCREASE_PATTERN, explain)
+                val additionalDamage = parsePercent(ADDITIONAL_DAMAGE_PATTERN, explain)
+                val finalDamage = parsePercent(FINAL_DAMAGE_PATTERN, explain)
+                val criticalDamage = parsePercent(CRITICAL_DAMAGE_PATTERN, explain)
+                options[level] = LevelOption(
+                    skillAtkInc = skillAtk,
+                    cdr = cdr,
+                    damageIncrease = damageIncrease,
+                    additionalDamage = additionalDamage,
+                    finalDamage = finalDamage,
+                    criticalDamage = criticalDamage
+                )
             }
         }
         return options
@@ -616,9 +652,14 @@ class DnfApiClient(
 
     companion object {
         private val SKILL_ATK_PATTERN = Regex("""스킬\s*공격력[^\\d]*([\d.]+)\s*%""", RegexOption.IGNORE_CASE)
+        private val DAMAGE_INCREASE_PATTERN = Regex("""(?:피해|데미지)\s*증가[^\d-]*([\d.]+)\s*%""", RegexOption.IGNORE_CASE)
+        private val ADDITIONAL_DAMAGE_PATTERN = Regex("""추가\s*(?:피해|데미지)[^\d-]*([\d.]+)\s*%""", RegexOption.IGNORE_CASE)
+        private val FINAL_DAMAGE_PATTERN = Regex("""최종\s*(?:피해|데미지)[^\d-]*([\d.]+)\s*%""", RegexOption.IGNORE_CASE)
+        private val CRITICAL_DAMAGE_PATTERN = Regex("""크리티컬(?:\s*(?:공격력|피해))?[^\d-]*([\d.]+)\s*%""", RegexOption.IGNORE_CASE)
         private val COOLDOWN_REDUCTION_PATTERN = Regex("""쿨타임\s*감소[^\\d]*([\d.]+)\s*%""", RegexOption.IGNORE_CASE)
         private val COOLDOWN_RECOVERY_PATTERN = Regex("""쿨타임\s*회복[^\\d]*([\d.]+)\s*%""", RegexOption.IGNORE_CASE)
         private val ELEMENTAL_DAMAGE_PATTERN = Regex("""모든\s*속성\s*강화[^\\d]*([\d]+)""", RegexOption.IGNORE_CASE)
+        private val DEFENSE_PIERCE_PATTERN = Regex("""방어력\s*무시[^\d-]*([\d.]+)\s*%""", RegexOption.IGNORE_CASE)
         private val BUFF_PATTERN = Regex("""(?:버프|buff)[^\d-]*([\d,]+)""", RegexOption.IGNORE_CASE)
         private val DAMAGE_PATTERN = Regex("""(?:피해|증가)[^\d-]*([\d,]+)""", RegexOption.IGNORE_CASE)
     }

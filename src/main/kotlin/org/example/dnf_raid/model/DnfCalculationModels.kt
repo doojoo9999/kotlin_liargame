@@ -42,15 +42,24 @@ data class DnfEquipItem(
 
 data class ItemFixedOptions(
     val skillAtkIncrease: Double,
+    val damageIncrease: Double = 0.0,
+    val additionalDamage: Double = 0.0,
+    val finalDamage: Double = 0.0,
+    val criticalDamage: Double = 0.0,
     val cooldownReduction: Double,
     val cooldownRecovery: Double,
     val elementalDamage: Int,
+    val defensePenetration: Double = 0.0,
     val levelOptions: Map<Int, LevelOption>
 )
 
 data class LevelOption(
     val skillAtkInc: Double,
-    val cdr: Double
+    val cdr: Double,
+    val damageIncrease: Double = 0.0,
+    val additionalDamage: Double = 0.0,
+    val finalDamage: Double = 0.0,
+    val criticalDamage: Double = 0.0
 )
 
 data class DnfAvatar(

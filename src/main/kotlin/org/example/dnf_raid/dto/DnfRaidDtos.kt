@@ -1,5 +1,6 @@
 package org.example.dnf_raid.dto
 
+import jakarta.validation.Valid
 import jakarta.validation.constraints.*
 import org.example.dnf_raid.model.CohortPreference
 import java.time.LocalDateTime
@@ -24,6 +25,20 @@ data class DnfCharacterLoadoutDto(
     val updatedAt: LocalDateTime,
     /** 저장된 섹션 여부를 가볍게 확인하기 위한 플래그 */
     val fields: Map<String, Boolean>
+)
+
+data class ManualCharacterInput(
+    @field:NotBlank(message = "serverId를 입력해주세요.")
+    val serverId: String,
+    @field:NotBlank(message = "characterId를 입력해주세요.")
+    val characterId: String
+)
+
+data class SyncLoadoutsRequest(
+    val includeRegisteredCharacters: Boolean = true,
+    @field:Size(max = 50, message = "한 번에 최대 50개까지만 동기화할 수 있습니다.")
+    @field:Valid
+    val manualCharacters: List<ManualCharacterInput> = emptyList()
 )
 
 data class ParticipantResponse(

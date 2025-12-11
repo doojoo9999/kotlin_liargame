@@ -3,6 +3,7 @@ package org.example.dnf_raid.service
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.example.dnf_raid.dto.DnfCharacterLoadoutDto
+import org.example.dnf_raid.dto.ManualCharacterInput
 import org.example.dnf_raid.model.DnfCharacterLoadoutEntity
 import org.example.dnf_raid.repository.DnfCharacterLoadoutRepository
 import org.slf4j.LoggerFactory
@@ -78,6 +79,42 @@ class DnfCharacterLoadoutService(
                 "buffCreature" to !saved.buffCreatureJson.isNullOrBlank()
             )
         )
+    }
+
+    /**
+     * 등록된 캐릭터 전체와 수동으로 입력된 캐릭터 목록을 한 번에 동기화한다.
+     * - includeRegistered=true이면 dnf_characters 테이블의 모든 캐릭터를 포함
+     * - manualCharacters는 사이트에서 입력한 캐릭터 목록(serverId, characterId)
+     */
+    @Transactional
+    fun refreshRegisteredAndManual(
+        includeRegistered: Boolean,
+        manualCharacters: List<ManualCharacterInput>
+    ): List<DnfCharacterLoadoutDto> {
+        val registeredTargets = if (includeRegistered) {
+            characterService.listAllCharacters().map { it.serverId to it.characterId }
+        } else {
+            emptyList()
+        }
+
+        val manualTargets = manualCharacters
+            .mapNotNull { input ->
+                val server = input.serverId.trim().lowercase()
+                val character = input.characterId.trim()
+                if (server.isBlank() || character.isBlank()) null else server to character
+            }
+
+        val uniqueTargets = (registeredTargets + manualTargets).distinctBy { it.second }
+        val results = mutableListOf<DnfCharacterLoadoutDto>()
+
+        uniqueTargets.forEach { (serverId, characterId) ->
+            runCatching { refreshAndPersist(serverId, characterId) }
+                .onSuccess { results += it }
+                .onFailure { ex ->
+                    logger.warn("Failed to sync loadout (serverId={}, characterId={}): {}", serverId, characterId, ex.message)
+                }
+        }
+        return results
     }
 
     private fun JsonNode?.stringify(): String? =

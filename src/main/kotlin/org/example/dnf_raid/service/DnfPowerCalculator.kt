@@ -3,6 +3,8 @@ package org.example.dnf_raid.service
 import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.example.dnf_raid.model.DnfCharacterFullStatus
+import org.example.dnf_raid.model.ItemFixedOptions
+import org.example.dnf_raid.model.LevelOption
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.util.Locale
@@ -19,8 +21,14 @@ class DnfPowerCalculator(
     /**
         Dealer combat power = sum of top 7 skill scores.
         Score(skill) = SingleDamage * (40 / RealCD)
+        Based on docs/dnf/damage_formula_2025.md lanes.
      */
-    fun calculateDealerScore(status: DnfCharacterFullStatus): DealerCalculationResult {
+    fun calculateDealerScore(
+        status: DnfCharacterFullStatus,
+        monsterResist: Int = 0,
+        situationalBonus: Double = DEFAULT_SITUATIONAL_BONUS,
+        partySynergyBonus: Double = DEFAULT_PARTY_SYNERGY_BONUS
+    ): DealerCalculationResult {
         val skills = resolveSkills(status)
         if (skills.isEmpty()) {
             logger.warn("No skills found for advancement={}", status.advancementName)
@@ -37,56 +45,43 @@ class DnfPowerCalculator(
         val mainStat = max(totalStrength, totalIntelligence)
         val statFactor = 1.0 + (mainStat / 250.0)
 
-        // 2025 Season: Set Point System (Replaces Damage Value)
-        // Set Points determine the "Set Option" Final Damage Multiplier.
-        val totalSetPoints = status.equipment.sumOf { it.setPoint }
-        val setPointMultiplier = org.example.dnf_raid.model.SetEffectTable.getDamageMultiplier(totalSetPoints)
+        val laneTotals = aggregateLaneTotals(status)
+        val baseElementalAttack = resolveBaseElementalAttack(status)
 
-        // Skill Attack (Final Damage Increase) - Multiplicative (Compound)
-        // Equipment + Creature + Avatar if applicable
-        var totalSkillAtkMultiplier = status.equipment.fold(1.0) { acc, item ->
-            acc * (1.0 + item.fixedOptions.skillAtkIncrease)
-        }
-        
-        // Creature Damage Increase (often termed 'Damage Increase' or 'Skill Atk' depending on season)
-        // If creature.damageBonus is a percentage (e.g. 20 for 20%), convert to multiplier
-        status.creature?.let { creature ->
-            if (creature.damageBonus > 0) {
-                totalSkillAtkMultiplier *= (1.0 + creature.damageBonus / 100.0)
-            }
-        }
-
-        val totalCdr = 1.0 - status.equipment.fold(1.0) { acc, item ->
-            acc * (1.0 - item.fixedOptions.cooldownReduction)
-        }.coerceAtLeast(0.0)
-
+        val totalCdr = calculateStackedReduction(status.equipment.map { it.fixedOptions.cooldownReduction })
         val totalRecovery = status.equipment.sumOf { it.fixedOptions.cooldownRecovery }
 
         val skillScores = skills.map { skill ->
             val levelOptions = status.equipment.mapNotNull { it.fixedOptions.levelOptions[skill.level] }
-            val specificSkillAtk = levelOptions.fold(1.0) { acc, opt -> acc * (1.0 + opt.skillAtkInc) }
-            val specificCdr = 1.0 - levelOptions.fold(1.0) { acc, opt -> acc * (1.0 - opt.cdr) }.coerceAtLeast(0.0)
+            val levelLanes = aggregateLevelLanes(levelOptions)
+            val mergedLane = laneTotals + levelLanes
 
-            // Calculate Elemental Multiplier: (1.0 + (HighestElement + 11) / 222.0)
-            val highestElement = maxOf(
-                status.townStats.elementInfo.fire,
-                status.townStats.elementInfo.water,
-                status.townStats.elementInfo.light,
-                status.townStats.elementInfo.shadow
-            )
-            // 11 is the hidden approximate elemental damage derived from base character stats
-            // Formula: 1 + (Elem + 11) * 0.0045
-            val elementalMultiplier = 1.0 + (highestElement + 11) * 0.0045
+            val skillAtkMultiplier = 1.0 + mergedLane.skillAtk
+            val damageIncreaseMultiplier = 1.0 + mergedLane.damageIncrease
+            val additionalDamageMultiplier = 1.0 + mergedLane.additionalDamage
+            val finalDamageMultiplier = 1.0 + mergedLane.finalDamage
+            val criticalMultiplier = CRIT_BASE * (1.0 + mergedLane.criticalDamage)
+            val elementalAttack = baseElementalAttack + BASE_ELEMENTAL_FLAT + mergedLane.elementalAttackBonus // base hidden +11 plus gear elemental
+            val elementalMultiplier = (1.0 + ((elementalAttack - monsterResist) * ELEMENT_COEFF)).coerceAtLeast(0.0)
+            val situationalMultiplier = 1.0 + situationalBonus
+            val partyMultiplier = 1.0 + partySynergyBonus
+            val defenseMultiplier = 1.0 + mergedLane.defensePenetration
 
-            val singleDamage = baseAttack *
-                statFactor *
-                setPointMultiplier * // Main Set Option Multiplier
-                totalSkillAtkMultiplier *
-                elementalMultiplier * 
-                specificSkillAtk *
-                skill.coeff *
-                1.5 * // Base Critical Damage (Assuming 100% Crit Rate)
-                1.25  // Counter Damage (Standard Raid Assumption)
+            val baseSkillDamage = baseAttack * skill.coeff
+            val totalMultiplier = statFactor *
+                defenseMultiplier *
+                skillAtkMultiplier *
+                damageIncreaseMultiplier *
+                additionalDamageMultiplier *
+                finalDamageMultiplier *
+                criticalMultiplier *
+                elementalMultiplier *
+                situationalMultiplier *
+                partyMultiplier
+
+            val singleDamage = baseSkillDamage * totalMultiplier
+
+            val specificCdr = calculateStackedReduction(levelOptions.map { it.cdr })
 
             val realCd = (skill.baseCd) *
                 (1.0 - totalCdr).coerceAtLeast(MIN_CD_FACTOR) *
@@ -104,7 +99,22 @@ class DnfPowerCalculator(
                 realCd = realCd,
                 singleDamage = singleDamage,
                 casts = castCount,
-                score = score
+                score = score,
+                breakdown = DamageBreakdown(
+                    baseSkillDamage = baseSkillDamage,
+                    statMultiplier = statFactor,
+                    defenseMultiplier = defenseMultiplier,
+                    skillAtkMultiplier = skillAtkMultiplier,
+                    damageIncreaseMultiplier = damageIncreaseMultiplier,
+                    additionalDamageMultiplier = additionalDamageMultiplier,
+                    finalDamageMultiplier = finalDamageMultiplier,
+                    criticalMultiplier = criticalMultiplier,
+                    elementalMultiplier = elementalMultiplier,
+                    situationalMultiplier = situationalMultiplier,
+                    partyMultiplier = partyMultiplier,
+                    totalMultiplier = totalMultiplier,
+                    totalDamage = singleDamage
+                )
             )
         }.sortedByDescending { it.score }
 
@@ -140,6 +150,59 @@ class DnfPowerCalculator(
         val score = (finalStat / REF_STAT) * (finalAtk / REF_ATK) * BASE_POTENTIAL * setMultiplier
         return score.toLong()
     }
+
+    private fun aggregateLaneTotals(status: DnfCharacterFullStatus): LaneTotals {
+        val fromEquipment = status.equipment.fold(LaneTotals()) { acc, item ->
+            acc + laneFromOptions(item.fixedOptions)
+        }
+        val creatureLane = status.creature?.let { creature ->
+            if (creature.damageBonus > 0) {
+                LaneTotals(damageIncrease = creature.damageBonus / 100.0)
+            } else {
+                LaneTotals()
+            }
+        } ?: LaneTotals()
+
+        val totalSetPoints = status.equipment.sumOf { it.setPoint }
+        val setBonus = org.example.dnf_raid.model.SetEffectTable.getDamageMultiplier(totalSetPoints) - 1.0
+
+        return fromEquipment + creatureLane + LaneTotals(finalDamage = setBonus)
+    }
+
+    private fun laneFromOptions(options: ItemFixedOptions): LaneTotals =
+        LaneTotals(
+            skillAtk = options.skillAtkIncrease,
+            damageIncrease = options.damageIncrease,
+            additionalDamage = options.additionalDamage,
+            finalDamage = options.finalDamage,
+            criticalDamage = options.criticalDamage,
+            elementalAttackBonus = options.elementalDamage,
+            defensePenetration = options.defensePenetration
+        )
+
+    private fun aggregateLevelLanes(levelOptions: List<LevelOption>): LaneTotals =
+        levelOptions.fold(LaneTotals()) { acc, opt ->
+            acc + LaneTotals(
+                skillAtk = opt.skillAtkInc,
+                damageIncrease = opt.damageIncrease,
+                additionalDamage = opt.additionalDamage,
+                finalDamage = opt.finalDamage,
+                criticalDamage = opt.criticalDamage
+            )
+        }
+
+    private fun resolveBaseElementalAttack(status: DnfCharacterFullStatus): Int =
+        maxOf(
+            status.townStats.elementInfo.fire,
+            status.townStats.elementInfo.water,
+            status.townStats.elementInfo.light,
+            status.townStats.elementInfo.shadow
+        )
+
+    private fun calculateStackedReduction(values: List<Double>): Double =
+        1.0 - values.fold(1.0) { acc, value ->
+            acc * (1.0 - value)
+        }.coerceAtLeast(0.0)
 
     private fun resolveSkills(status: DnfCharacterFullStatus): List<SkillDefinition> {
         val key = status.advancementName.lowercase(Locale.getDefault())
@@ -213,6 +276,42 @@ class DnfPowerCalculator(
         }
     }
 
+    data class DamageBreakdown(
+        val baseSkillDamage: Double,
+        val statMultiplier: Double,
+        val defenseMultiplier: Double,
+        val skillAtkMultiplier: Double,
+        val damageIncreaseMultiplier: Double,
+        val additionalDamageMultiplier: Double,
+        val finalDamageMultiplier: Double,
+        val criticalMultiplier: Double,
+        val elementalMultiplier: Double,
+        val situationalMultiplier: Double,
+        val partyMultiplier: Double,
+        val totalMultiplier: Double,
+        val totalDamage: Double
+    )
+
+    data class LaneTotals(
+        val skillAtk: Double = 0.0,
+        val damageIncrease: Double = 0.0,
+        val additionalDamage: Double = 0.0,
+        val finalDamage: Double = 0.0,
+        val criticalDamage: Double = 0.0,
+        val elementalAttackBonus: Int = 0,
+        val defensePenetration: Double = 0.0
+    ) {
+        operator fun plus(other: LaneTotals): LaneTotals = LaneTotals(
+            skillAtk = skillAtk + other.skillAtk,
+            damageIncrease = damageIncrease + other.damageIncrease,
+            additionalDamage = additionalDamage + other.additionalDamage,
+            finalDamage = finalDamage + other.finalDamage,
+            criticalDamage = criticalDamage + other.criticalDamage,
+            elementalAttackBonus = elementalAttackBonus + other.elementalAttackBonus,
+            defensePenetration = defensePenetration + other.defensePenetration
+        )
+    }
+
     data class DealerCalculationResult(
         val totalScore: Double,
         val topSkills: List<SkillScore>
@@ -226,7 +325,8 @@ class DnfPowerCalculator(
         val realCd: Double,
         val singleDamage: Double,
         val casts: Double,
-        val score: Double
+        val score: Double,
+        val breakdown: DamageBreakdown
     )
 
     data class SkillDefinition(
@@ -239,6 +339,11 @@ class DnfPowerCalculator(
     companion object {
         // Max Cooltime Reduction is 70% -> Min Cooltime Factor is 30%
         private const val MIN_CD_FACTOR = 0.3
+        private const val ELEMENT_COEFF = 0.0045
+        private const val BASE_ELEMENTAL_FLAT = 11
+        private const val CRIT_BASE = 1.5
+        private const val DEFAULT_SITUATIONAL_BONUS = 0.25
+        private const val DEFAULT_PARTY_SYNERGY_BONUS = 0.0
         private const val REF_STAT = 25250.0
         private const val REF_ATK = 3000.0
         private const val BASE_POTENTIAL = 30750.0

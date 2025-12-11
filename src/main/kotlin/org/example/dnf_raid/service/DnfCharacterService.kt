@@ -89,6 +89,10 @@ class DnfCharacterService(
         return cached.map { toDto(it) }
     }
 
+    @Transactional(readOnly = true)
+    fun listAllCharacters(): List<DnfCharacterEntity> =
+        characterRepository.findAll()
+
     @Transactional
     fun getOrRefresh(serverId: String, characterId: String): DnfCharacterEntity {
         val cached = characterRepository.findById(characterId).orElse(null)
