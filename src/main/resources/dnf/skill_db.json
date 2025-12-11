@@ -1,7 +1,11 @@
-[
-  { "job": "Waypun", "name": "Quick Draw", "baseCoefficient": 12.0, "baseCooldown": 5.0, "recovery": 0.0 },
-  { "job": "Waypun", "name": "Phantom Bullet", "baseCoefficient": 18.5, "baseCooldown": 8.0, "recovery": 0.05 },
-  { "job": "Waypun", "name": "Deadeye Burst", "baseCoefficient": 25.0, "baseCooldown": 12.0, "recovery": 0.1 },
-  { "job": "Waypun", "name": "Piercing Gale", "baseCoefficient": 15.0, "baseCooldown": 7.5, "recovery": 0.0 },
-  { "job": "Waypun", "name": "Last Stand", "baseCoefficient": 35.0, "baseCooldown": 20.0, "recovery": 0.15 }
-]
+{
+  "웨펀마스터": [
+    { "name": "천제극섬", "level": 100, "coeff": 5500000, "baseCd": 290 },
+    { "name": "극귀참", "level": 95, "coeff": 3100000, "baseCd": 220 },
+    { "name": "섬단", "level": 85, "coeff": 1800000, "baseCd": 150 },
+    { "name": "극 폭풍쇄도", "level": 80, "coeff": 1200000, "baseCd": 90 },
+    { "name": "유성락", "level": 70, "coeff": 850000, "baseCd": 50 },
+    { "name": "폭풍검", "level": 45, "coeff": 600000, "baseCd": 35 },
+    { "name": "월광무", "level": 35, "coeff": 420000, "baseCd": 25 }
+  ]
+}

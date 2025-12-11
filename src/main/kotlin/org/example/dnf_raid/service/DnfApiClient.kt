@@ -1,17 +1,15 @@
 package org.example.dnf_raid.service
 
+import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.ObjectMapper
 import org.example.dnf_raid.config.DnfApiProperties
-import org.example.dnf_raid.model.AvatarSlot
-import org.example.dnf_raid.model.BasicInfo
 import org.example.dnf_raid.model.DnfAvatar
 import org.example.dnf_raid.model.DnfCharacterFullStatus
 import org.example.dnf_raid.model.DnfCreature
 import org.example.dnf_raid.model.DnfEquipItem
-import org.example.dnf_raid.model.DnfNumberParser
-import org.example.dnf_raid.model.Element
+import org.example.dnf_raid.model.ElementInfo
 import org.example.dnf_raid.model.ItemFixedOptions
-import org.example.dnf_raid.model.JobRole
-import org.example.dnf_raid.model.SlotType
+import org.example.dnf_raid.model.LevelOption
 import org.example.dnf_raid.model.TownStats
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
@@ -25,11 +23,129 @@ import java.util.concurrent.ConcurrentHashMap
 @Component
 class DnfApiClient(
     private val restClient: RestClient,
-    private val properties: DnfApiProperties
-    ) {
+    private val properties: DnfApiProperties,
+    private val objectMapper: ObjectMapper
+) {
 
     private val logger = LoggerFactory.getLogger(DnfApiClient::class.java)
     private val itemFixedOptionCache = ConcurrentHashMap<String, ItemFixedOptions>()
+
+    /**
+     * Aggregates Status, Equipment, Avatar, Creature, and Item Detail endpoints into a single snapshot.
+     * Item Detail responses are cached by itemId to avoid redundant network calls.
+     */
+    fun fetchCharacterFullStatus(serverId: String, characterId: String): DnfCharacterFullStatus {
+        val normalizedServerId = serverId.trim().lowercase(Locale.getDefault())
+
+        val statusFuture = CompletableFuture.supplyAsync { fetchStatus(normalizedServerId, characterId) }
+        val equipmentFuture = CompletableFuture.supplyAsync { fetchEquipment(normalizedServerId, characterId) }
+        val avatarFuture = CompletableFuture.supplyAsync { fetchAvatar(normalizedServerId, characterId) }
+        val creatureFuture = CompletableFuture.supplyAsync { fetchCreature(normalizedServerId, characterId) }
+
+        val status = statusFuture.join()
+        val equipment = equipmentFuture.join()
+        val avatars = avatarFuture.join()
+            val creature = creatureFuture.join()
+
+        val missingItemIds = equipment.map { it.itemId }.toSet().filterNot { itemFixedOptionCache.containsKey(it) }
+        if (missingItemIds.isNotEmpty()) {
+            fetchAndCacheItemDetails(missingItemIds)
+        }
+
+        val equippedItems = equipment.map { slot ->
+            val fixed = itemFixedOptionCache[slot.itemId]
+                ?: ItemFixedOptions(
+                    skillAtkIncrease = 0.0,
+                    cooldownReduction = 0.0,
+                    cooldownRecovery = 0.0,
+                    elementalDamage = 0,
+                    levelOptions = emptyMap()
+                )
+            DnfEquipItem(
+                slotName = slot.slotName,
+                itemId = slot.itemId,
+                itemName = slot.itemName,
+                buffPower = slot.buffPower,
+                fixedOptions = fixed,
+                setPoint = slot.setPoint,
+                itemGrade = slot.itemGrade
+            )
+        }
+
+        return DnfCharacterFullStatus(
+            serverId = status.serverId,
+            characterId = status.characterId,
+            jobName = status.jobName,
+            advancementName = status.advancementName,
+            level = status.level,
+            townStats = status.townStats,
+            equipment = equippedItems,
+            avatars = avatars,
+            creature = creature
+        )
+    }
+
+    /**
+     * Raw loadout snapshot used for DB persistence (timeline + equipment + buff gear).
+     */
+    fun fetchCharacterLoadoutRaw(
+        serverId: String,
+        characterId: String,
+        timelineLimit: Int = 20
+    ): CharacterLoadoutBundle {
+        val normalizedServerId = serverId.trim().lowercase(Locale.getDefault())
+        val safeLimit = timelineLimit.coerceIn(1, 100)
+
+        val timelineFuture = CompletableFuture.supplyAsync {
+            fetchCharacterNode(normalizedServerId, characterId, "timeline", mapOf("limit" to safeLimit))
+        }
+        val statusFuture = CompletableFuture.supplyAsync {
+            fetchCharacterNode(normalizedServerId, characterId, "status")
+        }
+        val equipmentFuture = CompletableFuture.supplyAsync {
+            fetchCharacterNode(normalizedServerId, characterId, "equip/equipment")
+        }
+        val avatarFuture = CompletableFuture.supplyAsync {
+            fetchCharacterNode(normalizedServerId, characterId, "equip/avatar")
+        }
+        val creatureFuture = CompletableFuture.supplyAsync {
+            fetchCharacterNode(normalizedServerId, characterId, "equip/creature")
+        }
+        val flagFuture = CompletableFuture.supplyAsync {
+            fetchCharacterNode(normalizedServerId, characterId, "equip/flag")
+        }
+        val mistFuture = CompletableFuture.supplyAsync {
+            fetchCharacterNode(normalizedServerId, characterId, "equip/mist-assimilation")
+        }
+        val skillStyleFuture = CompletableFuture.supplyAsync {
+            fetchCharacterNode(normalizedServerId, characterId, "skill/style")
+        }
+        val buffEquipmentFuture = CompletableFuture.supplyAsync {
+            fetchCharacterNode(normalizedServerId, characterId, "skill/buff/equip/equipment")
+        }
+        val buffAvatarFuture = CompletableFuture.supplyAsync {
+            fetchCharacterNode(normalizedServerId, characterId, "skill/buff/equip/avatar")
+        }
+        val buffCreatureFuture = CompletableFuture.supplyAsync {
+            fetchCharacterNode(normalizedServerId, characterId, "skill/buff/equip/creature")
+        }
+
+        return CharacterLoadoutBundle(
+            serverId = normalizedServerId,
+            characterId = characterId,
+            timeline = timelineFuture.join(),
+            status = statusFuture.join(),
+            equipment = equipmentFuture.join(),
+            avatar = avatarFuture.join(),
+            creature = creatureFuture.join(),
+            flag = flagFuture.join(),
+            mistAssimilation = mistFuture.join(),
+            skillStyle = skillStyleFuture.join(),
+            buffEquipment = buffEquipmentFuture.join(),
+            buffAvatar = buffAvatarFuture.join(),
+            buffCreature = buffCreatureFuture.join()
+        )
+    }
 
     fun searchCharacters(
         serverId: String,
@@ -37,7 +153,7 @@ class DnfApiClient(
         limit: Int = 20,
         wordType: String = "full"
     ): List<DnfCharacterApiResponse> {
-        val apiKey = properties.apiKey ?: throw IllegalStateException("DNF API 키(DNF_API_KEY)가 설정되지 않았습니다.")
+        val apiKey = apiKey()
         return try {
             val response = restClient.get()
                 .uri { builder ->
@@ -59,8 +175,16 @@ class DnfApiClient(
         }
     }
 
+    private fun parseJobGrow(node: JsonNode?): JobGrowRow? {
+        node ?: return null
+        val jobGrowId = node.get("jobGrowId")?.asText() ?: return null
+        val jobGrowName = node.get("jobGrowName")?.asText() ?: ""
+        val next = parseJobGrow(node.get("next"))
+        return JobGrowRow(jobGrowId = jobGrowId, jobGrowName = jobGrowName, next = next)
+    }
+
     fun fetchCharacter(serverId: String, characterId: String): DnfCharacterApiResponse? {
-        val apiKey = properties.apiKey ?: throw IllegalStateException("DNF API 키(DNF_API_KEY)가 설정되지 않았습니다.")
+        val apiKey = apiKey()
         return try {
             restClient.get()
                 .uri { builder ->
@@ -77,69 +201,111 @@ class DnfApiClient(
         }
     }
 
-    /**
-     * 캐릭터 전체 상태(마을 스탯, 장비, 아바타, 크리쳐)를 병렬로 조회 후 도메인 모델로 변환한다.
-     * 장비의 성장 옵션(피증/버프력) + 커스텀 옵션을 합산하며, 아이템 상세 고정 옵션은 캐시한다.
-     */
-    fun fetchFullCharacterStatus(serverId: String, characterId: String): DnfCharacterFullStatus {
-        val apiKey = properties.apiKey ?: throw IllegalStateException("DNF API 키(DNF_API_KEY)가 설정되지 않았습니다.")
-        val normalizedServerId = serverId.trim().lowercase(Locale.getDefault())
-
-        val statusFuture = CompletableFuture.supplyAsync {
-            fetchCharacterStatusInternal(normalizedServerId, characterId, apiKey)
-        }
-        val equipFuture = CompletableFuture.supplyAsync {
-            fetchEquipmentInternal(normalizedServerId, characterId, apiKey)
-        }
-        val avatarFuture = CompletableFuture.supplyAsync {
-            fetchAvatarInternal(normalizedServerId, characterId, apiKey)
-        }
-        val creatureFuture = CompletableFuture.supplyAsync {
-            fetchCreatureInternal(normalizedServerId, characterId, apiKey)
-        }
-
-        val status = statusFuture.join()
-        val equipment = equipFuture.join()
-        val avatar = avatarFuture.join()
-        val creature = creatureFuture.join()
-
-        val role = inferRole(status.jobGrowName ?: status.jobName)
-
-        val avatarBuffPower = avatar.sumOf { extractBuffPower(it.optionSummary) }
-        val avatarDamage = avatar.sumOf { extractDamageValue(it.optionSummary) }
-        val totalBuffPower = equipment.sumOf { it.growthBuffPower } + avatarBuffPower + (creature?.buffPower ?: 0)
-        val totalDamageValue = equipment.sumOf { it.growthDamageValue } + avatarDamage + (creature?.damageBonus ?: 0)
-
-        if (logger.isDebugEnabled) {
-            logger.debug(
-                "Aggregated throughput role={} buffPower={} damage={} (characterId={})",
-                role, totalBuffPower, totalDamageValue, characterId
-            )
-        }
-
-        val townStats = status.townStats.copy(
-            buffScore = status.townStats.buffScore ?: if (role == JobRole.BUFFER) totalBuffPower else status.townStats.buffScore
-        )
-
-        return DnfCharacterFullStatus(
-            basicInfo = BasicInfo(
-                id = status.characterId ?: characterId,
-                name = status.characterName.orEmpty(),
-                jobName = status.jobName.orEmpty(),
-                advancement = status.jobGrowName.orEmpty(),
-                role = role
-            ),
-            townStats = townStats,
-            equipment = equipment,
-            avatar = avatar,
-            creature = creature
-        )
-    }
-
     fun buildCharacterImageUrl(serverId: String, characterId: String, zoom: Int = 2): String =
         "${properties.imageBaseUrl}/servers/$serverId/characters/$characterId?zoom=$zoom"
 
-    private fun fetchCharacterStatusInternal(serverId: String, characterId: String, apiKey: String): CharacterStatusAggregate {
+    fun fetchJobs(): List<JobRow> {
+        val apiKey = apiKey()
+        return try {
+            val root = restClient.get()
+                .uri { builder ->
+                    builder
+                        .path("/jobs")
+                        .queryParam("apikey", apiKey)
+                        .build()
+                }
+                .retrieve()
+                .body(JsonNode::class.java)
+
+            val rowsNode = root?.get("rows") ?: return emptyList()
+            rowsNode.mapNotNull { jobNode ->
+                val jobId = jobNode.get("jobId")?.asText() ?: return@mapNotNull null
+                val jobName = jobNode.get("jobName")?.asText() ?: ""
+                val growList = jobNode.get("rows")?.mapNotNull { growNode -> parseJobGrow(growNode) } ?: emptyList()
+                JobRow(jobId = jobId, jobName = jobName, rows = growList)
+            }
+        } catch (ex: Exception) {
+            logger.error("DNF 직업 목록 조회 실패: {}", ex.message, ex)
+            throw ResponseStatusException(HttpStatus.BAD_GATEWAY, "직업 목록을 불러오지 못했습니다.")
+        }
+    }
+
+    fun fetchSkills(jobId: String, jobGrowId: String): List<SkillSummary> {
+        val apiKey = apiKey()
+        return try {
+            val response = restClient.get()
+                .uri { builder ->
+                    builder
+                        .path("/skills/{jobId}")
+                        .queryParam("jobGrowId", jobGrowId)
+                        .queryParam("apikey", apiKey)
+                        .build(jobId)
+                }
+                .retrieve()
+                .body(SkillListResponse::class.java)
+
+            response?.resolved() ?: emptyList()
+        } catch (ex: Exception) {
+            logger.error("DNF 스킬 목록 조회 실패 (jobId={}, jobGrowId={}): {}", jobId, jobGrowId, ex.message, ex)
+            throw ResponseStatusException(HttpStatus.BAD_GATEWAY, "스킬 목록을 불러오지 못했습니다.")
+        }
+    }
+
+    fun fetchSkillDetail(jobId: String, skillId: String): SkillDetailResponse? {
+        val apiKey = apiKey()
+        return try {
+            restClient.get()
+                .uri { builder ->
+                    builder
+                        .path("/skills/{jobId}/{skillId}")
+                        .queryParam("apikey", apiKey)
+                        .build(jobId, skillId)
+                }
+                .retrieve()
+                .body(SkillDetailResponse::class.java)
+        } catch (ex: Exception) {
+            logger.error("DNF 스킬 상세 조회 실패 (jobId={}, skillId={}): {}", jobId, skillId, ex.message, ex)
+            null
+        }
+    }
+
+    private fun fetchCharacterNode(
+        serverId: String,
+        characterId: String,
+        subPath: String,
+        queryParams: Map<String, Any?> = emptyMap()
+    ): JsonNode? {
+        val apiKey = apiKey()
+        return try {
+            restClient.get()
+                .uri { builder ->
+                    builder
+                        .path("/servers/{serverId}/characters/{characterId}/$subPath")
+                        .apply {
+                            queryParams
+                                .filterValues { it != null }
+                                .forEach { (key, value) -> queryParam(key, value) }
+                        }
+                        .queryParam("apikey", apiKey)
+                        .build(serverId, characterId)
+                }
+                .retrieve()
+                .body(JsonNode::class.java)
+        } catch (ex: Exception) {
+            logger.error(
+                "DNF 캐릭터 세부 정보 조회 실패 (subPath={}, serverId={}, characterId={}): {}",
+                subPath,
+                serverId,
+                characterId,
+                ex.message,
+                ex
+            )
+            throw ResponseStatusException(HttpStatus.BAD_GATEWAY, "캐릭터 정보를 불러오지 못했습니다. ($subPath)")
+        }
+    }
+
+    private fun fetchStatus(serverId: String, characterId: String): StatusAggregate {
+        val apiKey = apiKey()
         return try {
             val response = restClient.get()
                 .uri { builder ->
@@ -151,13 +317,13 @@ class DnfApiClient(
                 .retrieve()
                 .body(CharacterStatusResponse::class.java)
 
-            val townStats = response?.toTownStats() ?: TownStats()
-            CharacterStatusAggregate(
+            StatusAggregate(
+                serverId = response?.serverId ?: serverId,
                 characterId = response?.characterId ?: characterId,
-                characterName = response?.characterName,
-                jobName = response?.jobName,
-                jobGrowName = response?.jobGrowName,
-                townStats = townStats
+                jobName = response?.jobName.orEmpty(),
+                advancementName = response?.jobGrowName.orEmpty(),
+                level = response?.level ?: 0,
+                townStats = response?.toTownStats() ?: emptyTownStats()
             )
         } catch (ex: Exception) {
             logger.error("DNF 캐릭터 상태 조회 실패 (serverId={}, characterId={}): {}", serverId, characterId, ex.message, ex)
@@ -165,7 +331,8 @@ class DnfApiClient(
         }
     }
 
-    private fun fetchEquipmentInternal(serverId: String, characterId: String, apiKey: String): List<DnfEquipItem> {
+    private fun fetchEquipment(serverId: String, characterId: String): List<EquipmentAggregate> {
+        val apiKey = apiKey()
         return try {
             val response = restClient.get()
                 .uri { builder ->
@@ -177,22 +344,19 @@ class DnfApiClient(
                 .retrieve()
                 .body(EquipmentResponse::class.java)
 
-            response?.equipment.orEmpty().mapNotNull { slot ->
-                val slotType = mapSlotType(slot.slotId) ?: return@mapNotNull null
-
-                val damageFromExplain = extractDamageValue(slot.explain)
-                val buffFromExplain = extractBuffPower(slot.explain)
-                val damageFromCustom = slot.customOption?.damage?.toLong() ?: 0L
-                val buffFromCustom = slot.customOption?.buff?.toLong() ?: 0L
-
-                val fixedOptions = fetchItemFixedOptions(slot.itemId, apiKey)
-
-                DnfEquipItem(
-                    slot = slotType,
+            response?.equipment.orEmpty().map { slot ->
+                val slotName = (slot.slotName ?: slot.slotId)?.ifBlank { slot.slotId } ?: "UNKNOWN"
+                val damage = slot.damage ?: 0L
+                val buff = slot.buff ?: 0L
+                EquipmentAggregate(
+                    slotName = slotName,
                     itemId = slot.itemId,
-                    growthDamageValue = damageFromExplain + damageFromCustom,
-                    growthBuffPower = buffFromExplain + buffFromCustom,
-                    fixedOptions = fixedOptions
+                    itemName = slot.itemName ?: slot.itemId,
+                    damageValue = damage,
+                    buffPower = buff,
+                    // Parse Set Point from Rarity
+                    setPoint = calculateSetPoint(slot.itemRarity, slot.itemName),
+                    itemGrade = slot.itemRarity ?: "EPIC"
                 )
             }
         } catch (ex: Exception) {
@@ -201,7 +365,8 @@ class DnfApiClient(
         }
     }
 
-    private fun fetchAvatarInternal(serverId: String, characterId: String, apiKey: String): List<DnfAvatar> {
+    private fun fetchAvatar(serverId: String, characterId: String): List<DnfAvatar> {
+        val apiKey = apiKey()
         return try {
             val response = restClient.get()
                 .uri { builder ->
@@ -213,9 +378,13 @@ class DnfApiClient(
                 .retrieve()
                 .body(AvatarResponse::class.java)
 
-            response?.avatar.orEmpty().mapNotNull { avatar ->
-                val slot = mapAvatarSlot(avatar.slotId) ?: return@mapNotNull null
-                DnfAvatar(slot = slot, optionSummary = avatar.optionAbility.orEmpty())
+            response?.avatar.orEmpty().map { avatar ->
+                val slotName = (avatar.slotName ?: avatar.slotId)?.ifBlank { avatar.slotId } ?: "UNKNOWN"
+                val emblems = avatar.emblems.orEmpty()
+                    .mapNotNull { it.name }
+                    .filter { it.isNotBlank() }
+                val buffPower = extractBuffPower(emblems.joinToString(" "))
+                DnfAvatar(slotName = slotName, emblems = emblems, buffPower = buffPower)
             }
         } catch (ex: Exception) {
             logger.error("DNF 아바타 조회 실패 (serverId={}, characterId={}): {}", serverId, characterId, ex.message, ex)
@@ -223,7 +392,8 @@ class DnfApiClient(
         }
     }
 
-    private fun fetchCreatureInternal(serverId: String, characterId: String, apiKey: String): DnfCreature? {
+    private fun fetchCreature(serverId: String, characterId: String): DnfCreature? {
+        val apiKey = apiKey()
         return try {
             val response = restClient.get()
                 .uri { builder ->
@@ -235,44 +405,59 @@ class DnfApiClient(
                 .retrieve()
                 .body(CreatureResponse::class.java)
 
-            val creature = response?.creature ?: return null
-            val buffPower = extractBuffPower(creature.explain)
-            val damageBonus = extractDamageValue(creature.explain)
-            val element = parseElement(creature.explain)
-
-            DnfCreature(
-                name = creature.itemName.orEmpty(),
-                itemId = creature.itemId,
-                buffPower = buffPower,
-                damageBonus = damageBonus,
-                element = element
-            )
+            response?.creature?.let { creature ->
+                val artifacts = creature.artifacts.orEmpty()
+                    .mapNotNull { it.name }
+                    .filter { it.isNotBlank() }
+                val artifactExplain = creature.artifacts.orEmpty().mapNotNull { it.explain }.joinToString(" ")
+                val creatureBuff = extractBuffPower(artifactExplain.ifBlank { creature.explain })
+                val creatureDamage = extractDamageValue(artifactExplain.ifBlank { creature.explain })
+                DnfCreature(
+                    name = creature.itemName.orEmpty(),
+                    artifactStats = artifacts,
+                    buffPower = creatureBuff,
+                    damageBonus = creatureDamage
+                )
+            }
         } catch (ex: Exception) {
             logger.error("DNF 크리쳐 조회 실패 (serverId={}, characterId={}): {}", serverId, characterId, ex.message, ex)
             throw ResponseStatusException(HttpStatus.BAD_GATEWAY, "크리쳐 정보를 불러오지 못했습니다.")
         }
     }
 
-    private fun fetchItemFixedOptions(itemId: String, apiKey: String): ItemFixedOptions {
-        return itemFixedOptionCache[itemId] ?: run {
-            val fetched = try {
-                val response = restClient.get()
-                    .uri { builder ->
-                        builder
-                            .path("/items/{itemId}")
-                            .queryParam("apikey", apiKey)
-                            .build(itemId)
-                    }
-                    .retrieve()
-                    .body(ItemDetailResponse::class.java)
+    private fun fetchAndCacheItemDetails(itemIds: Collection<String>) {
+        val futures = itemIds.map { id ->
+            CompletableFuture.supplyAsync { id to fetchItemDetail(id) }
+        }
+        futures.forEach { future ->
+            val (itemId, options) = future.join()
+            itemFixedOptionCache[itemId] = options
+        }
+    }
 
-                parseFixedOptions(response?.itemFixedOption?.explain.orEmpty())
-            } catch (ex: Exception) {
-                logger.warn("아이템 고정 옵션 조회 실패 (itemId={}): {}", itemId, ex.message)
-                ItemFixedOptions(rawDescription = "")
-            }
-            itemFixedOptionCache[itemId] = fetched
-            fetched
+    private fun fetchItemDetail(itemId: String): ItemFixedOptions {
+        val apiKey = apiKey()
+        return try {
+            val detailNode = restClient.get()
+                .uri { builder ->
+                    builder
+                        .path("/items/{itemId}")
+                        .queryParam("apikey", apiKey)
+                        .build(itemId)
+                }
+                .retrieve()
+                .body(JsonNode::class.java)
+
+            parseItemFixedOptions(detailNode)
+        } catch (ex: Exception) {
+            logger.warn("아이템 상세 조회 실패 (itemId={}): {}", itemId, ex.message)
+            ItemFixedOptions(
+                skillAtkIncrease = 0.0,
+                cooldownReduction = 0.0,
+                cooldownRecovery = 0.0,
+                elementalDamage = 0,
+                levelOptions = emptyMap()
+            )
         }
     }
 
@@ -286,104 +471,156 @@ class DnfApiClient(
             return match?.value?.toLong() ?: 0L
         }
 
-        val buffValue = status.firstOrNull { it.name?.contains("버프", ignoreCase = true) == true }?.value?.toLong()
+        fun pickElement(vararg keys: String): Int {
+            val lowerKeys = keys.map { it.lowercase(Locale.getDefault()) }
+            val match = status.firstOrNull { entry ->
+                val name = entry.name?.lowercase(Locale.getDefault()) ?: return@firstOrNull false
+                lowerKeys.any { key -> name.contains(key) }
+            }
+            return match?.value?.toInt() ?: 0
+        }
 
         return TownStats(
-            strength = pick("힘"),
-            intelligence = pick("지능"),
-            vitality = pick("체력", "vitality"),
+            strength = pick("힘", "str"),
+            intelligence = pick("지능", "int"),
+            vitality = pick("체력", "vitality", "vit"),
             spirit = pick("정신", "정신력", "spirit"),
-            physicalAttack = pick("물리공", "물리 공격", "물리공격"),
-            magicalAttack = pick("마법공", "마법 공격", "마법공격"),
-            independentAttack = pick("독립공", "독립 공격", "독립공격"),
-            buffScore = buffValue
+            physicalAttack = pick("물리공", "physical"),
+            magicalAttack = pick("마법공", "magical"),
+            independentAttack = pick("독립공", "independent"),
+            elementInfo = ElementInfo(
+                fire = pickElement("화속", "fire"),
+                water = pickElement("수속", "water"),
+                light = pickElement("명속", "빛", "light"),
+                shadow = pickElement("암속", "dark", "shadow")
+            )
         )
     }
 
-    private fun parseFixedOptions(explain: String): ItemFixedOptions {
-        val skillAtkRatio = SKILL_ATK_PATTERN.find(explain)?.groupValues?.getOrNull(2)?.toDoubleOrNull()?.div(100) ?: 0.0
-        val elemental = ELEMENTAL_DAMAGE_PATTERN.find(explain)?.groupValues?.getOrNull(2)?.toIntOrNull() ?: 0
-        val cooldown = COOLTIME_REDUCTION_PATTERN.find(explain)?.groupValues?.getOrNull(2)?.toDoubleOrNull()?.div(100) ?: 0.0
-        val buffPower = BUFF_POWER_PATTERN.find(explain)?.groupValues?.getOrNull(2)?.replace(",", "")?.toLongOrNull() ?: 0L
+    private fun parseItemFixedOptions(detail: JsonNode?): ItemFixedOptions {
+        if (detail == null) {
+            return ItemFixedOptions(
+                skillAtkIncrease = 0.0,
+                cooldownReduction = 0.0,
+                cooldownRecovery = 0.0,
+                elementalDamage = 0,
+                levelOptions = emptyMap()
+            )
+        }
+
+        val textBucket = buildString {
+            detail.get("itemExplain")?.asText()?.let { appendLine(it) }
+            detail.get("itemFlavorText")?.asText()?.let { appendLine(it) }
+            detail.get("itemFixedOption")?.get("explain")?.asText()?.let { appendLine(it) }
+            append(detail.toString())
+        }
+
+        val skillAtk = parsePercent(SKILL_ATK_PATTERN, textBucket)
+        val cooldownReduction = parsePercent(COOLDOWN_REDUCTION_PATTERN, textBucket)
+        val cooldownRecovery = parsePercent(COOLDOWN_RECOVERY_PATTERN, textBucket)
+        val elementalDamage = ELEMENTAL_DAMAGE_PATTERN.find(textBucket)?.groupValues?.getOrNull(1)?.toIntOrNull() ?: 0
+
+        val levelOptions = parseLevelOptions(detail)
 
         return ItemFixedOptions(
-            skillAtkInc = skillAtkRatio,
-            buffPowerStep = buffPower,
-            cooldownReduction = cooldown,
-            elementalDamage = elemental,
-            rawDescription = explain
+            skillAtkIncrease = skillAtk,
+            cooldownReduction = cooldownReduction,
+            cooldownRecovery = cooldownRecovery,
+            elementalDamage = elementalDamage,
+            levelOptions = levelOptions
         )
     }
 
-    private fun extractDamageValue(text: String?): Long {
-        val match = DAMAGE_PATTERN.find(text.orEmpty()) ?: return 0L
-        return DnfNumberParser.parseLongValue(match.groupValues.getOrNull(1))
+    private fun parsePercent(pattern: Regex, text: String): Double {
+        val match = pattern.find(text) ?: return 0.0
+        val rawNumber = match.groupValues.getOrNull(1)?.replace(",", "") ?: return 0.0
+        return rawNumber.toDoubleOrNull()?.div(100.0) ?: 0.0
     }
 
-    private fun extractBuffPower(text: String?): Long {
-        val match = BUFF_PATTERN.find(text.orEmpty()) ?: return 0L
-        return DnfNumberParser.parseLongValue(match.groupValues.getOrNull(1))
+    private fun extractBuffPower(text: String?): Long =
+        BUFF_PATTERN.findAll(text.orEmpty()).sumOf { match ->
+            match.groupValues.getOrNull(1)?.replace(",", "")?.toLongOrNull() ?: 0L
+        }
+
+    private fun extractDamageValue(text: String?): Long =
+        DAMAGE_PATTERN.findAll(text.orEmpty()).sumOf { match ->
+            match.groupValues.getOrNull(1)?.replace(",", "")?.toLongOrNull() ?: 0L
+        }
+
+    private fun parseLevelOptions(detail: JsonNode?): Map<Int, LevelOption> {
+        detail ?: return emptyMap()
+        val levelNode = detail.get("levelOptions") ?: detail.at("/itemBuff/skill/level")
+        if (levelNode == null || !levelNode.isArray) return emptyMap()
+
+        val options = mutableMapOf<Int, LevelOption>()
+        levelNode.forEach { node ->
+            val level = node.get("level")?.asInt()
+            if (level != null) {
+                val explain = node.get("explain")?.asText() ?: node.toString()
+                val skillAtk = parsePercent(SKILL_ATK_PATTERN, explain)
+                val cdr = parsePercent(COOLDOWN_REDUCTION_PATTERN, explain)
+                options[level] = LevelOption(skillAtkInc = skillAtk, cdr = cdr)
+            }
+        }
+        return options
     }
 
-    private fun parseElement(text: String?): Element? {
-        val lower = text?.lowercase(Locale.getDefault()) ?: return null
+    private fun apiKey(): String =
+        properties.apiKey ?: throw IllegalStateException("DNF API 키(DNF_API_KEY)가 설정되지 않았습니다.")
+
+    private fun emptyTownStats(): TownStats = TownStats(
+        strength = 0,
+        intelligence = 0,
+        vitality = 0,
+        spirit = 0,
+        physicalAttack = 0,
+        magicalAttack = 0,
+        independentAttack = 0,
+        elementInfo = ElementInfo(fire = 0, water = 0, light = 0, shadow = 0)
+    )
+
+    private data class StatusAggregate(
+        val serverId: String,
+        val characterId: String,
+        val jobName: String,
+        val advancementName: String,
+        val level: Int,
+        val townStats: TownStats
+    )
+
+    private data class EquipmentAggregate(
+        val slotName: String,
+        val itemId: String,
+        val itemName: String,
+        val damageValue: Long,
+        val buffPower: Long,
+        val setPoint: Int,
+        val itemGrade: String
+    )
+
+    // 2025 Season Heuristic
+    private fun calculateSetPoint(rarity: String?, name: String?): Int {
+        val r = rarity?.uppercase(Locale.getDefault()) ?: ""
+        val n = name?.uppercase(Locale.getDefault()) ?: ""
+        
         return when {
-            lower.contains("화속") || lower.contains("불") || lower.contains("fire") -> Element.FIRE
-            lower.contains("수속") || lower.contains("물") || lower.contains("water") -> Element.WATER
-            lower.contains("명속") || lower.contains("빛") || lower.contains("light") -> Element.LIGHT
-            lower.contains("암속") || lower.contains("어둠") || lower.contains("shadow") -> Element.SHADOW
-            else -> null
-        }
-    }
-
-    private fun mapSlotType(slotId: String): SlotType? {
-        val normalized = slotId.uppercase(Locale.getDefault()).replace("-", "_")
-        return when (normalized) {
-            "SUBEQUIPMENT" -> SlotType.SUB_EQUIPMENT
-            "SUB_EQUIPMENT" -> SlotType.SUB_EQUIPMENT
-            "MAGICSTONE" -> SlotType.MAGIC_STONE
-            "MAGIC_STONE" -> SlotType.MAGIC_STONE
-            else -> SlotType.values().firstOrNull { it.name == normalized }
-        }
-    }
-
-    private fun mapAvatarSlot(slotId: String): AvatarSlot? {
-        val normalized = slotId.uppercase(Locale.getDefault()).replace("-", "_")
-        return when (normalized) {
-            "HEADGEAR", "HAT" -> AvatarSlot.HAT
-            "HAIR" -> AvatarSlot.HAIR
-            "FACE" -> AvatarSlot.FACE
-            "JACKET", "CHEST", "TOP" -> AvatarSlot.CHEST
-            "PANTS", "BOTTOM" -> AvatarSlot.PANTS
-            "SHOES" -> AvatarSlot.SHOES
-            "SKIN" -> AvatarSlot.SKIN
-            "AURA" -> AvatarSlot.AURA
-            else -> AvatarSlot.values().firstOrNull { it.name == normalized }
-        }
-    }
-
-    private fun inferRole(jobGrowName: String?): JobRole {
-        val lower = jobGrowName?.lowercase(Locale.getDefault()) ?: return JobRole.DEALER
-        return if (
-            lower.contains("크루세이더") ||
-            lower.contains("세인트") ||
-            lower.contains("세라핌") ||
-            lower.contains("헤카테") ||
-            lower.contains("버퍼")
-        ) {
-            JobRole.BUFFER
-        } else {
-            JobRole.DEALER
-        }
+            // "Techo" or "Genesis" or "God" tier
+            r.contains("태초") || r.contains("GENESIS") || r.contains("TECHO") -> 200
+            // Standard Epic
+            r.contains("에픽") || r.contains("EPIC") -> 100
+            // Legacy / Legend
+            r.contains("레전더리") || r.contains("LEGEND") -> 50
+            else -> 10 // Basic
+        } + if (n.contains("+")) 10 else 0 // Bonus for Tuning/Reinforce visualization
     }
 
     companion object {
-        private val DAMAGE_PATTERN = Regex("""피해\\s*증가\\s*([\\d,]+)""", RegexOption.IGNORE_CASE)
-        private val BUFF_PATTERN = Regex("""버프력\\s*([\\d,]+)""", RegexOption.IGNORE_CASE)
-        private val SKILL_ATK_PATTERN = Regex("""(스킬\\s*공격력|스증)\\s*(\\d+)\\s*%""", setOf(RegexOption.IGNORE_CASE, RegexOption.MULTILINE))
-        private val ELEMENTAL_DAMAGE_PATTERN = Regex("""(모든\\s*속성\\s*강화|모속강)\\s*\\+?(\\d+)""", setOf(RegexOption.IGNORE_CASE, RegexOption.MULTILINE))
-        private val COOLTIME_REDUCTION_PATTERN = Regex("""(쿨타임\\s*감소|쿨감)\\s*(\\d+)\\s*%""", setOf(RegexOption.IGNORE_CASE, RegexOption.MULTILINE))
-        private val BUFF_POWER_PATTERN = Regex("""버프력\\s*([\\d,]+)""", setOf(RegexOption.IGNORE_CASE, RegexOption.MULTILINE))
+        private val SKILL_ATK_PATTERN = Regex("""스킬\s*공격력[^\\d]*([\d.]+)\s*%""", RegexOption.IGNORE_CASE)
+        private val COOLDOWN_REDUCTION_PATTERN = Regex("""쿨타임\s*감소[^\\d]*([\d.]+)\s*%""", RegexOption.IGNORE_CASE)
+        private val COOLDOWN_RECOVERY_PATTERN = Regex("""쿨타임\s*회복[^\\d]*([\d.]+)\s*%""", RegexOption.IGNORE_CASE)
+        private val ELEMENTAL_DAMAGE_PATTERN = Regex("""모든\s*속성\s*강화[^\\d]*([\d]+)""", RegexOption.IGNORE_CASE)
+        private val BUFF_PATTERN = Regex("""(?:버프|buff)[^\d-]*([\d,]+)""", RegexOption.IGNORE_CASE)
+        private val DAMAGE_PATTERN = Regex("""(?:피해|증가)[^\d-]*([\d,]+)""", RegexOption.IGNORE_CASE)
     }
 }
 
@@ -401,19 +638,13 @@ data class DnfCharacterApiResponse(
     val adventureName: String? = null
 )
 
-data class CharacterStatusAggregate(
-    val characterId: String?,
-    val characterName: String?,
-    val jobName: String?,
-    val jobGrowName: String?,
-    val townStats: TownStats
-)
-
 data class CharacterStatusResponse(
+    val serverId: String? = null,
     val characterId: String? = null,
     val characterName: String? = null,
     val jobName: String? = null,
     val jobGrowName: String? = null,
+    val level: Int? = null,
     val status: List<StatusEntry> = emptyList()
 )
 
@@ -428,14 +659,13 @@ data class EquipmentResponse(
 
 data class EquipmentSlot(
     val slotId: String,
+    val slotName: String? = null,
     val itemId: String,
+    val itemName: String? = null,
     val explain: String? = null,
-    val customOption: EquipmentCustomOption? = null
-)
-
-data class EquipmentCustomOption(
+    val damage: Long? = null,
     val buff: Long? = null,
-    val damage: Long? = null
+    val itemRarity: String? = null // Added for 2025 Season
 )
 
 data class AvatarResponse(
@@ -443,8 +673,13 @@ data class AvatarResponse(
 )
 
 data class AvatarItem(
-    val slotId: String,
-    val optionAbility: String? = null
+    val slotId: String? = null,
+    val slotName: String? = null,
+    val emblems: List<AvatarEmblem> = emptyList()
+)
+
+data class AvatarEmblem(
+    val name: String? = null
 )
 
 data class CreatureResponse(
@@ -452,15 +687,96 @@ data class CreatureResponse(
 )
 
 data class CreatureItem(
-    val itemId: String? = null,
     val itemName: String? = null,
+    val explain: String? = null,
+    val artifacts: List<ArtifactItem> = emptyList()
+)
+
+data class ArtifactItem(
+    val name: String? = null,
     val explain: String? = null
 )
 
-data class ItemDetailResponse(
-    val itemFixedOption: ItemFixedOptionExplain? = null
+data class JobListResponse(
+    val rows: List<JobRow> = emptyList()
 )
 
-data class ItemFixedOptionExplain(
-    val explain: String? = null
+data class JobRow(
+    val jobId: String,
+    val jobName: String,
+    val rows: List<JobGrowRow> = emptyList()
+)
+
+data class JobGrowRow(
+    val jobGrowId: String,
+    val jobGrowName: String,
+    val next: JobGrowRow? = null
+)
+
+data class SkillListResponse(
+    @com.fasterxml.jackson.annotation.JsonProperty("skills")
+    val skills: List<SkillSummary> = emptyList(),
+    val rows: List<SkillSummary> = emptyList()
+) {
+    fun resolved(): List<SkillSummary> = when {
+        skills.isNotEmpty() -> skills
+        else -> rows
+    }
+}
+
+data class SkillSummary(
+    val skillId: String,
+    val name: String,
+    val type: String? = null
+)
+
+data class SkillDetailResponse(
+    val name: String? = null,
+    val type: String? = null,
+    val desc: String? = null,
+    val descDetail: String? = null,
+    val consumeItem: ConsumeItem? = null,
+    val maxLevel: Int? = null,
+    val requiredLevel: Int? = null,
+    val requiredLevelRange: Int? = null,
+    val preRequiredSkill: Any? = null,
+    val jobId: String? = null,
+    val jobName: String? = null,
+    val jobGrowLevel: List<String>? = null,
+    val levelInfo: SkillLevelInfo? = null
+) {
+    data class ConsumeItem(
+        val itemId: String? = null,
+        val itemName: String? = null,
+        val value: Int? = null
+    )
+
+    data class SkillLevelInfo(
+        val optionDesc: String? = null,
+        val rows: List<SkillLevelRow> = emptyList()
+    )
+
+    data class SkillLevelRow(
+        val level: Int? = null,
+        val consumeMp: Int? = null,
+        val coolTime: Double? = null,
+        val castingTime: Double? = null,
+        val optionValue: Map<String, Any>? = null
+    )
+}
+
+data class CharacterLoadoutBundle(
+    val serverId: String,
+    val characterId: String,
+    val timeline: JsonNode? = null,
+    val status: JsonNode? = null,
+    val equipment: JsonNode? = null,
+    val avatar: JsonNode? = null,
+    val creature: JsonNode? = null,
+    val flag: JsonNode? = null,
+    val mistAssimilation: JsonNode? = null,
+    val skillStyle: JsonNode? = null,
+    val buffEquipment: JsonNode? = null,
+    val buffAvatar: JsonNode? = null,
+    val buffCreature: JsonNode? = null
 )

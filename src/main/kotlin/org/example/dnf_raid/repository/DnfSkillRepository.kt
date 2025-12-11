@@ -1,0 +1,8 @@
+package org.example.dnf_raid.repository
+
+import org.example.dnf_raid.model.DnfSkillEntity
+import org.springframework.data.jpa.repository.JpaRepository
+
+interface DnfSkillRepository : JpaRepository<DnfSkillEntity, String> {
+    fun deleteByJobGrowId(jobGrowId: String)
+}

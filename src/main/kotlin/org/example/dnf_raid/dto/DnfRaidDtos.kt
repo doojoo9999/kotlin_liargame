@@ -18,6 +18,14 @@ data class DnfCharacterDto(
     val imageUrl: String
 )
 
+data class DnfCharacterLoadoutDto(
+    val characterId: String,
+    val serverId: String,
+    val updatedAt: LocalDateTime,
+    /** 저장된 섹션 여부를 가볍게 확인하기 위한 플래그 */
+    val fields: Map<String, Boolean>
+)
+
 data class ParticipantResponse(
     val id: UUID,
     val raidId: UUID,
