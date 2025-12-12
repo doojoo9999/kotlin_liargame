@@ -71,6 +71,14 @@ data class DnfSkillEntity(
     val detailJson: String? = null,
 
     @Lob
+    @Column(name = "enhancement_json", columnDefinition = "TEXT")
+    val enhancementJson: String? = null,
+
+    @Lob
+    @Column(name = "evolution_json", columnDefinition = "TEXT")
+    val evolutionJson: String? = null,
+
+    @Lob
     @Column(name = "level_rows_json", columnDefinition = "TEXT")
     val levelRowsJson: String? = null
 )

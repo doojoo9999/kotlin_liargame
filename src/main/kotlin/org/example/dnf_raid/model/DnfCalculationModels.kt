@@ -16,7 +16,9 @@ data class DnfCharacterFullStatus(
 data class CharacterSkillLevel(
     val skillId: String,
     val name: String? = null,
-    val level: Int
+    val level: Int,
+    val enhancementType: Int? = null,
+    val evolutionType: Int? = null
 )
 
 data class TownStats(

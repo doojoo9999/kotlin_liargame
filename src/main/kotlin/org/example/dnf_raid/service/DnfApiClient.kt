@@ -537,43 +537,61 @@ class DnfApiClient(
 
         val skills = mutableListOf<CharacterSkillLevel>()
 
+        // Top-level skill/style wrapper
+        val skillRoot = root.get("skill") ?: root
+
+        val enhancementTypes = skillRoot.get("enhancement")?.associate {
+            (it.get("skillId")?.asText() ?: "") to (it.get("type")?.asInt())
+        }.orEmpty()
+        val evolutionTypes = skillRoot.get("evolution")?.associate {
+            (it.get("skillId")?.asText() ?: "") to (it.get("type")?.asInt())
+        }.orEmpty()
+
         // Some payloads put skills directly under "skills"
-        if (root.has("skills")) {
-            collectSkills(root.get("skills"), skills)
+        collectSkills(skillRoot.get("skills"), skills)
+
+        // Style node: can be object with active/passive or array
+        val styleNode = skillRoot.get("style") ?: skillRoot.get("styles") ?: skillRoot
+        if (styleNode != null && styleNode.isObject) {
+            listOf("active", "passive", "awakening", "evolution", "enhancement")
+                .forEach { key -> collectSkills(styleNode.get(key), skills) }
+        } else if (styleNode != null && styleNode.isArray) {
+            styleNode.forEach { entry ->
+                collectSkills(entry.get("skills"), skills)
+                listOf("active", "passive", "awakening", "evolution", "enhancement")
+                    .forEach { key -> collectSkills(entry.get(key), skills) }
+            }
         }
 
-        val styleNodes = when {
-            root.has("styles") -> root.get("styles")
-            root.has("style") -> root.get("style")
-            root.isArray -> root
-            else -> null
+        val merged = skills.map { cs ->
+            val enh = enhancementTypes[cs.skillId]
+            val evo = evolutionTypes[cs.skillId]
+            cs.copy(
+                enhancementType = enh ?: cs.enhancementType,
+                evolutionType = evo ?: cs.evolutionType
+            )
         }
 
-        collectSkills(styleNodes, skills)
-
-        styleNodes?.forEach { style ->
-            val skillArray = when {
-                style.has("skills") -> style.get("skills")
-                style.has("skill") -> style.get("skill")
-                else -> null
-            } ?: return@forEach
-            collectSkills(skillArray, skills)
-        }
-
-        return skills
+        return merged
             .groupBy { it.skillId }
             .mapNotNull { (_, entries) -> entries.maxByOrNull { it.level } }
     }
 
     private fun collectSkills(node: JsonNode?, target: MutableList<CharacterSkillLevel>) {
         if (node == null || node.isNull) return
+        if (node.isObject && !node.has("skillId")) return
         val iterable = if (node.isArray) node else listOf(node)
+
         iterable.forEach { skillNode ->
             val skillId = skillNode.get("skillId")?.asText()
             val level = skillNode.get("level")?.asInt()
             val name = skillNode.get("name")?.asText()
             if (!skillId.isNullOrBlank() && level != null) {
-                target += CharacterSkillLevel(skillId = skillId, name = name, level = level)
+                target += CharacterSkillLevel(
+                    skillId = skillId,
+                    name = name,
+                    level = level
+                )
             }
         }
     }

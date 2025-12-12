@@ -76,6 +76,8 @@ class DnfSkillCatalogService(
                 val descSpecialJson = normalized?.descSpecial?.let { ds -> objectMapper.writeValueAsString(ds) }
                 val consumeItemJson = normalized?.consumeItem?.let { ci -> objectMapper.writeValueAsString(ci) }
                 val levelInfoJson = normalized?.levelInfo?.let { li -> objectMapper.writeValueAsString(li) }
+                val enhancementJson = normalized?.enhancement?.let { en -> objectMapper.writeValueAsString(en) }
+                val evolutionJson = normalized?.evolution?.let { ev -> objectMapper.writeValueAsString(ev) }
 
                 val baseCoolTime = normalized?.levelInfo?.rows?.firstOrNull()?.coolTime
 
@@ -98,6 +100,8 @@ class DnfSkillCatalogService(
                     optionDesc = normalized?.levelInfo?.optionDesc,
                     levelInfoJson = levelInfoJson,
                     detailJson = detailJson,
+                    enhancementJson = enhancementJson,
+                    evolutionJson = evolutionJson,
                     levelRowsJson = levelRowsJson
                 )
                 skillRepository.save(entity)
@@ -171,6 +175,8 @@ class DnfSkillCatalogService(
             val descSpecialJson = normalized?.descSpecial?.let { ds -> objectMapper.writeValueAsString(ds) }
             val consumeItemJson = normalized?.consumeItem?.let { ci -> objectMapper.writeValueAsString(ci) }
             val levelInfoJson = normalized?.levelInfo?.let { li -> objectMapper.writeValueAsString(li) }
+            val enhancementJson = normalized?.enhancement?.let { en -> objectMapper.writeValueAsString(en) }
+            val evolutionJson = normalized?.evolution?.let { ev -> objectMapper.writeValueAsString(ev) }
             val baseCoolTime = normalized?.levelInfo?.rows?.firstOrNull()?.coolTime
 
             val entity = DnfSkillEntity(
@@ -192,6 +198,8 @@ class DnfSkillCatalogService(
                 optionDesc = normalized?.levelInfo?.optionDesc,
                 levelInfoJson = levelInfoJson,
                 detailJson = detailJson,
+                enhancementJson = enhancementJson,
+                evolutionJson = evolutionJson,
                 levelRowsJson = levelRowsJson
             )
             skillRepository.save(entity)

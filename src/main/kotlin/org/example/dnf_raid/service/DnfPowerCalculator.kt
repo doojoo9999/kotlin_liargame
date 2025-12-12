@@ -9,10 +9,12 @@ import org.example.dnf_raid.model.CharacterSkillLevel
 import org.example.dnf_raid.model.DnfSkillEntity
 import org.example.dnf_raid.repository.DnfSkillRepository
 import org.example.dnf_raid.service.DnfSkillCatalogService
+import org.example.dnf_raid.service.NormalizedSkillDetail
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.math.floor
 import kotlin.math.max
 
 @Component
@@ -54,7 +56,7 @@ class DnfPowerCalculator(
         val totalStrength = status.townStats.strength.toDouble()
         val totalIntelligence = status.townStats.intelligence.toDouble()
         val mainStat = max(totalStrength, totalIntelligence)
-        val statFactor = 1.0 + (mainStat / 250.0)
+        val statFactor = (STAT_BASELINE + mainStat) / STAT_NORMALIZER
 
         val laneTotals = aggregateLaneTotals(status)
         val baseElementalAttack = resolveBaseElementalAttack(status)
@@ -73,10 +75,11 @@ class DnfPowerCalculator(
             val finalDamageMultiplier = 1.0 + mergedLane.finalDamage
             val criticalMultiplier = CRIT_BASE * (1.0 + mergedLane.criticalDamage)
             val elementalAttack = baseElementalAttack + BASE_ELEMENTAL_FLAT + mergedLane.elementalAttackBonus // base hidden +11 plus gear elemental
-            val elementalMultiplier = (1.0 + ((elementalAttack - monsterResist) * ELEMENT_COEFF)).coerceAtLeast(0.0)
+            val elementalMultiplier = (1.0 + ((elementalAttack - MONSTER_RESIST) * ELEMENT_COEFF)).coerceAtLeast(0.0)
             val situationalMultiplier = 1.0 + situationalBonus
             val partyMultiplier = 1.0 + partySynergyBonus
-            val defenseMultiplier = 1.0 + mergedLane.defensePenetration
+            val effectiveDefense = (MONSTER_DEFENSE * (1.0 - mergedLane.defensePenetration)).coerceAtLeast(0.0)
+            val defenseMultiplier = calculateDefenseMultiplier(effectiveDefense)
 
             val baseSkillDamage = baseAttack * skill.coeff
             val totalMultiplier = statFactor *
@@ -99,7 +102,8 @@ class DnfPowerCalculator(
                 (1.0 - specificCdr).coerceAtLeast(MIN_CD_FACTOR) /
                 (1.0 + totalRecovery)
 
-            val castCount = 40.0 / realCd
+            // Number of casts within 40s, fractional casts are not usable.
+            val castCount = floor(40.0 / realCd)
             val score = singleDamage * castCount
 
             SkillScore(
@@ -178,6 +182,7 @@ class DnfPowerCalculator(
         val fromEquipment = status.equipment.fold(LaneTotals()) { acc, item ->
             acc + laneFromOptions(item.fixedOptions)
         }
+        val passiveLane = aggregatePassiveLanes(status.skillLevels)
         val creatureLane = status.creature?.let { creature ->
             if (creature.damageBonus > 0) {
                 LaneTotals(damageIncrease = creature.damageBonus / 100.0)
@@ -189,7 +194,7 @@ class DnfPowerCalculator(
         val totalSetPoints = status.equipment.sumOf { it.setPoint }
         val setBonus = org.example.dnf_raid.model.SetEffectTable.getDamageMultiplier(totalSetPoints) - 1.0
 
-        return fromEquipment + creatureLane + LaneTotals(finalDamage = setBonus)
+        return fromEquipment + creatureLane + passiveLane + LaneTotals(finalDamage = setBonus)
     }
 
     private fun laneFromOptions(options: ItemFixedOptions): LaneTotals =
@@ -203,6 +208,22 @@ class DnfPowerCalculator(
             defensePenetration = options.defensePenetration
         )
 
+    private fun aggregatePassiveLanes(styleLevels: List<CharacterSkillLevel>): LaneTotals {
+        if (styleLevels.isEmpty()) return LaneTotals()
+        val lanes = styleLevels.mapNotNull { style ->
+            val entities = skillRepository.findBySkillId(style.skillId)
+            val entity = entities.firstOrNull() ?: return@mapNotNull null
+            val rows = entity.parseLevelRows(objectMapper)
+            val best = rows
+                .filter { (it.level ?: 0) <= style.level }
+                .maxByOrNull { it.level ?: 0 }
+                ?: rows.maxByOrNull { it.level ?: 0 }
+            if (best == null) return@mapNotNull null
+            parsePassiveLane(entity.optionDesc, best.optionValue)
+        }
+        return lanes.fold(LaneTotals()) { acc, lane -> acc + lane }
+    }
+
     private fun aggregateLevelLanes(levelOptions: List<LevelOption>): LaneTotals =
         levelOptions.fold(LaneTotals()) { acc, opt ->
             acc + LaneTotals(
@@ -214,18 +235,18 @@ class DnfPowerCalculator(
         )
     }
 
-    private fun fetchSkillsFromDb(keys: List<String>): List<SkillDefinition> {
+    private fun fetchSkillsFromDb(keys: List<String>, styleLevels: List<CharacterSkillLevel>): List<SkillDefinition> {
         keys.forEach { key ->
             val byAdvancement = skillRepository.findByJobGrowNameIgnoreCase(key)
             if (byAdvancement.isNotEmpty()) {
-                return byAdvancement.mapNotNull { it.toSkillDefinition(objectMapper) }
+                return byAdvancement.mapNotNull { it.toSkillDefinition(objectMapper, styleLevels) }
                     .sortedByDescending { it.level }
                     .take(20)
             }
 
             val byJob = skillRepository.findByJobNameIgnoreCase(key)
             if (byJob.isNotEmpty()) {
-                return byJob.mapNotNull { it.toSkillDefinition(objectMapper) }
+                return byJob.mapNotNull { it.toSkillDefinition(objectMapper, styleLevels) }
                     .sortedByDescending { it.level }
                     .take(20)
             }
@@ -233,9 +254,17 @@ class DnfPowerCalculator(
         return emptyList()
     }
 
-    private fun DnfSkillEntity.toSkillDefinition(mapper: ObjectMapper): SkillDefinition? {
+    private fun DnfSkillEntity.toSkillDefinition(
+        mapper: ObjectMapper,
+        styleLevels: List<CharacterSkillLevel>
+    ): SkillDefinition? {
         val rows = parseLevelRows(mapper)
-        val best = rows.maxByOrNull { it.level ?: 0 }
+        val targetLevel = resolveStyleLevel(styleLevels)
+        val best = rows
+            .filter { targetLevel == null || (it.level ?: 0) <= targetLevel }
+            .maxByOrNull { it.level ?: 0 }
+            ?: rows.maxByOrNull { it.level ?: 0 }
+
         val coeff = best?.let { row ->
             val fromTemplate = skillCalculationService.calculateTotalDamagePercent(optionDesc, row.optionValue)
             if (fromTemplate > 0) {
@@ -254,15 +283,64 @@ class DnfPowerCalculator(
                 normalizeCoeff(damage) * hits * stacks
             }
         } ?: 1.0
-        val cd = best?.coolTime ?: this.baseCoolTime ?: DEFAULT_BASE_CD
-        val level = best?.level ?: this.requiredLevel ?: this.maxLevel ?: 0
+        val detail = parseDetail(mapper)
+        val enhancementEffect = resolveEnhancementEffect(detail, styleLevels)
+
+        val cdBase = best?.coolTime ?: this.baseCoolTime ?: DEFAULT_BASE_CD
+        val cd = (cdBase * (1.0 - enhancementEffect.cdReduction)).coerceAtLeast(MIN_CD_FACTOR)
+        val level = targetLevel ?: best?.level ?: this.requiredLevel ?: this.maxLevel ?: 0
         return SkillDefinition(
             skillId = this.skillId,
             name = this.skillName,
             skillType = this.skillType,
             level = level,
-            coeff = coeff,
+            coeff = coeff * enhancementEffect.skillAtkMultiplier,
             baseCd = cd
+        )
+    }
+
+    private fun DnfSkillEntity.resolveStyleLevel(styleLevels: List<CharacterSkillLevel>): Int? {
+        if (styleLevels.isEmpty()) return null
+        val byId = styleLevels.firstOrNull { it.skillId == this.skillId }?.level
+        if (byId != null) return byId
+        val normName = normalizeKey(this.skillName)
+        return styleLevels.firstOrNull { normalizeKey(it.name) == normName }?.level
+    }
+
+    private fun DnfSkillEntity.parseDetail(mapper: ObjectMapper): NormalizedSkillDetail? {
+        val json = this.detailJson ?: return null
+        return runCatching { mapper.readValue(json, NormalizedSkillDetail::class.java) }
+            .getOrNull()
+    }
+
+    private data class EnhancementEffect(
+        val skillAtkMultiplier: Double = 1.0,
+        val cdReduction: Double = 0.0
+    )
+
+    private fun DnfSkillEntity.resolveEnhancementEffect(
+        detail: NormalizedSkillDetail?,
+        styleLevels: List<CharacterSkillLevel>
+    ): EnhancementEffect {
+        if (detail == null || detail.enhancement.isEmpty()) return EnhancementEffect()
+        val style = styleLevels.firstOrNull { it.skillId == this.skillId }
+        val type = style?.enhancementType ?: return EnhancementEffect()
+        val match = detail.enhancement.firstOrNull { it.type == type } ?: return EnhancementEffect()
+
+        var skillAtk = 0.0
+        var cdReduction = 0.0
+        match.status.forEach { status ->
+            val name = status.name?.lowercase(Locale.getDefault()) ?: return@forEach
+            val value = status.value?.replace("%", "")?.toDoubleOrNull() ?: return@forEach
+            when {
+                name.contains("스킬 공격력") || name.contains("skill") -> skillAtk += value / 100.0
+                name.contains("쿨타임") || name.contains("cool") -> cdReduction = cdReduction + value / 100.0
+            }
+        }
+
+        return EnhancementEffect(
+            skillAtkMultiplier = 1.0 + skillAtk,
+            cdReduction = cdReduction.coerceAtMost(0.7) // cap with global cdr limits
         )
     }
     
@@ -309,6 +387,45 @@ class DnfPowerCalculator(
         }
     }
 
+    private fun parsePassiveLane(optionDesc: String?, optionValue: Map<String, Double>?): LaneTotals {
+        if (optionDesc.isNullOrBlank() || optionValue == null) return LaneTotals()
+        val regex = Regex("""\{(value\d+)\}""")
+        val matches = regex.findAll(optionDesc)
+        var skillAtk = 0.0
+        var damageIncrease = 0.0
+        var additionalDamage = 0.0
+        var finalDamage = 0.0
+        var criticalDamage = 0.0
+        var elemental = 0
+
+        matches.forEach { match ->
+            val key = match.groupValues.getOrNull(1) ?: return@forEach
+            val idx = match.range.first
+            val windowStart = (idx - 25).coerceAtLeast(0)
+            val windowEnd = (idx + 35).coerceAtMost(optionDesc.length)
+            val window = optionDesc.substring(windowStart, windowEnd).lowercase(Locale.getDefault())
+            val num = optionValue[key] ?: return@forEach
+
+            when {
+                PASSIVE_SKILL_ATK_KEYWORDS.any { window.contains(it) } -> skillAtk += num / 100.0
+                PASSIVE_DAMAGE_INC_KEYWORDS.any { window.contains(it) } -> damageIncrease += num / 100.0
+                PASSIVE_ADDITIONAL_KEYWORDS.any { window.contains(it) } -> additionalDamage += num / 100.0
+                PASSIVE_FINAL_KEYWORDS.any { window.contains(it) } -> finalDamage += num / 100.0
+                PASSIVE_CRIT_KEYWORDS.any { window.contains(it) } -> criticalDamage += num / 100.0
+                PASSIVE_ELEMENTAL_KEYWORDS.any { window.contains(it) } -> elemental += num.toInt()
+            }
+        }
+
+        return LaneTotals(
+            skillAtk = skillAtk,
+            damageIncrease = damageIncrease,
+            additionalDamage = additionalDamage,
+            finalDamage = finalDamage,
+            criticalDamage = criticalDamage,
+            elementalAttackBonus = elemental
+        )
+    }
+
     private fun resolveBaseElementalAttack(status: DnfCharacterFullStatus): Int =
         maxOf(
             status.townStats.elementInfo.fire,
@@ -317,6 +434,11 @@ class DnfPowerCalculator(
             status.townStats.elementInfo.shadow
         )
 
+    private fun calculateDefenseMultiplier(defense: Double): Double {
+        val multiplier = 1.0 - (defense / (defense + DEF_NORMALIZER))
+        return multiplier.coerceIn(0.0, 1.0)
+    }
+
     private fun calculateStackedReduction(values: List<Double>): Double =
         1.0 - values.fold(1.0) { acc, value ->
             acc * (1.0 - value)
@@ -324,13 +446,14 @@ class DnfPowerCalculator(
 
     private fun resolveSkills(status: DnfCharacterFullStatus): List<SkillDefinition> {
         val keys = candidateKeys(status)
+        val styleLevels = status.skillLevels
 
         val fileSkills = keys.asSequence()
             .mapNotNull { skillsByAdvancement[it] }
             .firstOrNull { it.isNotEmpty() }
         if (fileSkills != null) return fileSkills
 
-        val dbSkills = fetchSkillsFromDb(keys)
+        val dbSkills = fetchSkillsFromDb(keys, styleLevels)
         if (dbSkills.isNotEmpty()) {
             logger.info("Loaded skills from DB for advancement/job: {} / {}", status.advancementName, status.jobName)
             return dbSkills
@@ -345,7 +468,7 @@ class DnfPowerCalculator(
             }.getOrDefault(false)
 
             if (synced) {
-                val refreshed = fetchSkillsFromDb(keys)
+                val refreshed = fetchSkillsFromDb(keys, styleLevels)
                 if (refreshed.isNotEmpty()) {
                     logger.info("Skills synced on-demand for advancement={} ({} skills)", status.advancementName, refreshed.size)
                     return refreshed
@@ -369,14 +492,16 @@ class DnfPowerCalculator(
     private fun filterBySkillStyle(skills: List<SkillDefinition>, styleLevels: List<CharacterSkillLevel>): List<SkillDefinition> {
         if (styleLevels.isEmpty()) return skills
 
-        val levelsById = styleLevels.associate { it.skillId to it.level }
-        val levelsByName = styleLevels.mapNotNull { entry ->
-            entry.name?.let { normalizeKey(it) to entry.level }
+        val byId = styleLevels.groupBy { it.skillId }.mapValues { (_, list) ->
+            list.maxByOrNull { it.level }
+        }
+        val byName = styleLevels.mapNotNull { entry ->
+            entry.name?.let { normalizeKey(it) to entry }
         }.toMap()
 
         val filtered = skills.filter { def ->
-            val level = def.skillId?.let { levelsById[it] } ?: levelsByName[normalizeKey(def.name)]
-            level != null && level > 0
+            val match = def.skillId?.let { byId[it] } ?: byName[normalizeKey(def.name)]
+            match != null && match.level > 0
         }
 
         if (filtered.isEmpty()) {
@@ -554,9 +679,16 @@ class DnfPowerCalculator(
     companion object {
         // Max Cooltime Reduction is 70% -> Min Cooltime Factor is 30%
         private const val MIN_CD_FACTOR = 0.3
-        private const val ELEMENT_COEFF = 0.0045
+        private const val ELEMENT_COEFF = 0.0045 // Midheaven season elemental efficiency
         private const val BASE_ELEMENTAL_FLAT = 11
+        private const val BASE_ELEMENTAL_RESIST = 100
         private const val CRIT_BASE = 1.5
+        // Training room sandbag (Dundam 기준): 방어력/속저 거의 0으로 간주
+        private const val MONSTER_DEFENSE = 0.0
+        private const val DEF_NORMALIZER = 1.0  // 최소값 보호
+        private const val MONSTER_RESIST = 0
+        private const val STAT_BASELINE = 2_500.0
+        private const val STAT_NORMALIZER = 2_500.0
         private const val DEFAULT_SITUATIONAL_BONUS = 0.25
         private const val DEFAULT_PARTY_SYNERGY_BONUS = 0.0
         private const val DEFAULT_BASE_CD = 1.0
@@ -570,5 +702,11 @@ class DnfPowerCalculator(
         private val DAMAGE_KEYWORDS = listOf("공격", "피해", "데미지", "%", "damage", "attack")
         private val HIT_KEYWORDS = listOf("타격", "히트", "타수", "hit")
         private val STACK_KEYWORDS = listOf("스택", "stack", "중첩")
+        private val PASSIVE_SKILL_ATK_KEYWORDS = listOf("스킬공격력", "skill atk", "skill attack")
+        private val PASSIVE_DAMAGE_INC_KEYWORDS = listOf("데미지 증가", "피해 증가", "damage increase", "dmg increase")
+        private val PASSIVE_ADDITIONAL_KEYWORDS = listOf("추가 데미지", "추가피해", "additional damage")
+        private val PASSIVE_FINAL_KEYWORDS = listOf("최종 데미지", "final damage")
+        private val PASSIVE_CRIT_KEYWORDS = listOf("치명타", "크리티컬", "critical damage", "crit damage")
+        private val PASSIVE_ELEMENTAL_KEYWORDS = listOf("속성 강화", "elemental damage", "elemental atk", "elemental attack")
     }
 }

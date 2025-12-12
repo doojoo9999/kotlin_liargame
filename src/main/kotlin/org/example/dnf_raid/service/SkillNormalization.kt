@@ -16,7 +16,9 @@ data class NormalizedSkillDetail(
     val requiredLevelRange: Int? = null,
     val jobId: String? = null,
     val jobName: String? = null,
-    val levelInfo: NormalizedLevelInfo? = null
+    val levelInfo: NormalizedLevelInfo? = null,
+    val evolution: List<NormalizedEvolution> = emptyList(),
+    val enhancement: List<NormalizedEnhancement> = emptyList()
 )
 
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -32,6 +34,27 @@ data class NormalizedLevelRow(
     val coolTime: Double? = null,
     val castingTime: Double? = null,
     val optionValue: Map<String, Double> = emptyMap()
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class NormalizedEvolution(
+    val type: Int? = null,
+    val name: String? = null,
+    val desc: String? = null,
+    val descDetail: String? = null,
+    val skills: List<String> = emptyList()
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class NormalizedEnhancement(
+    val type: Int? = null,
+    val status: List<NormalizedStatus> = emptyList()
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class NormalizedStatus(
+    val name: String? = null,
+    val value: String? = null
 )
 
 /**
@@ -73,6 +96,26 @@ fun SkillDetailResponse.toNormalized(): NormalizedSkillDetail =
                             }
                             .toMap()
                     )
+                }
+            )
+        },
+        evolution = evolution.orEmpty().map { evo ->
+            NormalizedEvolution(
+                type = evo.type,
+                name = evo.name,
+                desc = evo.desc,
+                descDetail = evo.descDetail,
+                skills = when {
+                    evo is Map<*, *> -> (evo["skills"] as? List<*>)?.mapNotNull { it?.toString() } ?: emptyList()
+                    else -> emptyList()
+                }
+            )
+        },
+        enhancement = enhancement.orEmpty().map { enh ->
+            NormalizedEnhancement(
+                type = enh.type,
+                status = enh.status.orEmpty().map { st ->
+                    NormalizedStatus(name = st.name, value = st.value)
                 }
             )
         }
