@@ -34,6 +34,18 @@ class DnfApiClient(
 
     private val logger = LoggerFactory.getLogger(DnfApiClient::class.java)
     private val itemFixedOptionCache = ConcurrentHashMap<String, ItemFixedOptions>()
+    private val EMPTY_FIXED_OPTIONS = ItemFixedOptions(
+        skillAtkIncrease = 0.0,
+        damageIncrease = 0.0,
+        additionalDamage = 0.0,
+        finalDamage = 0.0,
+        criticalDamage = 0.0,
+        cooldownReduction = 0.0,
+        cooldownRecovery = 0.0,
+        elementalDamage = 0,
+        defensePenetration = 0.0,
+        levelOptions = emptyMap()
+    )
 
     /**
      * Aggregates Status, Equipment, Avatar, Creature, and Item Detail endpoints into a single snapshot.
@@ -61,25 +73,16 @@ class DnfApiClient(
             }
 
             val equippedItems = equipment.map { slot ->
-                val fixed = itemFixedOptionCache[slot.itemId]
-                    ?: ItemFixedOptions(
-                        skillAtkIncrease = 0.0,
-                        damageIncrease = 0.0,
-                        additionalDamage = 0.0,
-                        finalDamage = 0.0,
-                        criticalDamage = 0.0,
-                        cooldownReduction = 0.0,
-                        cooldownRecovery = 0.0,
-                        elementalDamage = 0,
-                        defensePenetration = 0.0,
-                        levelOptions = emptyMap()
-                    )
+                val fixed = itemFixedOptionCache[slot.itemId] ?: EMPTY_FIXED_OPTIONS
+                // 정화 발동 옵션(예: 칠흑의 정화) 등 캐릭터별 슬랏 explain에만 존재하는 옵션 보정
+                val activationBonus = parseExplainOptions(slot.explain)
+                val merged = mergeOptions(fixed, activationBonus)
                 DnfEquipItem(
                     slotName = slot.slotName,
                     itemId = slot.itemId,
                     itemName = slot.itemName,
                     buffPower = slot.buffPower,
-                    fixedOptions = fixed,
+                    fixedOptions = merged,
                     setPoint = slot.setPoint,
                     itemGrade = slot.itemGrade
                 )
@@ -246,6 +249,51 @@ class DnfApiClient(
         }
     }
 
+    fun searchSetItems(
+        setItemName: String,
+        limit: Int = 10,
+        wordType: String = "match"
+    ): List<SetItemSummary> {
+        val apiKey = apiKey()
+        return try {
+            val response = restClient.get()
+                .uri { builder ->
+                    builder
+                        .path("/setitems")
+                        .queryParam("setItemName", setItemName)
+                        .queryParam("limit", limit.coerceIn(1, 100))
+                        .queryParam("wordType", wordType)
+                        .queryParam("apikey", apiKey)
+                        .build()
+                }
+                .retrieve()
+                .body(SetItemSearchResponse::class.java)
+
+            response?.rows ?: emptyList()
+        } catch (ex: Exception) {
+            logger.error("DNF 세트 아이템 검색 실패: {}", ex.message, ex)
+            throw ResponseStatusException(HttpStatus.BAD_GATEWAY, "세트 아이템 검색에 실패했습니다.")
+        }
+    }
+
+    fun fetchSetItemDetail(setItemId: String): SetItemDetailResponse? {
+        val apiKey = apiKey()
+        return try {
+            restClient.get()
+                .uri { builder ->
+                    builder
+                        .path("/setitems/{setItemId}")
+                        .queryParam("apikey", apiKey)
+                        .build(setItemId)
+                }
+                .retrieve()
+                .body(SetItemDetailResponse::class.java)
+        } catch (ex: Exception) {
+            logger.warn("세트 아이템 상세 조회 실패 (setItemId={}): {}", setItemId, ex.message)
+            null
+        }
+    }
+
     fun fetchSkillDetail(jobId: String, skillId: String): SkillDetailResponse? {
         val apiKey = apiKey()
         return try {
@@ -370,6 +418,7 @@ class DnfApiClient(
                     itemName = slot.itemName ?: slot.itemId,
                     damageValue = damage,
                     buffPower = buff,
+                    explain = slot.explain,
                     // Parse Set Point from Rarity
                     setPoint = calculateSetPoint(slot.itemRarity, slot.itemName),
                     itemGrade = slot.itemRarity ?: "EPIC"
@@ -487,18 +536,7 @@ class DnfApiClient(
             parseItemFixedOptions(detailNode)
         } catch (ex: Exception) {
             logger.warn("아이템 상세 조회 실패 (itemId={}): {}", itemId, ex.message)
-            ItemFixedOptions(
-                skillAtkIncrease = 0.0,
-                damageIncrease = 0.0,
-                additionalDamage = 0.0,
-                finalDamage = 0.0,
-                criticalDamage = 0.0,
-                cooldownReduction = 0.0,
-                cooldownRecovery = 0.0,
-                elementalDamage = 0,
-                defensePenetration = 0.0,
-                levelOptions = emptyMap()
-            )
+            EMPTY_FIXED_OPTIONS
         }
     }
 
@@ -532,7 +570,7 @@ class DnfApiClient(
         return hit?.value?.toLong() ?: 0L
     }
 
-    private fun parseSkillStyle(root: JsonNode?): List<CharacterSkillLevel> {
+    internal fun parseSkillStyle(root: JsonNode?): List<CharacterSkillLevel> {
         if (root == null || root.isNumber || root.isNull) return emptyList()
 
         val skills = mutableListOf<CharacterSkillLevel>()
@@ -563,28 +601,38 @@ class DnfApiClient(
             }
         }
 
-        val merged = skills.map { cs ->
-            val enh = enhancementTypes[cs.skillId]
-            val evo = evolutionTypes[cs.skillId]
-            cs.copy(
-                enhancementType = enh ?: cs.enhancementType,
-                evolutionType = evo ?: cs.evolutionType
-            )
-        }
+        // Fallback: deep-scan any node that contains skillId/level pairs (API 응답 구조가 들쭉날쭉함)
+        deepCollectSkills(skillRoot, skills)
 
-        return merged
+        val merged = skills
             .groupBy { it.skillId }
             .mapNotNull { (_, entries) -> entries.maxByOrNull { it.level } }
+            .map { cs ->
+                val enh = enhancementTypes[cs.skillId]
+                val evo = evolutionTypes[cs.skillId]
+                cs.copy(
+                    enhancementType = enh ?: cs.enhancementType,
+                    evolutionType = evo ?: cs.evolutionType
+                )
+            }
+
+        return merged
     }
 
     private fun collectSkills(node: JsonNode?, target: MutableList<CharacterSkillLevel>) {
         if (node == null || node.isNull) return
-        if (node.isObject && !node.has("skillId")) return
-        val iterable = if (node.isArray) node else listOf(node)
+
+        val iterable = when {
+            node.isArray -> node
+            node.has("skills") -> node.get("skills")
+            node.has("skill") -> node.get("skill")
+            else -> listOf(node)
+        }
 
         iterable.forEach { skillNode ->
             val skillId = skillNode.get("skillId")?.asText()
-            val level = skillNode.get("level")?.asInt()
+            val levelNode = skillNode.get("level") ?: skillNode.at("/option/level")
+            val level = levelNode.takeIf { it.isNumber || it.isTextual }?.asInt()
             val name = skillNode.get("name")?.asText()
             if (!skillId.isNullOrBlank() && level != null) {
                 target += CharacterSkillLevel(
@@ -596,26 +644,35 @@ class DnfApiClient(
         }
     }
 
+    private fun deepCollectSkills(node: JsonNode?, target: MutableList<CharacterSkillLevel>) {
+        if (node == null || node.isNull) return
+        if (node.isObject) {
+            val skillId = node.get("skillId")?.asText()
+            val levelNode = node.get("level") ?: node.at("/option/level")
+            val level = levelNode.takeIf { it.isNumber || it.isTextual }?.asInt()
+            val name = node.get("name")?.asText()
+            if (!skillId.isNullOrBlank() && level != null) {
+                target += CharacterSkillLevel(
+                    skillId = skillId,
+                    name = name,
+                    level = level
+                )
+            }
+            node.fields().forEach { (_, child) -> deepCollectSkills(child, target) }
+        } else if (node.isArray) {
+            node.forEach { child -> deepCollectSkills(child, target) }
+        }
+    }
+
     private fun normalizeKey(raw: String?): String =
         raw.orEmpty()
             .lowercase(Locale.getDefault())
             .replace(Regex("\\s+"), "")
             .replace(Regex("[^\\p{L}\\p{N}]"), "")
 
-    private fun parseItemFixedOptions(detail: JsonNode?): ItemFixedOptions {
+    internal fun parseItemFixedOptions(detail: JsonNode?): ItemFixedOptions {
         if (detail == null) {
-            return ItemFixedOptions(
-                skillAtkIncrease = 0.0,
-                damageIncrease = 0.0,
-                additionalDamage = 0.0,
-                finalDamage = 0.0,
-                criticalDamage = 0.0,
-                cooldownReduction = 0.0,
-                cooldownRecovery = 0.0,
-                elementalDamage = 0,
-                defensePenetration = 0.0,
-                levelOptions = emptyMap()
-            )
+            return EMPTY_FIXED_OPTIONS
         }
 
         val textBucket = buildString {
@@ -630,8 +687,17 @@ class DnfApiClient(
         val additionalDamage = parsePercent(ADDITIONAL_DAMAGE_PATTERN, textBucket)
         val finalDamage = parsePercent(FINAL_DAMAGE_PATTERN, textBucket)
         val criticalDamage = parsePercent(CRITICAL_DAMAGE_PATTERN, textBucket)
-        val cooldownReduction = parsePercent(COOLDOWN_REDUCTION_PATTERN, textBucket)
-        val cooldownRecovery = parsePercent(COOLDOWN_RECOVERY_PATTERN, textBucket)
+
+        // 텍스트 기반 쿨타임 감소/회복 파싱
+        var cooldownReduction = parsePercent(COOLDOWN_REDUCTION_PATTERN, textBucket)
+            .takeIf { it > 0 } ?: parsePercent(COOLDOWN_REDUCTION_TRAILING_PATTERN, textBucket)
+        var cooldownRecovery = parsePercent(COOLDOWN_RECOVERY_PATTERN, textBucket)
+
+        val statusCooldown = parseCooldownFromStatus(detail.get("itemStatus"))
+        // 정규식 실패 시에도 구조화된 itemStatus에서 값 보완
+        cooldownReduction = maxOf(cooldownReduction, statusCooldown.first)
+        cooldownRecovery = maxOf(cooldownRecovery, statusCooldown.second)
+
         val defensePenetration = parsePercent(DEFENSE_PIERCE_PATTERN, textBucket)
         val elementalDamage = ELEMENTAL_DAMAGE_PATTERN.find(textBucket)?.groupValues?.getOrNull(1)?.toIntOrNull() ?: 0
 
@@ -649,6 +715,82 @@ class DnfApiClient(
             defensePenetration = defensePenetration,
             levelOptions = levelOptions
         )
+    }
+
+    /**
+     * 슬롯 explain(발동 옵션/정화 선택지)에만 존재하는 추가 옵션을 파싱한다.
+     * 항목마다 중복 파싱을 피하기 위해 item detail 파싱과 분리했다.
+     */
+    private fun parseExplainOptions(explain: String?): ItemFixedOptions {
+        if (explain.isNullOrBlank()) return EMPTY_FIXED_OPTIONS
+
+        val skillAtk = parsePercent(SKILL_ATK_PATTERN, explain)
+        val damageIncrease = parsePercent(DAMAGE_INCREASE_PATTERN, explain)
+        val additionalDamage = parsePercent(ADDITIONAL_DAMAGE_PATTERN, explain)
+        val finalDamage = parsePercent(FINAL_DAMAGE_PATTERN, explain)
+        val criticalDamage = parsePercent(CRITICAL_DAMAGE_PATTERN, explain)
+        val cooldownReduction = parsePercent(COOLDOWN_REDUCTION_PATTERN, explain)
+            .takeIf { it > 0 } ?: parsePercent(COOLDOWN_REDUCTION_TRAILING_PATTERN, explain)
+        val cooldownRecovery = parsePercent(COOLDOWN_RECOVERY_PATTERN, explain)
+        val defensePenetration = parsePercent(DEFENSE_PIERCE_PATTERN, explain)
+        val elementalDamage = ELEMENTAL_DAMAGE_PATTERN.find(explain)?.groupValues?.getOrNull(1)?.toIntOrNull() ?: 0
+
+        return ItemFixedOptions(
+            skillAtkIncrease = skillAtk,
+            damageIncrease = damageIncrease,
+            additionalDamage = additionalDamage,
+            finalDamage = finalDamage,
+            criticalDamage = criticalDamage,
+            cooldownReduction = cooldownReduction,
+            cooldownRecovery = cooldownRecovery,
+            elementalDamage = elementalDamage,
+            defensePenetration = defensePenetration,
+            levelOptions = emptyMap()
+        )
+    }
+
+    private fun mergeOptions(base: ItemFixedOptions, bonus: ItemFixedOptions): ItemFixedOptions =
+        ItemFixedOptions(
+            skillAtkIncrease = base.skillAtkIncrease + bonus.skillAtkIncrease,
+            damageIncrease = base.damageIncrease + bonus.damageIncrease,
+            additionalDamage = base.additionalDamage + bonus.additionalDamage,
+            finalDamage = base.finalDamage + bonus.finalDamage,
+            criticalDamage = base.criticalDamage + bonus.criticalDamage,
+            cooldownReduction = combineCooldown(base.cooldownReduction, bonus.cooldownReduction),
+            cooldownRecovery = base.cooldownRecovery + bonus.cooldownRecovery,
+            elementalDamage = base.elementalDamage + bonus.elementalDamage,
+            defensePenetration = base.defensePenetration + bonus.defensePenetration,
+            levelOptions = base.levelOptions // 캐시된 레벨 옵션은 그대로 유지
+        )
+
+    private fun combineCooldown(first: Double, second: Double): Double =
+        1.0 - (1.0 - first) * (1.0 - second)
+
+    private fun parseCooldownFromStatus(statusNode: JsonNode?): Pair<Double, Double> {
+        if (statusNode == null || !statusNode.isArray) return 0.0 to 0.0
+
+        var reduction = 0.0
+        var recovery = 0.0
+        statusNode.forEach { entry ->
+            val name = entry.get("name")?.asText()?.lowercase(Locale.getDefault()) ?: return@forEach
+            val rawValue = entry.get("value")?.asText() ?: return@forEach
+            val percent = parsePercentValue(rawValue)
+
+            when {
+                name.contains("쿨타임") && name.contains("감소") -> reduction = maxOf(reduction, percent)
+                name.contains("cool") && name.contains("down") -> reduction = maxOf(reduction, percent)
+                name.contains("쿨타임") && name.contains("회복") -> recovery = maxOf(recovery, percent)
+                name.contains("회복속도") || name.contains("recovery") -> recovery = maxOf(recovery, percent)
+            }
+        }
+
+        return reduction to recovery
+    }
+
+    private fun parsePercentValue(raw: String?): Double {
+        if (raw.isNullOrBlank()) return 0.0
+        val cleaned = raw.replace("%", "").replace(",", "").trim()
+        return cleaned.toDoubleOrNull()?.div(100.0) ?: 0.0
     }
 
     private fun parsePercent(pattern: Regex, text: String): Double {
@@ -725,6 +867,7 @@ class DnfApiClient(
         val itemName: String,
         val damageValue: Long,
         val buffPower: Long,
+        val explain: String? = null,
         val setPoint: Int,
         val itemGrade: String
     )
@@ -751,7 +894,8 @@ class DnfApiClient(
         private val ADDITIONAL_DAMAGE_PATTERN = Regex("""추가\s*(?:피해|데미지)[^\d-]*([\d.]+)\s*%""", RegexOption.IGNORE_CASE)
         private val FINAL_DAMAGE_PATTERN = Regex("""최종\s*(?:피해|데미지)[^\d-]*([\d.]+)\s*%""", RegexOption.IGNORE_CASE)
         private val CRITICAL_DAMAGE_PATTERN = Regex("""크리티컬(?:\s*(?:공격력|피해))?[^\d-]*([\d.]+)\s*%""", RegexOption.IGNORE_CASE)
-        private val COOLDOWN_REDUCTION_PATTERN = Regex("""쿨타임\s*감소[^\\d]*([\d.]+)\s*%""", RegexOption.IGNORE_CASE)
+        private val COOLDOWN_REDUCTION_PATTERN = Regex("""(?:쿨타임\s*감소|재사용\s*대기시간\s*감소|쿨\s*감소|쿨타임\s*[-–−]|쿨다운)\s*[-–−]?\s*([\d.]+)\s*%""", RegexOption.IGNORE_CASE)
+        private val COOLDOWN_REDUCTION_TRAILING_PATTERN = Regex("""(?:쿨타임|재사용\s*대기시간|쿨다운)[^\d%]*[-–−]?\s*([\d.]+)\s*%\s*감소""", RegexOption.IGNORE_CASE)
         private val COOLDOWN_RECOVERY_PATTERN = Regex("""쿨타임\s*회복[^\\d]*([\d.]+)\s*%""", RegexOption.IGNORE_CASE)
         private val ELEMENTAL_DAMAGE_PATTERN = Regex("""모든\s*속성\s*강화[^\\d]*([\d]+)""", RegexOption.IGNORE_CASE)
         private val DEFENSE_PIERCE_PATTERN = Regex("""방어력\s*무시[^\d-]*([\d.]+)\s*%""", RegexOption.IGNORE_CASE)
@@ -866,6 +1010,40 @@ data class SkillSummary(
     val type: String? = null
 )
 
+data class SetItemSearchResponse(
+    val rows: List<SetItemSummary> = emptyList()
+)
+
+data class SetItemSummary(
+    val setItemId: String,
+    val setItemName: String? = null
+)
+
+@com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
+data class SetItemDetailResponse(
+    val setItemId: String? = null,
+    val setItemName: String? = null,
+    val explain: String? = null,
+    val tags: List<String> = emptyList(),
+    val setItems: List<SetItemEntry> = emptyList(),
+    val setItemBonus: List<SetItemBonus> = emptyList()
+) {
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
+    data class SetItemEntry(
+        val itemId: String? = null,
+        val itemName: String? = null,
+        val slotId: String? = null,
+        val slotName: String? = null
+    )
+
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
+    data class SetItemBonus(
+        val index: Int? = null,
+        val explain: String? = null,
+        val status: List<StatusEntry> = emptyList()
+    )
+}
+
 @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
 data class SkillDetailResponse(
     val name: String? = null,
@@ -882,8 +1060,8 @@ data class SkillDetailResponse(
     val jobName: String? = null,
     val jobGrowLevel: List<String>? = null,
     val levelInfo: SkillLevelInfo? = null,
-    val evolution: List<Any>? = null,
-    val enhancement: List<Any>? = null
+    val evolution: List<EvolutionEntry>? = null,
+    val enhancement: List<EnhancementEntry>? = null
 ) {
     @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
     data class ConsumeItem(
@@ -906,6 +1084,27 @@ data class SkillDetailResponse(
         val castingTime: Double? = null,
         val optionValue: Map<String, Any>? = null
     )
+
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
+    data class EvolutionEntry(
+        val type: Int? = null,
+        val name: String? = null,
+        val desc: String? = null,
+        val descDetail: String? = null,
+        val skills: List<String>? = emptyList()
+    )
+
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
+    data class EnhancementEntry(
+        val type: Int? = null,
+        val status: List<EnhancementStatus>? = emptyList()
+    ) {
+        @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
+        data class EnhancementStatus(
+            val name: String? = null,
+            val value: String? = null
+        )
+    }
 }
 
 data class CharacterLoadoutBundle(

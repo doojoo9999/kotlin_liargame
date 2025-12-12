@@ -14,7 +14,6 @@ import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
-import kotlin.math.floor
 import kotlin.math.max
 
 @Component
@@ -58,16 +57,19 @@ class DnfPowerCalculator(
         val mainStat = max(totalStrength, totalIntelligence)
         val statFactor = (STAT_BASELINE + mainStat) / STAT_NORMALIZER
 
-        val laneTotals = aggregateLaneTotals(status)
+        val passiveLane = aggregatePassiveLanes(status.skillLevels)
+        val laneTotals = aggregateLaneTotals(status, passiveLane)
         val baseElementalAttack = resolveBaseElementalAttack(status)
 
-        val totalCdr = calculateStackedReduction(status.equipment.map { it.fixedOptions.cooldownReduction })
-        val totalRecovery = status.equipment.sumOf { it.fixedOptions.cooldownRecovery }
+        val totalCdr = calculateStackedReduction(
+            status.equipment.map { it.fixedOptions.cooldownReduction } + passiveLane.cooldownReduction
+        )
+        val totalRecovery = status.equipment.sumOf { it.fixedOptions.cooldownRecovery } + passiveLane.cooldownRecovery
 
         val skillScores = usableSkills.map { skill ->
             val levelOptions = status.equipment.mapNotNull { it.fixedOptions.levelOptions[skill.level] }
             val levelLanes = aggregateLevelLanes(levelOptions)
-            val mergedLane = laneTotals + levelLanes
+            val mergedLane = laneTotals + levelLanes + skill.laneBonus
 
             val skillAtkMultiplier = 1.0 + mergedLane.skillAtk
             val damageIncreaseMultiplier = 1.0 + mergedLane.damageIncrease
@@ -97,13 +99,14 @@ class DnfPowerCalculator(
 
             val specificCdr = calculateStackedReduction(levelOptions.map { it.cdr })
 
+            // Combine global/item 쿨감 + 스킬 고유 쿨감, 70% 단일 캡 후 쿨회 적용
+            val combinedCdr = calculateStackedReduction(listOf(totalCdr, specificCdr)).coerceAtMost(0.7)
             val realCd = (skill.baseCd) *
-                (1.0 - totalCdr).coerceAtLeast(MIN_CD_FACTOR) *
-                (1.0 - specificCdr).coerceAtLeast(MIN_CD_FACTOR) /
+                (1.0 - combinedCdr).coerceAtLeast(MIN_CD_FACTOR) /
                 (1.0 + totalRecovery)
 
-            // Number of casts within 40s, fractional casts are not usable.
-            val castCount = floor(40.0 / realCd)
+            // Continuous cast model over 40s to reflect 쿨감 효용
+            val castCount = 40.0 / realCd
             val score = singleDamage * castCount
 
             SkillScore(
@@ -178,11 +181,13 @@ class DnfPowerCalculator(
         return score.toLong()
     }
 
-    private fun aggregateLaneTotals(status: DnfCharacterFullStatus): LaneTotals {
+    private fun aggregateLaneTotals(
+        status: DnfCharacterFullStatus,
+        passiveLane: LaneTotals = LaneTotals()
+    ): LaneTotals {
         val fromEquipment = status.equipment.fold(LaneTotals()) { acc, item ->
             acc + laneFromOptions(item.fixedOptions)
         }
-        val passiveLane = aggregatePassiveLanes(status.skillLevels)
         val creatureLane = status.creature?.let { creature ->
             if (creature.damageBonus > 0) {
                 LaneTotals(damageIncrease = creature.damageBonus / 100.0)
@@ -232,8 +237,8 @@ class DnfPowerCalculator(
                 additionalDamage = opt.additionalDamage,
                 finalDamage = opt.finalDamage,
                 criticalDamage = opt.criticalDamage
-        )
-    }
+            )
+        }
 
     private fun fetchSkillsFromDb(keys: List<String>, styleLevels: List<CharacterSkillLevel>): List<SkillDefinition> {
         keys.forEach { key ->
@@ -284,7 +289,7 @@ class DnfPowerCalculator(
             }
         } ?: 1.0
         val detail = parseDetail(mapper)
-        val enhancementEffect = resolveEnhancementEffect(detail, styleLevels)
+        val enhancementEffect = resolveEnhancementEffect(detail, styleLevels, mapper)
 
         val cdBase = best?.coolTime ?: this.baseCoolTime ?: DEFAULT_BASE_CD
         val cd = (cdBase * (1.0 - enhancementEffect.cdReduction)).coerceAtLeast(MIN_CD_FACTOR)
@@ -294,8 +299,9 @@ class DnfPowerCalculator(
             name = this.skillName,
             skillType = this.skillType,
             level = level,
-            coeff = coeff * enhancementEffect.skillAtkMultiplier,
-            baseCd = cd
+            coeff = coeff,
+            baseCd = cd,
+            laneBonus = enhancementEffect.laneBonus
         )
     }
 
@@ -313,33 +319,58 @@ class DnfPowerCalculator(
             .getOrNull()
     }
 
+    private fun DnfSkillEntity.parseEnhancementJson(mapper: ObjectMapper): List<NormalizedEnhancement> {
+        val json = this.enhancementJson ?: return emptyList()
+        return runCatching {
+            mapper.readValue(json, object : TypeReference<List<NormalizedEnhancement>>() {})
+        }.getOrElse { emptyList() }
+    }
+
     private data class EnhancementEffect(
-        val skillAtkMultiplier: Double = 1.0,
+        val laneBonus: LaneTotals = LaneTotals(),
         val cdReduction: Double = 0.0
     )
 
     private fun DnfSkillEntity.resolveEnhancementEffect(
         detail: NormalizedSkillDetail?,
-        styleLevels: List<CharacterSkillLevel>
+        styleLevels: List<CharacterSkillLevel>,
+        mapper: ObjectMapper
     ): EnhancementEffect {
-        if (detail == null || detail.enhancement.isEmpty()) return EnhancementEffect()
+        val enhancements = when {
+            detail?.enhancement?.isNotEmpty() == true -> detail.enhancement
+            !this.enhancementJson.isNullOrBlank() -> parseEnhancementJson(mapper)
+            else -> emptyList()
+        }
+        if (enhancements.isEmpty()) return EnhancementEffect()
+
         val style = styleLevels.firstOrNull { it.skillId == this.skillId }
         val type = style?.enhancementType ?: return EnhancementEffect()
-        val match = detail.enhancement.firstOrNull { it.type == type } ?: return EnhancementEffect()
+        val match = enhancements.firstOrNull { it.type == type } ?: return EnhancementEffect()
 
         var skillAtk = 0.0
+        var damageInc = 0.0
+        var additional = 0.0
+        var finalDamage = 0.0
         var cdReduction = 0.0
         match.status.forEach { status ->
             val name = status.name?.lowercase(Locale.getDefault()) ?: return@forEach
             val value = status.value?.replace("%", "")?.toDoubleOrNull() ?: return@forEach
             when {
                 name.contains("스킬 공격력") || name.contains("skill") -> skillAtk += value / 100.0
-                name.contains("쿨타임") || name.contains("cool") -> cdReduction = cdReduction + value / 100.0
+                name.contains("쿨타임") || name.contains("cool") -> cdReduction += value / 100.0
+                name.contains("최종") -> finalDamage += value / 100.0
+                name.contains("추가") -> additional += value / 100.0
+                name.contains("데미지") || name.contains("피해") -> damageInc += value / 100.0
             }
         }
 
         return EnhancementEffect(
-            skillAtkMultiplier = 1.0 + skillAtk,
+            laneBonus = LaneTotals(
+                skillAtk = skillAtk,
+                damageIncrease = damageInc,
+                additionalDamage = additional,
+                finalDamage = finalDamage
+            ),
             cdReduction = cdReduction.coerceAtMost(0.7) // cap with global cdr limits
         )
     }
@@ -397,6 +428,8 @@ class DnfPowerCalculator(
         var finalDamage = 0.0
         var criticalDamage = 0.0
         var elemental = 0
+        var cooldownReduction = 0.0
+        var cooldownRecovery = 0.0
 
         matches.forEach { match ->
             val key = match.groupValues.getOrNull(1) ?: return@forEach
@@ -413,6 +446,8 @@ class DnfPowerCalculator(
                 PASSIVE_FINAL_KEYWORDS.any { window.contains(it) } -> finalDamage += num / 100.0
                 PASSIVE_CRIT_KEYWORDS.any { window.contains(it) } -> criticalDamage += num / 100.0
                 PASSIVE_ELEMENTAL_KEYWORDS.any { window.contains(it) } -> elemental += num.toInt()
+                PASSIVE_COOLDOWN_REDUCTION_KEYWORDS.any { window.contains(it) } -> cooldownReduction += num / 100.0
+                PASSIVE_COOLDOWN_RECOVERY_KEYWORDS.any { window.contains(it) } -> cooldownRecovery += num / 100.0
             }
         }
 
@@ -422,7 +457,9 @@ class DnfPowerCalculator(
             additionalDamage = additionalDamage,
             finalDamage = finalDamage,
             criticalDamage = criticalDamage,
-            elementalAttackBonus = elemental
+            elementalAttackBonus = elemental,
+            cooldownReduction = cooldownReduction,
+            cooldownRecovery = cooldownRecovery
         )
     }
 
@@ -505,9 +542,15 @@ class DnfPowerCalculator(
         }
 
         if (filtered.isEmpty()) {
-            logger.info("Skill style filter removed all skills; reverting to full list (styleCount={})", styleLevels.size)
+            logger.warn(
+                "Skill style filter removed all skills (styleCount={}, skillCount={}, job={})",
+                styleLevels.size,
+                skills.size,
+                skills.firstOrNull()?.name
+            )
         }
-        return filtered.ifEmpty { skills }
+
+        return filtered
     }
 
     private fun isDamageSkill(skill: SkillDefinition): Boolean {
@@ -631,7 +674,9 @@ class DnfPowerCalculator(
         val finalDamage: Double = 0.0,
         val criticalDamage: Double = 0.0,
         val elementalAttackBonus: Int = 0,
-        val defensePenetration: Double = 0.0
+        val defensePenetration: Double = 0.0,
+        val cooldownReduction: Double = 0.0,
+        val cooldownRecovery: Double = 0.0
     ) {
         operator fun plus(other: LaneTotals): LaneTotals = LaneTotals(
             skillAtk = skillAtk + other.skillAtk,
@@ -640,7 +685,9 @@ class DnfPowerCalculator(
             finalDamage = finalDamage + other.finalDamage,
             criticalDamage = criticalDamage + other.criticalDamage,
             elementalAttackBonus = elementalAttackBonus + other.elementalAttackBonus,
-            defensePenetration = defensePenetration + other.defensePenetration
+            defensePenetration = defensePenetration + other.defensePenetration,
+            cooldownReduction = cooldownReduction + other.cooldownReduction,
+            cooldownRecovery = cooldownRecovery + other.cooldownRecovery
         )
     }
 
@@ -673,7 +720,8 @@ class DnfPowerCalculator(
         val skillType: String? = null,
         val level: Int,
         val coeff: Double,
-        val baseCd: Double
+        val baseCd: Double,
+        val laneBonus: LaneTotals = LaneTotals()
     )
 
     companion object {
@@ -708,5 +756,7 @@ class DnfPowerCalculator(
         private val PASSIVE_FINAL_KEYWORDS = listOf("최종 데미지", "final damage")
         private val PASSIVE_CRIT_KEYWORDS = listOf("치명타", "크리티컬", "critical damage", "crit damage")
         private val PASSIVE_ELEMENTAL_KEYWORDS = listOf("속성 강화", "elemental damage", "elemental atk", "elemental attack")
+        private val PASSIVE_COOLDOWN_REDUCTION_KEYWORDS = listOf("쿨타임 감소", "재사용 대기시간 감소", "cooldown reduction", "cooltime reduction")
+        private val PASSIVE_COOLDOWN_RECOVERY_KEYWORDS = listOf("쿨타임 회복", "쿨타임 회복속도", "cooldown recovery")
     }
 }

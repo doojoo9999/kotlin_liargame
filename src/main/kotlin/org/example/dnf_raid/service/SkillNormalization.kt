@@ -105,10 +105,7 @@ fun SkillDetailResponse.toNormalized(): NormalizedSkillDetail =
                 name = evo.name,
                 desc = evo.desc,
                 descDetail = evo.descDetail,
-                skills = when {
-                    evo is Map<*, *> -> (evo["skills"] as? List<*>)?.mapNotNull { it?.toString() } ?: emptyList()
-                    else -> emptyList()
-                }
+                skills = evo.skills.orEmpty()
             )
         },
         enhancement = enhancement.orEmpty().map { enh ->
