@@ -69,10 +69,15 @@ class DnfSkillCatalogService(
 
             skills.forEach { summary ->
                 val detail = apiClient.fetchSkillDetail(jobId, summary.skillId)
-                val levelRowsJson = detail?.levelInfo?.rows?.let { objectMapper.writeValueAsString(it) }
-                val detailJson = detail?.let { objectMapper.writeValueAsString(it) }
+                val normalized = detail?.toNormalized()
 
-                val baseCoolTime = detail?.levelInfo?.rows?.firstOrNull()?.coolTime
+                val levelRowsJson = normalized?.levelInfo?.rows?.let { objectMapper.writeValueAsString(it) }
+                val detailJson = normalized?.let { objectMapper.writeValueAsString(it) }
+                val descSpecialJson = normalized?.descSpecial?.let { ds -> objectMapper.writeValueAsString(ds) }
+                val consumeItemJson = normalized?.consumeItem?.let { ci -> objectMapper.writeValueAsString(ci) }
+                val levelInfoJson = normalized?.levelInfo?.let { li -> objectMapper.writeValueAsString(li) }
+
+                val baseCoolTime = normalized?.levelInfo?.rows?.firstOrNull()?.coolTime
 
                 val entity = DnfSkillEntity(
                     id = "$jobGrowId:${summary.skillId}",
@@ -82,17 +87,118 @@ class DnfSkillCatalogService(
                     jobGrowName = jobGrowName,
                     skillId = summary.skillId,
                     skillName = summary.name,
-                    skillType = summary.type,
-                    maxLevel = detail?.maxLevel,
-                    requiredLevel = detail?.requiredLevel,
+                    skillType = summary.type ?: detail?.type,
+                    skillDesc = normalized?.desc,
+                    skillDescDetail = normalized?.descDetail,
+                    descSpecialJson = descSpecialJson,
+                    consumeItemJson = consumeItemJson,
+                    maxLevel = normalized?.maxLevel,
+                    requiredLevel = normalized?.requiredLevel,
                     baseCoolTime = baseCoolTime,
-                    optionDesc = detail?.levelInfo?.optionDesc,
+                    optionDesc = normalized?.levelInfo?.optionDesc,
+                    levelInfoJson = levelInfoJson,
                     detailJson = detailJson,
                     levelRowsJson = levelRowsJson
                 )
                 skillRepository.save(entity)
             }
         }
+    }
+
+    /**
+     * 특정 직업/전직만 즉시 동기화한다.
+     * 딜 계산 시 스킬 데이터가 비어 있을 때 한 번만 호출된다.
+     */
+    @Transactional
+    fun refreshByNames(jobName: String, jobGrowName: String): Boolean {
+        val jobs = apiClient.fetchJobs()
+        if (jobs.isEmpty()) {
+            logger.warn("DNF 직업 목록이 비어 있습니다. API 키나 네트워크를 확인하세요.")
+            return false
+        }
+
+        val normalizedJob = normalize(jobName)
+        val normalizedGrow = normalize(jobGrowName)
+
+        val jobAndGrow = jobs.asSequence()
+            .flatMap { job ->
+                job.rows.flatMap { expandGrowChain(it) }
+                    .map { grow -> Triple(job, grow, normalize(grow.jobGrowName)) }
+            }
+            .firstOrNull { (_, _, growNormalized) ->
+                growNormalized.equals(normalizedGrow, ignoreCase = true)
+            }
+            ?: jobs.asSequence()
+                .flatMap { job ->
+                    job.rows.flatMap { expandGrowChain(it) }
+                        .map { grow -> Triple(job, grow, normalize(job.jobName)) }
+                }
+                .firstOrNull { (_, _, jobNormalized) ->
+                    jobNormalized.equals(normalizedJob, ignoreCase = true)
+                }
+
+        if (jobAndGrow == null) {
+            logger.warn("직업/전직을 찾지 못했습니다: jobName={}, jobGrowName={}", jobName, jobGrowName)
+            return false
+        }
+
+        val (jobRow, growRow) = jobAndGrow
+
+        jobRepository.save(DnfJobEntity(jobId = jobRow.jobId, jobName = jobRow.jobName))
+        jobGrowRepository.save(
+            DnfJobGrowEntity(
+                jobId = jobRow.jobId,
+                jobGrowId = growRow.jobGrowId,
+                jobName = jobRow.jobName,
+                jobGrowName = growRow.jobGrowName
+            )
+        )
+
+        skillRepository.deleteByJobGrowId(growRow.jobGrowId)
+
+        val skills = apiClient.fetchSkills(jobRow.jobId, growRow.jobGrowId)
+        if (skills.isEmpty()) {
+            logger.warn("스킬 목록이 비어 있습니다 (jobGrowId={}, jobGrowName={})", growRow.jobGrowId, growRow.jobGrowName)
+            return false
+        }
+
+        skills.forEach { summary ->
+            val detail = apiClient.fetchSkillDetail(jobRow.jobId, summary.skillId)
+            val normalized = detail?.toNormalized()
+
+            val levelRowsJson = normalized?.levelInfo?.rows?.let { objectMapper.writeValueAsString(it) }
+            val detailJson = normalized?.let { objectMapper.writeValueAsString(it) }
+            val descSpecialJson = normalized?.descSpecial?.let { ds -> objectMapper.writeValueAsString(ds) }
+            val consumeItemJson = normalized?.consumeItem?.let { ci -> objectMapper.writeValueAsString(ci) }
+            val levelInfoJson = normalized?.levelInfo?.let { li -> objectMapper.writeValueAsString(li) }
+            val baseCoolTime = normalized?.levelInfo?.rows?.firstOrNull()?.coolTime
+
+            val entity = DnfSkillEntity(
+                id = "${growRow.jobGrowId}:${summary.skillId}",
+                jobId = jobRow.jobId,
+                jobGrowId = growRow.jobGrowId,
+                jobName = jobRow.jobName,
+                jobGrowName = growRow.jobGrowName,
+                skillId = summary.skillId,
+                skillName = summary.name,
+                skillType = summary.type ?: detail?.type,
+                skillDesc = normalized?.desc,
+                skillDescDetail = normalized?.descDetail,
+                descSpecialJson = descSpecialJson,
+                consumeItemJson = consumeItemJson,
+                maxLevel = normalized?.maxLevel,
+                requiredLevel = normalized?.requiredLevel,
+                baseCoolTime = baseCoolTime,
+                optionDesc = normalized?.levelInfo?.optionDesc,
+                levelInfoJson = levelInfoJson,
+                detailJson = detailJson,
+                levelRowsJson = levelRowsJson
+            )
+            skillRepository.save(entity)
+        }
+
+        logger.info("스킬 동기화 완료 (jobGrowId={}, jobGrowName={}, count={})", growRow.jobGrowId, growRow.jobGrowName, skills.size)
+        return true
     }
 
     private fun expandGrowChain(root: JobGrowRow): List<JobGrowRow> {
@@ -104,4 +210,10 @@ class DnfSkillCatalogService(
         }
         return result
     }
+
+    private fun normalize(name: String?): String =
+        name.orEmpty()
+            .replaceFirst(Regex("^眞\\s*"), "")
+            .replaceFirst(Regex("^진\\s*"), "")
+            .trim()
 }

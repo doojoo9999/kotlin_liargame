@@ -34,6 +34,22 @@ data class DnfSkillEntity(
     @Column(name = "skill_type", length = 64)
     val skillType: String? = null,
 
+    @Lob
+    @Column(name = "skill_desc", columnDefinition = "TEXT")
+    val skillDesc: String? = null,
+
+    @Lob
+    @Column(name = "skill_desc_detail", columnDefinition = "TEXT")
+    val skillDescDetail: String? = null,
+
+    @Lob
+    @Column(name = "desc_special_json", columnDefinition = "TEXT")
+    val descSpecialJson: String? = null,
+
+    @Lob
+    @Column(name = "consume_item_json", columnDefinition = "TEXT")
+    val consumeItemJson: String? = null,
+
     @Column(name = "max_level")
     val maxLevel: Int? = null,
 
@@ -45,6 +61,10 @@ data class DnfSkillEntity(
 
     @Column(name = "option_desc", length = 2048)
     val optionDesc: String? = null,
+
+    @Lob
+    @Column(name = "level_info_json", columnDefinition = "TEXT")
+    val levelInfoJson: String? = null,
 
     @Lob
     @Column(name = "detail_json", columnDefinition = "TEXT")

@@ -5,4 +5,6 @@ import org.springframework.data.jpa.repository.JpaRepository
 
 interface DnfSkillRepository : JpaRepository<DnfSkillEntity, String> {
     fun deleteByJobGrowId(jobGrowId: String)
+    fun findByJobGrowNameIgnoreCase(jobGrowName: String): List<DnfSkillEntity>
+    fun findByJobNameIgnoreCase(jobName: String): List<DnfSkillEntity>
 }

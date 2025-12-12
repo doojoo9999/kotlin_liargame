@@ -89,7 +89,8 @@ class DnfCharacterLoadoutService(
     @Transactional
     fun refreshRegisteredAndManual(
         includeRegistered: Boolean,
-        manualCharacters: List<ManualCharacterInput>
+        manualCharacters: List<ManualCharacterInput>,
+        staleMinutes: Int = 0
     ): List<DnfCharacterLoadoutDto> {
         val registeredTargets = if (includeRegistered) {
             characterService.listAllCharacters().map { it.serverId to it.characterId }
@@ -105,9 +106,15 @@ class DnfCharacterLoadoutService(
             }
 
         val uniqueTargets = (registeredTargets + manualTargets).distinctBy { it.second }
+        val existing = loadoutRepository.findAllByCharacterIdIn(uniqueTargets.map { it.second })
+            .associateBy { it.characterId }
+        val targetsToSync = uniqueTargets.filter { (_, characterId) ->
+            val loadout = existing[characterId]
+            loadout == null || loadout.hasMissingSections() || loadout.isStale(staleMinutes)
+        }
         val results = mutableListOf<DnfCharacterLoadoutDto>()
 
-        uniqueTargets.forEach { (serverId, characterId) ->
+        targetsToSync.forEach { (serverId, characterId) ->
             runCatching { refreshAndPersist(serverId, characterId) }
                 .onSuccess { results += it }
                 .onFailure { ex ->
@@ -115,6 +122,27 @@ class DnfCharacterLoadoutService(
                 }
         }
         return results
+    }
+
+    private fun DnfCharacterLoadoutEntity.hasMissingSections(): Boolean =
+        listOf(
+            timelineJson,
+            statusJson,
+            equipmentJson,
+            avatarJson,
+            creatureJson,
+            flagJson,
+            mistAssimilationJson,
+            skillStyleJson,
+            buffEquipmentJson,
+            buffAvatarJson,
+            buffCreatureJson
+        ).any { it.isNullOrBlank() }
+
+    private fun DnfCharacterLoadoutEntity.isStale(staleMinutes: Int): Boolean {
+        if (staleMinutes <= 0) return false
+        val threshold = LocalDateTime.now().minusMinutes(staleMinutes.toLong())
+        return updatedAt.isBefore(threshold)
     }
 
     private fun JsonNode?.stringify(): String? =

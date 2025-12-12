@@ -1,7 +1,6 @@
 import {ArrowRight} from "lucide-react";
 import {clsx} from "clsx";
 import type {DnfCharacter} from "../types";
-import {StatBadge} from "./StatBadge";
 
 type Props = {
   character: DnfCharacter;
@@ -9,11 +8,24 @@ type Props = {
   actionLabel?: string;
   onAction?: (character: DnfCharacter) => void;
   subtitle?: string;
+  onClickCalculatedDealer?: (character: DnfCharacter) => void;
 };
 
-export function CharacterCard({character, highlight, actionLabel = "신청하기", onAction, subtitle}: Props) {
+export function CharacterCard({
+  character,
+  highlight,
+  actionLabel = "신청하기",
+  onAction,
+  subtitle,
+  onClickCalculatedDealer,
+}: Props) {
   const hasDamage = character.damage != null && character.damage > 0;
   const hasBuff = character.buffPower != null && character.buffPower > 0;
+  const hasCalculatedDealer = character.calculatedDealer != null && character.calculatedDealer > 0;
+  const hasCalculatedBuffer = character.calculatedBuffer != null && character.calculatedBuffer > 0;
+
+  const formatDamage = (value: number) => `${Math.round(value).toLocaleString()} 딜`;
+  const formatBuff = (value: number) => `${Math.round(value).toLocaleString()} 버프`;
 
   return (
     <div
@@ -43,14 +55,23 @@ export function CharacterCard({character, highlight, actionLabel = "신청하기
         <div className="flex flex-wrap gap-2 text-xs text-text-muted">
           <div className="pill">명성 {character.fame.toLocaleString()}</div>
           {character.adventureName && <div className="pill">모험단 {character.adventureName}</div>}
+          {hasDamage && <div className="pill bg-primary-muted text-primary">던담 {formatDamage(character.damage ?? 0)}</div>}
+          {hasBuff && <div className="pill bg-amber-50 text-amber-700 border border-amber-200">던담 {formatBuff(character.buffPower ?? 0)}</div>}
+          {hasCalculatedDealer && (
+            <button
+              type="button"
+              onClick={() => onClickCalculatedDealer?.(character)}
+              className="pill bg-indigo-50 text-indigo-700 border border-indigo-200 hover:border-indigo-300 hover:bg-indigo-100"
+            >
+              자체딜 {Math.round(character.calculatedDealer ?? 0).toLocaleString()}
+            </button>
+          )}
+          {hasCalculatedBuffer && (
+            <div className="pill bg-teal-50 text-teal-700 border border-teal-200">
+              자체버프 {Math.round(character.calculatedBuffer ?? 0).toLocaleString()}
+            </div>
+          )}
         </div>
-
-        {(hasDamage || hasBuff) && (
-          <div className="flex flex-wrap gap-2">
-            {hasDamage && <StatBadge label="딜" value={character.damage ?? 0} unit="억" />}
-            {hasBuff && <StatBadge label="버프" value={character.buffPower ?? 0} unit="만" tone="amber" />}
-          </div>
-        )}
 
         {subtitle && <p className="text-text-muted text-sm">{subtitle}</p>}
 

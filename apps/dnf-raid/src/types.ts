@@ -13,8 +13,34 @@ export interface DnfCharacter {
   fame: number;
   damage?: number;
   buffPower?: number;
+   calculatedDealer?: number | null;
+   calculatedBuffer?: number | null;
   adventureName?: string | null;
   imageUrl: string;
+}
+
+export interface DealerSkillScore {
+  name: string;
+  level: number;
+  coeff: number;
+  baseCd: number;
+  realCd: number;
+  singleDamage: number;
+  casts: number;
+  score: number;
+}
+
+export interface DealerDamageDetail {
+  totalScore: number;
+  skills: DealerSkillScore[];
+}
+
+export interface DamageCalculationDetail {
+  characterId: string;
+  serverId: string;
+  dealer?: DealerDamageDetail | null;
+  bufferScore?: number | null;
+  calculatedAt: string;
 }
 
 export interface Participant {

@@ -29,6 +29,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-websocket")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
     
     // Database dependencies
     runtimeOnly("com.h2database:h2")

@@ -15,6 +15,8 @@ data class DnfCharacterDto(
     val fame: Int,
     val damage: Long,
     val buffPower: Long,
+    val calculatedDealer: Double? = null,
+    val calculatedBuffer: Double? = null,
     val adventureName: String?,
     val imageUrl: String
 )
@@ -25,6 +27,38 @@ data class DnfCharacterLoadoutDto(
     val updatedAt: LocalDateTime,
     /** 저장된 섹션 여부를 가볍게 확인하기 위한 플래그 */
     val fields: Map<String, Boolean>
+)
+
+data class DnfCalculatedDamageDto(
+    val characterId: String,
+    val serverId: String,
+    val dealerScore: Double?,
+    val bufferScore: Double?,
+    val calculatedAt: LocalDateTime
+)
+
+data class DealerSkillScoreDto(
+    val name: String,
+    val level: Int,
+    val coeff: Double,
+    val baseCd: Double,
+    val realCd: Double,
+    val singleDamage: Double,
+    val casts: Double,
+    val score: Double
+)
+
+data class DealerDamageDetailDto(
+    val totalScore: Double,
+    val skills: List<DealerSkillScoreDto>
+)
+
+data class DamageCalculationDetailDto(
+    val characterId: String,
+    val serverId: String,
+    val dealer: DealerDamageDetailDto?,
+    val bufferScore: Double?,
+    val calculatedAt: LocalDateTime
 )
 
 data class ManualCharacterInput(
@@ -38,7 +72,10 @@ data class SyncLoadoutsRequest(
     val includeRegisteredCharacters: Boolean = true,
     @field:Size(max = 50, message = "한 번에 최대 50개까지만 동기화할 수 있습니다.")
     @field:Valid
-    val manualCharacters: List<ManualCharacterInput> = emptyList()
+    val manualCharacters: List<ManualCharacterInput> = emptyList(),
+    /** 분 단위, 0이면 staleness 체크 없이 비어 있는 것만 동기화 */
+    @field:Min(0)
+    val staleMinutes: Int = 0
 )
 
 data class ParticipantResponse(

@@ -9,7 +9,14 @@ data class DnfCharacterFullStatus(
     val townStats: TownStats,
     val equipment: List<DnfEquipItem>,
     val avatars: List<DnfAvatar>,
-    val creature: DnfCreature?
+    val creature: DnfCreature?,
+    val skillLevels: List<CharacterSkillLevel> = emptyList()
+)
+
+data class CharacterSkillLevel(
+    val skillId: String,
+    val name: String? = null,
+    val level: Int
 )
 
 data class TownStats(

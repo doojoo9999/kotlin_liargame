@@ -6,4 +6,5 @@ import org.springframework.data.jpa.repository.JpaRepository
 
 interface DnfCharacterRepository : JpaRepository<DnfCharacterEntity, String> {
     fun findByAdventureNameContainingIgnoreCase(adventureName: String, pageable: Pageable): List<DnfCharacterEntity>
+    fun findByLastUpdatedAtAfter(lastUpdatedAt: java.time.LocalDateTime): List<DnfCharacterEntity>
 }

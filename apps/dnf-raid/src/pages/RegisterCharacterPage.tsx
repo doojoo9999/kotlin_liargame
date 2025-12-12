@@ -2,11 +2,12 @@ import {FormEvent, useMemo, useState} from "react";
 import {useMutation} from "@tanstack/react-query";
 import {Loader2, Search, Sparkles} from "lucide-react";
 
-import {registerCharacter, searchCharacters, searchCharactersByAdventure} from "../services/dnf";
+import {getCharacterDamageDetail, registerCharacter, searchCharacters, searchCharactersByAdventure} from "../services/dnf";
 import type {DnfCharacter} from "../types";
 import {DNF_SERVERS, type DnfServerId} from "../constants";
 import {CharacterCard} from "../components/CharacterCard";
 import {SupportModal} from "../components/SupportModal";
+import {DamageDetailModal} from "../components/DamageDetailModal";
 
 const BUFFER_KEYWORDS = ["크루세이더", "인챈트리스", "뮤즈", "패러메딕"];
 type SearchTarget = "adventure" | DnfServerId;
@@ -26,6 +27,7 @@ function RegisterCharacterPage() {
   const [buff, setBuff] = useState("0");
   const [selected, setSelected] = useState<DnfCharacter | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [damageDetailTarget, setDamageDetailTarget] = useState<DnfCharacter | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [searchTarget, setSearchTarget] = useState<SearchTarget>("adventure");
 
@@ -44,6 +46,9 @@ function RegisterCharacterPage() {
     setBuff(character.buffPower != null ? String(character.buffPower) : "0");
     setShowModal(true);
   };
+
+  const formatNumber = (value?: number | null, suffix = "") =>
+    value != null ? `${Math.round(value).toLocaleString()}${suffix}` : "-";
 
   const registerMutation = useMutation({
     mutationFn: async () => {
@@ -64,6 +69,11 @@ function RegisterCharacterPage() {
       setMessage(`등록 완료: ${data.characterName} (딜 ${data.damage} / 버프 ${data.buffPower})`);
       setShowModal(false);
     },
+  });
+
+  const damageDetailMutation = useMutation({
+    mutationFn: (payload: {serverId: string; characterId: string}) =>
+      getCharacterDamageDetail(payload.serverId, payload.characterId),
   });
 
   const searchResults = searchMutation.data ?? [];
@@ -94,6 +104,29 @@ function RegisterCharacterPage() {
     if (!adventureName.trim()) return;
     adventureSearchMutation.mutate(adventureName.trim());
   };
+
+  const openDamageDetail = (character: DnfCharacter) => {
+    setDamageDetailTarget(character);
+    damageDetailMutation.reset();
+    damageDetailMutation.mutate({serverId: character.serverId, characterId: character.characterId});
+  };
+
+  const closeDamageDetail = () => {
+    setDamageDetailTarget(null);
+    damageDetailMutation.reset();
+  };
+
+  const retryDamageDetail = () => {
+    const target = damageDetailTarget;
+    if (!target) return;
+    damageDetailMutation.mutate({serverId: target.serverId, characterId: target.characterId});
+  };
+
+  const damageDetailError = damageDetailMutation.error
+    ? damageDetailMutation.error instanceof Error
+      ? damageDetailMutation.error.message
+      : "알 수 없는 오류가 발생했습니다."
+    : null;
 
   return (
     <div className="space-y-8">
@@ -184,6 +217,7 @@ function RegisterCharacterPage() {
                     onAction={() => openModalForCharacter(character)}
                     actionLabel="선택"
                     highlight={selected?.characterId === character.characterId}
+                    onClickCalculatedDealer={openDamageDetail}
                   />
                 ))}
               </div>
@@ -202,6 +236,7 @@ function RegisterCharacterPage() {
                     actionLabel="선택"
                     highlight={selected?.characterId === character.characterId}
                     subtitle={character.adventureName ? `모험단 ${character.adventureName}` : undefined}
+                    onClickCalculatedDealer={openDamageDetail}
                   />
                 ))}
               </div>
@@ -215,10 +250,23 @@ function RegisterCharacterPage() {
             <div className="space-y-2">
               <p className="font-display text-lg text-text">{selected.characterName}</p>
               <p className="text-xs text-text-subtle">딜/버프 입력은 선택 시 뜨는 모달에서 진행합니다.</p>
-              <div className="flex items-center gap-2 text-sm text-text-muted">
-                <span>딜 {damage || 0}억</span>
-                <span className="text-text-subtle">·</span>
-                <span>버프 {buff || 0}만</span>
+              <div className="flex flex-wrap items-center gap-2 text-sm text-text-muted">
+                <span className="pill bg-primary-muted text-primary">던담 딜 {formatNumber(Number(damage), "억")}</span>
+                <span className="pill bg-amber-50 text-amber-700 border border-amber-200">던담 버프 {formatNumber(Number(buff), "만")}</span>
+                {selected.calculatedDealer != null && selected.calculatedDealer > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => openDamageDetail(selected)}
+                    className="pill bg-indigo-50 text-indigo-700 border border-indigo-200 hover:border-indigo-300 hover:bg-indigo-100"
+                  >
+                    자체딜 {formatNumber(selected.calculatedDealer)}
+                  </button>
+                )}
+                {selected.calculatedBuffer != null && selected.calculatedBuffer > 0 && (
+                  <span className="pill bg-teal-50 text-teal-700 border border-teal-200">
+                    자체버프 {formatNumber(selected.calculatedBuffer)}
+                  </span>
+                )}
               </div>
               <div className="flex gap-2">
                 <button
@@ -265,6 +313,17 @@ function RegisterCharacterPage() {
           actionLabel="캐릭터 등록/업데이트"
           showDamage={!isBufferJob(selected)}
           showBuff={isBufferJob(selected)}
+        />
+      )}
+
+      {damageDetailTarget && (
+        <DamageDetailModal
+          character={damageDetailTarget}
+          detail={damageDetailMutation.data ?? null}
+          isLoading={damageDetailMutation.isPending}
+          error={damageDetailError}
+          onRetry={retryDamageDetail}
+          onClose={closeDamageDetail}
         />
       )}
     </div>

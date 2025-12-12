@@ -10,6 +10,7 @@ import type {
   UUID,
   AutoFillResponse,
   UpdongAutoFillResponse,
+  DamageCalculationDetail,
 } from "../types";
 import type {PartyTargetConfig} from "../utils/autoAssign";
 import type {DnfServerId} from "../constants";
@@ -35,6 +36,13 @@ export async function registerCharacter(payload: {
   buffPower?: number;
 }) {
   const {data} = await api.post<DnfCharacter>("/characters/register", payload);
+  return data;
+}
+
+export async function getCharacterDamageDetail(serverId: string, characterId: string) {
+  const {data} = await api.get<DamageCalculationDetail>(
+    `/characters/${serverId}/${characterId}/damage/detail`
+  );
   return data;
 }
 

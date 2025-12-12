@@ -1,9 +1,15 @@
 package org.example.dnf_raid.service
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import org.example.dnf_raid.config.DnfApiProperties
+import org.example.dnf_raid.dto.DamageCalculationDetailDto
+import org.example.dnf_raid.dto.DealerDamageDetailDto
+import org.example.dnf_raid.dto.DealerSkillScoreDto
 import org.example.dnf_raid.dto.DnfCharacterDto
 import org.example.dnf_raid.model.DnfCharacterEntity
+import org.example.dnf_raid.model.DnfCalculatedDamageEntity
 import org.example.dnf_raid.repository.DnfCharacterRepository
+import org.example.dnf_raid.repository.DnfCalculatedDamageRepository
 import org.springframework.data.domain.PageRequest
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
@@ -17,6 +23,9 @@ import java.time.LocalDateTime
 class DnfCharacterService(
     private val dnfApiClient: DnfApiClient,
     private val characterRepository: DnfCharacterRepository,
+    private val calculatedDamageRepository: DnfCalculatedDamageRepository,
+    private val powerCalculator: DnfPowerCalculator,
+    private val objectMapper: ObjectMapper,
     properties: DnfApiProperties
 ) {
 
@@ -78,7 +87,8 @@ class DnfCharacterService(
             }
 
             characterRepository.save(entity)
-            toDto(entity)
+            val calc = ensureCalculated(entity)
+            toDto(entity, calc)
         }
     }
 
@@ -86,12 +96,19 @@ class DnfCharacterService(
     fun searchByAdventureName(adventureName: String, limit: Int = 20): List<DnfCharacterDto> {
         val pageRequest = PageRequest.of(0, limit.coerceIn(1, 200))
         val cached = characterRepository.findByAdventureNameContainingIgnoreCase(adventureName, pageRequest)
-        return cached.map { toDto(it) }
+        return cached.map { entity -> toDto(entity, ensureCalculated(entity)) }
     }
 
     @Transactional(readOnly = true)
     fun listAllCharacters(): List<DnfCharacterEntity> =
         characterRepository.findAll()
+
+    @Transactional(readOnly = true)
+    fun listCharactersUpdatedWithinDays(days: Long): List<DnfCharacterEntity> {
+        val now = LocalDateTime.now()
+        val cutoff = now.minusDays(days)
+        return characterRepository.findByLastUpdatedAtAfter(cutoff)
+    }
 
     @Transactional
     fun getOrRefresh(serverId: String, characterId: String): DnfCharacterEntity {
@@ -147,7 +164,11 @@ class DnfCharacterService(
     }
 
     fun toDto(entity: DnfCharacterEntity): DnfCharacterDto =
-        DnfCharacterDto(
+        toDto(entity, null)
+
+    private fun toDto(entity: DnfCharacterEntity, calc: DnfCalculatedDamageEntity?): DnfCharacterDto {
+        val calcEntity = calc ?: calculatedDamageRepository.findByCharacterId(entity.characterId)
+        return DnfCharacterDto(
             characterId = entity.characterId,
             serverId = entity.serverId,
             characterName = entity.characterName,
@@ -156,9 +177,136 @@ class DnfCharacterService(
             fame = entity.fame,
             damage = entity.damage,
             buffPower = entity.buffPower,
+            calculatedDealer = calcEntity?.dealerScore,
+            calculatedBuffer = calcEntity?.bufferScore,
             adventureName = entity.adventureName,
             imageUrl = dnfApiClient.buildCharacterImageUrl(entity.serverId, entity.characterId)
         )
+    }
+
+    private fun ensureCalculated(entity: DnfCharacterEntity): DnfCalculatedDamageEntity? {
+        val existing = calculatedDamageRepository.findByCharacterId(entity.characterId)
+        val now = LocalDateTime.now()
+        val isFresh = existing?.calculatedAt?.isAfter(now.minusMinutes(5)) == true
+        val hasPayload = existing?.calcJson?.isNotBlank() == true
+        if (existing != null && isFresh && hasPayload) {
+            return existing
+        }
+
+        return runCatching {
+            val status = dnfApiClient.fetchCharacterFullStatus(entity.serverId, entity.characterId)
+            val dealer = powerCalculator.calculateDealerScore(status)
+            val bufferScore = powerCalculator.calculateBufferScore(status).toDouble()
+            val payload = DamageCalculationPayload(dealer = dealer, bufferScore = bufferScore)
+            val calcJson = serializePayload(payload)
+
+            val updated = existing?.apply {
+                serverId = status.serverId
+                dealerScore = dealer.totalScore
+                this.bufferScore = bufferScore
+                this.calcJson = calcJson
+                calculatedAt = now
+                updatedAt = now
+            } ?: DnfCalculatedDamageEntity(
+                characterId = status.characterId,
+                serverId = status.serverId,
+                dealerScore = dealer.totalScore,
+                bufferScore = bufferScore,
+                calcJson = calcJson,
+                calculatedAt = now,
+                updatedAt = now
+            )
+
+            calculatedDamageRepository.save(updated)
+        }.onFailure { ex ->
+            logger.warn(
+                "Failed to calculate damage on search (characterId={}, serverId={}): {}",
+                entity.characterId,
+                entity.serverId,
+                ex.message
+            )
+        }.getOrNull()
+    }
+
+    @Transactional
+    fun getDamageDetail(serverId: String, characterId: String): DamageCalculationDetailDto {
+        val entity = getOrRefresh(serverId, characterId)
+        val calc = ensureCalculated(entity)
+            ?: throw ResponseStatusException(HttpStatus.BAD_GATEWAY, "딜 계산에 실패했습니다.")
+
+        val payload = deserializePayload(calc.calcJson)
+            ?: recalculatePayload(serverId, characterId, calc)
+            ?: throw ResponseStatusException(HttpStatus.BAD_GATEWAY, "딜 계산 데이터를 불러오지 못했습니다.")
+
+        return DamageCalculationDetailDto(
+            characterId = entity.characterId,
+            serverId = entity.serverId,
+            dealer = toDealerDetail(payload.dealer),
+            bufferScore = payload.bufferScore,
+            calculatedAt = calc.calculatedAt
+        )
+    }
+
+    private fun recalculatePayload(
+        serverId: String,
+        characterId: String,
+        calc: DnfCalculatedDamageEntity
+    ): DamageCalculationPayload? {
+        val now = LocalDateTime.now()
+        return runCatching {
+            val status = dnfApiClient.fetchCharacterFullStatus(serverId, characterId)
+            val dealer = powerCalculator.calculateDealerScore(status)
+            val bufferScore = powerCalculator.calculateBufferScore(status).toDouble()
+            val payload = DamageCalculationPayload(dealer = dealer, bufferScore = bufferScore)
+            val calcJson = serializePayload(payload)
+            calc.serverId = status.serverId
+            calc.dealerScore = dealer.totalScore
+            calc.bufferScore = bufferScore
+            calc.calcJson = calcJson
+            calc.calculatedAt = now
+            calc.updatedAt = now
+            calculatedDamageRepository.save(calc)
+            payload
+        }.onFailure { ex ->
+            logger.warn(
+                "Failed to recalculate damage detail (characterId={}, serverId={}): {}",
+                characterId,
+                serverId,
+                ex.message
+            )
+        }.getOrNull()
+    }
+
+    private fun toDealerDetail(result: DnfPowerCalculator.DealerCalculationResult?): DealerDamageDetailDto? =
+        result?.let {
+            DealerDamageDetailDto(
+                totalScore = it.totalScore,
+                skills = it.topSkills.map { skill ->
+                    DealerSkillScoreDto(
+                        name = skill.name,
+                        level = skill.level,
+                        coeff = skill.coeff,
+                        baseCd = skill.baseCd,
+                        realCd = skill.realCd,
+                        singleDamage = skill.singleDamage,
+                        casts = skill.casts,
+                        score = skill.score
+                    )
+                }
+            )
+        }
+
+    private fun serializePayload(payload: DamageCalculationPayload): String? =
+        runCatching { objectMapper.writeValueAsString(payload) }
+            .onFailure { ex -> logger.warn("Failed to serialize damage calc result: {}", ex.message) }
+            .getOrNull()
+
+    private fun deserializePayload(json: String?): DamageCalculationPayload? {
+        if (json.isNullOrBlank()) return null
+        return runCatching { objectMapper.readValue(json, DamageCalculationPayload::class.java) }
+            .onFailure { ex -> logger.warn("Failed to parse damage calc json: {}", ex.message) }
+            .getOrNull()
+    }
 
     companion object {
         private val VALID_SERVER_IDS = setOf(
