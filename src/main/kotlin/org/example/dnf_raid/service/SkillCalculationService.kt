@@ -38,7 +38,8 @@ class SkillCalculationService {
         // But to be safe and match legacy > 5000 logic:
         // We should just divide by 100 if it's substantial.
         val normalized = when {
-             totalDamagePercent > 100 -> totalDamagePercent / 100.0
+            totalDamagePercent > 100 -> totalDamagePercent / 100.0
+            else -> totalDamagePercent
         }
         return normalized
     }
