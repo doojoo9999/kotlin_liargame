@@ -8,6 +8,7 @@ import org.example.dnf_raid.model.DnfAvatar
 import org.example.dnf_raid.model.DnfCharacterFullStatus
 import org.example.dnf_raid.model.DnfCreature
 import org.example.dnf_raid.model.DnfEquipItem
+import org.example.dnf_raid.model.DnfTalisman
 import org.example.dnf_raid.model.ElementInfo
 import org.example.dnf_raid.model.ItemFixedOptions
 import org.example.dnf_raid.model.LevelOption
@@ -60,12 +61,14 @@ class DnfApiClient(
             val avatarDeferred = async { fetchAvatar(normalizedServerId, characterId) }
             val creatureDeferred = async { fetchCreature(normalizedServerId, characterId) }
             val skillStyleDeferred = async { fetchSkillStyle(normalizedServerId, characterId) }
+            val talismanDeferred = async { fetchTalismans(normalizedServerId, characterId) }
 
             val status = statusDeferred.await()
             val equipment = equipmentDeferred.await()
             val avatars = avatarDeferred.await()
             val creature = creatureDeferred.await()
             val skillLevels = skillStyleDeferred.await()
+            val talismans = talismanDeferred.await()
 
             val missingItemIds = equipment.map { it.itemId }.toSet().filterNot { itemFixedOptionCache.containsKey(it) }
             if (missingItemIds.isNotEmpty()) {
@@ -98,7 +101,8 @@ class DnfApiClient(
                 equipment = equippedItems,
                 avatars = avatars,
                 creature = creature,
-                skillLevels = skillLevels
+                skillLevels = skillLevels,
+                talismans = talismans
             )
         }
     }
@@ -510,6 +514,34 @@ class DnfApiClient(
         }
     }
 
+    private suspend fun fetchTalismans(serverId: String, characterId: String): List<DnfTalisman> = withContext(Dispatchers.IO) {
+        val apiKey = apiKey()
+        try {
+            val response = restClient.get()
+                .uri { builder ->
+                    builder
+                        .path("/servers/{serverId}/characters/{characterId}/equip/talisman")
+                        .queryParam("apikey", apiKey)
+                        .build(serverId, characterId)
+                }
+                .retrieve()
+                .body(TalismanResponse::class.java)
+
+            response?.talismans.orEmpty().map { item ->
+                DnfTalisman(
+                    slotName = item.slotName ?: item.slotId.orEmpty(),
+                    itemId = item.itemId,
+                    itemName = item.itemName,
+                    skillName = item.talisman?.skillName,
+                    runeTypes = item.runes.orEmpty().mapNotNull { it.itemName } // Simplify for now
+                )
+            }
+        } catch (ex: Exception) {
+            logger.warn("DNF 탈리스만 조회 실패 (serverId={}, characterId={}): {}", serverId, characterId, ex.message)
+            emptyList()
+        }
+    }
+
     private suspend fun fetchAndCacheItemDetails(itemIds: Collection<String>) = coroutineScope {
         val deferred = itemIds.map { id ->
             async { id to fetchItemDetail(id) }
@@ -692,6 +724,7 @@ class DnfApiClient(
         var cooldownReduction = parsePercent(COOLDOWN_REDUCTION_PATTERN, textBucket)
             .takeIf { it > 0 } ?: parsePercent(COOLDOWN_REDUCTION_TRAILING_PATTERN, textBucket)
         var cooldownRecovery = parsePercent(COOLDOWN_RECOVERY_PATTERN, textBucket)
+            .takeIf { it > 0 } ?: parsePercent(COOLDOWN_RECOVERY_TRAILING_PATTERN, textBucket)
 
         val statusCooldown = parseCooldownFromStatus(detail.get("itemStatus"))
         // 정규식 실패 시에도 구조화된 itemStatus에서 값 보완
@@ -732,6 +765,7 @@ class DnfApiClient(
         val cooldownReduction = parsePercent(COOLDOWN_REDUCTION_PATTERN, explain)
             .takeIf { it > 0 } ?: parsePercent(COOLDOWN_REDUCTION_TRAILING_PATTERN, explain)
         val cooldownRecovery = parsePercent(COOLDOWN_RECOVERY_PATTERN, explain)
+            .takeIf { it > 0 } ?: parsePercent(COOLDOWN_RECOVERY_TRAILING_PATTERN, explain)
         val defensePenetration = parsePercent(DEFENSE_PIERCE_PATTERN, explain)
         val elementalDamage = ELEMENTAL_DAMAGE_PATTERN.find(explain)?.groupValues?.getOrNull(1)?.toIntOrNull() ?: 0
 
@@ -894,9 +928,15 @@ class DnfApiClient(
         private val ADDITIONAL_DAMAGE_PATTERN = Regex("""추가\s*(?:피해|데미지)[^\d-]*([\d.]+)\s*%""", RegexOption.IGNORE_CASE)
         private val FINAL_DAMAGE_PATTERN = Regex("""최종\s*(?:피해|데미지)[^\d-]*([\d.]+)\s*%""", RegexOption.IGNORE_CASE)
         private val CRITICAL_DAMAGE_PATTERN = Regex("""크리티컬(?:\s*(?:공격력|피해))?[^\d-]*([\d.]+)\s*%""", RegexOption.IGNORE_CASE)
+        // Leading: "Cooltime Reduction 15%"
         private val COOLDOWN_REDUCTION_PATTERN = Regex("""(?:쿨타임\s*감소|재사용\s*대기시간\s*감소|쿨\s*감소|쿨타임\s*[-–−]|쿨다운)\s*[-–−]?\s*([\d.]+)\s*%""", RegexOption.IGNORE_CASE)
+        // Trailing: "Cooltime 15% Reduction"
         private val COOLDOWN_REDUCTION_TRAILING_PATTERN = Regex("""(?:쿨타임|재사용\s*대기시간|쿨다운)[^\d%]*[-–−]?\s*([\d.]+)\s*%\s*감소""", RegexOption.IGNORE_CASE)
+        // Leading: "Cooltime Recovery 15%"
         private val COOLDOWN_RECOVERY_PATTERN = Regex("""쿨타임\s*회복[^\\d]*([\d.]+)\s*%""", RegexOption.IGNORE_CASE)
+        // Trailing: "Cooltime 15% Recovery" or "Recovery Speed 15%"
+        private val COOLDOWN_RECOVERY_TRAILING_PATTERN = Regex("""(?:쿨타임|회복\s*속도)[^\d%]*([\d.]+)\s*%\s*회복""", RegexOption.IGNORE_CASE)
+
         private val ELEMENTAL_DAMAGE_PATTERN = Regex("""모든\s*속성\s*강화[^\\d]*([\d]+)""", RegexOption.IGNORE_CASE)
         private val DEFENSE_PIERCE_PATTERN = Regex("""방어력\s*무시[^\d-]*([\d.]+)\s*%""", RegexOption.IGNORE_CASE)
         private val BUFF_PATTERN = Regex("""(?:버프|buff)[^\d-]*([\d,]+)""", RegexOption.IGNORE_CASE)
@@ -1121,4 +1161,28 @@ data class CharacterLoadoutBundle(
     val buffEquipment: JsonNode? = null,
     val buffAvatar: JsonNode? = null,
     val buffCreature: JsonNode? = null
+)
+
+data class TalismanResponse(
+    val talismans: List<TalismanItem> = emptyList()
+)
+
+data class TalismanItem(
+    val slotId: String? = null,
+    val slotName: String? = null,
+    val itemId: String,
+    val itemName: String,
+    val talisman: TalismanInfo? = null,
+    val runes: List<RuneItem> = emptyList()
+)
+
+data class TalismanInfo(
+    val skillName: String? = null,
+    val runeTypes: List<String> = emptyList()
+)
+
+data class RuneItem(
+    val slotId: String? = null,
+    val itemId: String,
+    val itemName: String? = null
 )

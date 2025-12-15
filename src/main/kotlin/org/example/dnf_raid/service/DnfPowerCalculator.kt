@@ -54,8 +54,6 @@ class DnfPowerCalculator(
         ).toDouble()
         val totalStrength = status.townStats.strength.toDouble()
         val totalIntelligence = status.townStats.intelligence.toDouble()
-        val mainStat = max(totalStrength, totalIntelligence)
-        val statFactor = (STAT_BASELINE + mainStat) / STAT_NORMALIZER
 
         val passiveLane = aggregatePassiveLanes(status.skillLevels)
         val laneTotals = aggregateLaneTotals(status, passiveLane)
@@ -84,8 +82,7 @@ class DnfPowerCalculator(
             val defenseMultiplier = calculateDefenseMultiplier(effectiveDefense)
 
             val baseSkillDamage = baseAttack * skill.coeff
-            val totalMultiplier = statFactor *
-                defenseMultiplier *
+            val totalMultiplier = defenseMultiplier *
                 skillAtkMultiplier *
                 damageIncreaseMultiplier *
                 additionalDamageMultiplier *
@@ -120,7 +117,7 @@ class DnfPowerCalculator(
                 score = score,
                 breakdown = DamageBreakdown(
                     baseSkillDamage = baseSkillDamage,
-                    statMultiplier = statFactor,
+                    statMultiplier = 1.0,
                     defenseMultiplier = defenseMultiplier,
                     skillAtkMultiplier = skillAtkMultiplier,
                     damageIncreaseMultiplier = damageIncreaseMultiplier,
@@ -199,7 +196,24 @@ class DnfPowerCalculator(
         val totalSetPoints = status.equipment.sumOf { it.setPoint }
         val setBonus = org.example.dnf_raid.model.SetEffectTable.getDamageMultiplier(totalSetPoints) - 1.0
 
-        return fromEquipment + creatureLane + passiveLane + LaneTotals(finalDamage = setBonus)
+        // Heuristic: Check for "Pitch Black" (Entropy) set to apply CDR
+        // 5+ pieces usually implies strong CDR set effect in Season 10
+        val pitchBlackCount = status.equipment.count { normalizeKey(it.itemName).contains("칠흑") }
+        val whiteCount = status.equipment.count { normalizeKey(it.itemName).contains("백색") }
+        
+        var setCdr = 0.0
+        var setRecovery = 0.0
+        if (pitchBlackCount > 0) {
+             // Heuristic: Season 10 Entropy (Chilheuk) set provides significant CDR (~5% per piece)
+             setCdr += pitchBlackCount * 0.05
+             setRecovery += pitchBlackCount * 0.05
+        }
+
+        return fromEquipment + creatureLane + passiveLane + LaneTotals(
+            finalDamage = setBonus,
+            cooldownReduction = setCdr,
+            cooldownRecovery = setRecovery
+        )
     }
 
     private fun laneFromOptions(options: ItemFixedOptions): LaneTotals =
@@ -210,7 +224,9 @@ class DnfPowerCalculator(
             finalDamage = options.finalDamage,
             criticalDamage = options.criticalDamage,
             elementalAttackBonus = options.elementalDamage,
-            defensePenetration = options.defensePenetration
+            defensePenetration = options.defensePenetration,
+            cooldownReduction = options.cooldownReduction,
+            cooldownRecovery = options.cooldownRecovery
         )
 
     private fun aggregatePassiveLanes(styleLevels: List<CharacterSkillLevel>): LaneTotals {
@@ -263,6 +279,7 @@ class DnfPowerCalculator(
         mapper: ObjectMapper,
         styleLevels: List<CharacterSkillLevel>
     ): SkillDefinition? {
+        val detail = parseDetail(mapper)
         val rows = parseLevelRows(mapper)
         val targetLevel = resolveStyleLevel(styleLevels)
         val best = rows
@@ -288,18 +305,21 @@ class DnfPowerCalculator(
                 normalizeCoeff(damage) * hits * stacks
             }
         } ?: 1.0
-        val detail = parseDetail(mapper)
         val enhancementEffect = resolveEnhancementEffect(detail, styleLevels, mapper)
 
         val cdBase = best?.coolTime ?: this.baseCoolTime ?: DEFAULT_BASE_CD
         val cd = (cdBase * (1.0 - enhancementEffect.cdReduction)).coerceAtLeast(MIN_CD_FACTOR)
+        
+        // Apply Gaehwa/Enhancement Multipliers (Skill Atk, Final Dmg) directly to coeff
+        val finalCoeff = coeff * enhancementEffect.coeffMultiplier
+
         val level = targetLevel ?: best?.level ?: this.requiredLevel ?: this.maxLevel ?: 0
         return SkillDefinition(
             skillId = this.skillId,
             name = this.skillName,
             skillType = this.skillType,
             level = level,
-            coeff = coeff,
+            coeff = finalCoeff,
             baseCd = cd,
             laneBonus = enhancementEffect.laneBonus
         )
@@ -326,9 +346,17 @@ class DnfPowerCalculator(
         }.getOrElse { emptyList() }
     }
 
+    private fun DnfSkillEntity.parseEvolutionJson(mapper: ObjectMapper): List<org.example.dnf_raid.service.NormalizedEvolution> {
+        val json = this.evolutionJson ?: return emptyList()
+        return runCatching {
+            mapper.readValue(json, object : TypeReference<List<org.example.dnf_raid.service.NormalizedEvolution>>() {})
+        }.getOrElse { emptyList() }
+    }
+
     private data class EnhancementEffect(
         val laneBonus: LaneTotals = LaneTotals(),
-        val cdReduction: Double = 0.0
+        val cdReduction: Double = 0.0,
+        val coeffMultiplier: Double = 1.0
     )
 
     private fun DnfSkillEntity.resolveEnhancementEffect(
@@ -341,37 +369,103 @@ class DnfPowerCalculator(
             !this.enhancementJson.isNullOrBlank() -> parseEnhancementJson(mapper)
             else -> emptyList()
         }
-        if (enhancements.isEmpty()) return EnhancementEffect()
-
+        val evolutions = when {
+            !this.evolutionJson.isNullOrBlank() -> parseEvolutionJson(mapper)
+            else -> emptyList()
+        }
+        
         val style = styleLevels.firstOrNull { it.skillId == this.skillId }
-        val type = style?.enhancementType ?: return EnhancementEffect()
-        val match = enhancements.firstOrNull { it.type == type } ?: return EnhancementEffect()
+        val enhancementType = style?.enhancementType
+        val evolutionType = style?.evolutionType
 
-        var skillAtk = 0.0
-        var damageInc = 0.0
-        var additional = 0.0
-        var finalDamage = 0.0
-        var cdReduction = 0.0
-        match.status.forEach { status ->
-            val name = status.name?.lowercase(Locale.getDefault()) ?: return@forEach
-            val value = status.value?.replace("%", "")?.toDoubleOrNull() ?: return@forEach
-            when {
-                name.contains("스킬 공격력") || name.contains("skill") -> skillAtk += value / 100.0
-                name.contains("쿨타임") || name.contains("cool") -> cdReduction += value / 100.0
-                name.contains("최종") -> finalDamage += value / 100.0
-                name.contains("추가") -> additional += value / 100.0
-                name.contains("데미지") || name.contains("피해") -> damageInc += value / 100.0
+        var totalSkillAtk = 0.0
+        var totalDamageInc = 0.0
+        var totalAdditional = 0.0
+        var totalFinalDamage = 0.0
+        var totalCdReduction = 0.0
+        var totalCoeffMultiplier = 1.0
+
+        // Helper to parse structure option list (Enhancement)
+        fun applyEnhancement(opts: List<NormalizedEnhancement>?, myType: Int?) {
+            if (opts == null || myType == null) return
+            val match = opts.firstOrNull { it.type == myType } ?: return
+            
+            match.status.forEach { status ->
+                val name = status.name?.lowercase(Locale.getDefault())?.replace(" ", "") ?: return@forEach
+                val valueStr = status.value?.replace("%", "")?.replace("초", "") ?: return@forEach
+                val value = valueStr.toDoubleOrNull() ?: return@forEach
+                
+                when {
+                    name.contains("스킬공격력") || name.contains("skillatk") || name.contains("공격력증가") -> totalSkillAtk += value / 100.0
+                    name.contains("최종데미지") || name.contains("finaldamage") -> totalFinalDamage += value / 100.0
+                    name.contains("쿨타임") || name.contains("cooldown") -> totalCdReduction += value / 100.0
+                    name.contains("공격력") && !name.contains("스킬") -> totalSkillAtk += value / 100.0
+                    else -> {}
+                }
+            }
+        }
+        
+        // Helper to parse text based option list (Evolution/Gaehwa)
+        fun applyEvolution(opts: List<org.example.dnf_raid.service.NormalizedEvolution>?, myType: Int?) {
+            if (opts == null || myType == null) return
+            val match = opts.firstOrNull { it.type == myType } ?: return
+            
+            // Gaehwa uses 'desc' string, e.g. "Attack Power +20%, Cooldown -10%"
+            val desc = match.desc ?: return
+            
+            // Simple regex for comma-separated or newline-separated values
+            // Pattern: (Keyword)... (Number)%
+            val valuePattern = Regex("""([가-힣a-zA-Z\s]+)[^0-9-]*([-+]?\d+(\.\d+)?)\s*%""")
+            
+            valuePattern.findAll(desc).forEach { m ->
+                val keyword = m.groupValues[1].replace(" ", "").lowercase()
+                val value = m.groupValues[2].toDoubleOrNull() ?: 0.0
+                
+                when {
+                    keyword.contains("공격력") || keyword.contains("atk") || keyword.contains("데미지") -> {
+                        // Awakening Attack often implies Final Damage multiplier to the skill
+                        totalSkillAtk += value / 100.0
+                    }
+                    keyword.contains("쿨타임") || keyword.contains("cooldown") -> {
+                         // Negative value usually means reduction in text? or absolute?
+                         // "Cooldown -10%" -> value is -10. reduction += 0.1
+                         // "Cooldown Reduction 10%" -> value is 10. reduction += 0.1
+                         if (keyword.contains("감소") || keyword.contains("reduction")) {
+                             totalCdReduction += value / 100.0
+                         } else if (value < 0) {
+                             totalCdReduction += -value / 100.0
+                         }
+                    }
+                }
             }
         }
 
+        applyEnhancement(enhancements, enhancementType)
+        applyEvolution(evolutions, evolutionType)
+        
+        // Convert stacked Skill Atk to Coeff Multiplier if it's treated as final
+        // Usually Enhancement/Evolution provides a separate multiplier line (Final Dmg or Custom Skill Atk).
+        // If it's pure "Skill Atk", it stacks additively within the system but usually multiplicatively with gear.
+        // However, for Skill specific options, they are often Multiplicative to the base skill.
+        // Let's treat them as Lane Checks first.
+        // Actually, Gaehwa "Attack +20%" is usually a direct multiplier to the skill coefficient.
+        // So we will put it into coeffMultiplier.
+        
+        val lane = LaneTotals(
+            skillAtk = 0.0, // Don't put it in lane, use coeffMultiplier
+            damageIncrease = totalDamageInc,
+            additionalDamage = totalAdditional,
+            finalDamage = 0.0 // Don't put FinalDmg in lane either, use coeffMultiplier
+        )
+        
+        // Combine Skill Atk and Final Damage into direct coefficient multiplier
+        val combinedMulti = (1.0 + totalSkillAtk) * (1.0 + totalFinalDamage)
+        totalCoeffMultiplier *= combinedMulti
+
         return EnhancementEffect(
-            laneBonus = LaneTotals(
-                skillAtk = skillAtk,
-                damageIncrease = damageInc,
-                additionalDamage = additional,
-                finalDamage = finalDamage
-            ),
-            cdReduction = cdReduction.coerceAtMost(0.7) // cap with global cdr limits
+            laneBonus = lane,
+            cdReduction = totalCdReduction.coerceAtMost(0.7),
+            coeffMultiplier = totalCoeffMultiplier
         )
     }
     
@@ -412,8 +506,7 @@ class DnfPowerCalculator(
 
     private fun normalizeCoeff(raw: Double): Double {
         return when {
-            raw > 5000 -> raw / 100.0  // e.g. 12694% -> 126.94
-            raw > 500 -> raw / 10.0
+            raw > 100 -> raw / 100.0
             else -> raw
         }
     }

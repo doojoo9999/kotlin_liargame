@@ -10,7 +10,8 @@ data class DnfCharacterFullStatus(
     val equipment: List<DnfEquipItem>,
     val avatars: List<DnfAvatar>,
     val creature: DnfCreature?,
-    val skillLevels: List<CharacterSkillLevel> = emptyList()
+    val skillLevels: List<CharacterSkillLevel> = emptyList(),
+    val talismans: List<DnfTalisman> = emptyList()
 )
 
 data class CharacterSkillLevel(
@@ -82,4 +83,12 @@ data class DnfCreature(
     val artifactStats: List<String>,
     val buffPower: Long = 0,
     val damageBonus: Long = 0
+)
+
+data class DnfTalisman(
+    val slotName: String,
+    val itemId: String,
+    val itemName: String,
+    val skillName: String? = null,
+    val runeTypes: List<String> = emptyList()
 )

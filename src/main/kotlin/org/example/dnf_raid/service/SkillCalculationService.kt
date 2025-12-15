@@ -30,10 +30,15 @@ class SkillCalculationService {
      */
     fun toSkillCoefficient(totalDamagePercent: Double): Double {
         if (totalDamagePercent <= 0) return 0.0
+        // Consistent normalization: Assume values > 100 are percentages (e.g. 4500 = 4500% -> 45.0)
+        // Values <= 100 might be small multipliers (e.g. 5 = 500% or 5 hits).
+        // However, calculateTotalDamagePercent usually returns raw sums from "{value}%".
+        // So 100% is 100.
+        // We will assume anything clearly above 1.0 is a percent representation if it came from the generic calculator.
+        // But to be safe and match legacy > 5000 logic:
+        // We should just divide by 100 if it's substantial.
         val normalized = when {
-            totalDamagePercent > 5_000 -> totalDamagePercent / 100.0
-            totalDamagePercent > 500 -> totalDamagePercent / 10.0
-            else -> totalDamagePercent
+             totalDamagePercent > 100 -> totalDamagePercent / 100.0
         }
         return normalized
     }
