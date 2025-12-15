@@ -289,21 +289,27 @@ class DnfPowerCalculator(
 
         val coeff = best?.let { row ->
             val fromTemplate = skillCalculationService.calculateTotalDamagePercent(optionDesc, row.optionValue)
-            if (fromTemplate > 0) {
+            val templateCoeff = if (fromTemplate > 0) {
                 skillCalculationService.toSkillCoefficient(fromTemplate)
-            } else {
-                val metrics = extractOptionMetrics(optionDesc, row.optionValue)
-                val numericValues = row.optionValue
-                    .values
-                val damage = when {
-                    metrics.damageValues.isNotEmpty() -> metrics.damageValues.maxOrNull() ?: 1.0
-                    numericValues.isNotEmpty() -> numericValues.maxOrNull() ?: 1.0
-                    else -> 1.0
-                }
-                val hits = metrics.hitCounts.maxOrNull()?.coerceAtLeast(1.0) ?: 1.0
-                val stacks = metrics.stackCounts.maxOrNull()?.coerceAtLeast(1.0) ?: 1.0
-                normalizeCoeff(damage) * hits * stacks
+            } else 0.0
+
+            val metrics = extractOptionMetrics(optionDesc, row.optionValue)
+            val numericValues = row.optionValue.values
+            
+            val damageRaw = when {
+                metrics.damageValues.isNotEmpty() -> metrics.damageValues.maxOrNull() ?: 1.0
+                numericValues.isNotEmpty() -> numericValues.maxOrNull() ?: 1.0
+                else -> 1.0
             }
+            val hits = metrics.hitCounts.maxOrNull()?.coerceAtLeast(1.0) ?: 1.0
+            val stacks = metrics.stackCounts.maxOrNull()?.coerceAtLeast(1.0) ?: 1.0
+            
+            // Heuristic: If template missed the hit count (template is approx equal to raw damage),
+            // but we found explicit hits, use the multiplied value.
+            // Safe fallback: take the maximum of template calculation and component-wise calculation
+            val componentCoeff = normalizeCoeff(damageRaw) * hits * stacks
+            
+            max(templateCoeff, componentCoeff)
         } ?: 1.0
         val enhancementEffect = resolveEnhancementEffect(detail, styleLevels, mapper)
 
@@ -841,7 +847,7 @@ class DnfPowerCalculator(
         private const val BUFFER_STAT_NORMALIZER = 6000.0
         private val BUFF_PATTERN = Regex("""(?:버프|buff)[^\\d-]*([\\d,]+)""", RegexOption.IGNORE_CASE)
         private val DAMAGE_KEYWORDS = listOf("공격", "피해", "데미지", "%", "damage", "attack")
-        private val HIT_KEYWORDS = listOf("타격", "히트", "타수", "hit")
+        private val HIT_KEYWORDS = listOf("타격", "히트", "타수", "hit", "횟수")
         private val STACK_KEYWORDS = listOf("스택", "stack", "중첩")
         private val PASSIVE_SKILL_ATK_KEYWORDS = listOf("스킬공격력", "skill atk", "skill attack")
         private val PASSIVE_DAMAGE_INC_KEYWORDS = listOf("데미지 증가", "피해 증가", "damage increase", "dmg increase")
