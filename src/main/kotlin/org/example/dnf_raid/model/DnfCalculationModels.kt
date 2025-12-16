@@ -11,7 +11,8 @@ data class DnfCharacterFullStatus(
     val avatars: List<DnfAvatar>,
     val creature: DnfCreature?,
     val skillLevels: List<CharacterSkillLevel> = emptyList(),
-    val talismans: List<DnfTalisman> = emptyList()
+    val talismans: List<DnfTalisman> = emptyList(),
+    val setLaneTotals: LaneTotals = LaneTotals()
 )
 
 data class CharacterSkillLevel(
@@ -47,7 +48,10 @@ data class DnfEquipItem(
     val buffPower: Long,
     val fixedOptions: ItemFixedOptions,
     val setPoint: Int,
-    val itemGrade: String
+    val itemGrade: String,
+    val setItemId: String? = null,
+    val reinforce: Int = 0,
+    val amplificationName: String? = null
 )
 
 data class ItemFixedOptions(
@@ -92,3 +96,27 @@ data class DnfTalisman(
     val skillName: String? = null,
     val runeTypes: List<String> = emptyList()
 )
+
+data class LaneTotals(
+    val skillAtk: Double = 0.0,
+    val damageIncrease: Double = 0.0,
+    val additionalDamage: Double = 0.0,
+    val finalDamage: Double = 0.0,
+    val criticalDamage: Double = 0.0,
+    val elementalAttackBonus: Int = 0,
+    val defensePenetration: Double = 0.0,
+    val cooldownReduction: Double = 0.0,
+    val cooldownRecovery: Double = 0.0
+) {
+    operator fun plus(other: LaneTotals): LaneTotals = LaneTotals(
+        skillAtk = skillAtk + other.skillAtk,
+        damageIncrease = damageIncrease + other.damageIncrease,
+        additionalDamage = additionalDamage + other.additionalDamage,
+        finalDamage = finalDamage + other.finalDamage,
+        criticalDamage = criticalDamage + other.criticalDamage,
+        elementalAttackBonus = elementalAttackBonus + other.elementalAttackBonus,
+        defensePenetration = defensePenetration + other.defensePenetration,
+        cooldownReduction = cooldownReduction + other.cooldownReduction,
+        cooldownRecovery = cooldownRecovery + other.cooldownRecovery
+    )
+}
