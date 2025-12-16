@@ -10,6 +10,7 @@ import org.example.dnf_raid.model.DnfSkillEntity
 import org.example.dnf_raid.repository.DnfSkillRepository
 import org.example.dnf_raid.service.DnfSkillCatalogService
 import org.example.dnf_raid.service.NormalizedSkillDetail
+import org.example.dnf_raid.model.LaneTotals
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.util.Locale
@@ -103,7 +104,8 @@ class DnfPowerCalculator(
                 (1.0 + totalRecovery)
 
             // Continuous cast model over 40s to reflect 쿨감 효용
-            val castCount = 40.0 / realCd
+            // Fixed to floor() to match Dundam's discrete count
+            val castCount = kotlin.math.floor(40.0 / realCd)
             val score = singleDamage * castCount
 
             SkillScore(
@@ -193,27 +195,7 @@ class DnfPowerCalculator(
             }
         } ?: LaneTotals()
 
-        val totalSetPoints = status.equipment.sumOf { it.setPoint }
-        val setBonus = org.example.dnf_raid.model.SetEffectTable.getDamageMultiplier(totalSetPoints) - 1.0
-
-        // Heuristic: Check for "Pitch Black" (Entropy) set to apply CDR
-        // 5+ pieces usually implies strong CDR set effect in Season 10
-        val pitchBlackCount = status.equipment.count { normalizeKey(it.itemName).contains("칠흑") }
-        val whiteCount = status.equipment.count { normalizeKey(it.itemName).contains("백색") }
-        
-        var setCdr = 0.0
-        var setRecovery = 0.0
-        if (pitchBlackCount > 0) {
-             // Heuristic: Season 10 Entropy (Chilheuk) set provides significant CDR (~5% per piece)
-             setCdr += pitchBlackCount * 0.05
-             setRecovery += pitchBlackCount * 0.05
-        }
-
-        return fromEquipment + creatureLane + passiveLane + LaneTotals(
-            finalDamage = setBonus,
-            cooldownReduction = setCdr,
-            cooldownRecovery = setRecovery
-        )
+        return fromEquipment + creatureLane + passiveLane + status.setLaneTotals
     }
 
     private fun laneFromOptions(options: ItemFixedOptions): LaneTotals =
@@ -766,29 +748,8 @@ class DnfPowerCalculator(
         val totalDamage: Double
     )
 
-    data class LaneTotals(
-        val skillAtk: Double = 0.0,
-        val damageIncrease: Double = 0.0,
-        val additionalDamage: Double = 0.0,
-        val finalDamage: Double = 0.0,
-        val criticalDamage: Double = 0.0,
-        val elementalAttackBonus: Int = 0,
-        val defensePenetration: Double = 0.0,
-        val cooldownReduction: Double = 0.0,
-        val cooldownRecovery: Double = 0.0
-    ) {
-        operator fun plus(other: LaneTotals): LaneTotals = LaneTotals(
-            skillAtk = skillAtk + other.skillAtk,
-            damageIncrease = damageIncrease + other.damageIncrease,
-            additionalDamage = additionalDamage + other.additionalDamage,
-            finalDamage = finalDamage + other.finalDamage,
-            criticalDamage = criticalDamage + other.criticalDamage,
-            elementalAttackBonus = elementalAttackBonus + other.elementalAttackBonus,
-            defensePenetration = defensePenetration + other.defensePenetration,
-            cooldownReduction = cooldownReduction + other.cooldownReduction,
-            cooldownRecovery = cooldownRecovery + other.cooldownRecovery
-        )
-    }
+
+
 
     private data class OptionMetrics(
         val damageValues: List<Double> = emptyList(),
