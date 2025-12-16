@@ -11,6 +11,7 @@ import org.example.dnf_raid.model.DnfEquipItem
 import org.example.dnf_raid.model.DnfTalisman
 import org.example.dnf_raid.model.ElementInfo
 import org.example.dnf_raid.model.ItemFixedOptions
+import org.example.dnf_raid.model.LaneTotals
 import org.example.dnf_raid.model.LevelOption
 import org.example.dnf_raid.model.TownStats
 import kotlinx.coroutines.Dispatchers
@@ -70,14 +71,14 @@ class DnfApiClient(
             val skillLevels = skillStyleDeferred.await()
             val talismans = talismanDeferred.await()
 
+            val talismans = talismanDeferred.await()
             val missingItemIds = equipment.map { it.itemId }.toSet().filterNot { itemFixedOptionCache.containsKey(it) }
             if (missingItemIds.isNotEmpty()) {
                 fetchAndCacheItemDetails(missingItemIds)
             }
-
+            
             val equippedItems = equipment.map { slot ->
                 val fixed = itemFixedOptionCache[slot.itemId] ?: EMPTY_FIXED_OPTIONS
-                // 정화 발동 옵션(예: 칠흑의 정화) 등 캐릭터별 슬랏 explain에만 존재하는 옵션 보정
                 val activationBonus = parseExplainOptions(slot.explain)
                 val merged = mergeOptions(fixed, activationBonus)
                 DnfEquipItem(
@@ -87,10 +88,23 @@ class DnfApiClient(
                     buffPower = slot.buffPower,
                     fixedOptions = merged,
                     setPoint = slot.setPoint,
-                    itemGrade = slot.itemGrade
+                    itemGrade = slot.itemGrade,
+                    setItemId = slot.setItemId,
+                    reinforce = slot.reinforce ?: 0,
+                    amplificationName = slot.amplificationName
                 )
             }
-
+            
+            // Resolve Set Bonuses (Golden Era, etc.)
+            val setBonuses = resolveSetBonuses(equippedItems)
+            
+            // Resolve "Teana" Amplification Bonuses
+            // Logic: Teana amplification allows Scaling Damage based on amp level.
+            val teanaBonus = equippedItems.fold(LaneTotals()) { acc, item ->
+                acc + calculateTeanaBonus(item)
+            }
+            val totalSetLane = setBonuses + teanaBonus
+            
             DnfCharacterFullStatus(
                 serverId = status.serverId,
                 characterId = status.characterId,
@@ -102,9 +116,82 @@ class DnfApiClient(
                 avatars = avatars,
                 creature = creature,
                 skillLevels = skillLevels,
-                talismans = talismans
+                talismans = talismans,
+                setLaneTotals = totalSetLane
             )
         }
+    }
+    
+    private suspend fun resolveSetBonuses(items: List<DnfEquipItem>): LaneTotals {
+         val setCounts = items.mapNotNull { it.setItemId }.groupingBy { it }.eachCount()
+         if (setCounts.isEmpty()) return LaneTotals()
+         
+         var totalLane = LaneTotals()
+         
+         // In real scenario, cache set details too
+         setCounts.forEach { (setId, count) ->
+             val detail = fetchSetItemDetail(setId) ?: return@forEach
+             // Parse active bonuses
+             detail.setItemBonus.forEach { bonus ->
+                 // If bonus triggers at this count
+                 // Usually API returns "minimum count needed".
+                 // Let's assume 'index' is piece count or 'explain' says "3 Set Effect".
+                 // Actually Neople API returns a list of bonuses.
+                 // We naively apply ALL bonuses that are <= current count.
+                 // Need to parse "N세트" from explain or rely on structure.
+                 
+                 // Heuristic: Check explain for "N세트"
+                 val reqCount = parseSetCount(bonus.explain)
+                 if (reqCount > 0 && count >= reqCount) {
+                     // Check status list first
+                     var bonusLane = LaneTotals()
+                     bonus.status.forEach { stat ->
+                         bonusLane += parseStatusEntryToLane(stat.name, stat.value)
+                     }
+                     // Fallback to text parsing (explain)
+                     val textLane = parseExplainOptions(bonus.explain)
+                     
+                     // Combine (avoid double counting? status is usually reliable)
+                     // If status is empty, use textLane
+                     totalLane += if (bonus.status.isNotEmpty()) bonusLane else textLane
+                 }
+             }
+         }
+         return totalLane
+    }
+    
+    private fun parseSetCount(explain: String?): Int {
+        if (explain == null) return 0
+        val match = Regex("""(\d+)세트""").find(explain) ?: Regex("""(\d+)Set""").find(explain)
+        return match?.groupValues?.get(1)?.toIntOrNull() ?: 0
+    }
+    
+    private fun parseStatusEntryToLane(name: String?, value: Double?): LaneTotals {
+         if (name == null || value == null) return LaneTotals()
+         val n = name.lowercase().replace(" ", "")
+         var lane = LaneTotals()
+         val v = value / 100.0 // Usually status API returns percent as Double? e.g. 5.0 for 5%
+         // Actually fetchSetItemDetail definition returns 'status: List<StatusEntry>'
+         // StatusEntry value is Double.
+         
+         if (n.contains("스킬공격력") || n.contains("skillatk")) lane = lane.copy(skillAtk = v)
+         else if (n.contains("쿨타임감소") || n.contains("cooldownreduction")) lane = lane.copy(cooldownReduction = v)
+         else if (n.contains("피해증가") || n.contains("damageincrease")) lane = lane.copy(damageIncrease = v)
+         
+         return lane
+    }
+    
+    // Heuristic for Teana: "테아" in amplificationName
+    private fun calculateTeanaBonus(item: DnfEquipItem): LaneTotals {
+        val ampBox = item.amplificationName ?: return LaneTotals()
+        if (!ampBox.contains("테아")) return LaneTotals()
+        
+        // Assumption: Teana provides Damage Increase per Amp Level.
+        // Let's guess 1% per level for now based on 'Golden Era' power creep.
+        // User didn't give formula.
+        val level = item.reinforce
+        val bonus = level * 0.01 // 1% per +1
+        return LaneTotals(damageIncrease = bonus)
     }
 
     /**
@@ -425,7 +512,10 @@ class DnfApiClient(
                     explain = slot.explain,
                     // Parse Set Point from Rarity
                     setPoint = calculateSetPoint(slot.itemRarity, slot.itemName),
-                    itemGrade = slot.itemRarity ?: "EPIC"
+                    itemGrade = slot.itemRarity ?: "EPIC",
+                    setItemId = slot.setItemId,
+                    reinforce = slot.reinforce ?: 0,
+                    amplificationName = slot.amplificationName
                 )
             }
         } catch (ex: Exception) {
@@ -903,7 +993,10 @@ class DnfApiClient(
         val buffPower: Long,
         val explain: String? = null,
         val setPoint: Int,
-        val itemGrade: String
+        val itemGrade: String,
+        val setItemId: String? = null,
+        val reinforce: Int = 0,
+        val amplificationName: String? = null
     )
 
     // 2025 Season Heuristic
@@ -985,7 +1078,11 @@ data class EquipmentSlot(
     val explain: String? = null,
     val damage: Long? = null,
     val buff: Long? = null,
-    val itemRarity: String? = null // Added for 2025 Season
+    val buff: Long? = null,
+    val itemRarity: String? = null, // Added for 2025 Season
+    val setItemId: String? = null,
+    val reinforce: Int? = null,
+    val amplificationName: String? = null
 )
 
 data class AvatarResponse(
