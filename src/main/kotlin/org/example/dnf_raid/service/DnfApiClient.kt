@@ -48,6 +48,10 @@ class DnfApiClient(
         defensePenetration = 0.0,
         levelOptions = emptyMap()
     )
+    private data class ItemDetailResult(
+        val fixedOptions: ItemFixedOptions,
+        val setItemId: String?
+    )
 
     /**
      * Aggregates Status, Equipment, Avatar, Creature, and Item Detail endpoints into a single snapshot.
@@ -69,8 +73,6 @@ class DnfApiClient(
             val avatars = avatarDeferred.await()
             val creature = creatureDeferred.await()
             val skillLevels = skillStyleDeferred.await()
-            val talismans = talismanDeferred.await()
-
             val talismans = talismanDeferred.await()
             // 1. Collect standard items
             val missingItemIds = equipment.map { it.itemId }.toMutableSet()
@@ -111,11 +113,12 @@ class DnfApiClient(
                 val fOption = slot.fusionOption
                 if (fusion != null) {
                     // Fetch cached detail to get Set ID
-                    val fFixed = itemFixedOptionCache[fusion.itemId] ?: EMPTY_FIXED_OPTIONS
+                    val fDetail = fetchItemDetail(fusion.itemId)
+                    val fFixed = itemFixedOptionCache[fusion.itemId] ?: fDetail.fixedOptions
                     // Parse Fusion Stone stats from 'fusionOption' explain (user provided)
-                    val fStats = fOption?.options?.fold(LaneTotals()) { acc, opt -> 
-                        acc + parseExplainOptions(opt.explain)
-                    } ?: LaneTotals()
+                    val fStats = fOption?.options?.fold(EMPTY_FIXED_OPTIONS) { acc: ItemFixedOptions, opt: EquipmentSlot.FusionOptionDetail ->
+                        mergeOptions(acc, parseExplainOptions(opt.explain))
+                    } ?: EMPTY_FIXED_OPTIONS
                     
                     // We need to convert LaneTotals back to ItemFixedOptions or just use the LaneTotals directly?
                     // DnfEquipItem uses ItemFixedOptions. Let's merge standard fixed options with explain-parsed stats.
@@ -135,8 +138,6 @@ class DnfApiClient(
                     // Correction: We need to fetch the raw detail to get `setItemId`.
                     // Since we're inside a coroutine, we can just call `fetchItemDetail(fusion.itemId)` and it will be fast if we add an internal cache for it?
                     // Or we explicitly accept that we need to fetch it.
-                    val fDetail = fetchItemDetail(fusion.itemId) 
-                    
                     val fMerged = mergeOptions(fFixed, fStats)
                     
                     equippedItems.add(DnfEquipItem(
@@ -147,7 +148,7 @@ class DnfApiClient(
                         fixedOptions = fMerged,
                         setPoint = 0, // Fusion stones might not have set points or distinct calculation
                         itemGrade = fusion.itemRarity ?: "EPIC",
-                        setItemId = fDetail?.setItemId, // Crucial for Set Bonuses
+                        setItemId = fDetail.setItemId, // Crucial for Set Bonuses
                         reinforce = 0, 
                         amplificationName = null
                     ))
@@ -201,19 +202,19 @@ class DnfApiClient(
                  
                  // Heuristic: Check explain for "N세트"
                  val reqCount = parseSetCount(bonus.explain)
-                 if (reqCount > 0 && count >= reqCount) {
-                     // Check status list first
-                     var bonusLane = LaneTotals()
-                     bonus.status.forEach { stat ->
-                         bonusLane += parseStatusEntryToLane(stat.name, stat.value)
-                     }
-                     // Fallback to text parsing (explain)
-                     val textLane = parseExplainOptions(bonus.explain)
-                     
-                     // Combine (avoid double counting? status is usually reliable)
-                     // If status is empty, use textLane
-                     totalLane += if (bonus.status.isNotEmpty()) bonusLane else textLane
-                 }
+                if (reqCount > 0 && count >= reqCount) {
+                    // Check status list first
+                    var bonusLane = LaneTotals()
+                    bonus.status.forEach { stat ->
+                        bonusLane += parseStatusEntryToLane(stat.name, stat.value)
+                    }
+                    // Fallback to text parsing (explain)
+                    val textLane = parseExplainOptions(bonus.explain).toLaneTotals()
+                    
+                    // Combine (avoid double counting? status is usually reliable)
+                    // If status is empty, use textLane
+                    totalLane += if (bonus.status.isNotEmpty()) bonusLane else textLane
+                }
              }
          }
          return totalLane
@@ -239,6 +240,18 @@ class DnfApiClient(
          
          return lane
     }
+
+    private fun ItemFixedOptions.toLaneTotals(): LaneTotals = LaneTotals(
+        skillAtk = skillAtkIncrease,
+        damageIncrease = damageIncrease,
+        additionalDamage = additionalDamage,
+        finalDamage = finalDamage,
+        criticalDamage = criticalDamage,
+        elementalAttackBonus = elementalDamage,
+        defensePenetration = defensePenetration,
+        cooldownReduction = cooldownReduction,
+        cooldownRecovery = cooldownRecovery
+    )
     
     // Heuristic for Teana: "테아" in amplificationName
     private fun calculateTeanaBonus(item: DnfEquipItem): LaneTotals {
@@ -574,7 +587,9 @@ class DnfApiClient(
                     itemGrade = slot.itemRarity ?: "EPIC",
                     setItemId = slot.setItemId,
                     reinforce = slot.reinforce ?: 0,
-                    amplificationName = slot.amplificationName
+                    amplificationName = slot.amplificationName,
+                    upgradeInfo = slot.upgradeInfo,
+                    fusionOption = slot.fusionOption
                 )
             }
         } catch (ex: Exception) {
@@ -696,12 +711,12 @@ class DnfApiClient(
             async { id to fetchItemDetail(id) }
         }
         deferred.forEach { future ->
-            val (itemId, options) = future.await()
-            itemFixedOptionCache[itemId] = options
+            val (itemId, detail) = future.await()
+            itemFixedOptionCache[itemId] = detail.fixedOptions
         }
     }
 
-    private suspend fun fetchItemDetail(itemId: String): ItemFixedOptions = withContext(Dispatchers.IO) {
+    private suspend fun fetchItemDetail(itemId: String): ItemDetailResult = withContext(Dispatchers.IO) {
         val apiKey = apiKey()
         try {
             val detailNode = restClient.get()
@@ -714,10 +729,12 @@ class DnfApiClient(
                 .retrieve()
                 .body(JsonNode::class.java)
 
-            parseItemFixedOptions(detailNode)
+            val options = parseItemFixedOptions(detailNode)
+            val setItemId = detailNode?.get("setItemId")?.asText()?.takeIf { it.isNotBlank() }
+            ItemDetailResult(options, setItemId)
         } catch (ex: Exception) {
             logger.warn("아이템 상세 조회 실패 (itemId={}): {}", itemId, ex.message)
-            EMPTY_FIXED_OPTIONS
+            ItemDetailResult(EMPTY_FIXED_OPTIONS, null)
         }
     }
 
@@ -1055,7 +1072,9 @@ class DnfApiClient(
         val itemGrade: String,
         val setItemId: String? = null,
         val reinforce: Int = 0,
-        val amplificationName: String? = null
+        val amplificationName: String? = null,
+        val upgradeInfo: EquipmentSlot.UpgradeInfo? = null,
+        val fusionOption: EquipmentSlot.FusionOption? = null
     )
 
     // 2025 Season Heuristic
@@ -1129,20 +1148,19 @@ data class EquipmentResponse(
     val equipment: List<EquipmentSlot> = emptyList()
 )
 
-data class EquipmentSlot(
-    val slotId: String,
-    val slotName: String? = null,
-    val itemId: String,
-    val itemName: String? = null,
-    val explain: String? = null,
-    val damage: Long? = null,
-    val buff: Long? = null,
-    val buff: Long? = null,
-    val itemRarity: String? = null, // Added for 2025 Season
-    val setItemId: String? = null,
-    val reinforce: Int? = null,
-    val amplificationName: String? = null,
-    val upgradeInfo: UpgradeInfo? = null,
+    data class EquipmentSlot(
+        val slotId: String,
+        val slotName: String? = null,
+        val itemId: String,
+        val itemName: String? = null,
+        val explain: String? = null,
+        val damage: Long? = null,
+        val buff: Long? = null,
+        val itemRarity: String? = null, // Added for 2025 Season
+        val setItemId: String? = null,
+        val reinforce: Int? = null,
+        val amplificationName: String? = null,
+        val upgradeInfo: UpgradeInfo? = null,
     val fusionOption: FusionOption? = null
 ) {
     @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
