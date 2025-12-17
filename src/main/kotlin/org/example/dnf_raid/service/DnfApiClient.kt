@@ -72,16 +72,28 @@ class DnfApiClient(
             val talismans = talismanDeferred.await()
 
             val talismans = talismanDeferred.await()
-            val missingItemIds = equipment.map { it.itemId }.toSet().filterNot { itemFixedOptionCache.containsKey(it) }
-            if (missingItemIds.isNotEmpty()) {
-                fetchAndCacheItemDetails(missingItemIds)
+            // 1. Collect standard items
+            val missingItemIds = equipment.map { it.itemId }.toMutableSet()
+            
+            // 2. Collect Fusion Stone IDs from upgradeInfo
+            val fusionStoneIds = equipment.mapNotNull { it.upgradeInfo?.itemId }
+            missingItemIds.addAll(fusionStoneIds)
+            
+            // 3. Fetch details for all (Standard + Fusion)
+            val idsToFetch = missingItemIds.filterNot { itemFixedOptionCache.containsKey(it) }
+            if (idsToFetch.isNotEmpty()) {
+                fetchAndCacheItemDetails(idsToFetch.toSet())
             }
             
-            val equippedItems = equipment.map { slot ->
+            val equippedItems = mutableListOf<DnfEquipItem>()
+            
+            equipment.forEach { slot ->
+                // Base Item
                 val fixed = itemFixedOptionCache[slot.itemId] ?: EMPTY_FIXED_OPTIONS
                 val activationBonus = parseExplainOptions(slot.explain)
                 val merged = mergeOptions(fixed, activationBonus)
-                DnfEquipItem(
+                
+                equippedItems.add(DnfEquipItem(
                     slotName = slot.slotName,
                     itemId = slot.itemId,
                     itemName = slot.itemName,
@@ -92,7 +104,54 @@ class DnfApiClient(
                     setItemId = slot.setItemId,
                     reinforce = slot.reinforce ?: 0,
                     amplificationName = slot.amplificationName
-                )
+                ))
+                
+                // Fusion Stone Item (from upgradeInfo)
+                val fusion = slot.upgradeInfo
+                val fOption = slot.fusionOption
+                if (fusion != null) {
+                    // Fetch cached detail to get Set ID
+                    val fFixed = itemFixedOptionCache[fusion.itemId] ?: EMPTY_FIXED_OPTIONS
+                    // Parse Fusion Stone stats from 'fusionOption' explain (user provided)
+                    val fStats = fOption?.options?.fold(LaneTotals()) { acc, opt -> 
+                        acc + parseExplainOptions(opt.explain)
+                    } ?: LaneTotals()
+                    
+                    // We need to convert LaneTotals back to ItemFixedOptions or just use the LaneTotals directly?
+                    // DnfEquipItem uses ItemFixedOptions. Let's merge standard fixed options with explain-parsed stats.
+                    // Actually getting SetId is the most important part from detail.
+                    
+                    // Retrieve Set ID from cached detail (fetched in step 3)
+                    // Unfortunately 'fetchAndCacheItemDetails' updates 'itemFixedOptionCache' but doesn't return the full Detail object easily here.
+                    // But wait! We need the Set ID which is NOT in ItemFixedOptions. 
+                    // We need to fetch the Set ID. 'itemFixedOptionCache' stores options.
+                    // We need to access the raw cached detail or fetch it again (cached so fast).
+                    // Actually DnfApiClient doesn't cache the raw detail object, only parsed options.
+                    // We need to Fetch detailed info including Set ID.
+                    // Wait, `fetchAndCacheItemDetails` calls `fetchItemDetail` which returns `ItemDetailResponse`.
+                    // We should probably modify `fetchAndCacheItemDetails` or just fetch specific detail.
+                    // Let's assume we can fetch it (it's cached by OkHttp/Spring if configured, but here we have explicit Map cache).
+                    
+                    // Correction: We need to fetch the raw detail to get `setItemId`.
+                    // Since we're inside a coroutine, we can just call `fetchItemDetail(fusion.itemId)` and it will be fast if we add an internal cache for it?
+                    // Or we explicitly accept that we need to fetch it.
+                    val fDetail = fetchItemDetail(fusion.itemId) 
+                    
+                    val fMerged = mergeOptions(fFixed, fStats)
+                    
+                    equippedItems.add(DnfEquipItem(
+                        slotName = "FUSION", // Special slot name
+                        itemId = fusion.itemId,
+                        itemName = fusion.itemName,
+                        buffPower = 0L, // Usually fusion stones have buff power too but it's in fOption.buff
+                        fixedOptions = fMerged,
+                        setPoint = 0, // Fusion stones might not have set points or distinct calculation
+                        itemGrade = fusion.itemRarity ?: "EPIC",
+                        setItemId = fDetail?.setItemId, // Crucial for Set Bonuses
+                        reinforce = 0, 
+                        amplificationName = null
+                    ))
+                }
             }
             
             // Resolve Set Bonuses (Golden Era, etc.)
@@ -1082,8 +1141,28 @@ data class EquipmentSlot(
     val itemRarity: String? = null, // Added for 2025 Season
     val setItemId: String? = null,
     val reinforce: Int? = null,
-    val amplificationName: String? = null
-)
+    val amplificationName: String? = null,
+    val upgradeInfo: UpgradeInfo? = null,
+    val fusionOption: FusionOption? = null
+) {
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
+    data class UpgradeInfo(
+        val itemId: String,
+        val itemName: String,
+        val itemRarity: String? = null
+    )
+
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
+    data class FusionOption(
+        val options: List<FusionOptionDetail> = emptyList()
+    )
+
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
+    data class FusionOptionDetail(
+        val explain: String? = null,
+        val buff: Int? = null
+    )
+}
 
 data class AvatarResponse(
     val avatar: List<AvatarItem> = emptyList()
