@@ -70,9 +70,9 @@ class DnfPowerCalculator(
             val levelLanes = aggregateLevelLanes(levelOptions)
             val mergedLane = laneTotals + levelLanes + skill.laneBonus
 
+            val attackIncreaseMultiplier = 1.0 + mergedLane.attackIncrease
             val skillAtkMultiplier = 1.0 + mergedLane.skillAtk
-            val damageIncreaseMultiplier = 1.0 + mergedLane.damageIncrease
-            val additionalDamageMultiplier = 1.0 + mergedLane.additionalDamage
+            val damageIncreaseMultiplier = 1.0 + mergedLane.damageIncrease + mergedLane.additionalDamage
             val finalDamageMultiplier = 1.0 + mergedLane.finalDamage
             val criticalMultiplier = CRIT_BASE * (1.0 + mergedLane.criticalDamage)
             val elementalAttack = baseElementalAttack + BASE_ELEMENTAL_FLAT + mergedLane.elementalAttackBonus // base hidden +11 plus gear elemental
@@ -82,11 +82,16 @@ class DnfPowerCalculator(
             val effectiveDefense = (MONSTER_DEFENSE * (1.0 - mergedLane.defensePenetration)).coerceAtLeast(0.0)
             val defenseMultiplier = calculateDefenseMultiplier(effectiveDefense)
 
+            // Main Stat Multiplier: (1 + MainStat / 250)
+            val mainStat = max(totalStrength, totalIntelligence)
+            val statMultiplier = 1.0 + (mainStat / 250.0)
+
             val baseSkillDamage = baseAttack * skill.coeff
             val totalMultiplier = defenseMultiplier *
+                statMultiplier *
+                attackIncreaseMultiplier *
                 skillAtkMultiplier *
                 damageIncreaseMultiplier *
-                additionalDamageMultiplier *
                 finalDamageMultiplier *
                 criticalMultiplier *
                 elementalMultiplier *
@@ -119,11 +124,11 @@ class DnfPowerCalculator(
                 score = score,
                 breakdown = DamageBreakdown(
                     baseSkillDamage = baseSkillDamage,
-                    statMultiplier = 1.0,
+                    statMultiplier = statMultiplier,
                     defenseMultiplier = defenseMultiplier,
+                    attackIncreaseMultiplier = attackIncreaseMultiplier,
                     skillAtkMultiplier = skillAtkMultiplier,
                     damageIncreaseMultiplier = damageIncreaseMultiplier,
-                    additionalDamageMultiplier = additionalDamageMultiplier,
                     finalDamageMultiplier = finalDamageMultiplier,
                     criticalMultiplier = criticalMultiplier,
                     elementalMultiplier = elementalMultiplier,
@@ -201,6 +206,7 @@ class DnfPowerCalculator(
     private fun laneFromOptions(options: ItemFixedOptions): LaneTotals =
         LaneTotals(
             skillAtk = options.skillAtkIncrease,
+            attackIncrease = options.attackIncrease,
             damageIncrease = options.damageIncrease,
             additionalDamage = options.additionalDamage,
             finalDamage = options.finalDamage,
@@ -231,6 +237,7 @@ class DnfPowerCalculator(
         levelOptions.fold(LaneTotals()) { acc, opt ->
             acc + LaneTotals(
                 skillAtk = opt.skillAtkInc,
+                attackIncrease = opt.attackIncrease,
                 damageIncrease = opt.damageIncrease,
                 additionalDamage = opt.additionalDamage,
                 finalDamage = opt.finalDamage,
@@ -367,6 +374,7 @@ class DnfPowerCalculator(
         val evolutionType = style?.evolutionType
 
         var totalSkillAtk = 0.0
+        var totalAttackIncrease = 0.0
         var totalDamageInc = 0.0
         var totalAdditional = 0.0
         var totalFinalDamage = 0.0
@@ -384,10 +392,11 @@ class DnfPowerCalculator(
                 val value = valueStr.toDoubleOrNull() ?: return@forEach
                 
                 when {
-                    name.contains("스킬공격력") || name.contains("skillatk") || name.contains("공격력증가") -> totalSkillAtk += value / 100.0
+                    name.contains("스킬공격력") || name.contains("skillatk") -> totalSkillAtk += value / 100.0
+                    name.contains("공격력증가") || name.contains("attackincrease") -> totalAttackIncrease += value / 100.0
                     name.contains("최종데미지") || name.contains("finaldamage") -> totalFinalDamage += value / 100.0
                     name.contains("쿨타임") || name.contains("cooldown") -> totalCdReduction += value / 100.0
-                    name.contains("공격력") && !name.contains("스킬") -> totalSkillAtk += value / 100.0
+                    name.contains("공격력") && !name.contains("스킬") -> totalAttackIncrease += value / 100.0
                     else -> {}
                 }
             }
@@ -411,7 +420,8 @@ class DnfPowerCalculator(
                 
                 when {
                     keyword.contains("공격력") || keyword.contains("atk") || keyword.contains("데미지") -> {
-                        // Awakening Attack often implies Final Damage multiplier to the skill
+                        // Awakening Attack often implies Final Damage multiplier to the skill or Skill Atk
+                        // In Gaehwa context, "Attack Power +20%" is usually Skill Attack Multiplier.
                         totalSkillAtk += value / 100.0
                     }
                     keyword.contains("쿨타임") || keyword.contains("cooldown") -> {
@@ -440,7 +450,15 @@ class DnfPowerCalculator(
         // So we will put it into coeffMultiplier.
         
         val lane = LaneTotals(
-            skillAtk = 0.0, // Don't put it in lane, use coeffMultiplier
+            skillAtk = 0.0, // Don't put it in lane, use coeffMultiplier. Wait, Gaehwa Attack might be lane?
+            // If Gaehwa is "Skill Attack Increase", it works multiplicatively with gear.
+            // If we put it in coeffMultiplier, it acts as multiplicative.
+            // But if we put it in LaneTotals.skillAtk, it participates in (1+Global)(1+SkillSpecific) - 1.
+            // The user wanted "M_skillInc" to simply be Product(1+Si).
+            // So whether we put it in coeffMultiplier or LaneTotals.skillAtk, the result is the same if we treat LaneTotals.skillAtk as multiplicative accumulator.
+            // However, skill specific bonuses usually don't mix with global "All Skill Atk" bonuses in the same "Lane" unless we define them so.
+            // Let's stick effectively to coeffMultiplier for Skill Specifics to be safe and clear.
+            attackIncrease = totalAttackIncrease,
             damageIncrease = totalDamageInc,
             additionalDamage = totalAdditional,
             finalDamage = 0.0 // Don't put FinalDmg in lane either, use coeffMultiplier
@@ -504,6 +522,7 @@ class DnfPowerCalculator(
         val regex = Regex("""\{(value\d+)\}""")
         val matches = regex.findAll(optionDesc)
         var skillAtk = 0.0
+        var attackIncrease = 0.0
         var damageIncrease = 0.0
         var additionalDamage = 0.0
         var finalDamage = 0.0
@@ -522,6 +541,7 @@ class DnfPowerCalculator(
 
             when {
                 PASSIVE_SKILL_ATK_KEYWORDS.any { window.contains(it) } -> skillAtk += num / 100.0
+                PASSIVE_ATTACK_INCREASE_KEYWORDS.any { window.contains(it) } -> attackIncrease += num / 100.0
                 PASSIVE_DAMAGE_INC_KEYWORDS.any { window.contains(it) } -> damageIncrease += num / 100.0
                 PASSIVE_ADDITIONAL_KEYWORDS.any { window.contains(it) } -> additionalDamage += num / 100.0
                 PASSIVE_FINAL_KEYWORDS.any { window.contains(it) } -> finalDamage += num / 100.0
@@ -534,6 +554,7 @@ class DnfPowerCalculator(
 
         return LaneTotals(
             skillAtk = skillAtk,
+            attackIncrease = attackIncrease,
             damageIncrease = damageIncrease,
             additionalDamage = additionalDamage,
             finalDamage = finalDamage,
@@ -736,9 +757,9 @@ class DnfPowerCalculator(
         val baseSkillDamage: Double,
         val statMultiplier: Double,
         val defenseMultiplier: Double,
+        val attackIncreaseMultiplier: Double,
         val skillAtkMultiplier: Double,
         val damageIncreaseMultiplier: Double,
-        val additionalDamageMultiplier: Double,
         val finalDamageMultiplier: Double,
         val criticalMultiplier: Double,
         val elementalMultiplier: Double,
@@ -811,6 +832,7 @@ class DnfPowerCalculator(
         private val HIT_KEYWORDS = listOf("타격", "히트", "타수", "hit", "횟수")
         private val STACK_KEYWORDS = listOf("스택", "stack", "중첩")
         private val PASSIVE_SKILL_ATK_KEYWORDS = listOf("스킬공격력", "skill atk", "skill attack")
+        private val PASSIVE_ATTACK_INCREASE_KEYWORDS = listOf("공격력 증가", "attack increase", "phy atk", "mag atk", "indep atk", "물리 공격력 증가", "마법 공격력 증가", "독립 공격력 증가")
         private val PASSIVE_DAMAGE_INC_KEYWORDS = listOf("데미지 증가", "피해 증가", "damage increase", "dmg increase")
         private val PASSIVE_ADDITIONAL_KEYWORDS = listOf("추가 데미지", "추가피해", "additional damage")
         private val PASSIVE_FINAL_KEYWORDS = listOf("최종 데미지", "final damage")
