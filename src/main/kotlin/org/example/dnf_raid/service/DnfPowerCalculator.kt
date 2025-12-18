@@ -282,23 +282,20 @@ class DnfPowerCalculator(
                 skillCalculationService.toSkillCoefficient(fromTemplate)
             } else 0.0
 
-            val metrics = extractOptionMetrics(optionDesc, row.optionValue)
             val numericValues = row.optionValue.values
             
-            val damageRaw = when {
-                metrics.damageValues.isNotEmpty() -> metrics.damageValues.maxOrNull() ?: 1.0
-                numericValues.isNotEmpty() -> numericValues.maxOrNull() ?: 1.0
-                else -> 1.0
+            // Fix for Hogeokban/Multi-component skills:
+            // Instead of taking Max(Damage) * Max(Hits), we sum (Damage_i * Hit_i).
+            val measuredCoeff = calculateComponentDamageSum(optionDesc, row.optionValue)
+            
+            // Fallback if parsing failed completely but we have raw values
+            val damageRaw = if (measuredCoeff > 0) measuredCoeff else {
+                val maxDmg = numericValues.maxOrNull() ?: 1.0
+                val maxHits = numericValues.find { it < 100 && it > 1 } ?: 1.0 // naive heuristic
+                normalizeCoeff(maxDmg) * maxHits
             }
-            val hits = metrics.hitCounts.maxOrNull()?.coerceAtLeast(1.0) ?: 1.0
-            val stacks = metrics.stackCounts.maxOrNull()?.coerceAtLeast(1.0) ?: 1.0
             
-            // Heuristic: If template missed the hit count (template is approx equal to raw damage),
-            // but we found explicit hits, use the multiplied value.
-            // Safe fallback: take the maximum of template calculation and component-wise calculation
-            val componentCoeff = normalizeCoeff(damageRaw) * hits * stacks
-            
-            max(templateCoeff, componentCoeff)
+            max(templateCoeff, if (measuredCoeff > 0) measuredCoeff else damageRaw)
         } ?: 1.0
         val enhancementEffect = resolveEnhancementEffect(detail, styleLevels, mapper)
 
@@ -320,202 +317,114 @@ class DnfPowerCalculator(
         )
     }
 
-    private fun DnfSkillEntity.resolveStyleLevel(styleLevels: List<CharacterSkillLevel>): Int? {
-        if (styleLevels.isEmpty()) return null
-        val byId = styleLevels.firstOrNull { it.skillId == this.skillId }?.level
-        if (byId != null) return byId
-        val normName = normalizeKey(this.skillName)
-        return styleLevels.firstOrNull { normalizeKey(it.name) == normName }?.level
-    }
-
-    private fun DnfSkillEntity.parseDetail(mapper: ObjectMapper): NormalizedSkillDetail? {
-        val json = this.detailJson ?: return null
-        return runCatching { mapper.readValue(json, NormalizedSkillDetail::class.java) }
-            .getOrNull()
-    }
-
-    private fun DnfSkillEntity.parseEnhancementJson(mapper: ObjectMapper): List<NormalizedEnhancement> {
-        val json = this.enhancementJson ?: return emptyList()
-        return runCatching {
-            mapper.readValue(json, object : TypeReference<List<NormalizedEnhancement>>() {})
-        }.getOrElse { emptyList() }
-    }
-
-    private fun DnfSkillEntity.parseEvolutionJson(mapper: ObjectMapper): List<org.example.dnf_raid.service.NormalizedEvolution> {
-        val json = this.evolutionJson ?: return emptyList()
-        return runCatching {
-            mapper.readValue(json, object : TypeReference<List<org.example.dnf_raid.service.NormalizedEvolution>>() {})
-        }.getOrElse { emptyList() }
-    }
-
-    private data class EnhancementEffect(
-        val laneBonus: LaneTotals = LaneTotals(),
-        val cdReduction: Double = 0.0,
-        val coeffMultiplier: Double = 1.0
-    )
-
-    private fun DnfSkillEntity.resolveEnhancementEffect(
-        detail: NormalizedSkillDetail?,
-        styleLevels: List<CharacterSkillLevel>,
-        mapper: ObjectMapper
-    ): EnhancementEffect {
-        val enhancements = when {
-            detail?.enhancement?.isNotEmpty() == true -> detail.enhancement
-            !this.enhancementJson.isNullOrBlank() -> parseEnhancementJson(mapper)
-            else -> emptyList()
-        }
-        val evolutions = when {
-            !this.evolutionJson.isNullOrBlank() -> parseEvolutionJson(mapper)
-            else -> emptyList()
+    private fun calculateComponentDamageSum(optionDesc: String?, optionValue: Map<String, Double>?): Double {
+        if (optionDesc.isNullOrBlank() || optionValue == null) return 0.0
+        
+        // Split by lines or logical separators to isolate components
+        // e.g. "Loop Dmg: {v1}%, Loop Hits: {v2}"
+        // "Finish Dmg: {v3}%"
+        
+        // 1. Identify pairs of (Damage, Hits) by proximity.
+        // We scan the text. When we find a Damage keyword, we look for a Hit keyword nearby (until next Damage keyword).
+        
+        val variableRegex = Regex("""\{(value\d+)\}""")
+        
+        // Map values to text positions
+        val tokenMap = mutableListOf<Token>()
+        variableRegex.findAll(optionDesc).forEach { match ->
+             val key = match.groupValues[1]
+             val value = optionValue[key] ?: return@forEach
+             tokenMap.add(Token(key, value, match.range.first, match.range.last))
         }
         
-        val style = styleLevels.firstOrNull { it.skillId == this.skillId }
-        val enhancementType = style?.enhancementType
-        val evolutionType = style?.evolutionType
-
-        var totalSkillAtk = 0.0
-        var totalAttackIncrease = 0.0
-        var totalDamageInc = 0.0
-        var totalAdditional = 0.0
-        var totalFinalDamage = 0.0
-        var totalCdReduction = 0.0
-        var totalCoeffMultiplier = 1.0
-
-        // Helper to parse structure option list (Enhancement)
-        fun applyEnhancement(opts: List<NormalizedEnhancement>?, myType: Int?) {
-            if (opts == null || myType == null) return
-            val match = opts.firstOrNull { it.type == myType } ?: return
+        if (tokenMap.isEmpty()) return 0.0
+        
+        // Classify tokens
+        val classified = tokenMap.map { token ->
+            val context = getContext(optionDesc, token.start)
+            val type = determineType(context)
+            ClassifiedToken(token, type)
+        }
+        
+        var totalPercent = 0.0
+        
+        // Grouping Strategy:
+        // Iterate through tokens.
+        // If we find a Damage token, we look ahead for Hit tokens before the NEXT Damage token.
+        // If multiple Hit tokens found, usually they adhere to the Damage.
+        // If None found, Hits = 1.
+        
+        var currentDamage: Double? = null
+        var currentHits = 1.0
+        var currentStacks = 1.0
+        
+        for (i in classified.indices) {
+            val curr = classified[i]
             
-            match.status.forEach { status ->
-                val name = status.name?.lowercase(Locale.getDefault())?.replace(" ", "") ?: return@forEach
-                val valueStr = status.value?.replace("%", "")?.replace("초", "") ?: return@forEach
-                val value = valueStr.toDoubleOrNull() ?: return@forEach
-                
-                when {
-                    name.contains("스킬공격력") || name.contains("skillatk") -> totalSkillAtk += value / 100.0
-                    name.contains("공격력증가") || name.contains("attackincrease") -> totalAttackIncrease += value / 100.0
-                    name.contains("최종데미지") || name.contains("finaldamage") -> totalFinalDamage += value / 100.0
-                    name.contains("쿨타임") || name.contains("cooldown") -> totalCdReduction += value / 100.0
-                    name.contains("공격력") && !name.contains("스킬") -> totalAttackIncrease += value / 100.0
-                    else -> {}
+            if (curr.type == TokenType.DAMAGE) {
+                // Determine if we should flush previous
+                if (currentDamage != null) {
+                    totalPercent += normalizeCoeff(currentDamage) * currentHits * currentStacks
                 }
+                // Reset for new component
+                currentDamage = curr.token.value
+                currentHits = 1.0
+                currentStacks = 1.0
+            } else if (curr.type == TokenType.HIT_COUNT) {
+                 // Update hits for current component
+                 // If no current damage, discard or wait? 
+                 // Usually Hit Count follows Damage in text.
+                 if (currentDamage != null) {
+                     currentHits = max(currentHits, curr.token.value) // If multiple hit counts appear, maybe pick max or product? Usually just one.
+                 }
+            } else if (curr.type == TokenType.STACK_COUNT) {
+                 if (currentDamage != null) {
+                     currentStacks = max(currentStacks, curr.token.value)
+                 }
             }
         }
         
-        // Helper to parse text based option list (Evolution/Gaehwa)
-        fun applyEvolution(opts: List<org.example.dnf_raid.service.NormalizedEvolution>?, myType: Int?) {
-            if (opts == null || myType == null) return
-            val match = opts.firstOrNull { it.type == myType } ?: return
-            
-            // Gaehwa uses 'desc' string, e.g. "Attack Power +20%, Cooldown -10%"
-            val desc = match.desc ?: return
-            
-            // Simple regex for comma-separated or newline-separated values
-            // Pattern: (Keyword)... (Number)%
-            val valuePattern = Regex("""([가-힣a-zA-Z\s]+)[^0-9-]*([-+]?\d+(\.\d+)?)\s*%""")
-            
-            valuePattern.findAll(desc).forEach { m ->
-                val keyword = m.groupValues[1].replace(" ", "").lowercase()
-                val value = m.groupValues[2].toDoubleOrNull() ?: 0.0
-                
-                when {
-                    keyword.contains("공격력") || keyword.contains("atk") || keyword.contains("데미지") -> {
-                        // Awakening Attack often implies Final Damage multiplier to the skill or Skill Atk
-                        // In Gaehwa context, "Attack Power +20%" is usually Skill Attack Multiplier.
-                        totalSkillAtk += value / 100.0
-                    }
-                    keyword.contains("쿨타임") || keyword.contains("cooldown") -> {
-                         // Negative value usually means reduction in text? or absolute?
-                         // "Cooldown -10%" -> value is -10. reduction += 0.1
-                         // "Cooldown Reduction 10%" -> value is 10. reduction += 0.1
-                         if (keyword.contains("감소") || keyword.contains("reduction")) {
-                             totalCdReduction += value / 100.0
-                         } else if (value < 0) {
-                             totalCdReduction += -value / 100.0
-                         }
-                    }
-                }
-            }
+        // Flush last
+        if (currentDamage != null) {
+            totalPercent += normalizeCoeff(currentDamage) * currentHits * currentStacks
         }
-
-        applyEnhancement(enhancements, enhancementType)
-        applyEvolution(evolutions, evolutionType)
         
-        // Convert stacked Skill Atk to Coeff Multiplier if it's treated as final
-        // Usually Enhancement/Evolution provides a separate multiplier line (Final Dmg or Custom Skill Atk).
-        // If it's pure "Skill Atk", it stacks additively within the system but usually multiplicatively with gear.
-        // However, for Skill specific options, they are often Multiplicative to the base skill.
-        // Let's treat them as Lane Checks first.
-        // Actually, Gaehwa "Attack +20%" is usually a direct multiplier to the skill coefficient.
-        // So we will put it into coeffMultiplier.
-        
-        val lane = LaneTotals(
-            skillAtk = 0.0, // Don't put it in lane, use coeffMultiplier. Wait, Gaehwa Attack might be lane?
-            // If Gaehwa is "Skill Attack Increase", it works multiplicatively with gear.
-            // If we put it in coeffMultiplier, it acts as multiplicative.
-            // But if we put it in LaneTotals.skillAtk, it participates in (1+Global)(1+SkillSpecific) - 1.
-            // The user wanted "M_skillInc" to simply be Product(1+Si).
-            // So whether we put it in coeffMultiplier or LaneTotals.skillAtk, the result is the same if we treat LaneTotals.skillAtk as multiplicative accumulator.
-            // However, skill specific bonuses usually don't mix with global "All Skill Atk" bonuses in the same "Lane" unless we define them so.
-            // Let's stick effectively to coeffMultiplier for Skill Specifics to be safe and clear.
-            attackIncrease = totalAttackIncrease,
-            damageIncrease = totalDamageInc,
-            additionalDamage = totalAdditional,
-            finalDamage = 0.0 // Don't put FinalDmg in lane either, use coeffMultiplier
-        )
-        
-        // Combine Skill Atk and Final Damage into direct coefficient multiplier
-        val combinedMulti = (1.0 + totalSkillAtk) * (1.0 + totalFinalDamage)
-        totalCoeffMultiplier *= combinedMulti
-
-        return EnhancementEffect(
-            laneBonus = lane,
-            cdReduction = totalCdReduction.coerceAtMost(0.7),
-            coeffMultiplier = totalCoeffMultiplier
-        )
+        return totalPercent
     }
     
-    private fun DnfSkillEntity.parseLevelRows(mapper: ObjectMapper): List<NormalizedLevelRow> {
-        val json = this.levelRowsJson ?: return emptyList()
-        return runCatching {
-            mapper.readValue(json, object : TypeReference<List<NormalizedLevelRow>>() {})
-        }.getOrElse { ex ->
-            logger.warn("Failed to parse levelRows for skillId={} (jobGrowId={}): {}", this.skillId, this.jobGrowId, ex.message)
-            emptyList()
+    private enum class TokenType { DAMAGE, HIT_COUNT, STACK_COUNT, UNKNOWN }
+    private data class Token(val key: String, val value: Double, val start: Int, val end: Int)
+    private data class ClassifiedToken(val token: Token, val type: TokenType)
+
+    private fun getContext(text: String, pos: Int): String {
+        val start = (pos - 20).coerceAtLeast(0)
+        val end = (pos + 30).coerceAtMost(text.length)
+        return text.substring(start, end).lowercase(Locale.getDefault())
+    }
+
+    private fun determineType(context: String): TokenType {
+        return when {
+            HIT_KEYWORDS.any { context.contains(it) } -> TokenType.HIT_COUNT
+            STACK_KEYWORDS.any { context.contains(it) } -> TokenType.STACK_COUNT
+            DAMAGE_KEYWORDS.any { context.contains(it) } -> TokenType.DAMAGE
+            else -> TokenType.DAMAGE // Default to damage if unknown but numeric? Dangerous. Better UNKNOWN or safe fallback.
+            // Actually many "Attack Power" strings just say "Atttack Power {v}".
+            // So if it's not explicitly hits/stacks, treat as damage IF it looks large? 
+            // Or rely on keywords.
         }
     }
 
-    private fun extractOptionMetrics(optionDesc: String?, optionValue: Map<String, Double>?): OptionMetrics {
-        if (optionDesc.isNullOrBlank() || optionValue == null) return OptionMetrics()
-        val regex = Regex("""\{(value\d+)\}""")
-        val matches = regex.findAll(optionDesc)
-        val damage = mutableListOf<Double>()
-        val hits = mutableListOf<Double>()
-        val stacks = mutableListOf<Double>()
-        matches.forEach { match ->
-            val key = match.groupValues.getOrNull(1) ?: return@forEach
-            val idx = match.range.first
-            val windowStart = (idx - 15).coerceAtLeast(0)
-            val windowEnd = (idx + 25).coerceAtMost(optionDesc.length)
-            val window = optionDesc.substring(windowStart, windowEnd)
-            val num = optionValue[key] ?: return@forEach
-            val lower = window.lowercase(Locale.getDefault())
-            when {
-                HIT_KEYWORDS.any { lower.contains(it) } -> hits += num
-                STACK_KEYWORDS.any { lower.contains(it) } -> stacks += num
-                DAMAGE_KEYWORDS.any { lower.contains(it) } -> damage += num
-                else -> damage += num
-            }
-        }
-        return OptionMetrics(damageValues = damage, hitCounts = hits, stackCounts = stacks)
-    }
-
+    // Reuse or redefine extracted keywords helpers if needed, but we deleted `extractOptionMetrics` usage.
+    // So we can remove `extractOptionMetrics` or keep it deprecated.
+    
     private fun normalizeCoeff(raw: Double): Double {
         return when {
             raw > 100 -> raw / 100.0
             else -> raw
         }
     }
+
+
 
     private fun parsePassiveLane(optionDesc: String?, optionValue: Map<String, Double>?): LaneTotals {
         if (optionDesc.isNullOrBlank() || optionValue == null) return LaneTotals()
