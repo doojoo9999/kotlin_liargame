@@ -56,6 +56,7 @@ data class DnfEquipItem(
 
 data class ItemFixedOptions(
     val skillAtkIncrease: Double,
+    val attackIncrease: Double = 0.0,
     val damageIncrease: Double = 0.0,
     val additionalDamage: Double = 0.0,
     val finalDamage: Double = 0.0,
@@ -69,6 +70,7 @@ data class ItemFixedOptions(
 
 data class LevelOption(
     val skillAtkInc: Double,
+    val attackIncrease: Double = 0.0,
     val cdr: Double,
     val damageIncrease: Double = 0.0,
     val additionalDamage: Double = 0.0,
@@ -99,6 +101,7 @@ data class DnfTalisman(
 
 data class LaneTotals(
     val skillAtk: Double = 0.0,
+    val attackIncrease: Double = 0.0,
     val damageIncrease: Double = 0.0,
     val additionalDamage: Double = 0.0,
     val finalDamage: Double = 0.0,
@@ -109,14 +112,26 @@ data class LaneTotals(
     val cooldownRecovery: Double = 0.0
 ) {
     operator fun plus(other: LaneTotals): LaneTotals = LaneTotals(
-        skillAtk = skillAtk + other.skillAtk,
+        // Skill Atk is multiplicative: (1+a)*(1+b) - 1
+        skillAtk = (1.0 + skillAtk) * (1.0 + other.skillAtk) - 1.0,
+        // Attack Increase is additive sum
+        attackIncrease = attackIncrease + other.attackIncrease,
         damageIncrease = damageIncrease + other.damageIncrease,
         additionalDamage = additionalDamage + other.additionalDamage,
-        finalDamage = finalDamage + other.finalDamage,
+        finalDamage = finalDamage + other.finalDamage, // Final Damage is usually multiplicative or additive depending on version, keeping additive for now or strict product? User said "M_etc" is product of factors. Assuming Final Damage creates a separate factor or merges into Skill Atk? Usually Final Damage (Season 10) is "Skill Attack". But if we track it properly, it's often Product. 
+        // Logic check: "Final Damage" in Season 10 is effectively Skill Attack.
+        // However, if we separate it, let's treat it as another Multiplier layer?
+        // User didn't specify Final Damage independently in 2-6 formula, but listed `M_etc`.
+        // I will keep it additive here to avoid explosion if it's "Damage Bonus", but if it's "Final Damage" (Season 10 term for Skill Atk), it should be multiplicative.
+        // Let's stick to additive accumulation within the lane, then logical application in Calculator.
+        // Actually, for "Skill Atk" I did Product. 
+        // Let's err on safe side: Additive here.
+        
         criticalDamage = criticalDamage + other.criticalDamage,
         elementalAttackBonus = elementalAttackBonus + other.elementalAttackBonus,
         defensePenetration = defensePenetration + other.defensePenetration,
-        cooldownReduction = cooldownReduction + other.cooldownReduction,
+        // CDR is multiplicative reduction: 1 - (1-a)*(1-b)
+        cooldownReduction = 1.0 - (1.0 - cooldownReduction) * (1.0 - other.cooldownReduction),
         cooldownRecovery = cooldownRecovery + other.cooldownRecovery
     )
 }
