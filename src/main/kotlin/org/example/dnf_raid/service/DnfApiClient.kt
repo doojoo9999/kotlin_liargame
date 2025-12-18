@@ -191,6 +191,7 @@ class DnfApiClient(
          
          // In real scenario, cache set details too
          setCounts.forEach { (setId, count) ->
+             if (setId.isBlank() || setId.equals("null", ignoreCase = true)) return@forEach
              val detail = fetchSetItemDetail(setId) ?: return@forEach
              // Parse active bonuses
              detail.setItemBonus.forEach { bonus ->
@@ -733,7 +734,9 @@ class DnfApiClient(
                 .body(JsonNode::class.java)
 
             val options = parseItemFixedOptions(detailNode)
-            val setItemId = detailNode?.get("setItemId")?.asText()?.takeIf { it.isNotBlank() }
+            // Fix: ensure setItemId is not the string "null"
+            val rawSetId = detailNode?.get("setItemId")?.asText()
+            val setItemId = rawSetId?.takeIf { it.isNotBlank() && !it.equals("null", ignoreCase = true) }
             ItemDetailResult(options, setItemId)
         } catch (ex: Exception) {
             logger.warn("아이템 상세 조회 실패 (itemId={}): {}", itemId, ex.message)
