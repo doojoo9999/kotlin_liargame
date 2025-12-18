@@ -38,6 +38,7 @@ class DnfApiClient(
     private val itemFixedOptionCache = ConcurrentHashMap<String, ItemFixedOptions>()
     private val EMPTY_FIXED_OPTIONS = ItemFixedOptions(
         skillAtkIncrease = 0.0,
+        attackIncrease = 0.0,
         damageIncrease = 0.0,
         additionalDamage = 0.0,
         finalDamage = 0.0,
@@ -235,6 +236,7 @@ class DnfApiClient(
          // StatusEntry value is Double.
          
          if (n.contains("스킬공격력") || n.contains("skillatk")) lane = lane.copy(skillAtk = v)
+         else if (n.contains("공격력증가") || n.contains("attackincrease") || n.contains("phyatk") || n.contains("magatk")) lane = lane.copy(attackIncrease = v)
          else if (n.contains("쿨타임감소") || n.contains("cooldownreduction")) lane = lane.copy(cooldownReduction = v)
          else if (n.contains("피해증가") || n.contains("damageincrease")) lane = lane.copy(damageIncrease = v)
          
@@ -243,6 +245,7 @@ class DnfApiClient(
 
     private fun ItemFixedOptions.toLaneTotals(): LaneTotals = LaneTotals(
         skillAtk = skillAtkIncrease,
+        attackIncrease = attackIncrease,
         damageIncrease = damageIncrease,
         additionalDamage = additionalDamage,
         finalDamage = finalDamage,
@@ -881,6 +884,7 @@ class DnfApiClient(
         }
 
         val skillAtk = parsePercent(SKILL_ATK_PATTERN, textBucket)
+        val attackIncrease = parsePercent(ATTACK_INCREASE_PATTERN, textBucket)
         val damageIncrease = parsePercent(DAMAGE_INCREASE_PATTERN, textBucket)
         val additionalDamage = parsePercent(ADDITIONAL_DAMAGE_PATTERN, textBucket)
         val finalDamage = parsePercent(FINAL_DAMAGE_PATTERN, textBucket)
@@ -904,6 +908,7 @@ class DnfApiClient(
 
         return ItemFixedOptions(
             skillAtkIncrease = skillAtk,
+            attackIncrease = attackIncrease,
             damageIncrease = damageIncrease,
             additionalDamage = additionalDamage,
             finalDamage = finalDamage,
@@ -924,6 +929,7 @@ class DnfApiClient(
         if (explain.isNullOrBlank()) return EMPTY_FIXED_OPTIONS
 
         val skillAtk = parsePercent(SKILL_ATK_PATTERN, explain)
+        val attackIncrease = parsePercent(ATTACK_INCREASE_PATTERN, explain)
         val damageIncrease = parsePercent(DAMAGE_INCREASE_PATTERN, explain)
         val additionalDamage = parsePercent(ADDITIONAL_DAMAGE_PATTERN, explain)
         val finalDamage = parsePercent(FINAL_DAMAGE_PATTERN, explain)
@@ -937,6 +943,7 @@ class DnfApiClient(
 
         return ItemFixedOptions(
             skillAtkIncrease = skillAtk,
+            attackIncrease = attackIncrease,
             damageIncrease = damageIncrease,
             additionalDamage = additionalDamage,
             finalDamage = finalDamage,
@@ -952,6 +959,7 @@ class DnfApiClient(
     private fun mergeOptions(base: ItemFixedOptions, bonus: ItemFixedOptions): ItemFixedOptions =
         ItemFixedOptions(
             skillAtkIncrease = base.skillAtkIncrease + bonus.skillAtkIncrease,
+            attackIncrease = base.attackIncrease + bonus.attackIncrease,
             damageIncrease = base.damageIncrease + bonus.damageIncrease,
             additionalDamage = base.additionalDamage + bonus.additionalDamage,
             finalDamage = base.finalDamage + bonus.finalDamage,
@@ -1020,6 +1028,7 @@ class DnfApiClient(
             if (level != null) {
                 val explain = node.get("explain")?.asText() ?: node.toString()
                 val skillAtk = parsePercent(SKILL_ATK_PATTERN, explain)
+                val attackIncrease = parsePercent(ATTACK_INCREASE_PATTERN, explain)
                 val cdr = parsePercent(COOLDOWN_REDUCTION_PATTERN, explain)
                 val damageIncrease = parsePercent(DAMAGE_INCREASE_PATTERN, explain)
                 val additionalDamage = parsePercent(ADDITIONAL_DAMAGE_PATTERN, explain)
@@ -1027,6 +1036,7 @@ class DnfApiClient(
                 val criticalDamage = parsePercent(CRITICAL_DAMAGE_PATTERN, explain)
                 options[level] = LevelOption(
                     skillAtkInc = skillAtk,
+                    attackIncrease = attackIncrease,
                     cdr = cdr,
                     damageIncrease = damageIncrease,
                     additionalDamage = additionalDamage,
@@ -1095,6 +1105,7 @@ class DnfApiClient(
 
     companion object {
         private val SKILL_ATK_PATTERN = Regex("""스킬\s*공격력[^\\d]*([\d.]+)\s*%""", RegexOption.IGNORE_CASE)
+        private val ATTACK_INCREASE_PATTERN = Regex("""(?:공격력|물리\s*공격력|마법\s*공격력|독립\s*공격력)\s*증가[^\d-]*([\d.]+)\s*%""", RegexOption.IGNORE_CASE)
         private val DAMAGE_INCREASE_PATTERN = Regex("""(?:피해|데미지)\s*증가[^\d-]*([\d.]+)\s*%""", RegexOption.IGNORE_CASE)
         private val ADDITIONAL_DAMAGE_PATTERN = Regex("""추가\s*(?:피해|데미지)[^\d-]*([\d.]+)\s*%""", RegexOption.IGNORE_CASE)
         private val FINAL_DAMAGE_PATTERN = Regex("""최종\s*(?:피해|데미지)[^\d-]*([\d.]+)\s*%""", RegexOption.IGNORE_CASE)
