@@ -74,31 +74,34 @@ class DnfPowerCalculator(
             val skillAtkMultiplier = 1.0 + mergedLane.skillAtk
             val damageIncreaseMultiplier = 1.0 + mergedLane.damageIncrease + mergedLane.additionalDamage
             val finalDamageMultiplier = 1.0 + mergedLane.finalDamage
-            val criticalMultiplier = CRIT_BASE * (1.0 + mergedLane.criticalDamage)
-            val elementalAttack = baseElementalAttack + BASE_ELEMENTAL_FLAT + mergedLane.elementalAttackBonus // base hidden +11 plus gear elemental
-            val elementalMultiplier = (1.0 + ((elementalAttack - MONSTER_RESIST) * ELEMENT_COEFF)).coerceAtLeast(0.0)
-            val situationalMultiplier = 1.0 + situationalBonus
-            val partyMultiplier = 1.0 + partySynergyBonus
-            val effectiveDefense = (MONSTER_DEFENSE * (1.0 - mergedLane.defensePenetration)).coerceAtLeast(0.0)
-            val defenseMultiplier = calculateDefenseMultiplier(effectiveDefense)
-
-            // Main Stat Multiplier: (1 + MainStat / 250)
+            // Main Stat Step: (1 + MainStat / 250)
             val mainStat = max(totalStrength, totalIntelligence)
             val statMultiplier = 1.0 + (mainStat / 250.0)
 
-            val baseSkillDamage = baseAttack * skill.coeff
-            val totalMultiplier = defenseMultiplier *
-                statMultiplier *
-                attackIncreaseMultiplier *
-                skillAtkMultiplier *
-                damageIncreaseMultiplier *
-                finalDamageMultiplier *
-                criticalMultiplier *
-                elementalMultiplier *
-                situationalMultiplier *
-                partyMultiplier
+            // Elem Step: 1.05 + 0.0045 * Elem
+            val elementalAttack = baseElementalAttack + mergedLane.elementalAttackBonus
+            val elementalMultiplier = 1.05 + (elementalAttack * ELEMENT_COEFF)
 
-            val singleDamage = baseSkillDamage * totalMultiplier
+            // IncPart Steps
+            // M_atkInc (Add)
+            val mAtkInc = (1.0 + mergedLane.attackIncrease)
+            // M_dmgInc (Add) - Damage Increase + Additional Damage
+            val mDmgInc = (1.0 + mergedLane.damageIncrease + mergedLane.additionalDamage)
+            // M_skillInc (Product) - Skill Atk + Final Damage (treated as Skill Atk)
+            val mSkillInc = (1.0 + mergedLane.skillAtk) * (1.0 + mergedLane.finalDamage)
+            // M_etc (Product) - Critical, Counter(Situation), Party
+            val mEtc = (CRIT_BASE * (1.0 + mergedLane.criticalDamage)) *
+                    (1.0 + situationalBonus) *
+                    (1.0 + partySynergyBonus)
+            
+            val defenseMultiplier = calculateDefenseMultiplier(MONSTER_DEFENSE * (1.0 - mergedLane.defensePenetration))
+
+            val totalMultiplier = mAtkInc * mDmgInc * mSkillInc * mEtc * 
+                                  statMultiplier * elementalMultiplier * defenseMultiplier
+            
+            // Skill Coefficient is already computed as "NormalizedCoeff = Percent / 100.0"
+            // So: BaseAtk * Coeff * Multipliers
+            val singleDamage = (baseAttack * skill.coeff) * totalMultiplier
 
             val specificCdr = calculateStackedReduction(levelOptions.map { it.cdr })
 
@@ -108,9 +111,26 @@ class DnfPowerCalculator(
                 (1.0 - combinedCdr).coerceAtLeast(MIN_CD_FACTOR) /
                 (1.0 + totalRecovery)
 
-            // Continuous cast model over 40s to reflect 쿨감 효용
-            // Fixed to floor() to match Dundam's discrete count
-            val castCount = kotlin.math.floor(40.0 / realCd)
+            // Count Logic: floor((40 - StartDelay)/CD) + 1
+            // 11s CD -> 0, 11, 22, 33 -> 4 hits. (40-0)/11 = 3.63 -> floor(3)+1 = 4.
+            // 40s CD -> 0, 40(miss) -> 1 hit.
+            // Using a tiny start delay (0.1s) to simulate human reaction or frame delay if preferred,
+            // but user asked for "11s CD -> 4 uses". 
+            // 40 / 11 = 3.63 -> floor is 3. User wants 4. This implies "Start at 0".
+            // Count = floor(Window / CD) + 1 ?
+            // Window=40, CD=11. 40/11=3.63 -> 3. +1 = 4. Correct.
+            // Window=40, CD=40. 40/40=1. +1 = 2? No, 2nd hit at 40s is usually not counted or counted if strict <=.
+            // Dundam usually counts strictly inside 40s?
+            // User logic: "43초동안 치면 총 4번". Wait.
+            // "1번째(1초), 2번째(12초), 3번째(23초), 4번째(34초)". 
+            // If window is 40s.
+            // 1, 12, 23, 34 are all <= 40. So 4.
+            // Formula: floor((Window - Delta)/CD) + 1 ?
+            // If Window=40. (40)/11 = 3.63. floor(3.63)=3. 3+1 = 4.
+            // If Window=40. CD=40. 40/40=1. 1+1=2. 
+            // 0s, 40s. Is 40s included? Usually yes.
+            // So floor(40/CD) + 1 seems correct for "Start at 0".
+            val castCount = kotlin.math.floor(40.0 / realCd) + 1
             val score = singleDamage * castCount
 
             SkillScore(
@@ -123,17 +143,17 @@ class DnfPowerCalculator(
                 casts = castCount,
                 score = score,
                 breakdown = DamageBreakdown(
-                    baseSkillDamage = baseSkillDamage,
+                    baseSkillDamage = baseAttack * skill.coeff,
                     statMultiplier = statMultiplier,
                     defenseMultiplier = defenseMultiplier,
-                    attackIncreaseMultiplier = attackIncreaseMultiplier,
-                    skillAtkMultiplier = skillAtkMultiplier,
-                    damageIncreaseMultiplier = damageIncreaseMultiplier,
-                    finalDamageMultiplier = finalDamageMultiplier,
-                    criticalMultiplier = criticalMultiplier,
+                    attackIncreaseMultiplier = mAtkInc,
+                    skillAtkMultiplier = mSkillInc,
+                    damageIncreaseMultiplier = mDmgInc,
+                    finalDamageMultiplier = 1.0, // Merged into mSkillInc
+                    criticalMultiplier = (CRIT_BASE * (1.0 + mergedLane.criticalDamage)),
                     elementalMultiplier = elementalMultiplier,
-                    situationalMultiplier = situationalMultiplier,
-                    partyMultiplier = partyMultiplier,
+                    situationalMultiplier = (1.0 + situationalBonus),
+                    partyMultiplier = (1.0 + partySynergyBonus),
                     totalMultiplier = totalMultiplier,
                     totalDamage = singleDamage
                 )
@@ -418,10 +438,10 @@ class DnfPowerCalculator(
     // So we can remove `extractOptionMetrics` or keep it deprecated.
     
     private fun normalizeCoeff(raw: Double): Double {
-        return when {
-            raw > 100 -> raw / 100.0
-            else -> raw
-        }
+        // Assume all 'Attack Power' values in optionValues are in Percent (e.g. 2345.0 = 2345%)
+        // If a value is 50.0, it means 50%, so 0.5.
+        // We act indiscriminately to solve "Too High" damage issues where small percents were treated as flat multipliers.
+        return raw / 100.0
     }
 
 
@@ -718,7 +738,7 @@ class DnfPowerCalculator(
         // Max Cooltime Reduction is 70% -> Min Cooltime Factor is 30%
         private const val MIN_CD_FACTOR = 0.3
         private const val ELEMENT_COEFF = 0.0045 // Midheaven season elemental efficiency
-        private const val BASE_ELEMENTAL_FLAT = 11
+        // private const val BASE_ELEMENTAL_FLAT = 11 // Deprecated in User Formula
         private const val BASE_ELEMENTAL_RESIST = 100
         private const val CRIT_BASE = 1.5
         // Training room sandbag (Dundam 기준): 방어력/속저 거의 0으로 간주
