@@ -118,14 +118,8 @@ data class LaneTotals(
         attackIncrease = attackIncrease + other.attackIncrease,
         damageIncrease = damageIncrease + other.damageIncrease,
         additionalDamage = additionalDamage + other.additionalDamage,
-        finalDamage = finalDamage + other.finalDamage, // Final Damage is usually multiplicative or additive depending on version, keeping additive for now or strict product? User said "M_etc" is product of factors. Assuming Final Damage creates a separate factor or merges into Skill Atk? Usually Final Damage (Season 10) is "Skill Attack". But if we track it properly, it's often Product. 
-        // Logic check: "Final Damage" in Season 10 is effectively Skill Attack.
-        // However, if we separate it, let's treat it as another Multiplier layer?
-        // User didn't specify Final Damage independently in 2-6 formula, but listed `M_etc`.
-        // I will keep it additive here to avoid explosion if it's "Damage Bonus", but if it's "Final Damage" (Season 10 term for Skill Atk), it should be multiplicative.
-        // Let's stick to additive accumulation within the lane, then logical application in Calculator.
-        // Actually, for "Skill Atk" I did Product. 
-        // Let's err on safe side: Additive here.
+        // Final Damage (Season 10) is Multiplicative (like Skill Atk)
+        finalDamage = (1.0 + finalDamage) * (1.0 + other.finalDamage) - 1.0,
         
         criticalDamage = criticalDamage + other.criticalDamage,
         elementalAttackBonus = elementalAttackBonus + other.elementalAttackBonus,
