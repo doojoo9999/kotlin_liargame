@@ -337,6 +337,160 @@ class DnfPowerCalculator(
         )
     }
 
+    private fun DnfSkillEntity.parseLevelRows(mapper: ObjectMapper): List<NormalizedLevelRow> {
+        // Try the most specific serialized form first
+        fun decodeRows(raw: String?): List<NormalizedLevelRow> {
+            if (raw.isNullOrBlank()) return emptyList()
+            runCatching {
+                mapper.readValue(raw, object : TypeReference<List<NormalizedLevelRow>>() {})
+            }.getOrNull()?.takeIf { it.isNotEmpty() }?.let { return it }
+
+            runCatching {
+                mapper.readValue(raw, NormalizedLevelInfo::class.java)
+            }.getOrNull()?.rows?.takeIf { it.isNotEmpty() }?.let { return it }
+
+            runCatching {
+                mapper.readValue(raw, NormalizedSkillDetail::class.java)
+            }.getOrNull()?.levelInfo?.rows?.takeIf { it.isNotEmpty() }?.let { return it }
+
+            return emptyList()
+        }
+
+        // Stored JSON variants: levelRowsJson (preferred), levelInfoJson, detailJson
+        val fromRows = decodeRows(levelRowsJson)
+        if (fromRows.isNotEmpty()) return fromRows
+
+        val fromLevelInfo = decodeRows(levelInfoJson)
+        if (fromLevelInfo.isNotEmpty()) return fromLevelInfo
+
+        return decodeRows(detailJson)
+    }
+
+    private fun DnfSkillEntity.parseDetail(mapper: ObjectMapper): NormalizedSkillDetail? {
+        detailJson?.takeIf { it.isNotBlank() }?.let { raw ->
+            runCatching { mapper.readValue(raw, NormalizedSkillDetail::class.java) }
+                .getOrNull()
+                ?.let { return it }
+        }
+
+        val levelInfo = runCatching {
+            levelInfoJson?.takeIf { it.isNotBlank() }
+                ?.let { mapper.readValue(it, NormalizedLevelInfo::class.java) }
+        }.getOrNull()
+
+        val enhancement = runCatching {
+            enhancementJson?.takeIf { it.isNotBlank() }
+                ?.let { mapper.readValue(it, object : TypeReference<List<NormalizedEnhancement>>() {}) }
+        }.getOrNull().orEmpty()
+
+        val evolution = runCatching {
+            evolutionJson?.takeIf { it.isNotBlank() }
+                ?.let { mapper.readValue(it, object : TypeReference<List<NormalizedEvolution>>() {}) }
+        }.getOrNull().orEmpty()
+
+        val rows = parseLevelRows(mapper)
+        val fallbackLevelInfo = levelInfo ?: NormalizedLevelInfo(
+            optionDesc = optionDesc,
+            rows = rows
+        )
+
+        return NormalizedSkillDetail(
+            name = skillName,
+            type = skillType,
+            desc = skillDesc,
+            descDetail = skillDescDetail,
+            descSpecial = emptyList(),
+            consumeItem = null,
+            maxLevel = maxLevel,
+            requiredLevel = requiredLevel,
+            requiredLevelRange = null,
+            jobId = jobId,
+            jobName = jobName,
+            levelInfo = fallbackLevelInfo,
+            evolution = evolution,
+            enhancement = enhancement
+        )
+    }
+
+    private fun DnfSkillEntity.resolveStyleLevel(styleLevels: List<CharacterSkillLevel>): Int? {
+        if (styleLevels.isEmpty()) return null
+        val byId = styleLevels.firstOrNull { it.skillId == this.skillId }
+        if (byId != null) return byId.level
+
+        val normalizedName = normalizeKey(this.skillName)
+        return styleLevels.firstOrNull { normalizeKey(it.name) == normalizedName }?.level
+    }
+
+    private fun DnfSkillEntity.resolveEnhancementEffect(
+        detail: NormalizedSkillDetail?,
+        styleLevels: List<CharacterSkillLevel>,
+        mapper: ObjectMapper
+    ): EnhancementEffect {
+        val style = styleLevels.firstOrNull { it.skillId == this.skillId }
+            ?: styleLevels.firstOrNull { normalizeKey(it.name) == normalizeKey(this.skillName) }
+        val preferredEnhancement = style?.enhancementType
+
+        val normalizedDetail = detail ?: parseDetail(mapper) ?: return EnhancementEffect()
+
+        val enhancementStatuses = normalizedDetail.enhancement
+            .filter { preferredEnhancement == null || it.type == null || it.type == preferredEnhancement }
+            .flatMap { it.status }
+
+        // Currently NormalizedEvolution doesn't expose status-like entries, so we only use enhancement list.
+        val laneBonus = enhancementStatuses.fold(LaneTotals()) { acc, status ->
+            acc + parseStatusToLane(status)
+        }
+
+        var coeffMultiplier = 1.0
+        var cdReduction = 0.0
+        enhancementStatuses.forEach { status ->
+            val value = parseStatusValue(status.value)
+            val name = status.name?.lowercase(Locale.getDefault()) ?: return@forEach
+            when {
+                name.contains("쿨") || name.contains("cool") -> cdReduction = max(cdReduction, value)
+                name.contains("스킬공격력") || name.contains("skill atk") -> coeffMultiplier *= (1.0 + value)
+                name.contains("최종") || name.contains("final") -> coeffMultiplier *= (1.0 + value)
+                name.contains("피해") || name.contains("데미지") || name.contains("damage") -> coeffMultiplier *= (1.0 + value)
+            }
+        }
+
+        return EnhancementEffect(
+            laneBonus = laneBonus,
+            coeffMultiplier = coeffMultiplier,
+            cdReduction = cdReduction
+        )
+    }
+
+    private fun parseStatusValue(raw: String?): Double {
+        if (raw.isNullOrBlank()) return 0.0
+        val cleaned = raw.replace("%", "").replace(",", "").trim()
+        return cleaned.toDoubleOrNull()?.div(100.0) ?: 0.0
+    }
+
+    private fun parseStatusToLane(status: NormalizedStatus?): LaneTotals {
+        status ?: return LaneTotals()
+        val value = parseStatusValue(status.value)
+        val name = status.name?.lowercase(Locale.getDefault()) ?: return LaneTotals()
+
+        return when {
+            name.contains("스킬공격력") || name.contains("skill atk") -> LaneTotals(skillAtk = value)
+            name.contains("공격력 증가") || name.contains("attack increase") -> LaneTotals(attackIncrease = value)
+            name.contains("추가") && (name.contains("피해") || name.contains("데미지")) -> LaneTotals(additionalDamage = value)
+            name.contains("피해 증가") || name.contains("데미지 증가") || name.contains("damage increase") -> LaneTotals(damageIncrease = value)
+            name.contains("최종") || name.contains("final damage") -> LaneTotals(finalDamage = value)
+            name.contains("치명") || name.contains("크리") || name.contains("critical") -> LaneTotals(criticalDamage = value)
+            name.contains("쿨") && name.contains("회복") -> LaneTotals(cooldownRecovery = value)
+            name.contains("쿨") -> LaneTotals(cooldownReduction = value)
+            else -> LaneTotals()
+        }
+    }
+
+    private data class EnhancementEffect(
+        val laneBonus: LaneTotals = LaneTotals(),
+        val coeffMultiplier: Double = 1.0,
+        val cdReduction: Double = 0.0
+    )
+
     private fun calculateComponentDamageSum(optionDesc: String?, optionValue: Map<String, Double>?): Double {
         if (optionDesc.isNullOrBlank() || optionValue == null) return 0.0
         
