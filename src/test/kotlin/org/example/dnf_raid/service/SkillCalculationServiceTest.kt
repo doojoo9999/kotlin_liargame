@@ -32,4 +32,10 @@ class SkillCalculationServiceTest {
         val coeff = service.toSkillCoefficient(totalPercent)
         assertEquals(6_035.65, coeff, 0.01)
     }
+
+    @Test
+    fun `normalizes small percent values`() {
+        val coeff = service.toSkillCoefficient(50.0)
+        assertEquals(0.5, coeff, 0.0001)
+    }
 }
