@@ -31,14 +31,15 @@ class DnfPowerCalculator(
 
     /**
         Dealer combat power = sum of top 7 skill scores.
-        Score(skill) = SingleDamage * (40 / RealCD)
+        Score(skill) = SingleDamage * CastCount
         Based on docs/dnf/damage_formula_2025.md lanes.
      */
     fun calculateDealerScore(
         status: DnfCharacterFullStatus,
         monsterResist: Int = 0,
         situationalBonus: Double = DEFAULT_SITUATIONAL_BONUS,
-        partySynergyBonus: Double = DEFAULT_PARTY_SYNERGY_BONUS
+        partySynergyBonus: Double = DEFAULT_PARTY_SYNERGY_BONUS,
+        dungeonType: DungeonType = DungeonType.SANDBAG
     ): DealerCalculationResult {
         val skills = resolveSkills(status)
         if (skills.isEmpty()) {
@@ -72,10 +73,11 @@ class DnfPowerCalculator(
 
             val attackIncreaseMultiplier = 1.0 + mergedLane.attackIncrease
             val skillAtkMultiplier = 1.0 + mergedLane.skillAtk
-            val damageIncreaseMultiplier = 1.0 + mergedLane.damageIncrease + mergedLane.additionalDamage
+            val damageIncreaseMultiplier =
+                (1.0 + mergedLane.damageIncrease) * (1.0 + mergedLane.additionalDamage)
             val finalDamageMultiplier = 1.0 + mergedLane.finalDamage
             // Main Stat Step: (1 + MainStat / 250)
-            val mainStat = max(totalStrength, totalIntelligence)
+            val mainStat = resolveMainStat(status, totalStrength, totalIntelligence)
             val statMultiplier = 1.0 + (mainStat / 250.0)
 
             // Elem Step: 1.05 + 0.0045 * Elem
@@ -85,8 +87,8 @@ class DnfPowerCalculator(
             // IncPart Steps
             // M_atkInc (Add)
             val mAtkInc = (1.0 + mergedLane.attackIncrease)
-            // M_dmgInc (Add) - Damage Increase + Additional Damage
-            val mDmgInc = (1.0 + mergedLane.damageIncrease + mergedLane.additionalDamage)
+            // M_dmgInc (Product) - Damage Increase * Additional Damage
+            val mDmgInc = damageIncreaseMultiplier
             // M_skillInc (Product) - Skill Atk + Final Damage (treated as Skill Atk)
             val mSkillInc = (1.0 + mergedLane.skillAtk) * (1.0 + mergedLane.finalDamage)
             // M_etc (Product) - Critical, Counter(Situation), Party
@@ -94,7 +96,11 @@ class DnfPowerCalculator(
                     (1.0 + situationalBonus) *
                     (1.0 + partySynergyBonus)
             
-            val defenseMultiplier = calculateDefenseMultiplier(MONSTER_DEFENSE * (1.0 - mergedLane.defensePenetration))
+            val defenseMultiplier = calculateDefenseMultiplier(
+                defense = dungeonType.baseDefense,
+                attackerLevel = status.level,
+                defensePenetration = mergedLane.defensePenetration
+            )
 
             val totalMultiplier = mAtkInc * mDmgInc * mSkillInc * mEtc * 
                                   statMultiplier * elementalMultiplier * defenseMultiplier
@@ -111,26 +117,7 @@ class DnfPowerCalculator(
                 (1.0 - combinedCdr).coerceAtLeast(MIN_CD_FACTOR) /
                 (1.0 + totalRecovery)
 
-            // Count Logic: floor((40 - StartDelay)/CD) + 1
-            // 11s CD -> 0, 11, 22, 33 -> 4 hits. (40-0)/11 = 3.63 -> floor(3)+1 = 4.
-            // 40s CD -> 0, 40(miss) -> 1 hit.
-            // Using a tiny start delay (0.1s) to simulate human reaction or frame delay if preferred,
-            // but user asked for "11s CD -> 4 uses". 
-            // 40 / 11 = 3.63 -> floor is 3. User wants 4. This implies "Start at 0".
-            // Count = floor(Window / CD) + 1 ?
-            // Window=40, CD=11. 40/11=3.63 -> 3. +1 = 4. Correct.
-            // Window=40, CD=40. 40/40=1. +1 = 2? No, 2nd hit at 40s is usually not counted or counted if strict <=.
-            // Dundam usually counts strictly inside 40s?
-            // User logic: "43초동안 치면 총 4번". Wait.
-            // "1번째(1초), 2번째(12초), 3번째(23초), 4번째(34초)". 
-            // If window is 40s.
-            // 1, 12, 23, 34 are all <= 40. So 4.
-            // Formula: floor((Window - Delta)/CD) + 1 ?
-            // If Window=40. (40)/11 = 3.63. floor(3.63)=3. 3+1 = 4.
-            // If Window=40. CD=40. 40/40=1. 1+1=2. 
-            // 0s, 40s. Is 40s included? Usually yes.
-            // So floor(40/CD) + 1 seems correct for "Start at 0".
-            val castCount = kotlin.math.floor(40.0 / realCd) + 1
+            val castCount = simulateCastCount(realCd, skill.castingTime, SKILL_TIME_WINDOW_SECONDS)
             val score = singleDamage * castCount
 
             SkillScore(
@@ -320,6 +307,7 @@ class DnfPowerCalculator(
         val enhancementEffect = resolveEnhancementEffect(detail, styleLevels, mapper)
 
         val cdBase = best?.coolTime ?: this.baseCoolTime ?: DEFAULT_BASE_CD
+        val castTime = best?.castingTime ?: 0.0
         val cd = (cdBase * (1.0 - enhancementEffect.cdReduction)).coerceAtLeast(MIN_CD_FACTOR)
         
         // Apply Gaehwa/Enhancement Multipliers (Skill Atk, Final Dmg) directly to coeff
@@ -333,6 +321,7 @@ class DnfPowerCalculator(
             level = level,
             coeff = finalCoeff,
             baseCd = cd,
+            castingTime = castTime,
             laneBonus = enhancementEffect.laneBonus
         )
     }
@@ -656,9 +645,39 @@ class DnfPowerCalculator(
             status.townStats.elementInfo.shadow
         )
 
-    private fun calculateDefenseMultiplier(defense: Double): Double {
-        val multiplier = 1.0 - (defense / (defense + DEF_NORMALIZER))
-        return multiplier.coerceIn(0.0, 1.0)
+    private fun resolveMainStat(
+        status: DnfCharacterFullStatus,
+        strength: Double,
+        intelligence: Double
+    ): Double {
+        val key = "${status.jobName} ${status.advancementName}".lowercase(Locale.getDefault())
+        return when {
+            MAGICAL_MAIN_STAT_KEYWORDS.any { key.contains(it) } -> intelligence
+            PHYSICAL_MAIN_STAT_KEYWORDS.any { key.contains(it) } -> strength
+            else -> max(strength, intelligence)
+        }
+    }
+
+    private fun calculateDefenseMultiplier(
+        defense: Double,
+        attackerLevel: Int,
+        defensePenetration: Double
+    ): Double {
+        if (defense <= 0.0) return 1.0
+        val normalizedLevel = attackerLevel.coerceAtLeast(1)
+        val defenseRate = defense / (defense + DEFENSE_LEVEL_COEFF * normalizedLevel)
+        val penetration = defensePenetration.coerceIn(0.0, 1.0)
+        val effectiveDefenseRate = (defenseRate * (1.0 - penetration)).coerceIn(0.0, 1.0)
+        return (1.0 - effectiveDefenseRate).coerceIn(0.0, 1.0)
+    }
+
+    private fun simulateCastCount(realCd: Double, castingTime: Double, windowSeconds: Double): Double {
+        if (realCd <= 0.0 || windowSeconds <= 0.0) return 0.0
+        val castTime = castingTime.coerceAtLeast(0.0)
+        if (castTime >= windowSeconds) return 0.0
+        val effectiveCooldown = realCd + castTime
+        val availableWindow = windowSeconds - castTime
+        return kotlin.math.floor(availableWindow / effectiveCooldown) + 1.0
     }
 
     private fun calculateStackedReduction(values: List<Double>): Double =
@@ -836,6 +855,13 @@ class DnfPowerCalculator(
             .trim()
             .lowercase(Locale.getDefault())
 
+    enum class DungeonType(val baseDefense: Double) {
+        NORMAL(25000.0),
+        ANCIENT(150000.0),
+        RAID_OZMA(200000.0),
+        SANDBAG(0.0)
+    }
+
     data class DamageBreakdown(
         val baseSkillDamage: Double,
         val statMultiplier: Double,
@@ -885,6 +911,7 @@ class DnfPowerCalculator(
         val level: Int,
         val coeff: Double,
         val baseCd: Double,
+        val castingTime: Double = 0.0,
         val laneBonus: LaneTotals = LaneTotals()
     )
 
@@ -895,13 +922,12 @@ class DnfPowerCalculator(
         // private const val BASE_ELEMENTAL_FLAT = 11 // Deprecated in User Formula
         private const val BASE_ELEMENTAL_RESIST = 100
         private const val CRIT_BASE = 1.5
-        // Training room sandbag (Dundam 기준): 방어력/속저 거의 0으로 간주
-        private const val MONSTER_DEFENSE = 0.0
-        private const val DEF_NORMALIZER = 1.0  // 최소값 보호
+        private const val DEFENSE_LEVEL_COEFF = 200.0
+        private const val SKILL_TIME_WINDOW_SECONDS = 43.0
         private const val MONSTER_RESIST = 0
         private const val STAT_BASELINE = 2_500.0
         private const val STAT_NORMALIZER = 2_500.0
-        private const val DEFAULT_SITUATIONAL_BONUS = 0.25
+        private const val DEFAULT_SITUATIONAL_BONUS = 0.0
         private const val DEFAULT_PARTY_SYNERGY_BONUS = 0.0
         private const val DEFAULT_BASE_CD = 1.0
         private const val REF_STAT = 25250.0
@@ -914,6 +940,30 @@ class DnfPowerCalculator(
         private val DAMAGE_KEYWORDS = listOf("공격", "피해", "데미지", "%", "damage", "attack")
         private val HIT_KEYWORDS = listOf("타격", "히트", "타수", "hit", "횟수")
         private val STACK_KEYWORDS = listOf("스택", "stack", "중첩")
+        private val MAGICAL_MAIN_STAT_KEYWORDS = listOf(
+            "마법사",
+            "메이지",
+            "소울브링어",
+            "아수라",
+            "소환사",
+            "엘레멘탈",
+            "마도학자",
+            "빙결사",
+            "배틀메이지",
+            "크리에이터",
+            "인챈트리스",
+            "세라핌",
+            "암제"
+        )
+        private val PHYSICAL_MAIN_STAT_KEYWORDS = listOf(
+            "스트라이커",
+            "웨펀마스터",
+            "버서커",
+            "검신",
+            "레인저",
+            "그래플러",
+            "인파이터"
+        )
         private val PASSIVE_SKILL_ATK_KEYWORDS = listOf("스킬공격력", "skill atk", "skill attack")
         private val PASSIVE_ATTACK_INCREASE_KEYWORDS = listOf("공격력 증가", "attack increase", "phy atk", "mag atk", "indep atk", "물리 공격력 증가", "마법 공격력 증가", "독립 공격력 증가")
         private val PASSIVE_DAMAGE_INC_KEYWORDS = listOf("데미지 증가", "피해 증가", "damage increase", "dmg increase")
