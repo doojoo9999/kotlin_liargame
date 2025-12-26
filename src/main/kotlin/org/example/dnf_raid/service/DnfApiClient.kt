@@ -11,6 +11,7 @@ import org.example.dnf_raid.model.DnfEquipItem
 import org.example.dnf_raid.model.DnfTalisman
 import org.example.dnf_raid.model.ElementInfo
 import org.example.dnf_raid.model.ItemFixedOptions
+import org.example.dnf_raid.model.ItemStatusTotals
 import org.example.dnf_raid.model.LaneTotals
 import org.example.dnf_raid.model.LevelOption
 import org.example.dnf_raid.model.TownStats
@@ -36,6 +37,7 @@ class DnfApiClient(
 
     private val logger = LoggerFactory.getLogger(DnfApiClient::class.java)
     private val itemFixedOptionCache = ConcurrentHashMap<String, ItemFixedOptions>()
+    private val itemDetailCache = ConcurrentHashMap<String, ItemDetailResult>()
     private val EMPTY_FIXED_OPTIONS = ItemFixedOptions(
         skillAtkIncrease = 0.0,
         attackIncrease = 0.0,
@@ -49,9 +51,11 @@ class DnfApiClient(
         defensePenetration = 0.0,
         levelOptions = emptyMap()
     )
+    private val EMPTY_ITEM_STATUS = ItemStatusTotals()
     private data class ItemDetailResult(
         val fixedOptions: ItemFixedOptions,
-        val setItemId: String?
+        val setItemId: String?,
+        val statusTotals: ItemStatusTotals
     )
 
     /**
@@ -73,7 +77,8 @@ class DnfApiClient(
             val equipment = equipmentDeferred.await()
             val avatars = avatarDeferred.await()
             val creature = creatureDeferred.await()
-            val skillLevels = skillStyleDeferred.await()
+            val skillStyle = skillStyleDeferred.await()
+            val skillLevels = skillStyle.skillLevels
             val talismans = talismanDeferred.await()
             // 1. Collect standard items
             val missingItemIds = equipment.map { it.itemId }.toMutableSet()
@@ -83,7 +88,7 @@ class DnfApiClient(
             missingItemIds.addAll(fusionStoneIds)
             
             // 3. Fetch details for all (Standard + Fusion)
-            val idsToFetch = missingItemIds.filterNot { itemFixedOptionCache.containsKey(it) }
+            val idsToFetch = missingItemIds.filterNot { itemDetailCache.containsKey(it) }
             if (idsToFetch.isNotEmpty()) {
                 fetchAndCacheItemDetails(idsToFetch.toSet())
             }
@@ -91,20 +96,25 @@ class DnfApiClient(
             val equippedItems = mutableListOf<DnfEquipItem>()
             
             equipment.forEach { slot ->
+                val detail = itemDetailCache[slot.itemId]
+                    ?: fetchItemDetail(slot.itemId).also { itemDetailCache[slot.itemId] = it }
                 // Base Item
-                val fixed = itemFixedOptionCache[slot.itemId] ?: EMPTY_FIXED_OPTIONS
+                val fixed = detail.fixedOptions
                 val activationBonus = parseExplainOptions(slot.explain)
                 val merged = mergeOptions(fixed, activationBonus)
-                
+                val statusTotals = resolveItemStatusTotals(slot.itemStatus, detail.statusTotals)
+                val setItemId = slot.setItemId ?: detail.setItemId
+
                 equippedItems.add(DnfEquipItem(
                     slotName = slot.slotName,
                     itemId = slot.itemId,
                     itemName = slot.itemName,
                     buffPower = slot.buffPower,
                     fixedOptions = merged,
+                    statusBonus = statusTotals,
                     setPoint = slot.setPoint,
                     itemGrade = slot.itemGrade,
-                    setItemId = slot.setItemId,
+                    setItemId = setItemId,
                     reinforce = slot.reinforce ?: 0,
                     amplificationName = slot.amplificationName
                 ))
@@ -114,31 +124,14 @@ class DnfApiClient(
                 val fOption = slot.fusionOption
                 if (fusion != null) {
                     // Fetch cached detail to get Set ID
-                    val fDetail = fetchItemDetail(fusion.itemId)
-                    val fFixed = itemFixedOptionCache[fusion.itemId] ?: fDetail.fixedOptions
+                    val fDetail = itemDetailCache[fusion.itemId]
+                        ?: fetchItemDetail(fusion.itemId).also { itemDetailCache[fusion.itemId] = it }
+                    val fFixed = fDetail.fixedOptions
                     // Parse Fusion Stone stats from 'fusionOption' explain (user provided)
                     val fStats = fOption?.options?.fold(EMPTY_FIXED_OPTIONS) { acc: ItemFixedOptions, opt: EquipmentSlot.FusionOptionDetail ->
                         mergeOptions(acc, parseExplainOptions(opt.explain))
                     } ?: EMPTY_FIXED_OPTIONS
                     
-                    // We need to convert LaneTotals back to ItemFixedOptions or just use the LaneTotals directly?
-                    // DnfEquipItem uses ItemFixedOptions. Let's merge standard fixed options with explain-parsed stats.
-                    // Actually getting SetId is the most important part from detail.
-                    
-                    // Retrieve Set ID from cached detail (fetched in step 3)
-                    // Unfortunately 'fetchAndCacheItemDetails' updates 'itemFixedOptionCache' but doesn't return the full Detail object easily here.
-                    // But wait! We need the Set ID which is NOT in ItemFixedOptions. 
-                    // We need to fetch the Set ID. 'itemFixedOptionCache' stores options.
-                    // We need to access the raw cached detail or fetch it again (cached so fast).
-                    // Actually DnfApiClient doesn't cache the raw detail object, only parsed options.
-                    // We need to Fetch detailed info including Set ID.
-                    // Wait, `fetchAndCacheItemDetails` calls `fetchItemDetail` which returns `ItemDetailResponse`.
-                    // We should probably modify `fetchAndCacheItemDetails` or just fetch specific detail.
-                    // Let's assume we can fetch it (it's cached by OkHttp/Spring if configured, but here we have explicit Map cache).
-                    
-                    // Correction: We need to fetch the raw detail to get `setItemId`.
-                    // Since we're inside a coroutine, we can just call `fetchItemDetail(fusion.itemId)` and it will be fast if we add an internal cache for it?
-                    // Or we explicitly accept that we need to fetch it.
                     val fMerged = mergeOptions(fFixed, fStats)
                     
                     equippedItems.add(DnfEquipItem(
@@ -147,6 +140,7 @@ class DnfApiClient(
                         itemName = fusion.itemName,
                         buffPower = 0L, // Usually fusion stones have buff power too but it's in fOption.buff
                         fixedOptions = fMerged,
+                        statusBonus = fDetail.statusTotals,
                         setPoint = 0, // Fusion stones might not have set points or distinct calculation
                         itemGrade = fusion.itemRarity ?: "EPIC",
                         setItemId = fDetail.setItemId, // Crucial for Set Bonuses
@@ -169,6 +163,8 @@ class DnfApiClient(
             DnfCharacterFullStatus(
                 serverId = status.serverId,
                 characterId = status.characterId,
+                jobId = status.jobId ?: skillStyle.jobId,
+                jobGrowId = status.jobGrowId ?: skillStyle.jobGrowId,
                 jobName = status.jobName,
                 advancementName = status.advancementName,
                 level = status.level,
@@ -544,7 +540,9 @@ class DnfApiClient(
             StatusAggregate(
                 serverId = response?.serverId ?: serverId,
                 characterId = response?.characterId ?: characterId,
+                jobId = response?.jobId,
                 jobName = response?.jobName.orEmpty(),
+                jobGrowId = response?.jobGrowId,
                 advancementName = response?.jobGrowName.orEmpty(),
                 level = response?.level ?: 0,
                 townStats = response?.toTownStats() ?: emptyTownStats()
@@ -586,10 +584,11 @@ class DnfApiClient(
                     damageValue = damage,
                     buffPower = buff,
                     explain = slot.explain,
-                    // Parse Set Point from Rarity
-                    setPoint = calculateSetPoint(slot.itemRarity, slot.itemName),
+                    // Prefer API setPoint, fallback to rarity heuristic
+                    setPoint = slot.setPoint ?: calculateSetPoint(slot.itemRarity, slot.itemName),
                     itemGrade = slot.itemRarity ?: "EPIC",
                     setItemId = slot.setItemId,
+                    itemStatus = slot.itemStatus,
                     reinforce = slot.reinforce ?: 0,
                     amplificationName = slot.amplificationName,
                     upgradeInfo = slot.upgradeInfo,
@@ -662,7 +661,7 @@ class DnfApiClient(
         }
     }
 
-    private suspend fun fetchSkillStyle(serverId: String, characterId: String): List<CharacterSkillLevel> = withContext(Dispatchers.IO) {
+    private suspend fun fetchSkillStyle(serverId: String, characterId: String): SkillStyleAggregate = withContext(Dispatchers.IO) {
         val apiKey = apiKey()
         try {
             val node = restClient.get()
@@ -675,10 +674,16 @@ class DnfApiClient(
                 .retrieve()
                 .body(JsonNode::class.java)
 
-            parseSkillStyle(node)
+            val jobId = node?.get("jobId")?.asText() ?: node?.get("skill")?.get("jobId")?.asText()
+            val jobGrowId = node?.get("jobGrowId")?.asText() ?: node?.get("skill")?.get("jobGrowId")?.asText()
+            SkillStyleAggregate(
+                jobId = jobId,
+                jobGrowId = jobGrowId,
+                skillLevels = parseSkillStyle(node)
+            )
         } catch (ex: Exception) {
             logger.warn("DNF 스킬 스타일 조회 실패 (serverId={}, characterId={}): {}", serverId, characterId, ex.message)
-            emptyList()
+            SkillStyleAggregate(jobId = null, jobGrowId = null, skillLevels = emptyList())
         }
     }
 
@@ -716,6 +721,7 @@ class DnfApiClient(
         }
         deferred.forEach { future ->
             val (itemId, detail) = future.await()
+            itemDetailCache[itemId] = detail
             itemFixedOptionCache[itemId] = detail.fixedOptions
         }
     }
@@ -734,13 +740,14 @@ class DnfApiClient(
                 .body(JsonNode::class.java)
 
             val options = parseItemFixedOptions(detailNode)
+            val statusTotals = parseItemStatusTotals(detailNode?.get("itemStatus"))
             // Fix: ensure setItemId is not the string "null"
             val rawSetId = detailNode?.get("setItemId")?.asText()
             val setItemId = rawSetId?.takeIf { it.isNotBlank() && !it.equals("null", ignoreCase = true) }
-            ItemDetailResult(options, setItemId)
+            ItemDetailResult(options, setItemId, statusTotals)
         } catch (ex: Exception) {
             logger.warn("아이템 상세 조회 실패 (itemId={}): {}", itemId, ex.message)
-            ItemDetailResult(EMPTY_FIXED_OPTIONS, null)
+            ItemDetailResult(EMPTY_FIXED_OPTIONS, null, EMPTY_ITEM_STATUS)
         }
     }
 
@@ -924,6 +931,79 @@ class DnfApiClient(
         )
     }
 
+    private fun resolveItemStatusTotals(
+        equipmentStatus: List<StatusEntry>?,
+        detailStatus: ItemStatusTotals
+    ): ItemStatusTotals {
+        val equipmentTotals = parseItemStatusTotals(equipmentStatus)
+        return if (!equipmentTotals.isEmpty()) equipmentTotals else detailStatus
+    }
+
+    private fun parseItemStatusTotals(entries: List<StatusEntry>?): ItemStatusTotals {
+        if (entries.isNullOrEmpty()) return EMPTY_ITEM_STATUS
+
+        var totals = ItemStatusTotals()
+        entries.forEach { entry ->
+            val name = normalizeKey(entry.name)
+            val value = entry.value ?: 0.0
+            totals = applyItemStatus(totals, name, value)
+        }
+        return totals
+    }
+
+    private fun parseItemStatusTotals(statusNode: JsonNode?): ItemStatusTotals {
+        if (statusNode == null || !statusNode.isArray) return EMPTY_ITEM_STATUS
+
+        var totals = ItemStatusTotals()
+        statusNode.forEach { entry ->
+            val name = normalizeKey(entry.get("name")?.asText())
+            val rawValue = entry.get("value")?.asText()
+            val value = parseStatusNumber(rawValue)
+            totals = applyItemStatus(totals, name, value)
+        }
+        return totals
+    }
+
+    private fun applyItemStatus(totals: ItemStatusTotals, normalizedName: String, value: Double): ItemStatusTotals {
+        if (normalizedName.isBlank() || value == 0.0) return totals
+        val longValue = value.toLong()
+        val intValue = value.toInt()
+
+        return when {
+            normalizedName.contains("힘") || normalizedName.contains("strength") ->
+                totals.copy(strength = totals.strength + longValue)
+            normalizedName.contains("지능") || normalizedName.contains("intelligence") ->
+                totals.copy(intelligence = totals.intelligence + longValue)
+            normalizedName.contains("체력") || normalizedName.contains("vitality") ->
+                totals.copy(vitality = totals.vitality + longValue)
+            normalizedName.contains("정신") || normalizedName.contains("spirit") ->
+                totals.copy(spirit = totals.spirit + longValue)
+            normalizedName.contains("물리공격") || normalizedName.contains("physicalattack") ->
+                totals.copy(physicalAttack = totals.physicalAttack + longValue)
+            normalizedName.contains("마법공격") || normalizedName.contains("magicalattack") ->
+                totals.copy(magicalAttack = totals.magicalAttack + longValue)
+            normalizedName.contains("독립공격") || normalizedName.contains("independentattack") ->
+                totals.copy(independentAttack = totals.independentAttack + longValue)
+            normalizedName.contains("모든속성강화") || normalizedName.contains("allelement") ->
+                totals.copy(allElement = totals.allElement + intValue)
+            normalizedName.contains("화속성강화") || normalizedName.contains("화속") || normalizedName.contains("fire") ->
+                totals.copy(fireElement = totals.fireElement + intValue)
+            normalizedName.contains("수속성강화") || normalizedName.contains("수속") || normalizedName.contains("water") ->
+                totals.copy(waterElement = totals.waterElement + intValue)
+            normalizedName.contains("명속성강화") || normalizedName.contains("빛속성강화") || normalizedName.contains("명속") || normalizedName.contains("빛속") || normalizedName.contains("light") ->
+                totals.copy(lightElement = totals.lightElement + intValue)
+            normalizedName.contains("암속성강화") || normalizedName.contains("암속") || normalizedName.contains("dark") || normalizedName.contains("shadow") ->
+                totals.copy(shadowElement = totals.shadowElement + intValue)
+            else -> totals
+        }
+    }
+
+    private fun parseStatusNumber(raw: String?): Double {
+        if (raw.isNullOrBlank()) return 0.0
+        val cleaned = raw.replace(",", "").trim()
+        return cleaned.toDoubleOrNull() ?: 0.0
+    }
+
     /**
      * 슬롯 explain(발동 옵션/정화 선택지)에만 존재하는 추가 옵션을 파싱한다.
      * 항목마다 중복 파싱을 피하기 위해 item detail 파싱과 분리했다.
@@ -1033,6 +1113,8 @@ class DnfApiClient(
                 val skillAtk = parsePercent(SKILL_ATK_PATTERN, explain)
                 val attackIncrease = parsePercent(ATTACK_INCREASE_PATTERN, explain)
                 val cdr = parsePercent(COOLDOWN_REDUCTION_PATTERN, explain)
+                val recovery = parsePercent(COOLDOWN_RECOVERY_PATTERN, explain)
+                    .takeIf { it > 0 } ?: parsePercent(COOLDOWN_RECOVERY_TRAILING_PATTERN, explain)
                 val damageIncrease = parsePercent(DAMAGE_INCREASE_PATTERN, explain)
                 val additionalDamage = parsePercent(ADDITIONAL_DAMAGE_PATTERN, explain)
                 val finalDamage = parsePercent(FINAL_DAMAGE_PATTERN, explain)
@@ -1041,6 +1123,7 @@ class DnfApiClient(
                     skillAtkInc = skillAtk,
                     attackIncrease = attackIncrease,
                     cdr = cdr,
+                    cooldownRecovery = recovery,
                     damageIncrease = damageIncrease,
                     additionalDamage = additionalDamage,
                     finalDamage = finalDamage,
@@ -1068,10 +1151,18 @@ class DnfApiClient(
     private data class StatusAggregate(
         val serverId: String,
         val characterId: String,
+        val jobId: String?,
         val jobName: String,
+        val jobGrowId: String?,
         val advancementName: String,
         val level: Int,
         val townStats: TownStats
+    )
+
+    private data class SkillStyleAggregate(
+        val jobId: String?,
+        val jobGrowId: String?,
+        val skillLevels: List<CharacterSkillLevel>
     )
 
     private data class EquipmentAggregate(
@@ -1084,6 +1175,7 @@ class DnfApiClient(
         val setPoint: Int,
         val itemGrade: String,
         val setItemId: String? = null,
+        val itemStatus: List<StatusEntry> = emptyList(),
         val reinforce: Int = 0,
         val amplificationName: String? = null,
         val upgradeInfo: EquipmentSlot.UpgradeInfo? = null,
@@ -1137,7 +1229,9 @@ data class DnfCharacterApiResponse(
     val serverId: String,
     val characterId: String,
     val characterName: String,
+    val jobId: String? = null,
     val jobName: String,
+    val jobGrowId: String? = null,
     val jobGrowName: String,
     val fame: Int = 0,
     val adventureName: String? = null
@@ -1147,7 +1241,9 @@ data class CharacterStatusResponse(
     val serverId: String? = null,
     val characterId: String? = null,
     val characterName: String? = null,
+    val jobId: String? = null,
     val jobName: String? = null,
+    val jobGrowId: String? = null,
     val jobGrowName: String? = null,
     val level: Int? = null,
     val status: List<StatusEntry> = emptyList()
@@ -1172,6 +1268,8 @@ data class EquipmentResponse(
         val buff: Long? = null,
         val itemRarity: String? = null, // Added for 2025 Season
         val setItemId: String? = null,
+        val setPoint: Int? = null,
+        val itemStatus: List<StatusEntry> = emptyList(),
         val reinforce: Int? = null,
         val amplificationName: String? = null,
         val upgradeInfo: UpgradeInfo? = null,
