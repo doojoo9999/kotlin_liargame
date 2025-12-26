@@ -423,13 +423,21 @@ class DnfPowerCalculator(
         styleLevels: List<CharacterSkillLevel>,
         mapper: ObjectMapper
     ): EnhancementEffect {
-        val style = styleLevels.firstOrNull { it.skillId == this.skillId }
-            ?: styleLevels.firstOrNull { normalizeKey(it.name) == normalizeKey(this.skillName) }
+        val normalizedDetail = detail ?: parseDetail(mapper) ?: return EnhancementEffect()
+        return resolveEnhancementEffect(normalizedDetail, styleLevels, this.skillId, this.skillName)
+    }
+
+    private fun resolveEnhancementEffect(
+        detail: NormalizedSkillDetail,
+        styleLevels: List<CharacterSkillLevel>,
+        skillId: String?,
+        skillName: String?
+    ): EnhancementEffect {
+        val style = styleLevels.firstOrNull { it.skillId == skillId }
+            ?: styleLevels.firstOrNull { normalizeKey(it.name) == normalizeKey(skillName) }
         val preferredEnhancement = style?.enhancementType
 
-        val normalizedDetail = detail ?: parseDetail(mapper) ?: return EnhancementEffect()
-
-        val enhancementStatuses = normalizedDetail.enhancement
+        val enhancementStatuses = detail.enhancement
             .filter { preferredEnhancement == null || it.type == null || it.type == preferredEnhancement }
             .flatMap { it.status }
 
@@ -754,7 +762,7 @@ class DnfPowerCalculator(
         } else 1.0
 
         val coeff = max(templateCoeff, max(measuredCoeff, fallbackCoeff))
-        val enhancementEffect = resolveEnhancementEffect(detail, styleLevels, objectMapper)
+        val enhancementEffect = resolveEnhancementEffect(detail, styleLevels, style.skillId, detail.name ?: style.name)
 
         val cdBase = best?.coolTime ?: levelInfo.rows.firstOrNull()?.coolTime ?: DEFAULT_BASE_CD
         val castTimeBase = best?.castingTime ?: levelInfo.rows.firstOrNull()?.castingTime ?: 0.0
