@@ -10,6 +10,8 @@ import org.example.dnf_raid.model.DnfCharacterEntity
 import org.example.dnf_raid.model.DnfCalculatedDamageEntity
 import org.example.dnf_raid.repository.DnfCharacterRepository
 import org.example.dnf_raid.repository.DnfCalculatedDamageRepository
+import org.example.dnf_raid.util.toEok
+import org.example.dnf_raid.util.toMan
 import org.springframework.data.domain.PageRequest
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
@@ -187,8 +189,8 @@ class DnfCharacterService(
             fame = entity.fame,
             damage = entity.damage,
             buffPower = entity.buffPower,
-            calculatedDealer = calcEntity?.dealerScore,
-            calculatedBuffer = calcEntity?.bufferScore,
+            calculatedDealer = calcEntity?.dealerScore?.let { toEok(it) },
+            calculatedBuffer = calcEntity?.bufferScore?.let { toMan(it) },
             adventureName = entity.adventureName,
             imageUrl = dnfApiClient.buildCharacterImageUrl(entity.serverId, entity.characterId)
         )
@@ -252,7 +254,7 @@ class DnfCharacterService(
             characterId = entity.characterId,
             serverId = entity.serverId,
             dealer = toDealerDetail(payload.dealer),
-            bufferScore = payload.bufferScore,
+            bufferScore = payload.bufferScore?.let { toMan(it) },
             calculatedAt = calc.calculatedAt
         )
     }
@@ -290,7 +292,7 @@ class DnfCharacterService(
     private fun toDealerDetail(result: DnfPowerCalculator.DealerCalculationResult?): DealerDamageDetailDto? =
         result?.let {
             DealerDamageDetailDto(
-                totalScore = it.totalScore,
+                totalScore = toEok(it.totalScore),
                 skills = it.topSkills.map { skill ->
                     DealerSkillScoreDto(
                         name = skill.name,
@@ -298,9 +300,9 @@ class DnfCharacterService(
                         coeff = skill.coeff,
                         baseCd = skill.baseCd,
                         realCd = skill.realCd,
-                        singleDamage = skill.singleDamage,
+                        singleDamage = toEok(skill.singleDamage),
                         casts = skill.casts,
-                        score = skill.score
+                        score = toEok(skill.score)
                     )
                 }
             )
