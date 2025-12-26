@@ -94,3 +94,9 @@ apps/*/ts_errors*.log
 /*.gif
 /*.webp
 /*.avif
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.webp
+*.avif
