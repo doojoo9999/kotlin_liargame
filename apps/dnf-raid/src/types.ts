@@ -10,6 +10,8 @@ export interface DnfCharacter {
   characterName: string;
   jobName: string;
   jobGrowName: string;
+  jobId?: string | null;
+  jobGrowId?: string | null;
   fame: number;
   damage?: number;
   buffPower?: number;
