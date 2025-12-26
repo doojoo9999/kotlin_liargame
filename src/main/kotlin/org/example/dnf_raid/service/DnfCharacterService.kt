@@ -68,6 +68,8 @@ class DnfCharacterService(
             characterName = freshCharacter.characterName,
             jobName = freshCharacter.jobName,
             jobGrowName = freshCharacter.jobGrowName,
+            jobId = freshCharacter.jobId,
+            jobGrowId = freshCharacter.jobGrowId,
             fame = freshCharacter.fame,
             damage = cached?.damage ?: 0,
             buffPower = cached?.buffPower ?: 0,
@@ -79,6 +81,8 @@ class DnfCharacterService(
                 this.characterName = freshCharacter.characterName
                 this.jobName = freshCharacter.jobName
                 this.jobGrowName = freshCharacter.jobGrowName
+                this.jobId = freshCharacter.jobId ?: this.jobId
+                this.jobGrowId = freshCharacter.jobGrowId ?: this.jobGrowId
                 this.fame = freshCharacter.fame
                 // keep saved stats unless provided elsewhere
                 // Preserve existing adventureName if API omits it to keep adventure search usable
@@ -130,6 +134,8 @@ class DnfCharacterService(
                 characterName = apiCharacter.characterName,
                 jobName = apiCharacter.jobName,
                 jobGrowName = apiCharacter.jobGrowName,
+                jobId = apiCharacter.jobId,
+                jobGrowId = apiCharacter.jobGrowId,
                 fame = apiCharacter.fame,
                 adventureName = apiCharacter.adventureName,
                 lastUpdatedAt = now
@@ -139,6 +145,8 @@ class DnfCharacterService(
             cached.characterName = apiCharacter.characterName
             cached.jobName = apiCharacter.jobName
             cached.jobGrowName = apiCharacter.jobGrowName
+            cached.jobId = apiCharacter.jobId ?: cached.jobId
+            cached.jobGrowId = apiCharacter.jobGrowId ?: cached.jobGrowId
             cached.fame = apiCharacter.fame
             cached.adventureName = apiCharacter.adventureName ?: cached.adventureName
             cached.lastUpdatedAt = now
@@ -174,6 +182,8 @@ class DnfCharacterService(
             characterName = entity.characterName,
             jobName = entity.jobName,
             jobGrowName = entity.jobGrowName,
+            jobId = entity.jobId,
+            jobGrowId = entity.jobGrowId,
             fame = entity.fame,
             damage = entity.damage,
             buffPower = entity.buffPower,
