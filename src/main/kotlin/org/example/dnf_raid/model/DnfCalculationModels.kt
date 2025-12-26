@@ -3,6 +3,8 @@ package org.example.dnf_raid.model
 data class DnfCharacterFullStatus(
     val serverId: String,
     val characterId: String,
+    val jobId: String? = null,
+    val jobGrowId: String? = null,
     val jobName: String,
     val advancementName: String,
     val level: Int,
@@ -47,6 +49,7 @@ data class DnfEquipItem(
     val itemName: String,
     val buffPower: Long,
     val fixedOptions: ItemFixedOptions,
+    val statusBonus: ItemStatusTotals = ItemStatusTotals(),
     val setPoint: Int,
     val itemGrade: String,
     val setItemId: String? = null,
@@ -72,11 +75,56 @@ data class LevelOption(
     val skillAtkInc: Double,
     val attackIncrease: Double = 0.0,
     val cdr: Double,
+    val cooldownRecovery: Double = 0.0,
     val damageIncrease: Double = 0.0,
     val additionalDamage: Double = 0.0,
     val finalDamage: Double = 0.0,
     val criticalDamage: Double = 0.0
 )
+
+data class ItemStatusTotals(
+    val strength: Long = 0,
+    val intelligence: Long = 0,
+    val vitality: Long = 0,
+    val spirit: Long = 0,
+    val physicalAttack: Long = 0,
+    val magicalAttack: Long = 0,
+    val independentAttack: Long = 0,
+    val fireElement: Int = 0,
+    val waterElement: Int = 0,
+    val lightElement: Int = 0,
+    val shadowElement: Int = 0,
+    val allElement: Int = 0
+) {
+    fun isEmpty(): Boolean =
+        strength == 0L &&
+            intelligence == 0L &&
+            vitality == 0L &&
+            spirit == 0L &&
+            physicalAttack == 0L &&
+            magicalAttack == 0L &&
+            independentAttack == 0L &&
+            fireElement == 0 &&
+            waterElement == 0 &&
+            lightElement == 0 &&
+            shadowElement == 0 &&
+            allElement == 0
+
+    operator fun plus(other: ItemStatusTotals): ItemStatusTotals = ItemStatusTotals(
+        strength = strength + other.strength,
+        intelligence = intelligence + other.intelligence,
+        vitality = vitality + other.vitality,
+        spirit = spirit + other.spirit,
+        physicalAttack = physicalAttack + other.physicalAttack,
+        magicalAttack = magicalAttack + other.magicalAttack,
+        independentAttack = independentAttack + other.independentAttack,
+        fireElement = fireElement + other.fireElement,
+        waterElement = waterElement + other.waterElement,
+        lightElement = lightElement + other.lightElement,
+        shadowElement = shadowElement + other.shadowElement,
+        allElement = allElement + other.allElement
+    )
+}
 
 data class DnfAvatar(
     val slotName: String,
