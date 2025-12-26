@@ -25,6 +25,12 @@ class DnfCharacterEntity(
     @Column(name = "job_grow_name", nullable = false, length = 100)
     var jobGrowName: String,
 
+    @Column(name = "job_id", length = 80)
+    var jobId: String? = null,
+
+    @Column(name = "job_grow_id", length = 80)
+    var jobGrowId: String? = null,
+
     @Column(nullable = false)
     var fame: Int,
 
