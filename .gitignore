@@ -5,6 +5,10 @@ build/
 !**/src/main/**/build/
 !**/src/test/**/build/
 
+#Gradle Cache
+.gradle-cache/
+**/.gradle-cache/
+
 # Node
 node_modules/
 **/node_modules/
