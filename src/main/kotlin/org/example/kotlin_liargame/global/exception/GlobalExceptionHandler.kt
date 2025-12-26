@@ -1,7 +1,10 @@
 package org.example.kotlin_liargame.global.exception
 
 import org.example.kotlin_liargame.global.dto.ErrorResponse
+import org.example.kotlin_liargame.domain.invest.exception.AiResponseParsingException
+import org.example.kotlin_liargame.domain.invest.exception.ExternalApiTimeoutException
 import org.example.kotlin_liargame.domain.invest.exception.GeminiApiException
+import org.example.kotlin_liargame.domain.invest.exception.PriceDataUnavailableException
 import org.example.lineagew.domain.boss.exception.DuplicateBossException
 import org.springframework.http.HttpStatus
 import org.springframework.http.HttpStatusCode
@@ -192,6 +195,64 @@ class GlobalExceptionHandler(
         logger.error("GeminiApiException({}): {}", status.value(), ex.message)
 
         return ResponseEntity(errorResponse, status)
+    }
+
+    @ExceptionHandler(ExternalApiTimeoutException::class)
+    fun handleExternalApiTimeoutException(
+        ex: ExternalApiTimeoutException,
+        request: WebRequest
+    ): ResponseEntity<ErrorResponse> {
+        val errorResponse = ErrorResponse(
+            errorCode = "EXTERNAL_API_TIMEOUT",
+            message = ex.message ?: "External API timeout",
+            userFriendlyMessage = "외부 서비스 응답이 지연되고 있습니다.",
+            details = mapOf(
+                "path" to request.getDescription(false),
+                "service" to (ex.serviceName ?: "unknown")
+            )
+        )
+
+        logger.error("ExternalApiTimeoutException: {}", ex.message)
+
+        return ResponseEntity(errorResponse, HttpStatus.GATEWAY_TIMEOUT)
+    }
+
+    @ExceptionHandler(AiResponseParsingException::class)
+    fun handleAiResponseParsingException(
+        ex: AiResponseParsingException,
+        request: WebRequest
+    ): ResponseEntity<ErrorResponse> {
+        val errorResponse = ErrorResponse(
+            errorCode = "AI_RESPONSE_PARSING_ERROR",
+            message = ex.message ?: "AI response parsing error",
+            userFriendlyMessage = "AI 응답을 처리할 수 없습니다.",
+            details = mapOf(
+                "path" to request.getDescription(false)
+            )
+        )
+
+        logger.error("AiResponseParsingException: {}", ex.message)
+
+        return ResponseEntity(errorResponse, HttpStatus.BAD_GATEWAY)
+    }
+
+    @ExceptionHandler(PriceDataUnavailableException::class)
+    fun handlePriceDataUnavailableException(
+        ex: PriceDataUnavailableException,
+        request: WebRequest
+    ): ResponseEntity<ErrorResponse> {
+        val errorResponse = ErrorResponse(
+            errorCode = "PRICE_DATA_UNAVAILABLE",
+            message = ex.message ?: "Price data unavailable",
+            userFriendlyMessage = "시세 데이터를 불러올 수 없습니다.",
+            details = mapOf(
+                "path" to request.getDescription(false)
+            )
+        )
+
+        logger.error("PriceDataUnavailableException: {}", ex.message)
+
+        return ResponseEntity(errorResponse, HttpStatus.SERVICE_UNAVAILABLE)
     }
     
     @MessageExceptionHandler(Exception::class)

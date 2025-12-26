@@ -1,7 +1,8 @@
 package org.example.kotlin_liargame.domain.invest.dto
 
-import com.fasterxml.jackson.annotation.JsonCreator
+import com.fasterxml.jackson.annotation.JsonProperty
 import java.math.BigDecimal
+import org.example.kotlin_liargame.domain.invest.model.enum.InvestmentAction
 import org.example.kotlin_liargame.domain.invest.model.enum.MarketType
 
 data class StockAnalysisRequest(
@@ -22,46 +23,23 @@ data class TechnicalIndicators(
 )
 
 data class StockAnalysisResult(
-    val action: InvestmentAction,
+    val recommendation: InvestmentAction,
     val targetPrice: BigDecimal,
-    val stopLossPrice: BigDecimal,
-    val riskLevel: RiskLevel,
+    val stopLoss: BigDecimal,
+    val confidenceScore: Int,
+    val reasoningShort: String,
     val disclaimer: String
 )
 
 data class GeminiRecommendation(
-    val action: InvestmentAction,
+    @JsonProperty("recommendation")
+    val recommendation: InvestmentAction,
+    @JsonProperty("target_price")
     val targetPrice: BigDecimal,
-    val stopLossPrice: BigDecimal,
-    val riskLevel: RiskLevel
+    @JsonProperty("stop_loss")
+    val stopLoss: BigDecimal,
+    @JsonProperty("confidence_score")
+    val confidenceScore: Int,
+    @JsonProperty("reasoning_short")
+    val reasoningShort: String
 )
-
-enum class InvestmentAction {
-    BUY,
-    SELL,
-    HOLD;
-
-    companion object {
-        @JvmStatic
-        @JsonCreator
-        fun fromValue(value: String): InvestmentAction {
-            return entries.firstOrNull { it.name.equals(value.trim(), ignoreCase = true) }
-                ?: throw IllegalArgumentException("Unknown investment action: $value")
-        }
-    }
-}
-
-enum class RiskLevel {
-    LOW,
-    MEDIUM,
-    HIGH;
-
-    companion object {
-        @JvmStatic
-        @JsonCreator
-        fun fromValue(value: String): RiskLevel {
-            return entries.firstOrNull { it.name.equals(value.trim(), ignoreCase = true) }
-                ?: throw IllegalArgumentException("Unknown risk level: $value")
-        }
-    }
-}
