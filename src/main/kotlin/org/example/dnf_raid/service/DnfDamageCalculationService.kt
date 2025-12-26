@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import org.example.dnf_raid.dto.DnfCalculatedDamageDto
 import org.example.dnf_raid.model.DnfCalculatedDamageEntity
 import org.example.dnf_raid.repository.DnfCalculatedDamageRepository
+import org.example.dnf_raid.util.toEok
+import org.example.dnf_raid.util.toMan
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -59,8 +61,8 @@ class DnfDamageCalculationService(
         return DnfCalculatedDamageDto(
             characterId = saved.characterId,
             serverId = saved.serverId,
-            dealerScore = saved.dealerScore,
-            bufferScore = saved.bufferScore,
+            dealerScore = saved.dealerScore?.let { toEok(it) },
+            bufferScore = saved.bufferScore?.let { toMan(it) },
             calculatedAt = saved.calculatedAt
         )
     }
