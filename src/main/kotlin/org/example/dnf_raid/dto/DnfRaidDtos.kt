@@ -12,6 +12,8 @@ data class DnfCharacterDto(
     val characterName: String,
     val jobName: String,
     val jobGrowName: String,
+    val jobId: String? = null,
+    val jobGrowId: String? = null,
     val fame: Int,
     val damage: Long,
     val buffPower: Long,
