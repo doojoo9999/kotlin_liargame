@@ -3,6 +3,7 @@ package org.example.kotlin_liargame
 import org.example.dnf_raid.config.DnfApiProperties
 import org.example.kotlin_liargame.global.config.GameProperties
 import org.example.kotlin_liargame.global.config.GameStateStorageProperties
+import org.example.kotlin_liargame.domain.invest.config.GeminiProperties
 import org.example.lineagew.common.security.LineagewAdminProperties
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.autoconfigure.domain.EntityScan
@@ -27,6 +28,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaAuditing
     value = [
         GameProperties::class,
         GameStateStorageProperties::class,
+        GeminiProperties::class,
         LineagewAdminProperties::class,
         DnfApiProperties::class
     ]
