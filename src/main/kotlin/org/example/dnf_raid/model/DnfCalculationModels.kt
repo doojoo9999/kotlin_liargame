@@ -17,6 +17,11 @@ data class DnfCharacterFullStatus(
     val setLaneTotals: LaneTotals = LaneTotals()
 )
 
+data class BuffStats(
+    val totalStat: Double,
+    val totalAttack: Double
+)
+
 data class CharacterSkillLevel(
     val skillId: String,
     val name: String? = null,
