@@ -3,6 +3,7 @@ package org.example.dnf_raid.service
 import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.example.dnf_raid.model.DnfCharacterFullStatus
+import org.example.dnf_raid.model.BuffStats
 import org.example.dnf_raid.model.ItemFixedOptions
 import org.example.dnf_raid.model.ItemStatusTotals
 import org.example.dnf_raid.model.LevelOption
@@ -42,7 +43,8 @@ class DnfPowerCalculator(
         monsterResist: Int = 0,
         situationalBonus: Double = DEFAULT_SITUATIONAL_BONUS,
         partySynergyBonus: Double = DEFAULT_PARTY_SYNERGY_BONUS,
-        dungeonType: DungeonType = DungeonType.SANDBAG
+        dungeonType: DungeonType = DungeonType.SANDBAG,
+        buffStats: BuffStats? = null
     ): DealerCalculationResult {
         val skills = resolveSkills(status)
         if (skills.isEmpty()) {
@@ -68,6 +70,8 @@ class DnfPowerCalculator(
         val totalCdr = calculateStackedReduction(
             status.equipment.map { it.fixedOptions.cooldownReduction } + passiveLane.cooldownReduction
         )
+
+        val buffMultiplier = resolveBuffMultiplier(buffStats)
 
         val skillScores = usableSkills.map { skill ->
             val levelOptions = status.equipment.mapNotNull { it.fixedOptions.levelOptions[skill.level] }
@@ -110,7 +114,8 @@ class DnfPowerCalculator(
             
             // Skill Coefficient is already computed as "NormalizedCoeff = Percent / 100.0"
             // So: BaseAtk * Coeff * Multipliers
-            val singleDamage = (baseAttack * skill.coeff) * totalMultiplier
+            val singleDamageBase = calculateSingleDamageWithoutBuff(baseAttack, skill.coeff, totalMultiplier)
+            val singleDamage = calculateSingleDamageWithBuff(singleDamageBase, buffMultiplier)
 
             val specificCdr = calculateStackedReduction(levelOptions.map { it.cdr })
 
@@ -123,6 +128,7 @@ class DnfPowerCalculator(
 
             val castCount = simulateCastCount(realCd, skill.castingTime, SKILL_TIME_WINDOW_SECONDS)
             val score = singleDamage * castCount
+            val totalMultiplierWithBuff = totalMultiplier * buffMultiplier
 
             SkillScore(
                 name = skill.name,
@@ -145,7 +151,7 @@ class DnfPowerCalculator(
                     elementalMultiplier = elementalMultiplier,
                     situationalMultiplier = (1.0 + situationalBonus),
                     partyMultiplier = (1.0 + partySynergyBonus),
-                    totalMultiplier = totalMultiplier,
+                    totalMultiplier = totalMultiplierWithBuff,
                     totalDamage = singleDamage
                 )
             )
@@ -170,6 +176,25 @@ class DnfPowerCalculator(
             totalScore = totalScore,
             topSkills = topSkills
         )
+    }
+
+    fun calculateSingleDamageWithoutBuff(
+        baseAttack: Double,
+        skillCoeff: Double,
+        totalMultiplier: Double
+    ): Double = (baseAttack * skillCoeff) * totalMultiplier
+
+    fun calculateSingleDamageWithBuff(baseDamage: Double, buffStats: BuffStats?): Double {
+        return calculateSingleDamageWithBuff(baseDamage, resolveBuffMultiplier(buffStats))
+    }
+
+    private fun calculateSingleDamageWithBuff(baseDamage: Double, buffMultiplier: Double): Double =
+        baseDamage * buffMultiplier
+
+    private fun resolveBuffMultiplier(buffStats: BuffStats?): Double {
+        if (buffStats == null) return 1.0
+        val buffScore = calcDundamBuffScore(buffStats)
+        return buffMultiplierFromBuffScore(buffScore)
     }
 
     /**
