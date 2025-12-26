@@ -167,3 +167,11 @@ dnf:
     base-url: https://api.neople.co.kr/df
     image-base-url: https://img-api.neople.co.kr/df
     cache-ttl-hours: 24
+
+invest:
+  gemini:
+    api-key: ${GEMINI_API_KEY:}
+    base-url: https://generativelanguage.googleapis.com/v1beta
+    model: gemini-1.5-flash
+    temperature: 0.2
+    max-output-tokens: 512
