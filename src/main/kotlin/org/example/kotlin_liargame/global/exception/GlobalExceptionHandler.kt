@@ -1,6 +1,7 @@
 package org.example.kotlin_liargame.global.exception
 
 import org.example.kotlin_liargame.global.dto.ErrorResponse
+import org.example.kotlin_liargame.domain.invest.exception.GeminiApiException
 import org.example.lineagew.domain.boss.exception.DuplicateBossException
 import org.springframework.http.HttpStatus
 import org.springframework.http.HttpStatusCode
@@ -165,6 +166,32 @@ class GlobalExceptionHandler(
         logger.error("IllegalStateException: {}", ex.message)
 
         return ResponseEntity(errorResponse, HttpStatus.BAD_REQUEST)
+    }
+
+    @ExceptionHandler(GeminiApiException::class)
+    fun handleGeminiApiException(
+        ex: GeminiApiException,
+        request: WebRequest
+    ): ResponseEntity<ErrorResponse> {
+        val status = when (ex.statusCode) {
+            429 -> HttpStatus.TOO_MANY_REQUESTS
+            in 500..599 -> HttpStatus.SERVICE_UNAVAILABLE
+            else -> HttpStatus.BAD_GATEWAY
+        }
+
+        val errorResponse = ErrorResponse(
+            errorCode = if (status == HttpStatus.TOO_MANY_REQUESTS) "GEMINI_RATE_LIMIT" else "GEMINI_API_ERROR",
+            message = ex.message ?: "Gemini API error",
+            userFriendlyMessage = "AI service is temporarily unavailable.",
+            details = mapOf(
+                "path" to request.getDescription(false),
+                "statusCode" to (ex.statusCode ?: "unknown")
+            )
+        )
+
+        logger.error("GeminiApiException({}): {}", status.value(), ex.message)
+
+        return ResponseEntity(errorResponse, status)
     }
     
     @MessageExceptionHandler(Exception::class)
