@@ -17,8 +17,8 @@ export function DamageDetailModal({character, detail, isLoading, error, onClose,
   const skills = detail?.dealer?.skills ?? [];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
-      <div className="relative w-full max-w-2xl rounded-2xl border border-panel-border bg-panel shadow-card">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 px-4 py-6">
+      <div className="relative flex w-full max-w-2xl max-h-[calc(100vh-3rem)] flex-col overflow-hidden rounded-2xl border border-panel-border bg-panel shadow-card">
         <button
           onClick={onClose}
           className="absolute right-3 top-3 text-text-subtle hover:text-text"
@@ -27,7 +27,7 @@ export function DamageDetailModal({character, detail, isLoading, error, onClose,
           <X className="h-5 w-5" />
         </button>
 
-        <div className="p-5 space-y-4">
+        <div className="flex-1 overflow-y-auto p-5 space-y-4">
           <div className="flex items-center gap-3">
             <div className="h-14 w-14 overflow-hidden rounded-xl border border-panel-border bg-panel-muted">
               <img
