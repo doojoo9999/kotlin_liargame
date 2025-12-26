@@ -34,7 +34,7 @@ class DnfPowerCalculator(
     private val syncLock = ConcurrentHashMap.newKeySet<String>()
 
     /**
-        Dealer combat power = sum of top 7 skill scores.
+        Dealer combat power = sum of all skill scores in 43s window.
         Score(skill) = SingleDamage * CastCount
         Based on docs/dnf/damage_formula_2025.md lanes.
      */
@@ -157,8 +157,7 @@ class DnfPowerCalculator(
             )
         }.sortedByDescending { it.score }
 
-        val topSkills = skillScores.take(7)
-        val totalScore = topSkills.sumOf { it.score }
+        val totalScore = skillScores.sumOf { it.score }
 
         if (totalScore <= 0.0) {
             logger.warn(
@@ -174,7 +173,7 @@ class DnfPowerCalculator(
 
         return DealerCalculationResult(
             totalScore = totalScore,
-            topSkills = topSkills
+            topSkills = skillScores
         )
     }
 
